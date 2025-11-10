@@ -1,0 +1,27 @@
+name: gestion_magasin
+description: Application de gestion de magasin pour desktop Windows
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  drift: ^2.14.1
+  sqlite3_flutter_libs: ^0.5.0
+  path_provider: ^2.1.1
+  path: ^1.8.3
+  file_picker: ^6.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  drift_dev: ^2.14.1
+  build_runner: ^2.4.7
+
+flutter:
+  uses-material-design: true
