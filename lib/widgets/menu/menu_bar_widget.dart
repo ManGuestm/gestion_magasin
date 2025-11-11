@@ -22,10 +22,10 @@ class MenuBarWidget extends StatelessWidget {
     return GestureDetector(
       onTap: () => onMenuTap(title),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Text(
           title,
-          style: const TextStyle(fontSize: 12),
+          style: const TextStyle(fontSize: 14),
         ),
       ),
     );

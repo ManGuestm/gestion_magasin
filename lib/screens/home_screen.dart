@@ -3,7 +3,11 @@ import 'package:flutter/material.dart';
 import '../services/menu_service.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
+import '../widgets/modals/articles_modal.dart';
+import '../widgets/modals/clients_modal.dart';
 import '../widgets/modals/company_info_modal.dart';
+import '../widgets/modals/depots_modal.dart';
+import '../widgets/modals/fournisseurs_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -98,6 +102,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (item == 'Informations sur la société') {
       _showCompanyInfoModal();
+    } else if (item == 'Dépôts') {
+      _showDepotsModal();
+    } else if (item == 'Articles') {
+      _showArticlesModal();
+    } else if (item == 'Clients') {
+      _showClientsModal();
+    } else if (item == 'Fournisseurs') {
+      _showFournisseursModal();
     }
     // Ajouter d'autres actions ici
   }
@@ -111,6 +123,34 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => const CompanyInfoModal(),
+    );
+  }
+
+  void _showDepotsModal() {
+    showDialog(
+      context: context,
+      builder: (context) => const DepotsModal(),
+    );
+  }
+
+  void _showArticlesModal() {
+    showDialog(
+      context: context,
+      builder: (context) => const ArticlesModal(),
+    );
+  }
+
+  void _showClientsModal() {
+    showDialog(
+      context: context,
+      builder: (context) => const ClientsModal(),
+    );
+  }
+
+  void _showFournisseursModal() {
+    showDialog(
+      context: context,
+      builder: (context) => const FournisseursModal(),
     );
   }
 

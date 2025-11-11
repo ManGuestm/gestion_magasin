@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../constants/menu_data.dart';
 
 class IconBarWidget extends StatelessWidget {
@@ -12,9 +13,8 @@ class IconBarWidget extends StatelessWidget {
       height: 80,
       color: const Color.fromARGB(255, 230, 229, 229),
       child: Row(
-        children: MenuData.iconButtons
-            .map((iconData) => _buildIconButton(iconData.icon, iconData.label))
-            .toList(),
+        children:
+            MenuData.iconButtons.map((iconData) => _buildIconButton(iconData.icon, iconData.label)).toList(),
       ),
     );
   }
@@ -30,11 +30,11 @@ class IconBarWidget extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 32, color: Colors.grey[700]),
+            Icon(icon, size: 24, color: Colors.grey[700]),
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(fontSize: 10),
+              style: const TextStyle(fontSize: 12),
               textAlign: TextAlign.center,
               maxLines: 2,
             ),

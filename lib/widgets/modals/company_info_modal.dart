@@ -29,15 +29,66 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> {
     final bool isNewCompany = _socData == null;
 
     return Dialog(
+      backgroundColor: Colors.grey[100],
       child: Container(
         width: 700,
         height: 600,
         padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[400]!),
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.grey[100],
+        ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(isNewCompany),
             const SizedBox(height: 16),
-            Expanded(child: _buildForm()),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  height: 205,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12.0),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: _buildFormIdentification(),
+                ),
+                Positioned(
+                  top: -12,
+                  left: 16,
+                  child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      color: Colors.grey[100],
+                      child: const Text("IDENTIFICATION")),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  height: 124,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12.0),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: _buildFormCoordonee(),
+                ),
+                Positioned(
+                  top: -12,
+                  left: 16,
+                  child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      color: Colors.grey[100],
+                      child: const Text("COORDONNEES")),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             _buildLogoAndTaxSection(),
             const SizedBox(height: 16),
@@ -66,16 +117,45 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> {
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildFormIdentification() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               _buildEditableField('rsoc', 'Raison sociale'),
               _buildEditableField('activites', 'Activité'),
-              _buildEditableMultilineField('adr', 'Adresse'),
+              _buildEditableMultilineField('adr', 'Siège social'),
+            ],
+          ),
+        ),
+        const SizedBox(width: 20),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildEditableField('capital', 'Capital'),
+              _buildEditableField('rcs', 'RCS'),
+              _buildEditableField('nif', 'N.I.F'),
+              _buildEditableField('stat', 'STAT'),
+              _buildEditableField('cif', 'CIF'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormCoordonee() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               _buildEditableField('tel', 'Téléphone fixe'),
               _buildEditableField('email', 'Email'),
               _buildEditableField('site', 'Site web'),
@@ -85,12 +165,8 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> {
         const SizedBox(width: 20),
         Expanded(
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _buildEditableField('capital', 'Capital'),
-              _buildEditableField('rcs', 'RCS'),
-              _buildEditableField('nif', 'N.I.F'),
-              _buildEditableField('stat', 'STAT'),
-              _buildEditableField('cif', 'CIF'),
               _buildEditableField('port', 'Portable'),
             ],
           ),
@@ -273,24 +349,24 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> {
         } else {
           _socData = SocData(
             ref: 'SOC001',
-            rsoc: null,
-            activites: null,
-            adr: null,
+            rsoc: _controllers['rsoc']?.text,
+            activites: _controllers['activites']?.text,
+            adr: _controllers['adr']?.text,
             logo: result.files.single.path,
-            capital: null,
-            rcs: null,
-            nif: null,
-            stat: null,
-            tel: null,
-            port: null,
-            email: null,
-            site: null,
+            capital: double.tryParse(_controllers['capital']?.text ?? ''),
+            rcs: _controllers['rcs']?.text,
+            nif: _controllers['nif']?.text,
+            stat: _controllers['stat']?.text,
+            tel: _controllers['tel']?.text,
+            port: _controllers['port']?.text,
+            email: _controllers['email']?.text,
+            site: _controllers['site']?.text,
             fax: null,
             telex: null,
-            tva: null,
-            t: null,
-            val: null,
-            cif: null,
+            tva: double.tryParse(_controllers['tva']?.text ?? ''),
+            t: double.tryParse(_controllers['t']?.text ?? ''),
+            val: _controllers['val']?.text,
+            cif: _controllers['cif']?.text,
           );
         }
       });
