@@ -33,22 +33,25 @@ class _AddPlanCompteModalState extends State<AddPlanCompteModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: 450,
-        height: 230,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.white,
-        ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(child: _buildForm()),
-            _buildButtons(),
-          ],
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: 450,
+          height: 230,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+          ),
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(child: _buildForm()),
+              _buildButtons(),
+            ],
+          ),
         ),
       ),
     );
@@ -226,8 +229,6 @@ class _AddPlanCompteModalState extends State<AddPlanCompteModal> {
       ),
     );
   }
-
-
 
   Future<void> _saveCompte() async {
     if (!_formKey.currentState!.validate()) return;

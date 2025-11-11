@@ -46,6 +46,7 @@ class MenuData {
       'Virements Internes',
       'Opérations Caisses',
       'Opérations Banques',
+      'Moyen de paiement',
     ],
     'États': [
       'Journal de caisse',

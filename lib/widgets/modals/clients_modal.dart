@@ -27,25 +27,28 @@ class _ClientsModalState extends State<ClientsModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: GestureDetector(
-        onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-        child: Container(
-          width: 900,
-          height: 600,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[400]!),
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.white,
-          ),
-          child: Column(
-            children: [
-              _buildHeader(),
-              _buildContent(),
-              _buildEmballagesSection(),
-              _buildButtons(),
-            ],
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: GestureDetector(
+          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+          child: Container(
+            width: 900,
+            height: 600,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[400]!),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+            ),
+            child: Column(
+              children: [
+                _buildHeader(),
+                _buildContent(),
+                _buildEmballagesSection(),
+                _buildButtons(),
+              ],
+            ),
           ),
         ),
       ),

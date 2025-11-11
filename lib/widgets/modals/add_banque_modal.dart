@@ -31,22 +31,25 @@ class _AddBanqueModalState extends State<AddBanqueModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: 400,
-        height: 230,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey, width: 1),
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.white,
-        ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(child: _buildForm()),
-            _buildButtons(),
-          ],
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: 400,
+          height: 230,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey, width: 1),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+          ),
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(child: _buildForm()),
+              _buildButtons(),
+            ],
+          ),
         ),
       ),
     );

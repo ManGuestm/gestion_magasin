@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import '../services/menu_service.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
+import '../widgets/modals/achats_modal.dart';
 import '../widgets/modals/articles_modal.dart';
 import '../widgets/modals/banques_modal.dart';
 import '../widgets/modals/clients_modal.dart';
 import '../widgets/modals/company_info_modal.dart';
 import '../widgets/modals/depots_modal.dart';
 import '../widgets/modals/fournisseurs_modal.dart';
+import '../widgets/modals/moyen_paiement_modal.dart';
 import '../widgets/modals/plan_comptes_modal.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -34,6 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
           });
         },
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
             MenuBarWidget(onMenuTap: _showSubmenu),
@@ -116,6 +119,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _showBanquesModal();
     } else if (item == 'Plan de comptes') {
       _showPlanComptesModal();
+    } else if (item == 'Achats') {
+      _showAchatsModal();
+    } else if (item == 'Moyen de paiement') {
+      _showMoyenPaiementModal();
     }
     // Ajouter d'autres actions ici
   }
@@ -171,6 +178,20 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => const PlanComptesModal(),
+    );
+  }
+
+  void _showAchatsModal() {
+    showDialog(
+      context: context,
+      builder: (context) => const AchatsModal(),
+    );
+  }
+
+  void _showMoyenPaiementModal() {
+    showDialog(
+      context: context,
+      builder: (context) => const MoyenPaiementModal(),
     );
   }
 

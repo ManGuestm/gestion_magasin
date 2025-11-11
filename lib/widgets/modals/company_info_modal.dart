@@ -28,72 +28,75 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> {
   Widget build(BuildContext context) {
     final bool isNewCompany = _socData == null;
 
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: 700,
-        height: 600,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[400]!),
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.grey[100],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(isNewCompany),
-            const SizedBox(height: 16),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  height: 205,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.grey),
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: 700,
+          height: 600,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[400]!),
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.grey[100],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(isNewCompany),
+              const SizedBox(height: 16),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    height: 205,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12.0),
+                      border: Border.all(color: Colors.grey),
+                    ),
+                    child: _buildFormIdentification(),
                   ),
-                  child: _buildFormIdentification(),
-                ),
-                Positioned(
-                  top: -12,
-                  left: 16,
-                  child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      color: Colors.grey[100],
-                      child: const Text("IDENTIFICATION")),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  height: 124,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12.0),
-                    border: Border.all(color: Colors.grey),
+                  Positioned(
+                    top: -12,
+                    left: 16,
+                    child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        color: Colors.grey[100],
+                        child: const Text("IDENTIFICATION")),
                   ),
-                  child: _buildFormCoordonee(),
-                ),
-                Positioned(
-                  top: -12,
-                  left: 16,
-                  child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      color: Colors.grey[100],
-                      child: const Text("COORDONNEES")),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _buildLogoAndTaxSection(),
-            const SizedBox(height: 16),
-            _buildButtons(isNewCompany),
-          ],
+                ],
+              ),
+              const SizedBox(height: 16),
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    height: 124,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12.0),
+                      border: Border.all(color: Colors.grey),
+                    ),
+                    child: _buildFormCoordonee(),
+                  ),
+                  Positioned(
+                    top: -12,
+                    left: 16,
+                    child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        color: Colors.grey[100],
+                        child: const Text("COORDONNEES")),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildLogoAndTaxSection(),
+              const SizedBox(height: 16),
+              _buildButtons(isNewCompany),
+            ],
+          ),
         ),
       ),
     );

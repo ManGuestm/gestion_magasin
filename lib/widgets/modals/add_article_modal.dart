@@ -29,41 +29,44 @@ class _AddArticleModalState extends State<AddArticleModal> {
   Widget build(BuildContext context) {
     final bool isEdit = widget.article != null;
 
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: 450,
-        height: 500,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[400]!),
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.white),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(isEdit),
-            const SizedBox(height: 16),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildDesignationField(),
-                    const SizedBox(height: 12),
-                    _buildUnitsSection(),
-                    const SizedBox(height: 12),
-                    _buildPricesSection(),
-                    const SizedBox(height: 12),
-                    _buildCategorySection(),
-                    const SizedBox(height: 12),
-                    _buildStockSection(),
-                  ],
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: 450,
+          height: 500,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[400]!),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(isEdit),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildDesignationField(),
+                      const SizedBox(height: 12),
+                      _buildUnitsSection(),
+                      const SizedBox(height: 12),
+                      _buildPricesSection(),
+                      const SizedBox(height: 12),
+                      _buildCategorySection(),
+                      const SizedBox(height: 12),
+                      _buildStockSection(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _buildButtons(isEdit),
-          ],
+              const SizedBox(height: 16),
+              _buildButtons(isEdit),
+            ],
+          ),
         ),
       ),
     );
@@ -329,6 +332,20 @@ class _AddArticleModalState extends State<AddArticleModal> {
     }
 
     try {
+      // Calculer le CMUP selon la priorité : pvu3 > pvu2 > pvu1
+      double? pvu3 = double.tryParse(_controllers['pvu3']?.text ?? '');
+      double? pvu2 = double.tryParse(_controllers['pvu2']?.text ?? '');
+      double? pvu1 = double.tryParse(_controllers['pvu1']?.text ?? '');
+      
+      double cmup = 0.0;
+      if (pvu3 != null) {
+        cmup = pvu3;
+      } else if (pvu2 != null) {
+        cmup = pvu2;
+      } else if (pvu1 != null) {
+        cmup = pvu1;
+      }
+
       final companion = ArticlesCompanion(
         designation: drift.Value(_controllers['designation']!.text.trim()),
         u1: drift.Value(_controllers['u1']?.text.trim()),
@@ -336,15 +353,15 @@ class _AddArticleModalState extends State<AddArticleModal> {
         u3: drift.Value(_controllers['u3']?.text.trim()),
         tu2u1: drift.Value(double.tryParse(_controllers['tu2u1']?.text ?? '')),
         tu3u2: drift.Value(double.tryParse(_controllers['tu3u2']?.text ?? '')),
-        pvu1: drift.Value(double.tryParse(_controllers['pvu1']?.text ?? '')),
-        pvu2: drift.Value(double.tryParse(_controllers['pvu2']?.text ?? '')),
-        pvu3: drift.Value(double.tryParse(_controllers['pvu3']?.text ?? '')),
+        pvu1: drift.Value(pvu1),
+        pvu2: drift.Value(pvu2),
+        pvu3: drift.Value(pvu3),
         stocksu1: const drift.Value(0.0),
         stocksu2: const drift.Value(0.0),
         stocksu3: const drift.Value(0.0),
         sec: drift.Value(_controllers['sec']?.text.trim()),
         usec: drift.Value(double.tryParse(_controllers['usec']?.text ?? '')),
-        cmup: const drift.Value(0.0),
+        cmup: drift.Value(cmup),
         dep: drift.Value(_selectedDepot),
         action: const drift.Value('A'),
         categorie: drift.Value(_controllers['categorie']?.text.trim()),

@@ -11,10 +11,18 @@ class IconBarWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 80,
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       color: const Color.fromARGB(255, 230, 229, 229),
-      child: Row(
-        children:
-            MenuData.iconButtons.map((iconData) => _buildIconButton(iconData.icon, iconData.label)).toList(),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: MenuData.iconButtons
+              .map((iconData) => _buildIconButton(iconData.icon, iconData.label))
+              .toList(),
+        ),
       ),
     );
   }

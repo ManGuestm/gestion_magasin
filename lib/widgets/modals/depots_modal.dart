@@ -26,26 +26,29 @@ class _DepotsModalState extends State<DepotsModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: GestureDetector(
-        onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[400]!),
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.grey[100],
-          ),
-          width: 500,
-          height: 400,
-          child: Column(
-            children: [
-              _buildHeader(),
-              _buildTitle(),
-              _buildContent(),
-              _buildButtons(),
-            ],
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: GestureDetector(
+          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey[400]!),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.grey[100],
+            ),
+            width: 500,
+            height: 400,
+            child: Column(
+              children: [
+                _buildHeader(),
+                _buildTitle(),
+                _buildContent(),
+                _buildButtons(),
+              ],
+            ),
           ),
         ),
       ),

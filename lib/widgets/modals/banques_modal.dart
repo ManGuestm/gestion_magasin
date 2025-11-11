@@ -26,24 +26,27 @@ class _BanquesModalState extends State<BanquesModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: GestureDetector(
-        onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-        child: Container(
-          width: 800,
-          height: 500,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.white,
-          ),
-          child: Column(
-            children: [
-              _buildHeader(),
-              _buildContent(),
-              _buildButtons(),
-            ],
+    return PopScope(
+        canPop: false,
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: GestureDetector(
+          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+          child: Container(
+            width: 800,
+            height: 500,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey, width: 1),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+            ),
+            child: Column(
+              children: [
+                _buildHeader(),
+                _buildContent(),
+                _buildButtons(),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,5 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
@@ -15,7 +15,7 @@ class AddFournisseurModal extends StatefulWidget {
 
 class _AddFournisseurModalState extends State<AddFournisseurModal> {
   final _formKey = GlobalKey<FormState>();
-  
+
   // Controllers pour les champs
   final _raisonSocialeController = TextEditingController();
   final _siegeSocialController = TextEditingController();
@@ -56,38 +56,41 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        width: 700,
-        height: 450,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[400]!),
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.white,
-        ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildIdentificationSection(),
-                        const SizedBox(height: 16),
-                        _buildCoordonneesSection(),
-                      ],
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        child: Container(
+          width: 700,
+          height: 450,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[400]!),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+          ),
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildIdentificationSection(),
+                          const SizedBox(height: 16),
+                          _buildCoordonneesSection(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-            _buildButtons(),
-          ],
+              _buildButtons(),
+            ],
+          ),
         ),
       ),
     );
@@ -206,7 +209,8 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool required = false, bool multiline = false}) {
+  Widget _buildTextField(String label, TextEditingController controller,
+      {bool required = false, bool multiline = false}) {
     return Row(
       children: [
         SizedBox(
@@ -232,12 +236,14 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
                 contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                 isDense: true,
               ),
-              validator: required ? (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Ce champ est requis';
-                }
-                return null;
-              } : null,
+              validator: required
+                  ? (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Ce champ est requis';
+                      }
+                      return null;
+                    }
+                  : null,
             ),
           ),
         ),
@@ -313,7 +319,8 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
       final fournisseurData = FrnsCompanion(
         rsoc: drift.Value(_raisonSocialeController.text),
         adr: drift.Value(_siegeSocialController.text.isEmpty ? null : _siegeSocialController.text),
-        capital: drift.Value(_capitalController.text.isEmpty ? null : double.tryParse(_capitalController.text)),
+        capital:
+            drift.Value(_capitalController.text.isEmpty ? null : double.tryParse(_capitalController.text)),
         rcs: drift.Value(_rcsController.text.isEmpty ? null : _rcsController.text),
         nif: drift.Value(_nifController.text.isEmpty ? null : _nifController.text),
         stat: drift.Value(_statController.text.isEmpty ? null : _statController.text),

@@ -39,37 +39,40 @@ class _AddClientModalState extends State<AddClientModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        width: 700,
-        height: 450,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          border: Border.all(color: Colors.grey[400]!),
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Column(
-                      children: [
-                        _buildIdentificationSection(),
-                        const SizedBox(height: 8),
-                        _buildCoordonneeSection(),
-                        const SizedBox(height: 8),
-                        _buildComptesSection(),
-                      ],
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        child: Container(
+          width: 700,
+          height: 450,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            border: Border.all(color: Colors.grey[400]!),
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        children: [
+                          _buildIdentificationSection(),
+                          const SizedBox(height: 8),
+                          _buildCoordonneeSection(),
+                          const SizedBox(height: 8),
+                          _buildComptesSection(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              _buildButtons(),
-            ],
+                _buildButtons(),
+              ],
+            ),
           ),
         ),
       ),
