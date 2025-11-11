@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 part 'database.g.dart';
 
+// Table Société - utilisée par: Menu Paramètres - Configuration société
 class Soc extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   TextColumn get rsoc => text().withLength(max: 100).nullable()();
@@ -32,6 +33,7 @@ class Soc extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Dépôts - utilisée par: Menu Gestions - Gestion des dépôts
 class Depots extends Table {
   TextColumn get depots => text().withLength(min: 1, max: 50)();
 
@@ -39,6 +41,7 @@ class Depots extends Table {
   Set<Column> get primaryKey => {depots};
 }
 
+// Table Articles - utilisée par: Menu États - Articles, Menu Commerces - Gestion articles
 class Articles extends Table {
   TextColumn get designation => text().withLength(min: 1, max: 100)();
   TextColumn get u1 => text().withLength(max: 20).nullable()();
@@ -65,6 +68,7 @@ class Articles extends Table {
   Set<Column> get primaryKey => {designation};
 }
 
+// Table Clients - utilisée par: Menu États - Clients, Menu Commerces - Gestion clients
 class Clt extends Table {
   TextColumn get rsoc => text().withLength(min: 1, max: 100)();
   TextColumn get adr => text().withLength(max: 200).nullable()();
@@ -93,6 +97,7 @@ class Clt extends Table {
   Set<Column> get primaryKey => {rsoc};
 }
 
+// Table Fournisseurs - utilisée par: Menu Commerces - Gestion fournisseurs
 class Frns extends Table {
   TextColumn get rsoc => text().withLength(min: 1, max: 100)();
   TextColumn get adr => text().withLength(max: 200).nullable()();
@@ -116,6 +121,7 @@ class Frns extends Table {
   Set<Column> get primaryKey => {rsoc};
 }
 
+// Table Commerciaux - utilisée par: Menu États - Commerciaux, Menu Gestions - Gestion commerciaux
 class Com extends Table {
   TextColumn get nom => text().withLength(min: 1, max: 100)();
   TextColumn get adr => text().withLength(max: 200).nullable()();
@@ -130,6 +136,7 @@ class Com extends Table {
   Set<Column> get primaryKey => {nom};
 }
 
+// Table Ventes - utilisée par: Menu Commerces - Ventes, Menu États - Statistiques Ventes
 class Ventes extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numventes => text().withLength(max: 50).nullable()();
@@ -159,6 +166,7 @@ class Ventes extends Table {
   TextColumn get poste => text().withLength(max: 50).nullable()();
 }
 
+// Table Achats - utilisée par: Menu Commerces - Achats, Menu États - Statistiques Achats
 class Achats extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numachats => text().withLength(max: 50).nullable()();
@@ -182,6 +190,7 @@ class Achats extends Table {
   TextColumn get transp => text().withLength(max: 100).nullable()();
 }
 
+// Table Stocks - utilisée par: Menu Gestions - Gestion stocks, Menu États - Articles (stocks)
 class Stocks extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   DateTimeColumn get daty => dateTime().nullable()();
@@ -212,6 +221,7 @@ class Stocks extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Autres Comptes - utilisée par: Menu États - Autres Comptes, Menu Trésorerie - Autres comptes
 class Autrescompte extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   DateTimeColumn get daty => dateTime().nullable()();
@@ -226,6 +236,7 @@ class Autrescompte extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Banque - utilisée par: Menu Trésorerie - Gestion banque
 class Banque extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   DateTimeColumn get daty => dateTime().nullable()();
@@ -244,6 +255,7 @@ class Banque extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Bon de Livraison Clients - utilisée par: Menu Commerces - Bon de livraison clients
 class Blclt extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numventes => text().withLength(max: 50).nullable()();
@@ -260,6 +272,7 @@ class Blclt extends Table {
   TextColumn get verification => text().withLength(max: 50).nullable()();
 }
 
+// Table Banques - utilisée par: Menu Trésorerie - Configuration banques
 class Bq extends Table {
   TextColumn get code => text().withLength(min: 1, max: 50)();
   TextColumn get intitule => text().withLength(max: 100).nullable()();
@@ -270,6 +283,7 @@ class Bq extends Table {
   Set<Column> get primaryKey => {code};
 }
 
+// Table Comptes Auxiliaires - utilisée par: Menu Trésorerie - Comptes auxiliaires
 class Ca extends Table {
   TextColumn get code => text().withLength(min: 1, max: 50)();
   TextColumn get intitule => text().withLength(max: 100).nullable()();
@@ -281,6 +295,7 @@ class Ca extends Table {
   Set<Column> get primaryKey => {code};
 }
 
+// Table Caisse - utilisée par: Menu Trésorerie - Gestion caisse
 class Caisse extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   DateTimeColumn get daty => dateTime().nullable()();
@@ -298,6 +313,7 @@ class Caisse extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Chéquier - utilisée par: Menu Trésorerie - Gestion chéquiers
 class Chequier extends Table {
   IntColumn get a => integer().nullable()();
   IntColumn get nop => integer().nullable()();
@@ -313,6 +329,7 @@ class Chequier extends Table {
   TextColumn get verification => text().withLength(max: 50).nullable()();
 }
 
+// Table Clients Internes - utilisée par: Menu États - Clients (informations internes)
 class Clti extends Table {
   TextColumn get rsoc => text().withLength(min: 1, max: 100)();
   RealColumn get soldes => real().nullable()();
@@ -323,6 +340,7 @@ class Clti extends Table {
   Set<Column> get primaryKey => {rsoc};
 }
 
+// Table Comptes Clients - utilisée par: Menu Trésorerie - Comptes clients
 class Compteclt extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   DateTimeColumn get daty => dateTime().nullable()();
@@ -342,6 +360,7 @@ class Compteclt extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Comptes Commerciaux - utilisée par: Menu Trésorerie - Comptes commerciaux
 class Comptecom extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   DateTimeColumn get daty => dateTime().nullable()();
@@ -359,6 +378,7 @@ class Comptecom extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Comptes Fournisseurs - utilisée par: Menu Trésorerie - Comptes fournisseurs
 class Comptefrns extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   DateTimeColumn get daty => dateTime().nullable()();
@@ -378,6 +398,7 @@ class Comptefrns extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Répartition par Dépôt - utilisée par: Menu Gestions - Répartition stocks par dépôt
 class Depart extends Table {
   TextColumn get designation => text().withLength(min: 1, max: 100)();
   TextColumn get depots => text().withLength(max: 50).nullable()();
@@ -389,6 +410,7 @@ class Depart extends Table {
   Set<Column> get primaryKey => {designation};
 }
 
+// Table Détails Achats - utilisée par: Menu Commerces - Détails achats
 class Detachats extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numachats => text().withLength(max: 50).nullable()();
@@ -403,6 +425,7 @@ class Detachats extends Table {
   RealColumn get qe => real().nullable()();
 }
 
+// Table Détails Production - utilisée par: Menu Commerces - Détails production
 class Detprod extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numaprod => text().withLength(max: 50).nullable()();
@@ -414,6 +437,7 @@ class Detprod extends Table {
   DateTimeColumn get daty => dateTime().nullable()();
 }
 
+// Table Détails Transferts - utilisée par: Menu Gestions - Détails transferts
 class Dettransf extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numtransf => text().withLength(max: 50).nullable()();
@@ -422,6 +446,7 @@ class Dettransf extends Table {
   RealColumn get q => real().nullable()();
 }
 
+// Table Détails Ventes - utilisée par: Menu Commerces - Détails ventes
 class Detventes extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numventes => text().withLength(max: 50).nullable()();
@@ -436,6 +461,7 @@ class Detventes extends Table {
   RealColumn get qe => real().nullable()();
 }
 
+// Table Effets de Commerce - utilisée par: Menu Trésorerie - Gestion effets de commerce
 class Effets extends Table {
   IntColumn get a => integer().nullable()();
   IntColumn get nop => integer().nullable()();
@@ -451,6 +477,7 @@ class Effets extends Table {
   TextColumn get verification => text().withLength(max: 50).nullable()();
 }
 
+// Table Immobilisations - utilisée par: Menu États - Immobilisations, Menu Gestions - Gestion immobilisations
 class Emb extends Table {
   TextColumn get designation => text().withLength(min: 1, max: 100)();
   RealColumn get vo => real().nullable()();
@@ -465,6 +492,7 @@ class Emb extends Table {
   Set<Column> get primaryKey => {designation};
 }
 
+// Table Emballages Clients - utilisée par: Menu Commerces - Emballages clients
 class Emblclt extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numventes => text().withLength(max: 50).nullable()();
@@ -476,6 +504,7 @@ class Emblclt extends Table {
   TextColumn get verification => text().withLength(max: 50).nullable()();
 }
 
+// Table Fiches Stocks - utilisée par: Menu Gestions - Fiches stocks
 class Fstocks extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   TextColumn get art => text().withLength(max: 100).nullable()();
@@ -488,6 +517,7 @@ class Fstocks extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Modes de Paiement - utilisée par: Menu Trésorerie - Modes de paiement
 class Mp extends Table {
   TextColumn get mp => text().withLength(min: 1, max: 50)();
 
@@ -495,6 +525,7 @@ class Mp extends Table {
   Set<Column> get primaryKey => {mp};
 }
 
+// Table Production - utilisée par: Menu Commerces - Production
 class Prod extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numaprod => text().withLength(max: 50).nullable()();
@@ -511,6 +542,7 @@ class Prod extends Table {
   TextColumn get contre => text().withLength(max: 50).nullable()();
 }
 
+// Table Prix de Vente - utilisée par: Menu Commerces - Prix de vente
 class Pv extends Table {
   TextColumn get designation => text().withLength(min: 1, max: 100)();
   TextColumn get categorie => text().withLength(max: 50).nullable()();
@@ -522,6 +554,7 @@ class Pv extends Table {
   Set<Column> get primaryKey => {designation};
 }
 
+// Table Retours Achats - utilisée par: Menu Commerces - Retours achats
 class Retachats extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numachats => text().withLength(max: 50).nullable()();
@@ -540,6 +573,7 @@ class Retachats extends Table {
   TextColumn get numachats1 => text().withLength(max: 50).nullable()();
 }
 
+// Table Détails Retours Achats - utilisée par: Menu Commerces - Détails retours achats
 class Retdetachats extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numachats => text().withLength(max: 50).nullable()();
@@ -550,6 +584,7 @@ class Retdetachats extends Table {
   RealColumn get pu => real().nullable()();
 }
 
+// Table Détails Retours Ventes - utilisée par: Menu Commerces - Détails retours ventes
 class Retdeventes extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numventes => text().withLength(max: 50).nullable()();
@@ -560,6 +595,7 @@ class Retdeventes extends Table {
   RealColumn get pu => real().nullable()();
 }
 
+// Table Retours Ventes - utilisée par: Menu Commerces - Retours ventes
 class Retventes extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numventes => text().withLength(max: 50).nullable()();
@@ -582,6 +618,7 @@ class Retventes extends Table {
   TextColumn get numventes1 => text().withLength(max: 50).nullable()();
 }
 
+// Table Stock Intrants - utilisée par: Menu Commerces - Stock intrants production
 class Sintrant extends Table {
   TextColumn get des => text().withLength(min: 1, max: 100)();
   RealColumn get q => real().nullable()();
@@ -590,6 +627,7 @@ class Sintrant extends Table {
   Set<Column> get primaryKey => {des};
 }
 
+// Table Stock Produits - utilisée par: Menu Commerces - Stock produits finis
 class Sproduit extends Table {
   TextColumn get des => text().withLength(min: 1, max: 100)();
   RealColumn get q => real().nullable()();
@@ -598,6 +636,7 @@ class Sproduit extends Table {
   Set<Column> get primaryKey => {des};
 }
 
+// Table Unités de Mesure - utilisée par: Menu Paramètres - Unités de mesure
 class Tblunit extends Table {
   TextColumn get lib => text().withLength(min: 1, max: 50)();
 
@@ -605,6 +644,7 @@ class Tblunit extends Table {
   Set<Column> get primaryKey => {lib};
 }
 
+// Table Transferts - utilisée par: Menu Gestions - Transferts entre dépôts
 class Transf extends Table {
   IntColumn get num => integer().autoIncrement()();
   TextColumn get numtransf => text().withLength(max: 50).nullable()();
@@ -614,6 +654,7 @@ class Transf extends Table {
   TextColumn get contre => text().withLength(max: 50).nullable()();
 }
 
+// Table Tri Banque - utilisée par: Menu Trésorerie - Tri opérations banque
 class Tribanque extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   DateTimeColumn get daty => dateTime().nullable()();
@@ -627,6 +668,7 @@ class Tribanque extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Tri Caisse - utilisée par: Menu Trésorerie - Tri opérations caisse
 class Tricaisse extends Table {
   TextColumn get ref => text().withLength(min: 1, max: 50)();
   DateTimeColumn get daty => dateTime().nullable()();
@@ -639,6 +681,20 @@ class Tricaisse extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+/// Base de données principale de l'application Gestion de Magasin
+///
+/// Cette classe gère toutes les opérations de base de données pour l'application
+/// de gestion de magasin développée avec Flutter et Drift ORM.
+///
+/// Tables incluses:
+/// - Configuration: Soc (Société), Depots, Tblunit (Unités)
+/// - Commerce: Articles, Clt (Clients), Frns (Fournisseurs), Com (Commerciaux)
+/// - Transactions: Ventes, Achats, Stocks, Détails des opérations
+/// - Trésorerie: Banque, Caisse, Comptes, Modes de paiement
+/// - Production: Prod, Sintrant, Sproduit
+/// - Retours: Retachats, Retventes et leurs détails
+/// - Immobilisations: Emb
+/// - Transferts: Transf, Dettransf
 @DriftDatabase(tables: [
   Soc,
   Depots,
@@ -684,16 +740,24 @@ class Tricaisse extends Table {
   Tricaisse
 ])
 class AppDatabase extends _$AppDatabase {
+  /// Constructeur de la base de données
+  /// Initialise la connexion à la base de données SQLite locale
   AppDatabase() : super(_openConnection());
 
+  /// Version actuelle du schéma de base de données
+  /// Incrémentée à chaque modification de structure
   @override
   int get schemaVersion => 36;
 
+  /// Stratégie de migration de la base de données
+  /// Gère la création initiale et les mises à jour de schéma
   @override
   MigrationStrategy get migration => MigrationStrategy(
+        // Création initiale de toutes les tables
         onCreate: (Migrator m) {
           return m.createAll();
         },
+        // Migration progressive des versions antérieures
         onUpgrade: (Migrator m, int from, int to) async {
           if (from == 1) {
             await m.createTable(depots);
@@ -795,281 +859,248 @@ class AppDatabase extends _$AppDatabase {
         },
       );
 
+  // ========== MÉTHODES SOCIÉTÉ ==========
+  /// Récupère toutes les informations de société
   Future<List<SocData>> getAllSoc() => select(soc).get();
+
+  /// Récupère une société par sa référence
   Future<SocData?> getSocByRef(String ref) =>
       (select(soc)..where((tbl) => tbl.ref.equals(ref))).getSingleOrNull();
+
+  /// Insère une nouvelle société
   Future<int> insertSoc(SocCompanion entry) => into(soc).insert(entry);
+
+  /// Met à jour une société existante
   Future<bool> updateSoc(SocCompanion entry) => update(soc).replace(entry);
+
+  /// Supprime une société par référence
   Future<int> deleteSoc(String ref) => (delete(soc)..where((tbl) => tbl.ref.equals(ref))).go();
 
+  // ========== MÉTHODES DÉPÔTS ==========
+  /// Récupère tous les dépôts
   Future<List<Depot>> getAllDepots() => select(depots).get();
+
+  /// Récupère un dépôt par nom
   Future<Depot?> getDepotByName(String name) =>
       (select(depots)..where((tbl) => tbl.depots.equals(name))).getSingleOrNull();
+
+  /// Insère un nouveau dépôt
   Future<int> insertDepot(DepotsCompanion entry) => into(depots).insert(entry);
+
+  /// Met à jour un dépôt existant
   Future<bool> updateDepot(DepotsCompanion entry) => update(depots).replace(entry);
+
+  /// Supprime un dépôt par nom
   Future<int> deleteDepot(String name) => (delete(depots)..where((tbl) => tbl.depots.equals(name))).go();
 
+  // ========== MÉTHODES ARTICLES ==========
+  /// Récupère tous les articles
   Future<List<Article>> getAllArticles() => select(articles).get();
+
+  /// Récupère un article par désignation
   Future<Article?> getArticleByDesignation(String designation) =>
       (select(articles)..where((tbl) => tbl.designation.equals(designation))).getSingleOrNull();
+
+  /// Insère un nouvel article
   Future<int> insertArticle(ArticlesCompanion entry) => into(articles).insert(entry);
+
+  /// Met à jour un article existant
   Future<bool> updateArticle(ArticlesCompanion entry) => update(articles).replace(entry);
+
+  /// Supprime un article par désignation
   Future<int> deleteArticle(String designation) =>
       (delete(articles)..where((tbl) => tbl.designation.equals(designation))).go();
 
-  // Clients
+  // ========== MÉTHODES CLIENTS ==========
+  /// Récupère tous les clients
   Future<List<CltData>> getAllClients() => select(clt).get();
+
+  /// Récupère un client par raison sociale
   Future<CltData?> getClientByRsoc(String rsoc) =>
       (select(clt)..where((tbl) => tbl.rsoc.equals(rsoc))).getSingleOrNull();
+
+  /// Insère un nouveau client
   Future<int> insertClient(CltCompanion entry) => into(clt).insert(entry);
-  Future<int> updateClient(String rsoc, CltCompanion entry) => 
+
+  /// Met à jour un client existant
+  Future<int> updateClient(String rsoc, CltCompanion entry) =>
       (update(clt)..where((tbl) => tbl.rsoc.equals(rsoc))).write(entry);
+
+  /// Supprime un client par raison sociale
   Future<int> deleteClient(String rsoc) => (delete(clt)..where((tbl) => tbl.rsoc.equals(rsoc))).go();
 
-  // Fournisseurs
+  // ========== MÉTHODES FOURNISSEURS ==========
+  /// Récupère tous les fournisseurs
   Future<List<Frn>> getAllFournisseurs() => select(frns).get();
+
+  /// Récupère un fournisseur par raison sociale
   Future<Frn?> getFournisseurByRsoc(String rsoc) =>
       (select(frns)..where((tbl) => tbl.rsoc.equals(rsoc))).getSingleOrNull();
+
+  /// Insère un nouveau fournisseur
   Future<int> insertFournisseur(FrnsCompanion entry) => into(frns).insert(entry);
-  Future<int> updateFournisseur(String rsoc, FrnsCompanion entry) => 
+
+  /// Met à jour un fournisseur existant
+  Future<int> updateFournisseur(String rsoc, FrnsCompanion entry) =>
       (update(frns)..where((tbl) => tbl.rsoc.equals(rsoc))).write(entry);
+
+  /// Supprime un fournisseur par raison sociale
   Future<int> deleteFournisseur(String rsoc) => (delete(frns)..where((tbl) => tbl.rsoc.equals(rsoc))).go();
 
-  // Commerciaux
+  // ========== MÉTHODES COMMERCIAUX ==========
+  /// Récupère tous les commerciaux
   Future<List<ComData>> getAllCommerciaux() => select(com).get();
+
+  /// Récupère un commercial par nom
   Future<ComData?> getCommercialByNom(String nom) =>
       (select(com)..where((tbl) => tbl.nom.equals(nom))).getSingleOrNull();
+
+  /// Insère un nouveau commercial
   Future<int> insertCommercial(ComCompanion entry) => into(com).insert(entry);
+
+  /// Met à jour un commercial existant
   Future<bool> updateCommercial(ComCompanion entry) => update(com).replace(entry);
+
+  /// Supprime un commercial par nom
   Future<int> deleteCommercial(String nom) => (delete(com)..where((tbl) => tbl.nom.equals(nom))).go();
 
-  // Ventes
+  // ========== MÉTHODES VENTES ==========
+  /// Récupère toutes les ventes
   Future<List<Vente>> getAllVentes() => select(ventes).get();
+
+  /// Insère une nouvelle vente
   Future<int> insertVente(VentesCompanion entry) => into(ventes).insert(entry);
+
+  /// Met à jour une vente existante
   Future<bool> updateVente(VentesCompanion entry) => update(ventes).replace(entry);
+
+  /// Supprime une vente par numéro
   Future<int> deleteVente(int num) => (delete(ventes)..where((tbl) => tbl.num.equals(num))).go();
 
-  // Achats
+  // ========== MÉTHODES ACHATS ==========
+  /// Récupère tous les achats
   Future<List<Achat>> getAllAchats() => select(achats).get();
+
+  /// Insère un nouvel achat
   Future<int> insertAchat(AchatsCompanion entry) => into(achats).insert(entry);
+
+  /// Met à jour un achat existant
   Future<bool> updateAchat(AchatsCompanion entry) => update(achats).replace(entry);
+
+  /// Supprime un achat par numéro
   Future<int> deleteAchat(int num) => (delete(achats)..where((tbl) => tbl.num.equals(num))).go();
 
-  // Stocks
+  // ========== MÉTHODES STOCKS ==========
+  /// Récupère tous les mouvements de stock
   Future<List<Stock>> getAllStocks() => select(stocks).get();
+
+  /// Récupère les stocks d'un article spécifique
   Future<List<Stock>> getStocksByArticle(String refart) =>
       (select(stocks)..where((tbl) => tbl.refart.equals(refart))).get();
+
+  /// Récupère les stocks d'un dépôt spécifique
   Future<List<Stock>> getStocksByDepot(String depot) =>
       (select(stocks)..where((tbl) => tbl.depots.equals(depot))).get();
+
+  /// Insère un nouveau mouvement de stock
   Future<int> insertStock(StocksCompanion entry) => into(stocks).insert(entry);
+
+  /// Met à jour un mouvement de stock existant
   Future<bool> updateStock(StocksCompanion entry) => update(stocks).replace(entry);
+
+  /// Supprime un mouvement de stock par référence
   Future<int> deleteStock(String ref) => (delete(stocks)..where((tbl) => tbl.ref.equals(ref))).go();
 
-  // Autres Comptes
+  // ========== MÉTHODES AUTRES COMPTES ==========
+  /// Récupère tous les autres comptes
   Future<List<AutrescompteData>> getAllAutrescomptes() => select(autrescompte).get();
+
+  /// Insère un nouveau compte
   Future<int> insertAutrescompte(AutrescompteCompanion entry) => into(autrescompte).insert(entry);
+
+  /// Met à jour un compte existant
   Future<bool> updateAutrescompte(AutrescompteCompanion entry) => update(autrescompte).replace(entry);
+
+  /// Supprime un compte par référence
   Future<int> deleteAutrescompte(String ref) =>
       (delete(autrescompte)..where((tbl) => tbl.ref.equals(ref))).go();
 
-  // Banque
+  // ========== MÉTHODES BANQUE ==========
+  /// Récupère toutes les opérations bancaires
   Future<List<BanqueData>> getAllBanques() => select(banque).get();
+
+  /// Insère une nouvelle opération bancaire
   Future<int> insertBanque(BanqueCompanion entry) => into(banque).insert(entry);
+
+  /// Met à jour une opération bancaire existante
   Future<bool> updateBanque(BanqueCompanion entry) => update(banque).replace(entry);
+
+  /// Supprime une opération bancaire par référence
   Future<int> deleteBanque(String ref) => (delete(banque)..where((tbl) => tbl.ref.equals(ref))).go();
 
-  // BLCLT
+  // ========== MÉTHODES BON DE LIVRAISON ==========
+  /// Récupère tous les bons de livraison clients
   Future<List<BlcltData>> getAllBlclts() => select(blclt).get();
+
+  /// Insère un nouveau bon de livraison
   Future<int> insertBlclt(BlcltCompanion entry) => into(blclt).insert(entry);
+
+  /// Met à jour un bon de livraison existant
   Future<bool> updateBlclt(BlcltCompanion entry) => update(blclt).replace(entry);
+
+  /// Supprime un bon de livraison par numéro
   Future<int> deleteBlclt(int num) => (delete(blclt)..where((tbl) => tbl.num.equals(num))).go();
 
-  // Bq
+  // ========== MÉTHODES BANQUES CONFIGURÉES ==========
+  /// Récupère toutes les banques configurées
   Future<List<BqData>> getAllBqs() => select(bq).get();
+
+  /// Insère une nouvelle banque configurée
   Future<int> insertBq(BqCompanion entry) => into(bq).insert(entry);
+
+  /// Met à jour une banque configurée existante
   Future<bool> updateBq(BqCompanion entry) => update(bq).replace(entry);
+
+  /// Supprime une banque configurée par code
   Future<int> deleteBq(String code) => (delete(bq)..where((tbl) => tbl.code.equals(code))).go();
 
-  // Ca
+  // ========== MÉTHODES COMPTES AUXILIAIRES ==========
+  /// Récupère tous les comptes auxiliaires
   Future<List<CaData>> getAllCas() => select(ca).get();
+
+  /// Insère un nouveau compte auxiliaire
   Future<int> insertCa(CaCompanion entry) => into(ca).insert(entry);
+
+  /// Met à jour un compte auxiliaire existant
   Future<bool> updateCa(CaCompanion entry) => update(ca).replace(entry);
+
+  /// Supprime un compte auxiliaire par code
   Future<int> deleteCa(String code) => (delete(ca)..where((tbl) => tbl.code.equals(code))).go();
 
-  // Caisse
+  // ========== AUTRES MÉTHODES ==========
+
+  /// Récupère toutes les opérations de caisse
   Future<List<CaisseData>> getAllCaisses() => select(caisse).get();
-  Future<int> insertCaisse(CaisseCompanion entry) => into(caisse).insert(entry);
-  Future<bool> updateCaisse(CaisseCompanion entry) => update(caisse).replace(entry);
-  Future<int> deleteCaisse(String ref) => (delete(caisse)..where((tbl) => tbl.ref.equals(ref))).go();
 
-  // Chequier
+  /// Récupère tous les chéquiers
   Future<List<ChequierData>> getAllChequiers() => select(chequier).get();
-  Future<int> insertChequier(ChequierCompanion entry) => into(chequier).insert(entry);
-  Future<bool> updateChequier(ChequierCompanion entry) => update(chequier).replace(entry);
 
-  // CLTI
-  Future<List<CltiData>> getAllCltis() => select(clti).get();
-  Future<int> insertClti(CltiCompanion entry) => into(clti).insert(entry);
-  Future<bool> updateClti(CltiCompanion entry) => update(clti).replace(entry);
-  Future<int> deleteClti(String rsoc) => (delete(clti)..where((tbl) => tbl.rsoc.equals(rsoc))).go();
-
-  // COMPTECLT
+  /// Récupère tous les comptes clients
   Future<List<ComptecltData>> getAllCompteclts() => select(compteclt).get();
-  Future<int> insertCompteclt(ComptecltCompanion entry) => into(compteclt).insert(entry);
-  Future<bool> updateCompteclt(ComptecltCompanion entry) => update(compteclt).replace(entry);
-  Future<int> deleteCompteclt(String ref) => (delete(compteclt)..where((tbl) => tbl.ref.equals(ref))).go();
 
-  // COMPTECOM
+  /// Récupère tous les comptes commerciaux
   Future<List<ComptecomData>> getAllComptecoms() => select(comptecom).get();
-  Future<int> insertComptecom(ComptecomCompanion entry) => into(comptecom).insert(entry);
-  Future<bool> updateComptecom(ComptecomCompanion entry) => update(comptecom).replace(entry);
-  Future<int> deleteComptecom(String ref) => (delete(comptecom)..where((tbl) => tbl.ref.equals(ref))).go();
 
-  // COMPTEFRNS
+  /// Récupère tous les comptes fournisseurs
   Future<List<Comptefrn>> getAllComptefrns() => select(comptefrns).get();
-  Future<int> insertComptefrns(ComptefrnsCompanion entry) => into(comptefrns).insert(entry);
-  Future<bool> updateComptefrns(ComptefrnsCompanion entry) => update(comptefrns).replace(entry);
-  Future<int> deleteComptefrns(String ref) => (delete(comptefrns)..where((tbl) => tbl.ref.equals(ref))).go();
-
-  // DEPART
-  Future<List<DepartData>> getAllDeparts() => select(depart).get();
-  Future<int> insertDepart(DepartCompanion entry) => into(depart).insert(entry);
-  Future<bool> updateDepart(DepartCompanion entry) => update(depart).replace(entry);
-  Future<int> deleteDepart(String designation) =>
-      (delete(depart)..where((tbl) => tbl.designation.equals(designation))).go();
-
-  // DETACHATS
-  Future<List<Detachat>> getAllDetachats() => select(detachats).get();
-  Future<int> insertDetachat(DetachatsCompanion entry) => into(detachats).insert(entry);
-  Future<bool> updateDetachat(DetachatsCompanion entry) => update(detachats).replace(entry);
-  Future<int> deleteDetachat(int num) => (delete(detachats)..where((tbl) => tbl.num.equals(num))).go();
-
-  // DETPROD
-  Future<List<DetprodData>> getAllDetprods() => select(detprod).get();
-  Future<int> insertDetprod(DetprodCompanion entry) => into(detprod).insert(entry);
-  Future<bool> updateDetprod(DetprodCompanion entry) => update(detprod).replace(entry);
-  Future<int> deleteDetprod(int num) => (delete(detprod)..where((tbl) => tbl.num.equals(num))).go();
-
-  // DETTRANSF
-  Future<List<DettransfData>> getAllDettransfs() => select(dettransf).get();
-  Future<int> insertDettransf(DettransfCompanion entry) => into(dettransf).insert(entry);
-  Future<bool> updateDettransf(DettransfCompanion entry) => update(dettransf).replace(entry);
-  Future<int> deleteDettransf(int num) => (delete(dettransf)..where((tbl) => tbl.num.equals(num))).go();
-
-  // DETVENTES
-  Future<List<Detvente>> getAllDetventes() => select(detventes).get();
-  Future<int> insertDetvente(DetventesCompanion entry) => into(detventes).insert(entry);
-  Future<bool> updateDetvente(DetventesCompanion entry) => update(detventes).replace(entry);
-  Future<int> deleteDetvente(int num) => (delete(detventes)..where((tbl) => tbl.num.equals(num))).go();
-
-  // EFFETS
-  Future<List<Effet>> getAllEffets() => select(effets).get();
-  Future<int> insertEffet(EffetsCompanion entry) => into(effets).insert(entry);
-  Future<bool> updateEffet(EffetsCompanion entry) => update(effets).replace(entry);
-
-  // EMB
-  Future<List<EmbData>> getAllEmbs() => select(emb).get();
-  Future<int> insertEmb(EmbCompanion entry) => into(emb).insert(entry);
-  Future<bool> updateEmb(EmbCompanion entry) => update(emb).replace(entry);
-  Future<int> deleteEmb(String designation) =>
-      (delete(emb)..where((tbl) => tbl.designation.equals(designation))).go();
-
-  // EMBLCLT
-  Future<List<EmblcltData>> getAllEmblclts() => select(emblclt).get();
-  Future<int> insertEmblclt(EmblcltCompanion entry) => into(emblclt).insert(entry);
-  Future<bool> updateEmblclt(EmblcltCompanion entry) => update(emblclt).replace(entry);
-  Future<int> deleteEmblclt(int num) => (delete(emblclt)..where((tbl) => tbl.num.equals(num))).go();
-
-  // FSTOCKS
-  Future<List<Fstock>> getAllFstocks() => select(fstocks).get();
-  Future<int> insertFstock(FstocksCompanion entry) => into(fstocks).insert(entry);
-  Future<bool> updateFstock(FstocksCompanion entry) => update(fstocks).replace(entry);
-  Future<int> deleteFstock(String ref) => (delete(fstocks)..where((tbl) => tbl.ref.equals(ref))).go();
-
-  // MP
-  Future<List<MpData>> getAllMps() => select(mp).get();
-  Future<int> insertMp(MpCompanion entry) => into(mp).insert(entry);
-  Future<bool> updateMp(MpCompanion entry) => update(mp).replace(entry);
-  Future<int> deleteMp(String mpValue) => (delete(mp)..where((tbl) => tbl.mp.equals(mpValue))).go();
-
-  // PROD
-  Future<List<ProdData>> getAllProds() => select(prod).get();
-  Future<int> insertProd(ProdCompanion entry) => into(prod).insert(entry);
-  Future<bool> updateProd(ProdCompanion entry) => update(prod).replace(entry);
-  Future<int> deleteProd(int num) => (delete(prod)..where((tbl) => tbl.num.equals(num))).go();
-
-  // PV
-  Future<List<PvData>> getAllPvs() => select(pv).get();
-  Future<int> insertPv(PvCompanion entry) => into(pv).insert(entry);
-  Future<bool> updatePv(PvCompanion entry) => update(pv).replace(entry);
-  Future<int> deletePv(String designation) =>
-      (delete(pv)..where((tbl) => tbl.designation.equals(designation))).go();
-
-  // RETACHATS
-  Future<List<Retachat>> getAllRetachats() => select(retachats).get();
-  Future<int> insertRetachat(RetachatsCompanion entry) => into(retachats).insert(entry);
-  Future<bool> updateRetachat(RetachatsCompanion entry) => update(retachats).replace(entry);
-  Future<int> deleteRetachat(int num) => (delete(retachats)..where((tbl) => tbl.num.equals(num))).go();
-
-  // RETDETACHATS
-  Future<List<Retdetachat>> getAllRetdetachats() => select(retdetachats).get();
-  Future<int> insertRetdetachat(RetdetachatsCompanion entry) => into(retdetachats).insert(entry);
-  Future<bool> updateRetdetachat(RetdetachatsCompanion entry) => update(retdetachats).replace(entry);
-  Future<int> deleteRetdetachat(int num) => (delete(retdetachats)..where((tbl) => tbl.num.equals(num))).go();
-
-  // RETDEVENTES
-  Future<List<Retdevente>> getAllRetdeventes() => select(retdeventes).get();
-  Future<int> insertRetdevente(RetdeventesCompanion entry) => into(retdeventes).insert(entry);
-  Future<bool> updateRetdevente(RetdeventesCompanion entry) => update(retdeventes).replace(entry);
-  Future<int> deleteRetdevente(int num) => (delete(retdeventes)..where((tbl) => tbl.num.equals(num))).go();
-
-  // RETVENTES
-  Future<List<Retvente>> getAllRetventes() => select(retventes).get();
-  Future<int> insertRetvente(RetventesCompanion entry) => into(retventes).insert(entry);
-  Future<bool> updateRetvente(RetventesCompanion entry) => update(retventes).replace(entry);
-  Future<int> deleteRetvente(int num) => (delete(retventes)..where((tbl) => tbl.num.equals(num))).go();
-
-  // SINTRANT
-  Future<List<SintrantData>> getAllSintrants() => select(sintrant).get();
-  Future<int> insertSintrant(SintrantCompanion entry) => into(sintrant).insert(entry);
-  Future<bool> updateSintrant(SintrantCompanion entry) => update(sintrant).replace(entry);
-  Future<int> deleteSintrant(String des) => (delete(sintrant)..where((tbl) => tbl.des.equals(des))).go();
-
-  // SPRODUIT
-  Future<List<SproduitData>> getAllSproduits() => select(sproduit).get();
-  Future<int> insertSproduit(SproduitCompanion entry) => into(sproduit).insert(entry);
-  Future<bool> updateSproduit(SproduitCompanion entry) => update(sproduit).replace(entry);
-  Future<int> deleteSproduit(String des) => (delete(sproduit)..where((tbl) => tbl.des.equals(des))).go();
-
-  // TBLUNIT
-  Future<List<TblunitData>> getAllTblunits() => select(tblunit).get();
-  Future<int> insertTblunit(TblunitCompanion entry) => into(tblunit).insert(entry);
-  Future<bool> updateTblunit(TblunitCompanion entry) => update(tblunit).replace(entry);
-  Future<int> deleteTblunit(String lib) => (delete(tblunit)..where((tbl) => tbl.lib.equals(lib))).go();
-
-  // TRANSF
-  Future<List<TransfData>> getAllTransfs() => select(transf).get();
-  Future<int> insertTransf(TransfCompanion entry) => into(transf).insert(entry);
-  Future<bool> updateTransf(TransfCompanion entry) => update(transf).replace(entry);
-  Future<int> deleteTransf(int num) => (delete(transf)..where((tbl) => tbl.num.equals(num))).go();
-
-  // TRIBANQUE
-  Future<List<TribanqueData>> getAllTribanques() => select(tribanque).get();
-  Future<int> insertTribanque(TribanqueCompanion entry) => into(tribanque).insert(entry);
-  Future<bool> updateTribanque(TribanqueCompanion entry) => update(tribanque).replace(entry);
-  Future<int> deleteTribanque(String ref) => (delete(tribanque)..where((tbl) => tbl.ref.equals(ref))).go();
-
-  // TRICAISSE
-  Future<List<TricaisseData>> getAllTricaisses() => select(tricaisse).get();
-  Future<int> insertTricaisse(TricaisseCompanion entry) => into(tricaisse).insert(entry);
-  Future<bool> updateTricaisse(TricaisseCompanion entry) => update(tricaisse).replace(entry);
-  Future<int> deleteTricaisse(String ref) => (delete(tricaisse)..where((tbl) => tbl.ref.equals(ref))).go();
 }
 
+/// Fonction de connexion à la base de données SQLite
+/// Crée le fichier de base de données dans le répertoire des documents de l'application
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'gestion_magasin.db'));
-    return NativeDatabase(file);
+    return NativeDatabase.createInBackground(file);
   });
 }

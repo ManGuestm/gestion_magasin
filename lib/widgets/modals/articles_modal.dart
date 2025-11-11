@@ -262,7 +262,6 @@ class _ArticlesModalState extends State<ArticlesModal> {
               const SizedBox(width: 4),
               Container(
                 height: 20,
-                width: 80,
                 decoration: BoxDecoration(
                   color: Colors.grey[300],
                   border: Border.all(color: Colors.grey[600]!),
@@ -270,13 +269,13 @@ class _ArticlesModalState extends State<ArticlesModal> {
                 child: TextButton(
                   onPressed: _showAllArticles,
                   style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: const Text(
                     'Afficher tous',
-                    style: TextStyle(fontSize: 9, color: Colors.black),
+                    style: TextStyle(fontSize: 12, color: Colors.black),
                   ),
                 ),
               ),
@@ -314,7 +313,7 @@ class _ArticlesModalState extends State<ArticlesModal> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
+        border: Border.all(color: Colors.grey),
         color: Colors.white,
       ),
       child: Column(
@@ -324,7 +323,7 @@ class _ArticlesModalState extends State<ArticlesModal> {
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: Colors.red[300],
-              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+              border: const Border(bottom: BorderSide(color: Colors.grey)),
             ),
             child: const Text(
               'SITUATION DE STOCKS DANS CHAQUE DEPOTS',
@@ -336,24 +335,38 @@ class _ArticlesModalState extends State<ArticlesModal> {
             height: 25,
             decoration: BoxDecoration(
               color: Colors.grey[200],
-              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Expanded(
                   flex: 2,
-                  child: Text(
-                    'DEPOTS',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        right: BorderSide(color: Colors.grey),
+                        bottom: BorderSide(color: Colors.grey),
+                      ),
+                    ),
+                    child: const Text(
+                      'DEPOTS',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
                 Expanded(
                   flex: 3,
-                  child: Text(
-                    'STOCKS DISPONIBLES',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey),
+                      ),
+                    ),
+                    child: const Text(
+                      'STOCKS DISPONIBLES',
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],
@@ -369,14 +382,20 @@ class _ArticlesModalState extends State<ArticlesModal> {
                   height: 20,
                   decoration: BoxDecoration(
                     color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                    border: Border(bottom: BorderSide(color: Colors.grey[300]!, width: 0.5)),
                   ),
                   child: Row(
                     children: [
                       Expanded(
                         flex: 2,
-                        child: Padding(
+                        child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
+                          alignment: Alignment.centerLeft,
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              right: BorderSide(color: Colors.grey),
+                              bottom: BorderSide(color: Colors.grey, width: 0.5),
+                            ),
+                          ),
                           child: Text(
                             depot.depots,
                             style: const TextStyle(fontSize: 11),
@@ -385,10 +404,17 @@ class _ArticlesModalState extends State<ArticlesModal> {
                       ),
                       Expanded(
                         flex: 3,
-                        child: Text(
-                          _getStockForDepot(depot.depots),
-                          style: const TextStyle(fontSize: 11),
-                          textAlign: TextAlign.center,
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(color: Colors.grey, width: 0.5),
+                            ),
+                          ),
+                          child: Text(
+                            _getStockForDepot(depot.depots),
+                            style: const TextStyle(fontSize: 11),
+                          ),
                         ),
                       ),
                     ],

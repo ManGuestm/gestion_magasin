@@ -4,10 +4,12 @@ import '../services/menu_service.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
 import '../widgets/modals/articles_modal.dart';
+import '../widgets/modals/banques_modal.dart';
 import '../widgets/modals/clients_modal.dart';
 import '../widgets/modals/company_info_modal.dart';
 import '../widgets/modals/depots_modal.dart';
 import '../widgets/modals/fournisseurs_modal.dart';
+import '../widgets/modals/plan_comptes_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -110,6 +112,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _showClientsModal();
     } else if (item == 'Fournisseurs') {
       _showFournisseursModal();
+    } else if (item == 'Banques') {
+      _showBanquesModal();
+    } else if (item == 'Plan de comptes') {
+      _showPlanComptesModal();
     }
     // Ajouter d'autres actions ici
   }
@@ -151,6 +157,20 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => const FournisseursModal(),
+    );
+  }
+
+  void _showBanquesModal() {
+    showDialog(
+      context: context,
+      builder: (context) => const BanquesModal(),
+    );
+  }
+
+  void _showPlanComptesModal() {
+    showDialog(
+      context: context,
+      builder: (context) => const PlanComptesModal(),
     );
   }
 
