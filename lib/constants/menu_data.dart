@@ -52,6 +52,7 @@ class MenuData {
       'Journal de caisse',
       'Journal des banques',
       'Etats Fournisseurs',
+      'Etats Clients',
       'Etats Commerciaux',
       'Etats Immobilisations',
       'Etats Articles',
@@ -108,6 +109,19 @@ class MenuData {
       'Sur Achats',
       'Sur Ventes',
     ],
+    'Etat tarifaire': [
+      'Sans valeur d\'achats',
+      'Avec valeur d\'achats',
+      'Importer vers Ms Excel',
+    ],
+    'Echéanciers': [
+      'Par BL',
+      'Par règlement',
+    ],
+    'Balance des autres comptes': [
+      'Charges',
+      'Produits',
+    ],
     '?': [
       'À propos',
       'Aides et documentations',
@@ -151,6 +165,9 @@ class MenuData {
     'Statistiques d\'achats': true,
     'Marges': true,
     'Retour de Marchandises': true,
+    'Etat tarifaire': true,
+    'Echéanciers': true,
+    'Balance des autres comptes': true,
   };
 }
 

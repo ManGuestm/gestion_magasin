@@ -43,10 +43,10 @@ class MenuService {
 
   static Widget _buildSubmenuItem(String title, Function(String) onTap, [Function(String, double)? onHover, int? index]) {
     final hasSubMenu = MenuData.hasSubMenu[title] ?? false;
-    const itemHeight = 32.0; // padding (6*2) + text height + border
+    const itemHeight = 32.0;
     
     return MouseRegion(
-      onEnter: (_) => hasSubMenu && onHover != null && index != null ? onHover(title, index * itemHeight) : null,
+      onEnter: (_) => onHover != null && index != null ? onHover(title, index * itemHeight) : null,
       child: GestureDetector(
         onTap: () => onTap(title),
         child: Container(
@@ -81,7 +81,9 @@ class MenuService {
     double leftPosition,
     double topPosition,
     Function(String) onItemTap, {
+    Function(String, double)? onItemHover,
     VoidCallback? onMouseExit,
+    VoidCallback? onMouseEnter,
   }) {
     final items = MenuData.subMenus[parentItem] ?? [];
     
@@ -90,6 +92,7 @@ class MenuService {
         left: leftPosition,
         top: topPosition,
         child: MouseRegion(
+          onEnter: (_) => onMouseEnter?.call(),
           onExit: (_) => onMouseExit?.call(),
           child: GestureDetector(
             onTap: () {},
@@ -103,7 +106,9 @@ class MenuService {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: items.map((item) => _buildSubmenuItem(item, onItemTap)).toList(),
+                  children: items.asMap().entries.map((entry) => 
+                    _buildSubmenuItem(entry.value, onItemTap, onItemHover, entry.key)
+                  ).toList(),
                 ),
               ),
             ),

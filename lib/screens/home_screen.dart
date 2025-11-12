@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/menu_data.dart';
 import '../services/menu_service.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
@@ -24,6 +25,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _selectedMenu;
   OverlayEntry? _overlayEntry;
   OverlayEntry? _nestedOverlayEntry;
+  OverlayEntry? _thirdLevelOverlayEntry;
+  bool _isHoveringNestedMenu = false;
+  bool _isHoveringThirdLevelMenu = false;
 
   static const Map<String, Widget> _modals = {
     'Informations sur la société': CompanyInfoModal(),
@@ -90,7 +94,14 @@ class _HomeScreenState extends State<HomeScreen> {
       MenuService.getMenuPosition(menu),
       _handleSubmenuTap,
       onItemHover: _handleSubmenuHover,
-      onMouseExit: _removeNestedOverlay,
+      onMouseExit: () {
+        // Delay removal to allow moving to nested menu
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (!_isHoveringNestedMenu) {
+            _removeNestedOverlay();
+          }
+        });
+      },
     );
     Overlay.of(context).insert(_overlayEntry!);
   }
@@ -106,39 +117,42 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleSubmenuHover(String item, double itemPosition) {
-    const itemsWithSubmenus = {
-      'Etats Articles',
-      'Etats Fournisseurs',
-      'Etats Clients',
-      'Etats Commerciaux',
-      'Etats Immobilisations',
-      'Etats Autres Comptes',
-      'Statistiques de ventes',
-      'Statistiques d\'achats',
-      'Marges',
-      'Retour de Marchandises',
-    };
-    
-    if (itemsWithSubmenus.contains(item)) {
+    if (MenuData.hasSubMenu[item] == true) {
       _showNestedSubmenu(item, itemPosition);
     } else {
-      _removeNestedOverlay();
+      if (!_isHoveringNestedMenu) {
+        _removeNestedOverlay();
+        _removeThirdLevelOverlay();
+      }
     }
   }
 
   void _showNestedSubmenu(String parentItem, double itemPosition) {
     _removeNestedOverlay();
 
-    // Determine which parent menu this item belongs to
     String parentMenu = _selectedMenu ?? '';
     double baseLeftPosition = MenuService.getMenuPosition(parentMenu) + 250;
+    double topPosition = 65 + itemPosition;
 
     _nestedOverlayEntry = MenuService.createNestedSubmenuOverlay(
       parentItem,
       baseLeftPosition,
-      65 + itemPosition, // 65 is the base top position + item position
+      topPosition,
       _handleNestedSubmenuTap,
-      onMouseExit: _removeNestedOverlay,
+      onItemHover: (item, nestedItemPosition) =>
+          _handleNestedSubmenuHover(item, nestedItemPosition, topPosition),
+      onMouseEnter: () {
+        _isHoveringNestedMenu = true;
+      },
+      onMouseExit: () {
+        _isHoveringNestedMenu = false;
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (!_isHoveringNestedMenu && !_isHoveringThirdLevelMenu) {
+            _removeNestedOverlay();
+            _removeThirdLevelOverlay();
+          }
+        });
+      },
     );
     Overlay.of(context).insert(_nestedOverlayEntry!);
   }
@@ -148,6 +162,52 @@ class _HomeScreenState extends State<HomeScreen> {
     debugPrint('Nested menu item tapped: $item');
   }
 
+  void _handleNestedSubmenuHover(String item, double itemPosition, [double? secondLevelTopPosition]) {
+    secondLevelTopPosition ??= 65;
+    if (MenuData.hasSubMenu[item] == true) {
+      _showThirdLevelSubmenu(item, itemPosition, secondLevelTopPosition);
+    } else {
+      if (!_isHoveringThirdLevelMenu) {
+        _removeThirdLevelOverlay();
+      }
+    }
+  }
+
+  void _showThirdLevelSubmenu(String parentItem, double itemPosition, [double? secondLevelTopPosition]) {
+    secondLevelTopPosition ??= 65;
+    _removeThirdLevelOverlay();
+
+    String parentMenu = _selectedMenu ?? '';
+    double firstLevelPosition = MenuService.getMenuPosition(parentMenu);
+    double secondLevelPosition = firstLevelPosition + 250;
+    double thirdLevelPosition = secondLevelPosition + 280;
+    double topPosition = secondLevelTopPosition + itemPosition;
+
+    _thirdLevelOverlayEntry = MenuService.createNestedSubmenuOverlay(
+      parentItem,
+      thirdLevelPosition,
+      topPosition,
+      _handleThirdLevelSubmenuTap,
+      onMouseEnter: () {
+        _isHoveringThirdLevelMenu = true;
+      },
+      onMouseExit: () {
+        _isHoveringThirdLevelMenu = false;
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (!_isHoveringThirdLevelMenu) {
+            _removeThirdLevelOverlay();
+          }
+        });
+      },
+    );
+    Overlay.of(context).insert(_thirdLevelOverlayEntry!);
+  }
+
+  void _handleThirdLevelSubmenuTap(String item) {
+    _closeMenu();
+    debugPrint('Third level menu item tapped: $item');
+  }
+
   void _handleIconTap(String iconLabel) {
     debugPrint('Icon tapped: $iconLabel');
   }
@@ -155,7 +215,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void _closeMenu() {
     _removeOverlay();
     _removeNestedOverlay();
-    setState(() => _selectedMenu = null);
+    _removeThirdLevelOverlay();
+    setState(() {
+      _selectedMenu = null;
+      _isHoveringNestedMenu = false;
+      _isHoveringThirdLevelMenu = false;
+    });
   }
 
   void _removeOverlay() {
@@ -168,10 +233,16 @@ class _HomeScreenState extends State<HomeScreen> {
     _nestedOverlayEntry = null;
   }
 
+  void _removeThirdLevelOverlay() {
+    _thirdLevelOverlayEntry?.remove();
+    _thirdLevelOverlayEntry = null;
+  }
+
   @override
   void dispose() {
     _removeOverlay();
     _removeNestedOverlay();
+    _removeThirdLevelOverlay();
     super.dispose();
   }
 }

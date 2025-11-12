@@ -30,7 +30,7 @@ class _ArticlesModalState extends State<ArticlesModal> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-        canPop: false,
+      canPop: false,
       child: Dialog(
         backgroundColor: Colors.grey[100],
         child: GestureDetector(
@@ -414,9 +414,14 @@ class _ArticlesModalState extends State<ArticlesModal> {
                               bottom: BorderSide(color: Colors.grey, width: 0.5),
                             ),
                           ),
-                          child: Text(
-                            _getStockForDepot(depot.depots),
-                            style: const TextStyle(fontSize: 11),
+                          child: FutureBuilder<DepartData?>(
+                            future: _getStockForDepotFuture(depot.depots),
+                            builder: (context, snapshot) {
+                              return Text(
+                                _getStockTextForDepot(snapshot.data),
+                                style: const TextStyle(fontSize: 11),
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -450,17 +455,8 @@ class _ArticlesModalState extends State<ArticlesModal> {
   }
 
   String _buildStockText(Article article) {
-    List<String> stocks = [];
-    if (article.stocksu1 != null && article.u1 != null) {
-      stocks.add('${article.stocksu1!.toStringAsFixed(2)} ${article.u1}');
-    }
-    if (article.stocksu2 != null && article.u2 != null) {
-      stocks.add('${article.stocksu2!.toStringAsFixed(2)} ${article.u2}');
-    }
-    if (article.stocksu3 != null && article.u3 != null) {
-      stocks.add('${article.stocksu3!.toStringAsFixed(2)} ${article.u3}');
-    }
-    return stocks.join(' / ');
+    // Afficher "Voir détails" pour indiquer que les stocks sont par dépôt
+    return 'Voir détails par dépôt';
   }
 
   void _selectArticle(Article article) {
@@ -476,23 +472,39 @@ class _ArticlesModalState extends State<ArticlesModal> {
     });
   }
 
-  String _getStockForDepot(String depotName) {
-    if (_selectedArticle == null) return '.00 Cm / .00 Pqt / .00';
+  Future<DepartData?> _getStockForDepotFuture(String depotName) async {
+    if (_selectedArticle == null) return null;
 
-    // For now, return the article's general stock info
-    // In a real app, you'd query stock by depot
+    return await (DatabaseService().database.select(DatabaseService().database.depart)
+          ..where((d) => d.designation.equals(_selectedArticle!.designation))
+          ..where((d) => d.depots.equals(depotName)))
+        .getSingleOrNull();
+  }
+
+  String _getStockTextForDepot(DepartData? depart) {
+    if (_selectedArticle == null) return '0';
+
     List<String> stocks = [];
-    if (_selectedArticle!.stocksu1 != null && _selectedArticle!.u1 != null) {
-      stocks.add('${_selectedArticle!.stocksu1!.toStringAsFixed(2)} ${_selectedArticle!.u1}');
-    }
-    if (_selectedArticle!.stocksu2 != null && _selectedArticle!.u2 != null) {
-      stocks.add('${_selectedArticle!.stocksu2!.toStringAsFixed(2)} ${_selectedArticle!.u2}');
-    }
-    if (_selectedArticle!.stocksu3 != null && _selectedArticle!.u3 != null) {
-      stocks.add('${_selectedArticle!.stocksu3!.toStringAsFixed(2)} ${_selectedArticle!.u3}');
+
+    // Toujours afficher u1 si défini
+    if (_selectedArticle!.u1?.isNotEmpty == true) {
+      double stock1 = (depart?.stocksu1 ?? 0.0);
+      stocks.add('${stock1.toStringAsFixed(0)} ${_selectedArticle!.u1}');
     }
 
-    return stocks.isEmpty ? '.00 Cm / .00 Pqt / .00' : stocks.join(' / ');
+    // Toujours afficher u2 si défini
+    if (_selectedArticle!.u2?.isNotEmpty == true) {
+      double stock2 = (depart?.stocksu2 ?? 0.0);
+      stocks.add('${stock2.toStringAsFixed(0)} ${_selectedArticle!.u2}');
+    }
+
+    // Toujours afficher u3 si défini
+    if (_selectedArticle!.u3?.isNotEmpty == true) {
+      double stock3 = (depart?.stocksu3 ?? 0.0);
+      stocks.add('${stock3.toStringAsFixed(0)} ${_selectedArticle!.u3}');
+    }
+
+    return stocks.isEmpty ? '0' : stocks.join(' / ');
   }
 
   Future<void> _loadArticles() async {

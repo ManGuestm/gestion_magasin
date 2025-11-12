@@ -50,44 +50,70 @@ class _AchatsModalState extends State<AchatsModal> {
   int? _selectedRowIndex;
   String _selectedFormat = 'A5';
   SocData? _societe;
+  bool _isModifyingArticle = false;
+  Map<String, dynamic>? _originalArticleData;
+  List<String> _achatsNumbers = [];
+  int _currentAchatIndex = -1;
 
   @override
   void initState() {
     super.initState();
     _loadData();
-    _initializeForm();
+    _loadAchatsNumbers().then((_) => _initializeForm());
   }
 
   void _initializeForm() async {
-    final now = DateTime.now();
-    _dateController.text =
-        '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
+    // Charger le dernier achat s'il existe
+    if (_achatsNumbers.isNotEmpty) {
+      final lastAchatNum = _achatsNumbers.last;
+      _numAchatsController.text = lastAchatNum;
+      _currentAchatIndex = _achatsNumbers.length - 1;
+      await _chargerAchatExistant(lastAchatNum);
+    } else {
+      // Aucun achat existant, créer un nouveau
+      final now = DateTime.now();
+      _dateController.text =
+          '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
 
-    // Générer le prochain numéro d'achat
-    final nextNum = await _getNextNumAchats();
-    _numAchatsController.text = nextNum;
+      // Échéance par défaut = date actuelle
+      _echeanceController.text =
+          '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
 
-    _tvaController.text = '0';
-    _totalHTController.text = '0';
-    _totalTTCController.text = '0';
-    _totalFMGController.text = '0';
+      // Générer le prochain numéro d'achat
+      final nextNum = await _getNextNumAchats();
+      _numAchatsController.text = nextNum;
+
+      // Mode de paiement par défaut "A crédit"
+      _selectedModePaiement = 'A crédit';
+
+      _tvaController.text = '0';
+      _totalHTController.text = '0';
+      _totalTTCController.text = '0';
+      _totalFMGController.text = '0';
+    }
   }
 
   Future<String> _getNextNumAchats() async {
     try {
-      // Récupérer le dernier numéro d'achat
-      final lastAchat = await (_databaseService.database.select(_databaseService.database.achats)
-            ..orderBy([(a) => drift.OrderingTerm.desc(a.num)]))
-          .getSingleOrNull();
+      // Récupérer tous les achats et trouver le plus grand numachats
+      final achats = await _databaseService.database.select(_databaseService.database.achats).get();
 
-      if (lastAchat?.numachats != null) {
-        // Extraire le numéro et l'incrémenter
-        final lastNum = int.tryParse(lastAchat!.numachats!) ?? 10000;
-        return (lastNum + 1).toString();
-      } else {
-        // Premier achat
+      if (achats.isEmpty) {
         return '10001';
       }
+
+      // Trouver le plus grand numéro d'achat
+      int maxNum = 10000;
+      for (var achat in achats) {
+        if (achat.numachats != null) {
+          final num = int.tryParse(achat.numachats!) ?? 0;
+          if (num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+
+      return (maxNum + 1).toString();
     } catch (e) {
       // En cas d'erreur, commencer à 10001
       return '10001';
@@ -132,11 +158,13 @@ class _AchatsModalState extends State<AchatsModal> {
     setState(() {
       _selectedArticle = article;
       if (article != null) {
+        // Sélection par défaut de l'unité u1 et du dépôt de l'article
         _selectedUnite = article.u1;
         _selectedDepot = article.dep;
         _uniteController.text = article.u1 ?? '';
         _depotController.text = article.dep ?? '';
-        // Utiliser le coût moyen unitaire pondéré pour les achats
+
+        // Calcul du prix pour l'unité u1 par défaut
         double cmup = article.cmup ?? 0.0;
         if (cmup == 0.0) {
           _prixController.text = '';
@@ -146,8 +174,12 @@ class _AchatsModalState extends State<AchatsModal> {
             );
           }
         } else {
-          // Pour l'unité 1 (u1), le prix est le CMUP de base
-          _prixController.text = cmup.toString();
+          // Prix pour u1 = CMUP × taux de conversion tu2u1
+          double prixUnitaire = cmup;
+          if (article.tu2u1 != null) {
+            prixUnitaire = cmup * article.tu2u1!;
+          }
+          _prixController.text = _formatNumber(prixUnitaire);
         }
         _quantiteController.text = '';
       }
@@ -155,32 +187,40 @@ class _AchatsModalState extends State<AchatsModal> {
   }
 
   void _onUniteChanged(String? unite) {
+    // Vérification des prérequis : article sélectionné et unité valide
     if (_selectedArticle == null || unite == null) return;
 
     setState(() {
+      // Mise à jour de l'unité sélectionnée
       _selectedUnite = unite;
       _uniteController.text = unite;
 
-      // Calculer le prix selon l'unité et les taux de conversion
+      // Récupération du CMUP (Coût Moyen Unitaire Pondéré) stocké en base
       double cmup = _selectedArticle!.cmup ?? 0.0;
+
       if (cmup == 0.0) {
+        // Aucun CMUP défini : l'utilisateur doit saisir le prix manuellement
         _prixController.text = '';
       } else {
+        // Calcul du prix unitaire selon l'unité sélectionnée :
+        // - Le CMUP est toujours stocké en unité de base (u3)
+        // - Pour les autres unités, on applique les taux de conversion
         double prixUnitaire = cmup;
 
-        // Ajuster le prix selon l'unité sélectionnée
-        if (unite == _selectedArticle!.u2 && _selectedArticle!.tu2u1 != null) {
-          // Prix pour unité 2 = CMUP * taux u2/u1
+        if (unite == _selectedArticle!.u1 && _selectedArticle!.tu2u1 != null) {
+          // Prix pour u1 = CMUP × tu2u1 (conversion de u3 vers u1)
           prixUnitaire = cmup * _selectedArticle!.tu2u1!;
-        } else if (unite == _selectedArticle!.u3 &&
-            _selectedArticle!.tu3u2 != null &&
-            _selectedArticle!.tu2u1 != null) {
-          // Prix pour unité 3 = CMUP * taux u3/u2 * taux u2/u1
-          prixUnitaire = cmup * _selectedArticle!.tu3u2! * _selectedArticle!.tu2u1!;
+        } else if (unite == _selectedArticle!.u2 && _selectedArticle!.tu3u2 != null) {
+          // Prix pour u2 = CMUP × tu3u2 (conversion de u3 vers u2)
+          prixUnitaire = cmup * _selectedArticle!.tu3u2!;
         }
+        // Pour u3 : prix = CMUP directement (unité de base)
 
-        _prixController.text = prixUnitaire.toString();
+        // Affichage du prix calculé avec formatage (espaces pour milliers)
+        _prixController.text = _formatNumber(prixUnitaire);
       }
+
+      // Réinitialisation de la quantité pour forcer une nouvelle saisie
       _quantiteController.text = '';
     });
   }
@@ -223,7 +263,7 @@ class _AchatsModalState extends State<AchatsModal> {
     if (_selectedArticle == null) return;
 
     double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
-    double prix = double.tryParse(_prixController.text) ?? 0.0;
+    double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
     double montant = quantite * prix;
 
     String designation = _selectedArticle!.designation;
@@ -298,18 +338,30 @@ class _AchatsModalState extends State<AchatsModal> {
 
   bool _isArticleFormValid() {
     return _selectedArticle != null &&
-        _uniteController.text.isNotEmpty &&
         _quantiteController.text.isNotEmpty &&
-        _prixController.text.isNotEmpty &&
-        _depotController.text.isNotEmpty;
+        double.tryParse(_quantiteController.text) != null &&
+        double.tryParse(_quantiteController.text)! > 0;
   }
 
-  void _validerAjout() {
+  void _validerAjout() async {
+    if (_isModifyingArticle && _originalArticleData != null) {
+      // En mode modification : mettre à jour les stocks
+      await _mettreAJourStocksModification();
+    }
     _ajouterLigne();
     _resetArticleForm();
   }
 
-  void _annulerAjout() {
+  void _annulerAjout() async {
+    if (_isModifyingArticle && _originalArticleData != null) {
+      // En cas de modification : remettre l'article dans la table
+      setState(() {
+        _lignesAchat.add(_originalArticleData!);
+        _originalArticleData = null;
+        _isModifyingArticle = false;
+      });
+      _calculerTotaux();
+    }
     _resetArticleForm();
   }
 
@@ -318,6 +370,8 @@ class _AchatsModalState extends State<AchatsModal> {
       _selectedArticle = null;
       _selectedUnite = null;
       _selectedDepot = null;
+      _isModifyingArticle = false;
+      _originalArticleData = null;
       if (_autocompleteController != null) {
         _autocompleteController!.clear();
       }
@@ -341,6 +395,8 @@ class _AchatsModalState extends State<AchatsModal> {
       _selectedArticle = article;
       _selectedUnite = ligne['unites'];
       _selectedDepot = ligne['depot'];
+      _isModifyingArticle = true;
+      _originalArticleData = Map<String, dynamic>.from(ligne);
 
       if (_autocompleteController != null) {
         _autocompleteController!.text = ligne['designation'];
@@ -348,7 +404,7 @@ class _AchatsModalState extends State<AchatsModal> {
       _uniteController.text = ligne['unites'];
       _depotController.text = ligne['depot'];
       _quantiteController.text = ligne['quantite'].toString();
-      _prixController.text = ligne['prixUnitaire'].toString();
+      _prixController.text = _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
     });
 
     // Supprimer la ligne de la table pour éviter les doublons
@@ -410,6 +466,9 @@ class _AchatsModalState extends State<AchatsModal> {
 
         _calculerTotaux();
 
+        // Mettre à jour l'index de navigation
+        _currentAchatIndex = _achatsNumbers.indexOf(numAchats);
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Achat N° $numAchats chargé')),
@@ -435,9 +494,11 @@ class _AchatsModalState extends State<AchatsModal> {
   }
 
   Future<void> _modifierAchat() async {
-    if (_selectedFournisseur == null || _lignesAchat.isEmpty) {
+    if (_selectedFournisseur == null || _nFactController.text.isEmpty || _lignesAchat.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner un fournisseur et ajouter des articles')),
+        const SnackBar(
+            content: Text(
+                'Veuillez sélectionner un fournisseur, saisir le N° Facture/BL et ajouter des articles')),
       );
       return;
     }
@@ -723,6 +784,102 @@ class _AchatsModalState extends State<AchatsModal> {
     ));
   }
 
+  Future<void> _mettreAJourStocksModification() async {
+    if (_originalArticleData == null || _selectedArticle == null) return;
+
+    try {
+      // Quantités originales et nouvelles
+      double ancienneQuantite = _originalArticleData!['quantite'] ?? 0.0;
+      double nouvelleQuantite = double.tryParse(_quantiteController.text) ?? 0.0;
+      double differenceQuantite = nouvelleQuantite - ancienneQuantite;
+
+      String unite = _selectedUnite ?? '';
+      String depot = _selectedDepot ?? '';
+
+      // Mettre à jour les stocks par dépôt dans la table Depart
+      final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
+          .getSingleOrNull();
+
+      if (existingDepart != null) {
+        // Mettre à jour le stock existant pour ce dépôt
+        if (unite == _selectedArticle!.u1) {
+          double newStock = (existingDepart.stocksu1 ?? 0) + differenceQuantite;
+          await (_databaseService.database.update(_databaseService.database.depart)
+                ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
+              .write(DepartCompanion(
+            stocksu1: drift.Value(newStock >= 0 ? newStock : 0),
+          ));
+        } else if (unite == _selectedArticle!.u2) {
+          double newStock = (existingDepart.stocksu2 ?? 0) + differenceQuantite;
+          await (_databaseService.database.update(_databaseService.database.depart)
+                ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
+              .write(DepartCompanion(
+            stocksu2: drift.Value(newStock >= 0 ? newStock : 0),
+          ));
+        } else if (unite == _selectedArticle!.u3) {
+          double newStock = (existingDepart.stocksu3 ?? 0) + differenceQuantite;
+          await (_databaseService.database.update(_databaseService.database.depart)
+                ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
+              .write(DepartCompanion(
+            stocksu3: drift.Value(newStock >= 0 ? newStock : 0),
+          ));
+        }
+      } else if (differenceQuantite > 0) {
+        // Créer une nouvelle entrée pour ce dépôt si la différence est positive
+        await _databaseService.database.into(_databaseService.database.depart).insert(
+              DepartCompanion.insert(
+                designation: _selectedArticle!.designation,
+                depots: drift.Value(depot),
+                stocksu1: drift.Value(unite == _selectedArticle!.u1 ? differenceQuantite : 0.0),
+                stocksu2: drift.Value(unite == _selectedArticle!.u2 ? differenceQuantite : 0.0),
+                stocksu3: drift.Value(unite == _selectedArticle!.u3 ? differenceQuantite : 0.0),
+              ),
+            );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la mise à jour des stocks: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadAchatsNumbers() async {
+    try {
+      final achats = await (_databaseService.database.select(_databaseService.database.achats)
+            ..orderBy([(a) => drift.OrderingTerm.asc(a.numachats)]))
+          .get();
+      setState(() {
+        _achatsNumbers = achats.map((a) => a.numachats ?? '').where((n) => n.isNotEmpty).toList();
+      });
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  void _naviguerAchat(bool suivant) {
+    if (_achatsNumbers.isEmpty) return;
+
+    if (_currentAchatIndex == -1) {
+      // Trouver l'index actuel
+      _currentAchatIndex = _achatsNumbers.indexOf(_numAchatsController.text);
+    }
+
+    if (suivant && _currentAchatIndex < _achatsNumbers.length - 1) {
+      _currentAchatIndex++;
+    } else if (!suivant && _currentAchatIndex > 0) {
+      _currentAchatIndex--;
+    } else {
+      return;
+    }
+
+    final numAchat = _achatsNumbers[_currentAchatIndex];
+    _numAchatsController.text = numAchat;
+    _chargerAchatExistant(numAchat);
+  }
+
   Future<void> _ouvrirApercuBR() async {
     if (_lignesAchat.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -754,19 +911,6 @@ class _AchatsModalState extends State<AchatsModal> {
     );
   }
 
-  Future<void> _imprimerBR() async {
-    if (_lignesAchat.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun article à imprimer')),
-      );
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Impression du BR N° ${_numAchatsController.text} en format $_selectedFormat')),
-    );
-  }
-
   Future<void> _creerNouvelAchat() async {
     setState(() {
       _isExistingPurchase = false;
@@ -778,11 +922,18 @@ class _AchatsModalState extends State<AchatsModal> {
 
     // Réinitialiser tous les contrôleurs
     _nFactController.clear();
-    _echeanceController.clear();
     _tvaController.text = '0';
     _totalHTController.text = '0';
     _totalTTCController.text = '0';
     _totalFMGController.text = '0';
+
+    // Mode de paiement par défaut "A crédit"
+    _selectedModePaiement = 'A crédit';
+
+    // Échéance par défaut = date actuelle
+    final now = DateTime.now();
+    _echeanceController.text =
+        '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
 
     _resetArticleForm();
 
@@ -791,20 +942,35 @@ class _AchatsModalState extends State<AchatsModal> {
     _numAchatsController.text = nextNum;
 
     // Remettre la date d'aujourd'hui
-    final now = DateTime.now();
     _dateController.text =
         '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
   }
 
   Future<void> _validerAchat() async {
-    if (_selectedFournisseur == null || _lignesAchat.isEmpty) {
+    if (_selectedFournisseur == null || _nFactController.text.isEmpty || _lignesAchat.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner un fournisseur et ajouter des articles')),
+        const SnackBar(
+            content: Text(
+                'Veuillez sélectionner un fournisseur, saisir le N° Facture/BL et ajouter des articles')),
       );
       return;
     }
 
     try {
+      // Vérifier si le numéro d'achat existe déjà
+      final existingAchat = await (_databaseService.database.select(_databaseService.database.achats)
+            ..where((a) => a.numachats.equals(_numAchatsController.text)))
+          .getSingleOrNull();
+
+      if (existingAchat != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Le N° Achats ${_numAchatsController.text} existe déjà')),
+          );
+        }
+        return;
+      }
+
       // Convertir la date au format DateTime pour la base de données
       List<String> dateParts = _dateController.text.split('-');
       DateTime dateForDB =
@@ -850,31 +1016,53 @@ class _AchatsModalState extends State<AchatsModal> {
         // Calculer le nouveau CMUP
         double nouveauCMUP = await _calculerNouveauCMUP(article, ligne['quantite'], ligne['prixUnitaire']);
 
-        // Mettre à jour les stocks de l'article selon l'unité et le CMUP
-        if (ligne['unites'] == article.u1) {
-          double newStock = (article.stocksu1 ?? 0) + ligne['quantite'];
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu1: drift.Value(newStock),
-            cmup: drift.Value(nouveauCMUP),
-          ));
-        } else if (ligne['unites'] == article.u2) {
-          double newStock = (article.stocksu2 ?? 0) + ligne['quantite'];
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu2: drift.Value(newStock),
-            cmup: drift.Value(nouveauCMUP),
-          ));
-        } else if (ligne['unites'] == article.u3) {
-          double newStock = (article.stocksu3 ?? 0) + ligne['quantite'];
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu3: drift.Value(newStock),
-            cmup: drift.Value(nouveauCMUP),
-          ));
+        // Mettre à jour le CMUP dans la table Articles
+        await (_databaseService.database.update(_databaseService.database.articles)
+              ..where((a) => a.designation.equals(article.designation)))
+            .write(ArticlesCompanion(
+          cmup: drift.Value(nouveauCMUP),
+        ));
+
+        // Mettre à jour les stocks par dépôt dans la table Depart
+        final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
+              ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
+            .getSingleOrNull();
+
+        if (existingDepart != null) {
+          // Mettre à jour le stock existant pour ce dépôt
+          if (ligne['unites'] == article.u1) {
+            double newStock = (existingDepart.stocksu1 ?? 0) + ligne['quantite'];
+            await (_databaseService.database.update(_databaseService.database.depart)
+                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
+                .write(DepartCompanion(
+              stocksu1: drift.Value(newStock),
+            ));
+          } else if (ligne['unites'] == article.u2) {
+            double newStock = (existingDepart.stocksu2 ?? 0) + ligne['quantite'];
+            await (_databaseService.database.update(_databaseService.database.depart)
+                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
+                .write(DepartCompanion(
+              stocksu2: drift.Value(newStock),
+            ));
+          } else if (ligne['unites'] == article.u3) {
+            double newStock = (existingDepart.stocksu3 ?? 0) + ligne['quantite'];
+            await (_databaseService.database.update(_databaseService.database.depart)
+                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
+                .write(DepartCompanion(
+              stocksu3: drift.Value(newStock),
+            ));
+          }
+        } else {
+          // Créer une nouvelle entrée pour ce dépôt
+          await _databaseService.database.into(_databaseService.database.depart).insert(
+                DepartCompanion.insert(
+                  designation: article.designation,
+                  depots: drift.Value(ligne['depot']),
+                  stocksu1: drift.Value(ligne['unites'] == article.u1 ? ligne['quantite'] : 0.0),
+                  stocksu2: drift.Value(ligne['unites'] == article.u2 ? ligne['quantite'] : 0.0),
+                  stocksu3: drift.Value(ligne['unites'] == article.u3 ? ligne['quantite'] : 0.0),
+                ),
+              );
         }
       }
 
@@ -894,11 +1082,11 @@ class _AchatsModalState extends State<AchatsModal> {
   }
 
   Widget _buildSearchDialog() {
-    return StatefulBuilder(
-      builder: (context, setState) {
-        final TextEditingController filterController = TextEditingController();
-        String filterText = '';
+    final TextEditingController filterController = TextEditingController();
+    String filterText = '';
 
+    return StatefulBuilder(
+      builder: (context, setDialogState) {
         return AlertDialog(
           title: const Text('Rechercher un achat', style: TextStyle(fontSize: 14)),
           content: SizedBox(
@@ -914,7 +1102,7 @@ class _AchatsModalState extends State<AchatsModal> {
                     prefixIcon: Icon(Icons.search),
                   ),
                   onChanged: (value) {
-                    setState(() {
+                    setDialogState(() {
                       filterText = value.toLowerCase();
                     });
                   },
@@ -981,33 +1169,73 @@ class _AchatsModalState extends State<AchatsModal> {
     return PopScope(
       canPop: false,
       child: Dialog(
-        child: SizedBox(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.all(Radius.circular(16)),
+            color: Colors.grey[100],
+          ),
           width: 950,
           height: MediaQuery.of(context).size.height * 0.9,
           child: Column(
             children: [
+              // Title bar with close button
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                height: 35,
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(left: 16),
+                        child: Text(
+                          'Achat fournisseurs',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.close,
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               // Top section with form fields
               Container(
                 color: const Color(0xFFE6E6FA),
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 child: Row(
                   children: [
                     // Left side with Enregistrement button and Journal dropdown
                     Column(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          width: 120,
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
                           color: Colors.green,
                           child: const Text(
                             'Enregistrement',
                             style: TextStyle(color: Colors.white, fontSize: 12),
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         SizedBox(
-                          width: 100,
+                          width: 120,
                           height: 25,
                           child: DropdownButtonFormField<String>(
+                            initialValue: "Journal",
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -1016,9 +1244,8 @@ class _AchatsModalState extends State<AchatsModal> {
                               DropdownMenuItem(
                                   value: 'Journal', child: Text('Journal', style: TextStyle(fontSize: 12))),
                               DropdownMenuItem(
-                                  value: 'Achats', child: Text('Achats', style: TextStyle(fontSize: 12))),
-                              DropdownMenuItem(
-                                  value: 'Caisse', child: Text('Caisse', style: TextStyle(fontSize: 12))),
+                                  value: 'Brouillard',
+                                  child: Text('Brouillard', style: TextStyle(fontSize: 12))),
                             ],
                             onChanged: (value) {},
                           ),
@@ -1034,9 +1261,9 @@ class _AchatsModalState extends State<AchatsModal> {
                           Row(
                             children: [
                               const Text('N° Achats', style: TextStyle(fontSize: 12)),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 4),
                               SizedBox(
-                                width: 120,
+                                width: 100,
                                 height: 25,
                                 child: TextField(
                                   textAlign: TextAlign.center,
@@ -1050,34 +1277,36 @@ class _AchatsModalState extends State<AchatsModal> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 32),
-                              SizedBox(
-                                width: 175,
-                                height: 25,
-                                child: ElevatedButton.icon(
-                                  label: const Text("Historiques d'Achat"),
-                                  icon: const Icon(Icons.history, size: 16),
-                                  onPressed: () async {
-                                    final result = await showDialog<String>(
-                                      context: context,
-                                      builder: (context) => _buildSearchDialog(),
-                                    );
-                                    if (result != null) {
-                                      _numAchatsController.text = result;
-                                      _chargerAchatExistant(result);
-                                    }
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                                    minimumSize: const Size(25, 25),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: SizedBox(
+                                  height: 25,
+                                  child: ElevatedButton.icon(
+                                    label: const Text("Historiques", style: TextStyle(fontSize: 11)),
+                                    icon: const Icon(Icons.history, size: 14),
+                                    onPressed: () async {
+                                      final result = await showDialog<String>(
+                                        context: context,
+                                        builder: (context) => _buildSearchDialog(),
+                                      );
+                                      if (result != null) {
+                                        _numAchatsController.text = result;
+                                        _chargerAchatExistant(result);
+                                        _currentAchatIndex = _achatsNumbers.indexOf(result);
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                                      minimumSize: const Size(25, 25),
+                                    ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 32),
-                              const Text('Date', style: TextStyle(fontSize: 12)),
                               const SizedBox(width: 8),
+                              const Text('Date', style: TextStyle(fontSize: 12)),
+                              const SizedBox(width: 4),
                               SizedBox(
-                                width: 140,
+                                width: 120,
                                 height: 25,
                                 child: TextField(
                                   controller: _dateController,
@@ -1101,13 +1330,14 @@ class _AchatsModalState extends State<AchatsModal> {
                                   },
                                 ),
                               ),
-                              const SizedBox(width: 32),
+                              const SizedBox(width: 8),
                               const Text('N° Facture/ BL', style: TextStyle(fontSize: 12)),
                               const SizedBox(width: 8),
                               SizedBox(
-                                width: 80,
+                                width: 150,
                                 height: 25,
                                 child: TextField(
+                                  textAlign: TextAlign.center,
                                   controller: _nFactController,
                                   decoration: const InputDecoration(
                                     border: OutlineInputBorder(),
@@ -1126,23 +1356,89 @@ class _AchatsModalState extends State<AchatsModal> {
                               Expanded(
                                 child: SizedBox(
                                   height: 25,
-                                  child: DropdownButtonFormField<String>(
-                                    initialValue: _selectedFournisseur,
-                                    decoration: const InputDecoration(
-                                      border: OutlineInputBorder(),
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                    ),
-                                    items: _fournisseurs.map((frn) {
-                                      return DropdownMenuItem(
-                                        value: frn.rsoc,
-                                        child: Text(frn.rsoc, style: const TextStyle(fontSize: 12)),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedFournisseur = value;
-                                      });
-                                    },
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Autocomplete<Frn>(
+                                          optionsBuilder: (textEditingValue) {
+                                            if (textEditingValue.text.isEmpty) {
+                                              return const Iterable<Frn>.empty();
+                                            }
+                                            return _fournisseurs.where((frn) {
+                                              return frn.rsoc
+                                                  .toLowerCase()
+                                                  .contains(textEditingValue.text.toLowerCase());
+                                            });
+                                          },
+                                          displayStringForOption: (frn) => frn.rsoc,
+                                          onSelected: (frn) {
+                                            setState(() {
+                                              _selectedFournisseur = frn.rsoc;
+                                            });
+                                          },
+                                          fieldViewBuilder:
+                                              (context, controller, focusNode, onEditingComplete) {
+                                            if (_selectedFournisseur != null &&
+                                                controller.text != _selectedFournisseur) {
+                                              controller.text = _selectedFournisseur!;
+                                            }
+                                            return TextField(
+                                              controller: controller,
+                                              focusNode: focusNode,
+                                              onEditingComplete: () {
+                                                // Get current options
+                                                final options = _fournisseurs.where((frn) {
+                                                  return frn.rsoc
+                                                      .toLowerCase()
+                                                      .contains(controller.text.toLowerCase());
+                                                });
+
+                                                // If there's a suggestion, select the first one
+                                                if (options.isNotEmpty) {
+                                                  final firstOption = options.first;
+                                                  setState(() {
+                                                    _selectedFournisseur = firstOption.rsoc;
+                                                    controller.text = firstOption.rsoc;
+                                                  });
+                                                }
+                                                onEditingComplete();
+                                              },
+                                              decoration: const InputDecoration(
+                                                border: OutlineInputBorder(),
+                                                contentPadding:
+                                                    EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                              ),
+                                              style: const TextStyle(fontSize: 12),
+                                              onChanged: (value) {
+                                                setState(() {
+                                                  _selectedFournisseur = value;
+                                                });
+                                              },
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                      SizedBox(
+                                        width: 25,
+                                        height: 25,
+                                        child: PopupMenuButton<Frn>(
+                                          icon: const Icon(Icons.arrow_drop_down, size: 16),
+                                          itemBuilder: (context) {
+                                            return _fournisseurs.map((frn) {
+                                              return PopupMenuItem<Frn>(
+                                                value: frn,
+                                                child: Text(frn.rsoc, style: const TextStyle(fontSize: 12)),
+                                              );
+                                            }).toList();
+                                          },
+                                          onSelected: (frn) {
+                                            setState(() {
+                                              _selectedFournisseur = frn.rsoc;
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -1299,6 +1595,9 @@ class _AchatsModalState extends State<AchatsModal> {
                                 contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                               ),
                               style: const TextStyle(fontSize: 12),
+                              onChanged: (value) {
+                                setState(() {});
+                              },
                             ),
                           ),
                         ],
@@ -1670,7 +1969,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                                 ),
                                               ),
                                               child: Text(
-                                                ligne['quantite']?.toString() ?? '0',
+                                                (ligne['quantite'] as double?)?.round().toString() ?? '0',
                                                 style: const TextStyle(fontSize: 11),
                                               ),
                                             ),
@@ -1687,7 +1986,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                                 ),
                                               ),
                                               child: Text(
-                                                ligne['prixUnitaire']?.toString() ?? '0',
+                                                _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
                                                 style: const TextStyle(fontSize: 11),
                                               ),
                                             ),
@@ -1927,10 +2226,57 @@ class _AchatsModalState extends State<AchatsModal> {
 
               // Action buttons
               Container(
-                color: const Color(0xFFFFB6C1),
+                decoration: const BoxDecoration(
+                  borderRadius:
+                      BorderRadius.only(bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
+                  color: Color(0xFFFFB6C1),
+                ),
                 padding: const EdgeInsets.all(8),
                 child: Row(
                   children: [
+                    Tooltip(
+                      message: 'Achat précédent',
+                      child: SizedBox(
+                        width: 30,
+                        height: 30,
+                        child: ElevatedButton(
+                          onPressed: _achatsNumbers.isNotEmpty && _currentAchatIndex > 0
+                              ? () => _naviguerAchat(false)
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(30, 30),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_back_ios,
+                            size: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message: 'Achat suivant',
+                      child: SizedBox(
+                        width: 30,
+                        height: 30,
+                        child: ElevatedButton(
+                          onPressed:
+                              _achatsNumbers.isNotEmpty && _currentAchatIndex < _achatsNumbers.length - 1
+                                  ? () => _naviguerAchat(true)
+                                  : null,
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(30, 30),
+                          ),
+                          child: const Icon(
+                            Icons.arrow_forward_ios,
+                            size: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     if (_isExistingPurchase) ...[
                       ElevatedButton(
                         onPressed: _creerNouvelAchat,
@@ -1944,25 +2290,6 @@ class _AchatsModalState extends State<AchatsModal> {
                       onPressed: _contrePasserAchat,
                       style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
                       child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
-                    ),
-                    const SizedBox(width: 4),
-                    ElevatedButton(
-                      onPressed: _imprimerBR,
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
-                      child: const Text('Imprimer BR', style: TextStyle(fontSize: 12)),
-                    ),
-                    const SizedBox(width: 4),
-                    const SizedBox(
-                      width: 100,
-                      height: 25,
-                      child: TextField(
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          hintText: 'Recherche',
-                          hintStyle: TextStyle(fontSize: 10),
-                        ),
-                      ),
                     ),
                     const Spacer(),
                     ElevatedButton(
@@ -1984,19 +2311,33 @@ class _AchatsModalState extends State<AchatsModal> {
                       child: const Text('Fermer', style: TextStyle(fontSize: 12)),
                     ),
                     const SizedBox(width: 4),
-                    DropdownButton<String>(
-                      value: _selectedFormat,
-                      items: const [
-                        DropdownMenuItem(value: 'A4', child: Text('A4', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'A5', child: Text('A5', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'A6', child: Text('A6', style: TextStyle(fontSize: 12))),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedFormat = value ?? 'A5';
-                        });
-                      },
-                    ),
+                    Container(
+                        height: 20,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                        decoration:
+                            BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.white),
+                        child: Row(
+                          children: [
+                            const Text("Format Papier", style: TextStyle(fontSize: 12)),
+                            const SizedBox(width: 6),
+                            DropdownButton<String>(
+                              value: _selectedFormat,
+                              items: const [
+                                DropdownMenuItem(
+                                    value: 'A4', child: Text('A4', style: TextStyle(fontSize: 12))),
+                                DropdownMenuItem(
+                                    value: 'A5', child: Text('A5', style: TextStyle(fontSize: 12))),
+                                DropdownMenuItem(
+                                    value: 'A6', child: Text('A6', style: TextStyle(fontSize: 12))),
+                              ],
+                              onChanged: (value) {
+                                setState(() {
+                                  _selectedFormat = value ?? 'A5';
+                                });
+                              },
+                            ),
+                          ],
+                        )),
                   ],
                 ),
               ),

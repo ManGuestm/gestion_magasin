@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../../database/database.dart';
 
@@ -55,9 +58,9 @@ class BonReceptionPreview extends StatelessWidget {
   double get _fontSize {
     switch (format) {
       case 'A6':
-        return 8;
+        return 9;
       case 'A5':
-        return 10;
+        return 11;
       default:
         return 12; // A4
     }
@@ -82,6 +85,17 @@ class BonReceptionPreview extends StatelessWidget {
         return 12;
       default:
         return 16; // A4
+    }
+  }
+
+  PdfPageFormat get _pdfPageFormat {
+    switch (format) {
+      case 'A4':
+        return PdfPageFormat.a4;
+      case 'A6':
+        return PdfPageFormat.a6;
+      default:
+        return PdfPageFormat.a5; // A5
     }
   }
 
@@ -254,7 +268,7 @@ class BonReceptionPreview extends StatelessWidget {
                     _buildTableCell(_formatNumber(ligne['quantite']?.toDouble() ?? 0)),
                     _buildTableCell(ligne['unites'] ?? ''),
                     _buildTableCell(_formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0)),
-                    _buildTableCell(_formatNumber(ligne['montant']?.toDouble() ?? 0)),
+                    _buildTableCell(_formatNumber(ligne['montant']?.toDouble() ?? 0), isAmount: true),
                   ],
                 )),
           ],
@@ -308,9 +322,6 @@ class BonReceptionPreview extends StatelessWidget {
         Container(
           width: double.infinity,
           padding: EdgeInsets.all(format == 'A6' ? 4 : 8),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black),
-          ),
           child: Text(
             'Arrêté à la somme de ${_numberToWords(totalTTC.round())} Ariary',
             style: TextStyle(
@@ -322,25 +333,36 @@ class BonReceptionPreview extends StatelessWidget {
 
         SizedBox(height: format == 'A6' ? 10 : 20),
 
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Mode de paiement:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: _fontSize)),
+            Text(modePaiement ?? 'A crédit', style: TextStyle(fontSize: _fontSize)),
+          ],
+        ),
+
+        SizedBox(height: format == 'A6' ? 10 : 20),
+
         // Footer
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Mode de paiement:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: _fontSize)),
-                Text(modePaiement ?? 'A crédit', style: TextStyle(fontSize: _fontSize)),
-                SizedBox(height: format == 'A6' ? 5 : 10),
-                Text('Fournisseur,', style: TextStyle(fontSize: _fontSize)),
-              ],
+            Container(
+              alignment: Alignment.center,
+              width: 100,
+              child: Text(
+                'Fournisseur,',
+                style: TextStyle(fontSize: _fontSize),
+              ),
             ),
             const Spacer(),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('Signature,', style: TextStyle(fontSize: _fontSize)),
-              ],
+            Container(
+              alignment: Alignment.center,
+              width: 100,
+              child: Text(
+                'Signature,',
+                style: TextStyle(fontSize: _fontSize),
+              ),
             ),
           ],
         ),
@@ -348,16 +370,16 @@ class BonReceptionPreview extends StatelessWidget {
     );
   }
 
-  Widget _buildTableCell(String text, {bool isHeader = false}) {
+  Widget _buildTableCell(String text, {bool isHeader = false, bool isAmount = false}) {
     return Container(
       padding: EdgeInsets.all(format == 'A6' ? 2 : 4),
       child: Text(
         text,
         style: TextStyle(
-          fontSize: format == 'A6' ? 7 : (format == 'A5' ? 8 : 10),
+          fontSize: format == 'A6' ? 9 : (format == 'A5' ? 10 : 11),
           fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
         ),
-        textAlign: isHeader ? TextAlign.center : TextAlign.left,
+        textAlign: isHeader ? TextAlign.center : (isAmount ? TextAlign.right : TextAlign.left),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -491,9 +513,265 @@ class BonReceptionPreview extends StatelessWidget {
     return result.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
-  void _imprimer(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Impression du BR N° $numAchats en format $format')),
+  // Générer le document PDF
+  Future<pw.Document> _generatePdf() async {
+    final pdf = pw.Document();
+    final pdfFontSize = format == 'A6' ? 7.0 : (format == 'A5' ? 9.0 : 10.0);
+    final pdfHeaderFontSize = format == 'A6' ? 8.0 : (format == 'A5' ? 10.0 : 12.0);
+    final pdfPadding = format == 'A6' ? 6.0 : (format == 'A5' ? 10.0 : 15.0);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: _pdfPageFormat,
+        build: (context) {
+          return pw.Padding(
+            padding: pw.EdgeInsets.all(pdfPadding),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Header
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    // Left side - Company info
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            societe?.rsoc ?? 'RALAIZANDRY Jean Frédéric',
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize),
+                          ),
+                          pw.Text(
+                            societe?.activites ?? 'Marchandises Générales - Gros/détails',
+                            style: pw.TextStyle(fontSize: pdfFontSize),
+                          ),
+                          pw.Text(
+                            societe?.adr ?? 'Lot IVO 69 D Antohomadinka Sud',
+                            style: pw.TextStyle(fontSize: pdfFontSize),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Right side - Receipt info
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text(
+                          'Date: ${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}',
+                          style: pw.TextStyle(fontSize: pdfFontSize),
+                        ),
+                        pw.Row(
+                          children: [
+                            pw.Text('BON DE RECEPTION N°',
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize)),
+                            pw.SizedBox(width: format == 'A6' ? 3 : 5),
+                            pw.Text(numAchats,
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize)),
+                          ],
+                        ),
+                        if (nFact?.isNotEmpty == true)
+                          pw.Text('Frns: $nFact', style: pw.TextStyle(fontSize: pdfFontSize)),
+                        pw.Text(fournisseur.toUpperCase(), style: pw.TextStyle(fontSize: pdfFontSize)),
+                      ],
+                    ),
+                  ],
+                ),
+
+                pw.SizedBox(height: format == 'A6' ? 8 : 15),
+
+                // Table
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.black),
+                  columnWidths: format == 'A6'
+                      ? {
+                          0: const pw.FlexColumnWidth(4),
+                          1: const pw.FlexColumnWidth(1),
+                          2: const pw.FlexColumnWidth(1),
+                          3: const pw.FlexColumnWidth(1),
+                          4: const pw.FlexColumnWidth(2),
+                          5: const pw.FlexColumnWidth(2),
+                        }
+                      : {
+                          0: const pw.FlexColumnWidth(3),
+                          1: const pw.FlexColumnWidth(1),
+                          2: const pw.FlexColumnWidth(1),
+                          3: const pw.FlexColumnWidth(1),
+                          4: const pw.FlexColumnWidth(1),
+                          5: const pw.FlexColumnWidth(2),
+                        },
+                  children: [
+                    // Header row
+                    pw.TableRow(
+                      children: [
+                        _buildPdfTableCell('DESIGNATION', pdfFontSize, isHeader: true),
+                        _buildPdfTableCell('Dépôts', pdfFontSize, isHeader: true),
+                        _buildPdfTableCell('Q', pdfFontSize, isHeader: true),
+                        _buildPdfTableCell('Unités', pdfFontSize, isHeader: true),
+                        _buildPdfTableCell('PU HT', pdfFontSize, isHeader: true),
+                        _buildPdfTableCell('Montant', pdfFontSize, isHeader: true),
+                      ],
+                    ),
+                    // Data rows
+                    ...lignesAchat.map((ligne) => pw.TableRow(
+                          children: [
+                            _buildPdfTableCell(ligne['designation'] ?? '', pdfFontSize),
+                            _buildPdfTableCell(ligne['depot'] ?? '', pdfFontSize),
+                            _buildPdfTableCell(
+                                _formatNumber(ligne['quantite']?.toDouble() ?? 0), pdfFontSize),
+                            _buildPdfTableCell(ligne['unites'] ?? '', pdfFontSize),
+                            _buildPdfTableCell(
+                                _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0), pdfFontSize),
+                            _buildPdfTableCell(_formatNumber(ligne['montant']?.toDouble() ?? 0), pdfFontSize,
+                                isAmount: true),
+                          ],
+                        )),
+                  ],
+                ),
+
+                pw.SizedBox(height: format == 'A6' ? 4 : 8),
+
+                // Totals
+                pw.Row(
+                  children: [
+                    pw.Spacer(),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Row(
+                          children: [
+                            pw.Text('TOTAL HT',
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize)),
+                            pw.SizedBox(width: format == 'A6' ? 8 : 15),
+                            pw.Text(_formatNumber(totalHT),
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize)),
+                          ],
+                        ),
+                        pw.Row(
+                          children: [
+                            pw.Text('TVA', style: pw.TextStyle(fontSize: pdfFontSize)),
+                            pw.SizedBox(width: format == 'A6' ? 8 : 15),
+                            pw.Text(_formatNumber(tva), style: pw.TextStyle(fontSize: pdfFontSize)),
+                          ],
+                        ),
+                        pw.Container(
+                          decoration: const pw.BoxDecoration(
+                            border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
+                          ),
+                          child: pw.Row(
+                            children: [
+                              pw.Text('TOTAL TTC',
+                                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize)),
+                              pw.SizedBox(width: format == 'A6' ? 8 : 15),
+                              pw.Text(_formatNumber(totalTTC),
+                                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+
+                pw.SizedBox(height: format == 'A6' ? 8 : 15),
+
+                // Amount in words
+                pw.Container(
+                  width: double.infinity,
+                  padding: pw.EdgeInsets.all(format == 'A6' ? 3 : 6),
+                  child: pw.Text(
+                    'Arrêté à la somme de ${_numberToWords(totalTTC.round())} Ariary',
+                    style: pw.TextStyle(
+                      fontSize: pdfFontSize,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                pw.SizedBox(height: format == 'A6' ? 8 : 15),
+
+                // Payment mode
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('Mode de paiement:',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize)),
+                    pw.Text(modePaiement ?? 'A crédit', style: pw.TextStyle(fontSize: pdfFontSize)),
+                  ],
+                ),
+
+                pw.SizedBox(height: format == 'A6' ? 8 : 15),
+
+                // Footer
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Container(
+                      alignment: pw.Alignment.center,
+                      width: 80,
+                      child: pw.Text(
+                        'Fournisseur,',
+                        style: pw.TextStyle(fontSize: pdfFontSize),
+                      ),
+                    ),
+                    pw.Spacer(),
+                    pw.Container(
+                      alignment: pw.Alignment.center,
+                      width: 80,
+                      child: pw.Text(
+                        'Signature,',
+                        style: pw.TextStyle(fontSize: pdfFontSize),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
+
+    return pdf;
+  }
+
+  pw.Widget _buildPdfTableCell(String text, double fontSize, {bool isHeader = false, bool isAmount = false}) {
+    return pw.Container(
+      padding: pw.EdgeInsets.all(format == 'A6' ? 2 : 3),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: fontSize - 1,
+          fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+        textAlign: isHeader ? pw.TextAlign.center : (isAmount ? pw.TextAlign.right : pw.TextAlign.left),
+      ),
+    );
+  }
+
+  // Fonction d'impression
+  Future<void> _imprimer(BuildContext context) async {
+    try {
+      // Générer le PDF
+      final pdf = await _generatePdf();
+      final bytes = await pdf.save();
+
+      // Ouvrir directement la boîte de dialogue d'impression Windows
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => bytes,
+        name: 'BR_${numAchats}_${date.day}-${date.month}-${date.year}.pdf',
+        format: _pdfPageFormat,
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 }
