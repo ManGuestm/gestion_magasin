@@ -55,13 +55,58 @@ class MenuData {
       'Etats Commerciaux',
       'Etats Immobilisations',
       'Etats Articles',
-      'Etats Articles',
       'Etats Autres Comptes',
       'Statistiques de ventes',
       'Statistiques d\'achats',
       'Marges',
       'tableau de bord',
       'Bilan / Compte de Résultat'
+    ],
+    'Etats Articles': [
+      'Etiquettes de prix',
+      'Etat tarifaire',
+      'Etat de stocks',
+      'Mouvement de stocks journalières',
+      'Fiche de stocks',
+      'Estimation en valeur des articles (CMUP)',
+    ],
+    'Etats Fournisseurs': [
+      'Fiche Fournisseurs',
+      'Balance des comptes Fournisseurs',
+    ],
+    'Etats Clients': [
+      'Fiche Clients',
+      'Echéanciers',
+      'Balance des comptes Clients',
+      'Fiche d\'énumération Clients',
+    ],
+    'Etats Commerciaux': [
+      'Fiche des commerciaux',
+      'Balance des comptes des commerciaux',
+    ],
+    'Etats Immobilisations': [
+      'Liste des Immobilisations',
+      'Balance des Immobilisations',
+    ],
+    'Etats Autres Comptes': [
+      'Grand livre des autres comptes',
+      'Balance des autres comptes',
+    ],
+    'Statistiques de ventes': [
+      'C.A Par Articles',
+      'C.A Par Clients',
+    ],
+    'Statistiques d\'achats': [
+      'C.A Par Articles',
+    ],
+    'Marges': [
+      'Par Articles',
+      'Par Clients',
+      'Par Clients Détaillés',
+    ],
+    'Retour de Marchandises': [
+      'Sur Achats',
+      'Sur Ventes',
     ],
     '?': [
       'À propos',
@@ -93,6 +138,19 @@ class MenuData {
     'Trésoreries': 320,
     'États': 403,
     '?': 455,
+  };
+
+  static const Map<String, bool> hasSubMenu = {
+    'Etats Articles': true,
+    'Etats Fournisseurs': true,
+    'Etats Clients': true,
+    'Etats Commerciaux': true,
+    'Etats Immobilisations': true,
+    'Etats Autres Comptes': true,
+    'Statistiques de ventes': true,
+    'Statistiques d\'achats': true,
+    'Marges': true,
+    'Retour de Marchandises': true,
   };
 }
 

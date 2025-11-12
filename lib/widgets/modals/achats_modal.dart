@@ -1159,214 +1159,261 @@ class _AchatsModalState extends State<AchatsModal> {
               Container(
                 color: const Color(0xFFE6E6FA),
                 padding: const EdgeInsets.all(8),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      const Text('Désignation Articles', style: TextStyle(fontSize: 12)),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 150,
-                        height: 25,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Autocomplete<Article>(
-                                optionsBuilder: (textEditingValue) {
-                                  if (textEditingValue.text.isEmpty) {
-                                    return const Iterable<Article>.empty();
-                                  }
-                                  return _articles.where((article) {
-                                    return article.designation
-                                        .toLowerCase()
-                                        .contains(textEditingValue.text.toLowerCase());
-                                  });
-                                },
-                                displayStringForOption: (article) => article.designation,
-                                onSelected: _onArticleSelected,
-                                fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
-                                  _autocompleteController = controller;
-                                  return TextField(
-                                    controller: controller,
-                                    focusNode: focusNode,
+                child: Row(
+                  children: [
+                    // Désignation Articles column
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Désignation Articles', style: TextStyle(fontSize: 12)),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            height: 25,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Autocomplete<Article>(
+                                    optionsBuilder: (textEditingValue) {
+                                      if (textEditingValue.text.isEmpty) {
+                                        return const Iterable<Article>.empty();
+                                      }
+                                      return _articles.where((article) {
+                                        return article.designation
+                                            .toLowerCase()
+                                            .contains(textEditingValue.text.toLowerCase());
+                                      });
+                                    },
+                                    displayStringForOption: (article) => article.designation,
+                                    onSelected: _onArticleSelected,
+                                    fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                                      _autocompleteController = controller;
+                                      return TextField(
+                                        controller: controller,
+                                        focusNode: focusNode,
+                                        decoration: const InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                        ),
+                                        style: const TextStyle(fontSize: 12),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 25,
+                                  height: 25,
+                                  child: PopupMenuButton<Article>(
+                                    icon: const Icon(Icons.arrow_drop_down, size: 16),
+                                    itemBuilder: (context) {
+                                      return _articles.map((article) {
+                                        return PopupMenuItem<Article>(
+                                          value: article,
+                                          child:
+                                              Text(article.designation, style: const TextStyle(fontSize: 12)),
+                                        );
+                                      }).toList();
+                                    },
+                                    onSelected: (article) {
+                                      if (_autocompleteController != null) {
+                                        _autocompleteController!.text = article.designation;
+                                      }
+                                      _onArticleSelected(article);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Unités column
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Unités', style: TextStyle(fontSize: 12)),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            height: 25,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _uniteController,
                                     decoration: const InputDecoration(
                                       border: OutlineInputBorder(),
                                       contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                     ),
                                     style: const TextStyle(fontSize: 12),
-                                  );
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 25,
-                              height: 25,
-                              child: PopupMenuButton<Article>(
-                                icon: const Icon(Icons.arrow_drop_down, size: 16),
-                                itemBuilder: (context) {
-                                  return _articles.map((article) {
-                                    return PopupMenuItem<Article>(
-                                      value: article,
-                                      child: Text(article.designation, style: const TextStyle(fontSize: 12)),
-                                    );
-                                  }).toList();
-                                },
-                                onSelected: (article) {
-                                  if (_autocompleteController != null) {
-                                    _autocompleteController!.text = article.designation;
-                                  }
-                                  _onArticleSelected(article);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Text('Unités', style: TextStyle(fontSize: 12)),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 80,
-                        height: 25,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _uniteController,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    onChanged: (value) {
+                                      _selectedUnite = value;
+                                      _onUniteChanged(value);
+                                    },
+                                  ),
                                 ),
-                                style: const TextStyle(fontSize: 12),
-                                onChanged: (value) {
-                                  _selectedUnite = value;
-                                  _onUniteChanged(value);
-                                },
-                              ),
-                            ),
-                            SizedBox(
-                              width: 20,
-                              height: 25,
-                              child: PopupMenuButton<String>(
-                                icon: const Icon(Icons.arrow_drop_down, size: 12),
-                                itemBuilder: (context) {
-                                  return _getUnitsForSelectedArticle().map((item) {
-                                    return PopupMenuItem<String>(
-                                      value: item.value,
-                                      child: item.child,
-                                    );
-                                  }).toList();
-                                },
-                                onSelected: (unite) {
-                                  _uniteController.text = unite;
-                                  _onUniteChanged(unite);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Text('Quantités', style: TextStyle(fontSize: 12)),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 80,
-                        height: 25,
-                        child: TextField(
-                          controller: _quantiteController,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          ),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Text('P.U HT', style: TextStyle(fontSize: 12)),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 100,
-                        height: 25,
-                        child: TextField(
-                          controller: _prixController,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                          ),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const Text('Dépôts', style: TextStyle(fontSize: 12)),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 100,
-                        height: 25,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _depotController,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                SizedBox(
+                                  width: 20,
+                                  height: 25,
+                                  child: PopupMenuButton<String>(
+                                    icon: const Icon(Icons.arrow_drop_down, size: 12),
+                                    itemBuilder: (context) {
+                                      return _getUnitsForSelectedArticle().map((item) {
+                                        return PopupMenuItem<String>(
+                                          value: item.value,
+                                          child: item.child,
+                                        );
+                                      }).toList();
+                                    },
+                                    onSelected: (unite) {
+                                      _uniteController.text = unite;
+                                      _onUniteChanged(unite);
+                                    },
+                                  ),
                                 ),
-                                style: const TextStyle(fontSize: 12),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedDepot = value;
-                                  });
-                                },
-                              ),
+                              ],
                             ),
-                            SizedBox(
-                              width: 25,
-                              height: 25,
-                              child: PopupMenuButton<String>(
-                                icon: const Icon(Icons.arrow_drop_down, size: 12),
-                                itemBuilder: (context) {
-                                  return _depots.map((depot) {
-                                    return PopupMenuItem<String>(
-                                      value: depot.depots,
-                                      child: Text(depot.depots, style: const TextStyle(fontSize: 12)),
-                                    );
-                                  }).toList();
-                                },
-                                onSelected: (depot) {
-                                  _depotController.text = depot;
-                                  setState(() {
-                                    _selectedDepot = depot;
-                                  });
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      if (_isArticleFormValid()) ...[
-                        const SizedBox(width: 16),
-                        ElevatedButton(
-                          onPressed: _validerAjout,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(60, 25),
+                    ),
+                    const SizedBox(width: 8),
+                    // Quantités column
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Quantités', style: TextStyle(fontSize: 12)),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            height: 25,
+                            child: TextField(
+                              controller: _quantiteController,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              ),
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ),
-                          child: const Text('Valider', style: TextStyle(fontSize: 12)),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: _annulerAjout,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(60, 25),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // P.U HT column
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('P.U HT', style: TextStyle(fontSize: 12)),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            height: 25,
+                            child: TextField(
+                              controller: _prixController,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              ),
+                              style: const TextStyle(fontSize: 12),
+                            ),
                           ),
-                          child: const Text('Annuler', style: TextStyle(fontSize: 12)),
-                        ),
-                      ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Dépôts column
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Dépôts', style: TextStyle(fontSize: 12)),
+                          const SizedBox(height: 4),
+                          SizedBox(
+                            height: 25,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _depotController,
+                                    decoration: const InputDecoration(
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    ),
+                                    style: const TextStyle(fontSize: 12),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedDepot = value;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: 25,
+                                  height: 25,
+                                  child: PopupMenuButton<String>(
+                                    icon: const Icon(Icons.arrow_drop_down, size: 12),
+                                    itemBuilder: (context) {
+                                      return _depots.map((depot) {
+                                        return PopupMenuItem<String>(
+                                          value: depot.depots,
+                                          child: Text(depot.depots, style: const TextStyle(fontSize: 12)),
+                                        );
+                                      }).toList();
+                                    },
+                                    onSelected: (depot) {
+                                      _depotController.text = depot;
+                                      setState(() {
+                                        _selectedDepot = depot;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_isArticleFormValid()) ...[
+                      const SizedBox(width: 8),
+                      Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              ElevatedButton(
+                                onPressed: _validerAjout,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(60, 25),
+                                ),
+                                child: const Text('Valider', style: TextStyle(fontSize: 12)),
+                              ),
+                              const SizedBox(width: 4),
+                              ElevatedButton(
+                                onPressed: _annulerAjout,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(60, 25),
+                                ),
+                                child: const Text('Annuler', style: TextStyle(fontSize: 12)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ],
-                  ),
+                  ],
                 ),
               ),
 

@@ -23,29 +23,33 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String? _selectedMenu;
   OverlayEntry? _overlayEntry;
+  OverlayEntry? _nestedOverlayEntry;
+
+  static const Map<String, Widget> _modals = {
+    'Informations sur la société': CompanyInfoModal(),
+    'Dépôts': DepotsModal(),
+    'Articles': ArticlesModal(),
+    'Clients': ClientsModal(),
+    'Fournisseurs': FournisseursModal(),
+    'Banques': BanquesModal(),
+    'Plan de comptes': PlanComptesModal(),
+    'Achats': AchatsModal(),
+    'Moyen de paiement': MoyenPaiementModal(),
+  };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: GestureDetector(
-        onTap: () {
-          _removeOverlay();
-          setState(() {
-            _selectedMenu = null;
-          });
-        },
+        onTap: _closeMenu,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(),
             MenuBarWidget(onMenuTap: _showSubmenu),
             IconBarWidget(onIconTap: _handleIconTap),
-            Expanded(
-              child: Container(
-                color: Colors.grey[200],
-              ),
-            ),
+            Expanded(child: Container(color: Colors.grey[200])),
           ],
         ),
       ),
@@ -56,143 +60,102 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       height: 30,
       color: Colors.grey[300],
-      child: const Row(
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                Icon(Icons.business, size: 16, color: Colors.red),
-                SizedBox(width: 4),
-                Text(
-                  'GESTION COMMERCIALE DES GROSSISTES PPN - Administrateurs',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                ),
-              ],
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: Row(
+          children: [
+            Icon(Icons.business, size: 16, color: Colors.red),
+            SizedBox(width: 4),
+            Text(
+              'GESTION COMMERCIALE DES GROSSISTES PPN - Administrateurs',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   void _showSubmenu(String menu) {
     if (_selectedMenu == menu) {
-      _removeOverlay();
-      setState(() {
-        _selectedMenu = null;
-      });
+      _closeMenu();
       return;
     }
 
     _removeOverlay();
-    setState(() {
-      _selectedMenu = menu;
-    });
+    setState(() => _selectedMenu = menu);
 
-    double leftPosition = MenuService.getMenuPosition(menu);
     _overlayEntry = MenuService.createSubmenuOverlay(
       menu,
-      leftPosition,
+      MenuService.getMenuPosition(menu),
       _handleSubmenuTap,
+      onItemHover: _handleSubmenuHover,
+      onMouseExit: _removeNestedOverlay,
     );
     Overlay.of(context).insert(_overlayEntry!);
   }
 
   void _handleSubmenuTap(String item) {
-    _removeOverlay();
-    setState(() {
-      _selectedMenu = null;
-    });
-
-    if (item == 'Informations sur la société') {
-      _showCompanyInfoModal();
-    } else if (item == 'Dépôts') {
-      _showDepotsModal();
-    } else if (item == 'Articles') {
-      _showArticlesModal();
-    } else if (item == 'Clients') {
-      _showClientsModal();
-    } else if (item == 'Fournisseurs') {
-      _showFournisseursModal();
-    } else if (item == 'Banques') {
-      _showBanquesModal();
-    } else if (item == 'Plan de comptes') {
-      _showPlanComptesModal();
-    } else if (item == 'Achats') {
-      _showAchatsModal();
-    } else if (item == 'Moyen de paiement') {
-      _showMoyenPaiementModal();
+    _closeMenu();
+    final modal = _modals[item];
+    if (modal != null) {
+      showDialog(context: context, builder: (context) => modal);
+    } else {
+      debugPrint('Menu item tapped: $item');
     }
-    // Ajouter d'autres actions ici
+  }
+
+  void _handleSubmenuHover(String item, double itemPosition) {
+    const itemsWithSubmenus = {
+      'Etats Articles',
+      'Etats Fournisseurs',
+      'Etats Clients',
+      'Etats Commerciaux',
+      'Etats Immobilisations',
+      'Etats Autres Comptes',
+      'Statistiques de ventes',
+      'Statistiques d\'achats',
+      'Marges',
+      'Retour de Marchandises',
+    };
+    
+    if (itemsWithSubmenus.contains(item)) {
+      _showNestedSubmenu(item, itemPosition);
+    } else {
+      _removeNestedOverlay();
+    }
+  }
+
+  void _showNestedSubmenu(String parentItem, double itemPosition) {
+    _removeNestedOverlay();
+
+    // Determine which parent menu this item belongs to
+    String parentMenu = _selectedMenu ?? '';
+    double baseLeftPosition = MenuService.getMenuPosition(parentMenu) + 250;
+
+    _nestedOverlayEntry = MenuService.createNestedSubmenuOverlay(
+      parentItem,
+      baseLeftPosition,
+      65 + itemPosition, // 65 is the base top position + item position
+      _handleNestedSubmenuTap,
+      onMouseExit: _removeNestedOverlay,
+    );
+    Overlay.of(context).insert(_nestedOverlayEntry!);
+  }
+
+  void _handleNestedSubmenuTap(String item) {
+    _closeMenu();
+    debugPrint('Nested menu item tapped: $item');
   }
 
   void _handleIconTap(String iconLabel) {
-    // Gérer les clics sur les icônes
     debugPrint('Icon tapped: $iconLabel');
   }
 
-  void _showCompanyInfoModal() {
-    showDialog(
-      context: context,
-      builder: (context) => const CompanyInfoModal(),
-    );
-  }
-
-  void _showDepotsModal() {
-    showDialog(
-      context: context,
-      builder: (context) => const DepotsModal(),
-    );
-  }
-
-  void _showArticlesModal() {
-    showDialog(
-      context: context,
-      builder: (context) => const ArticlesModal(),
-    );
-  }
-
-  void _showClientsModal() {
-    showDialog(
-      context: context,
-      builder: (context) => const ClientsModal(),
-    );
-  }
-
-  void _showFournisseursModal() {
-    showDialog(
-      context: context,
-      builder: (context) => const FournisseursModal(),
-    );
-  }
-
-  void _showBanquesModal() {
-    showDialog(
-      context: context,
-      builder: (context) => const BanquesModal(),
-    );
-  }
-
-  void _showPlanComptesModal() {
-    showDialog(
-      context: context,
-      builder: (context) => const PlanComptesModal(),
-    );
-  }
-
-  void _showAchatsModal() {
-    showDialog(
-      context: context,
-      builder: (context) => const AchatsModal(),
-    );
-  }
-
-  void _showMoyenPaiementModal() {
-    showDialog(
-      context: context,
-      builder: (context) => const MoyenPaiementModal(),
-    );
+  void _closeMenu() {
+    _removeOverlay();
+    _removeNestedOverlay();
+    setState(() => _selectedMenu = null);
   }
 
   void _removeOverlay() {
@@ -200,9 +163,15 @@ class _HomeScreenState extends State<HomeScreen> {
     _overlayEntry = null;
   }
 
+  void _removeNestedOverlay() {
+    _nestedOverlayEntry?.remove();
+    _nestedOverlayEntry = null;
+  }
+
   @override
   void dispose() {
     _removeOverlay();
+    _removeNestedOverlay();
     super.dispose();
   }
 }
