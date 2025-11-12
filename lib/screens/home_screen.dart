@@ -13,6 +13,7 @@ import '../widgets/modals/depots_modal.dart';
 import '../widgets/modals/fournisseurs_modal.dart';
 import '../widgets/modals/moyen_paiement_modal.dart';
 import '../widgets/modals/plan_comptes_modal.dart';
+import '../widgets/modals/ventes_selection_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -108,11 +109,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleSubmenuTap(String item) {
     _closeMenu();
-    final modal = _modals[item];
-    if (modal != null) {
-      showDialog(context: context, builder: (context) => modal);
+    if (item == 'Ventes') {
+      showDialog(
+        context: context,
+        builder: (context) => const VentesSelectionModal(),
+      );
     } else {
-      debugPrint('Menu item tapped: $item');
+      final modal = _modals[item];
+      if (modal != null) {
+        showDialog(context: context, builder: (context) => modal);
+      } else {
+        debugPrint('Menu item tapped: $item');
+      }
     }
   }
 

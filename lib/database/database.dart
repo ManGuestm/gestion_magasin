@@ -401,13 +401,13 @@ class Comptefrns extends Table {
 // Table Répartition par Dépôt - utilisée par: Menu Gestions - Répartition stocks par dépôt
 class Depart extends Table {
   TextColumn get designation => text().withLength(min: 1, max: 100)();
-  TextColumn get depots => text().withLength(max: 50).nullable()();
+  TextColumn get depots => text().withLength(min: 1, max: 50)();
   RealColumn get stocksu1 => real().nullable()();
   RealColumn get stocksu2 => real().nullable()();
   RealColumn get stocksu3 => real().nullable()();
 
   @override
-  Set<Column> get primaryKey => {designation};
+  Set<Column> get primaryKey => {designation, depots};
 }
 
 // Table Détails Achats - utilisée par: Menu Commerces - Détails achats
@@ -747,7 +747,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
   @override
-  int get schemaVersion => 36;
+  int get schemaVersion => 39;
 
   /// Stratégie de migration de la base de données
   /// Gère la création initiale et les mises à jour de schéma
@@ -855,6 +855,18 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(tribanque);
           } else if (from == 35) {
             await m.createTable(tricaisse);
+          } else if (from == 36) {
+            // Recréer la table depart sans contrainte unique sur designation
+            await m.deleteTable('depart');
+            await m.createTable(depart);
+          } else if (from == 37) {
+            // Recréer la table depart avec clé primaire composite
+            await m.deleteTable('depart');
+            await m.createTable(depart);
+          } else if (from == 38) {
+            // Forcer la recréation de la table depart avec clé primaire composite
+            await m.deleteTable('depart');
+            await m.createTable(depart);
           }
         },
       );

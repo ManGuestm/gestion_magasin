@@ -830,7 +830,7 @@ class _AchatsModalState extends State<AchatsModal> {
         await _databaseService.database.into(_databaseService.database.depart).insert(
               DepartCompanion.insert(
                 designation: _selectedArticle!.designation,
-                depots: drift.Value(depot),
+                depots: depot,
                 stocksu1: drift.Value(unite == _selectedArticle!.u1 ? differenceQuantite : 0.0),
                 stocksu2: drift.Value(unite == _selectedArticle!.u2 ? differenceQuantite : 0.0),
                 stocksu3: drift.Value(unite == _selectedArticle!.u3 ? differenceQuantite : 0.0),
@@ -1023,6 +1023,48 @@ class _AchatsModalState extends State<AchatsModal> {
           cmup: drift.Value(nouveauCMUP),
         ));
 
+        // Enregistrer le mouvement de stock dans la table Stocks
+        await _databaseService.database.into(_databaseService.database.stocks).insert(
+              StocksCompanion.insert(
+                ref:
+                    'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}',
+                daty: drift.Value(dateForDB),
+                lib: drift.Value('Achat ${_numAchatsController.text}'),
+                numachats: drift.Value(_numAchatsController.text),
+                refart: drift.Value(ligne['designation']),
+                qe: drift.Value(ligne['quantite']),
+                entres: drift.Value(ligne['quantite'] * ligne['prixUnitaire']),
+                ue: drift.Value(ligne['unites']),
+                depots: drift.Value(ligne['depot']),
+                cmup: drift.Value(nouveauCMUP),
+                frns: drift.Value(_selectedFournisseur!),
+              ),
+            );
+
+        // Mettre à jour les stocks dans la table Articles (stocks globaux)
+        if (ligne['unites'] == article.u1) {
+          double newStock = (article.stocksu1 ?? 0) + ligne['quantite'];
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu1: drift.Value(newStock),
+          ));
+        } else if (ligne['unites'] == article.u2) {
+          double newStock = (article.stocksu2 ?? 0) + ligne['quantite'];
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu2: drift.Value(newStock),
+          ));
+        } else if (ligne['unites'] == article.u3) {
+          double newStock = (article.stocksu3 ?? 0) + ligne['quantite'];
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu3: drift.Value(newStock),
+          ));
+        }
+
         // Mettre à jour les stocks par dépôt dans la table Depart
         final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
               ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
@@ -1057,7 +1099,7 @@ class _AchatsModalState extends State<AchatsModal> {
           await _databaseService.database.into(_databaseService.database.depart).insert(
                 DepartCompanion.insert(
                   designation: article.designation,
-                  depots: drift.Value(ligne['depot']),
+                  depots: ligne['depot'],
                   stocksu1: drift.Value(ligne['unites'] == article.u1 ? ligne['quantite'] : 0.0),
                   stocksu2: drift.Value(ligne['unites'] == article.u2 ? ligne['quantite'] : 0.0),
                   stocksu3: drift.Value(ligne['unites'] == article.u3 ? ligne['quantite'] : 0.0),
@@ -1075,7 +1117,10 @@ class _AchatsModalState extends State<AchatsModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de l\'enregistrement: $e')),
+          SnackBar(
+            content: SelectableText('Erreur lors de l\'enregistrement: $e'),
+            duration: const Duration(seconds: 15),
+          ),
         );
       }
     }

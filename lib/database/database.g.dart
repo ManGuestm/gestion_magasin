@@ -12739,10 +12739,11 @@ class $DepartTable extends Depart with TableInfo<$DepartTable, DepartData> {
   static const VerificationMeta _depotsMeta = const VerificationMeta('depots');
   @override
   late final GeneratedColumn<String> depots = GeneratedColumn<String>(
-      'depots', aliasedName, true,
-      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
+      'depots', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 50),
       type: DriftSqlType.string,
-      requiredDuringInsert: false);
+      requiredDuringInsert: true);
   static const VerificationMeta _stocksu1Meta =
       const VerificationMeta('stocksu1');
   @override
@@ -12785,6 +12786,8 @@ class $DepartTable extends Depart with TableInfo<$DepartTable, DepartData> {
     if (data.containsKey('depots')) {
       context.handle(_depotsMeta,
           depots.isAcceptableOrUnknown(data['depots']!, _depotsMeta));
+    } else if (isInserting) {
+      context.missing(_depotsMeta);
     }
     if (data.containsKey('stocksu1')) {
       context.handle(_stocksu1Meta,
@@ -12802,7 +12805,7 @@ class $DepartTable extends Depart with TableInfo<$DepartTable, DepartData> {
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {designation};
+  Set<GeneratedColumn> get $primaryKey => {designation, depots};
   @override
   DepartData map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -12810,7 +12813,7 @@ class $DepartTable extends Depart with TableInfo<$DepartTable, DepartData> {
       designation: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}designation'])!,
       depots: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}depots']),
+          .read(DriftSqlType.string, data['${effectivePrefix}depots'])!,
       stocksu1: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}stocksu1']),
       stocksu2: attachedDatabase.typeMapping
@@ -12828,13 +12831,13 @@ class $DepartTable extends Depart with TableInfo<$DepartTable, DepartData> {
 
 class DepartData extends DataClass implements Insertable<DepartData> {
   final String designation;
-  final String? depots;
+  final String depots;
   final double? stocksu1;
   final double? stocksu2;
   final double? stocksu3;
   const DepartData(
       {required this.designation,
-      this.depots,
+      required this.depots,
       this.stocksu1,
       this.stocksu2,
       this.stocksu3});
@@ -12842,9 +12845,7 @@ class DepartData extends DataClass implements Insertable<DepartData> {
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['designation'] = Variable<String>(designation);
-    if (!nullToAbsent || depots != null) {
-      map['depots'] = Variable<String>(depots);
-    }
+    map['depots'] = Variable<String>(depots);
     if (!nullToAbsent || stocksu1 != null) {
       map['stocksu1'] = Variable<double>(stocksu1);
     }
@@ -12860,8 +12861,7 @@ class DepartData extends DataClass implements Insertable<DepartData> {
   DepartCompanion toCompanion(bool nullToAbsent) {
     return DepartCompanion(
       designation: Value(designation),
-      depots:
-          depots == null && nullToAbsent ? const Value.absent() : Value(depots),
+      depots: Value(depots),
       stocksu1: stocksu1 == null && nullToAbsent
           ? const Value.absent()
           : Value(stocksu1),
@@ -12879,7 +12879,7 @@ class DepartData extends DataClass implements Insertable<DepartData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return DepartData(
       designation: serializer.fromJson<String>(json['designation']),
-      depots: serializer.fromJson<String?>(json['depots']),
+      depots: serializer.fromJson<String>(json['depots']),
       stocksu1: serializer.fromJson<double?>(json['stocksu1']),
       stocksu2: serializer.fromJson<double?>(json['stocksu2']),
       stocksu3: serializer.fromJson<double?>(json['stocksu3']),
@@ -12890,7 +12890,7 @@ class DepartData extends DataClass implements Insertable<DepartData> {
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'designation': serializer.toJson<String>(designation),
-      'depots': serializer.toJson<String?>(depots),
+      'depots': serializer.toJson<String>(depots),
       'stocksu1': serializer.toJson<double?>(stocksu1),
       'stocksu2': serializer.toJson<double?>(stocksu2),
       'stocksu3': serializer.toJson<double?>(stocksu3),
@@ -12899,13 +12899,13 @@ class DepartData extends DataClass implements Insertable<DepartData> {
 
   DepartData copyWith(
           {String? designation,
-          Value<String?> depots = const Value.absent(),
+          String? depots,
           Value<double?> stocksu1 = const Value.absent(),
           Value<double?> stocksu2 = const Value.absent(),
           Value<double?> stocksu3 = const Value.absent()}) =>
       DepartData(
         designation: designation ?? this.designation,
-        depots: depots.present ? depots.value : this.depots,
+        depots: depots ?? this.depots,
         stocksu1: stocksu1.present ? stocksu1.value : this.stocksu1,
         stocksu2: stocksu2.present ? stocksu2.value : this.stocksu2,
         stocksu3: stocksu3.present ? stocksu3.value : this.stocksu3,
@@ -12949,7 +12949,7 @@ class DepartData extends DataClass implements Insertable<DepartData> {
 
 class DepartCompanion extends UpdateCompanion<DepartData> {
   final Value<String> designation;
-  final Value<String?> depots;
+  final Value<String> depots;
   final Value<double?> stocksu1;
   final Value<double?> stocksu2;
   final Value<double?> stocksu3;
@@ -12964,12 +12964,13 @@ class DepartCompanion extends UpdateCompanion<DepartData> {
   });
   DepartCompanion.insert({
     required String designation,
-    this.depots = const Value.absent(),
+    required String depots,
     this.stocksu1 = const Value.absent(),
     this.stocksu2 = const Value.absent(),
     this.stocksu3 = const Value.absent(),
     this.rowid = const Value.absent(),
-  }) : designation = Value(designation);
+  })  : designation = Value(designation),
+        depots = Value(depots);
   static Insertable<DepartData> custom({
     Expression<String>? designation,
     Expression<String>? depots,
@@ -12990,7 +12991,7 @@ class DepartCompanion extends UpdateCompanion<DepartData> {
 
   DepartCompanion copyWith(
       {Value<String>? designation,
-      Value<String?>? depots,
+      Value<String>? depots,
       Value<double?>? stocksu1,
       Value<double?>? stocksu2,
       Value<double?>? stocksu3,
@@ -27512,7 +27513,7 @@ typedef $$ComptefrnsTableProcessedTableManager = ProcessedTableManager<
     PrefetchHooks Function()>;
 typedef $$DepartTableCreateCompanionBuilder = DepartCompanion Function({
   required String designation,
-  Value<String?> depots,
+  required String depots,
   Value<double?> stocksu1,
   Value<double?> stocksu2,
   Value<double?> stocksu3,
@@ -27520,7 +27521,7 @@ typedef $$DepartTableCreateCompanionBuilder = DepartCompanion Function({
 });
 typedef $$DepartTableUpdateCompanionBuilder = DepartCompanion Function({
   Value<String> designation,
-  Value<String?> depots,
+  Value<String> depots,
   Value<double?> stocksu1,
   Value<double?> stocksu2,
   Value<double?> stocksu3,
@@ -27626,7 +27627,7 @@ class $$DepartTableTableManager extends RootTableManager<
               $$DepartTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
             Value<String> designation = const Value.absent(),
-            Value<String?> depots = const Value.absent(),
+            Value<String> depots = const Value.absent(),
             Value<double?> stocksu1 = const Value.absent(),
             Value<double?> stocksu2 = const Value.absent(),
             Value<double?> stocksu3 = const Value.absent(),
@@ -27642,7 +27643,7 @@ class $$DepartTableTableManager extends RootTableManager<
           ),
           createCompanionCallback: ({
             required String designation,
-            Value<String?> depots = const Value.absent(),
+            required String depots,
             Value<double?> stocksu1 = const Value.absent(),
             Value<double?> stocksu2 = const Value.absent(),
             Value<double?> stocksu3 = const Value.absent(),
