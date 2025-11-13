@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../services/stock_service.dart';
+import '../../utils/date_utils.dart' as app_date;
+import '../../utils/number_utils.dart';
 import 'bon_reception_preview.dart';
 
 class AchatsModal extends StatefulWidget {
@@ -14,6 +17,7 @@ class AchatsModal extends StatefulWidget {
 
 class _AchatsModalState extends State<AchatsModal> {
   final DatabaseService _databaseService = DatabaseService();
+  final StockService _stockService = StockService();
 
   // Controllers
   final TextEditingController _numAchatsController = TextEditingController();
@@ -72,12 +76,8 @@ class _AchatsModalState extends State<AchatsModal> {
     } else {
       // Aucun achat existant, créer un nouveau
       final now = DateTime.now();
-      _dateController.text =
-          '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
-
-      // Échéance par défaut = date actuelle
-      _echeanceController.text =
-          '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
+      _dateController.text = app_date.AppDateUtils.formatDate(now);
+      _echeanceController.text = app_date.AppDateUtils.formatDate(now);
 
       // Générer le prochain numéro d'achat
       final nextNum = await _getNextNumAchats();
@@ -179,7 +179,7 @@ class _AchatsModalState extends State<AchatsModal> {
           if (article.tu2u1 != null) {
             prixUnitaire = cmup * article.tu2u1!;
           }
-          _prixController.text = _formatNumber(prixUnitaire);
+          _prixController.text = NumberUtils.formatNumber(prixUnitaire);
         }
         _quantiteController.text = '';
       }
@@ -217,7 +217,7 @@ class _AchatsModalState extends State<AchatsModal> {
         // Pour u3 : prix = CMUP directement (unité de base)
 
         // Affichage du prix calculé avec formatage (espaces pour milliers)
-        _prixController.text = _formatNumber(prixUnitaire);
+        _prixController.text = NumberUtils.formatNumber(prixUnitaire);
       }
 
       // Réinitialisation de la quantité pour forcer une nouvelle saisie
@@ -263,7 +263,7 @@ class _AchatsModalState extends State<AchatsModal> {
     if (_selectedArticle == null) return;
 
     double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
-    double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
+    double prix = NumberUtils.parseFormattedNumber(_prixController.text);
     double montant = quantite * prix;
 
     String designation = _selectedArticle!.designation;
@@ -305,19 +305,7 @@ class _AchatsModalState extends State<AchatsModal> {
     _calculerTotaux();
   }
 
-  String _formatNumber(double number) {
-    String integerPart = number.round().toString();
 
-    String formatted = '';
-    for (int i = 0; i < integerPart.length; i++) {
-      if (i > 0 && (integerPart.length - i) % 3 == 0) {
-        formatted += ' ';
-      }
-      formatted += integerPart[i];
-    }
-
-    return formatted;
-  }
 
   void _calculerTotaux() {
     double totalHT = 0;
@@ -330,9 +318,9 @@ class _AchatsModalState extends State<AchatsModal> {
     double totalFMG = totalTTC * 5;
 
     setState(() {
-      _totalHTController.text = _formatNumber(totalHT);
-      _totalTTCController.text = _formatNumber(totalTTC);
-      _totalFMGController.text = _formatNumber(totalFMG);
+      _totalHTController.text = NumberUtils.formatNumber(totalHT);
+      _totalTTCController.text = NumberUtils.formatNumber(totalTTC);
+      _totalFMGController.text = NumberUtils.formatNumber(totalFMG);
     });
   }
 
@@ -404,7 +392,7 @@ class _AchatsModalState extends State<AchatsModal> {
       _uniteController.text = ligne['unites'];
       _depotController.text = ligne['depot'];
       _quantiteController.text = ligne['quantite'].toString();
-      _prixController.text = _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
+      _prixController.text = NumberUtils.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
     });
 
     // Supprimer la ligne de la table pour éviter les doublons
@@ -439,14 +427,12 @@ class _AchatsModalState extends State<AchatsModal> {
           // Remplir les champs principaux
           _nFactController.text = achat.nfact ?? '';
           if (achat.daty != null) {
-            _dateController.text =
-                '${achat.daty!.day.toString().padLeft(2, '0')}-${achat.daty!.month.toString().padLeft(2, '0')}-${achat.daty!.year}';
+            _dateController.text = app_date.AppDateUtils.formatDate(achat.daty!);
           }
           _selectedFournisseur = achat.frns;
           _selectedModePaiement = achat.modepai;
           if (achat.echeance != null) {
-            _echeanceController.text =
-                '${achat.echeance!.day.toString().padLeft(2, '0')}-${achat.echeance!.month.toString().padLeft(2, '0')}-${achat.echeance!.year}';
+            _echeanceController.text = app_date.AppDateUtils.formatDate(achat.echeance!);
           }
           _tvaController.text = (achat.tva ?? 0).toString();
 
@@ -520,29 +506,7 @@ class _AchatsModalState extends State<AchatsModal> {
           orElse: () => throw Exception('Article non trouvé'),
         );
 
-        // Déduire les anciennes quantités des stocks
-        if (ancienneLigne.unites == article.u1) {
-          double newStock = (article.stocksu1 ?? 0) - (ancienneLigne.q ?? 0);
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu1: drift.Value(newStock),
-          ));
-        } else if (ancienneLigne.unites == article.u2) {
-          double newStock = (article.stocksu2 ?? 0) - (ancienneLigne.q ?? 0);
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu2: drift.Value(newStock),
-          ));
-        } else if (ancienneLigne.unites == article.u3) {
-          double newStock = (article.stocksu3 ?? 0) - (ancienneLigne.q ?? 0);
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu3: drift.Value(newStock),
-          ));
-        }
+        await _stockService.updateStockForUnit(article, ancienneLigne.unites ?? '', -(ancienneLigne.q ?? 0));
       }
 
       // Mettre à jour l'achat principal
@@ -587,35 +551,11 @@ class _AchatsModalState extends State<AchatsModal> {
           orElse: () => throw Exception('Article non trouvé'),
         );
 
-        // Calculer le nouveau CMUP
-        double nouveauCMUP = await _calculerNouveauCMUP(article, ligne['quantite'], ligne['prixUnitaire']);
-
-        // Mettre à jour les stocks de l'article selon l'unité et le CMUP
-        if (ligne['unites'] == article.u1) {
-          double newStock = (article.stocksu1 ?? 0) + ligne['quantite'];
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu1: drift.Value(newStock),
-            cmup: drift.Value(nouveauCMUP),
-          ));
-        } else if (ligne['unites'] == article.u2) {
-          double newStock = (article.stocksu2 ?? 0) + ligne['quantite'];
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu2: drift.Value(newStock),
-            cmup: drift.Value(nouveauCMUP),
-          ));
-        } else if (ligne['unites'] == article.u3) {
-          double newStock = (article.stocksu3 ?? 0) + ligne['quantite'];
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu3: drift.Value(newStock),
-            cmup: drift.Value(nouveauCMUP),
-          ));
-        }
+        double nouveauCMUP = _stockService.calculateCMUP(article, ligne['quantite'], ligne['prixUnitaire']);
+        await _stockService.updateStockForUnit(article, ligne['unites'], ligne['quantite']);
+        await (_databaseService.database.update(_databaseService.database.articles)
+              ..where((a) => a.designation.equals(article.designation)))
+            .write(ArticlesCompanion(cmup: drift.Value(nouveauCMUP)));
       }
 
       if (mounted) {
@@ -633,30 +573,7 @@ class _AchatsModalState extends State<AchatsModal> {
     }
   }
 
-  Future<double> _calculerNouveauCMUP(Article article, double nouvelleQuantite, double nouveauPrix) async {
-    // Valeur du stock initial = stock actuel * CMUP actuel
-    double stockActuel = 0;
-    double cmupActuel = article.cmup ?? 0.0;
 
-    // Calculer le stock total actuel (toutes unités confondues en u1)
-    stockActuel += article.stocksu1 ?? 0;
-    if (article.u2 != null && article.tu2u1 != null) {
-      stockActuel += (article.stocksu2 ?? 0) * article.tu2u1!;
-    }
-    if (article.u3 != null && article.tu3u2 != null && article.tu2u1 != null) {
-      stockActuel += (article.stocksu3 ?? 0) * article.tu3u2! * article.tu2u1!;
-    }
-
-    double valeurStockInitial = stockActuel * cmupActuel;
-    double valeurNouvellesEntrees = nouvelleQuantite * nouveauPrix;
-
-    double quantiteTotale = stockActuel + nouvelleQuantite;
-
-    if (quantiteTotale == 0) return nouveauPrix;
-
-    double cmup = (valeurStockInitial + valeurNouvellesEntrees) / quantiteTotale;
-    return cmup.roundToDouble();
-  }
 
   Future<void> _contrePasserAchat() async {
     if (!_isExistingPurchase) {
@@ -755,33 +672,16 @@ class _AchatsModalState extends State<AchatsModal> {
 
   Future<void> _recalculerCMUPApresAnnulation(
       Article article, double quantiteAnnulee, double prixAnnule) async {
-    // Calculer le stock total actuel (toutes unités confondues en u1)
-    double stockActuel = 0;
-    stockActuel += article.stocksu1 ?? 0;
-    if (article.u2 != null && article.tu2u1 != null) {
-      stockActuel += (article.stocksu2 ?? 0) * article.tu2u1!;
-    }
-    if (article.u3 != null && article.tu3u2 != null && article.tu2u1 != null) {
-      stockActuel += (article.stocksu3 ?? 0) * article.tu3u2! * article.tu2u1!;
-    }
-
+    double stockActuel = _stockService.calculateTotalStock(article);
     double cmupActuel = article.cmup ?? 0.0;
-
-    // Valeur totale avant annulation
     double valeurTotaleAvant = (stockActuel + quantiteAnnulee) * cmupActuel;
-
-    // Valeur à retirer
     double valeurARetirer = quantiteAnnulee * prixAnnule;
-
-    // Nouvelle valeur et nouveau CMUP
     double nouvelleValeur = valeurTotaleAvant - valeurARetirer;
     double nouveauCMUP = stockActuel > 0 ? nouvelleValeur / stockActuel : 0.0;
 
     await (_databaseService.database.update(_databaseService.database.articles)
           ..where((a) => a.designation.equals(article.designation)))
-        .write(ArticlesCompanion(
-      cmup: drift.Value(nouveauCMUP.roundToDouble()),
-    ));
+        .write(ArticlesCompanion(cmup: drift.Value(nouveauCMUP.roundToDouble())));
   }
 
   Future<void> _mettreAJourStocksModification() async {
@@ -888,9 +788,7 @@ class _AchatsModalState extends State<AchatsModal> {
       return;
     }
 
-    List<String> dateParts = _dateController.text.split('-');
-    DateTime dateForPreview =
-        DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+    DateTime dateForPreview = app_date.AppDateUtils.parseDate(_dateController.text);
 
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -932,8 +830,7 @@ class _AchatsModalState extends State<AchatsModal> {
 
     // Échéance par défaut = date actuelle
     final now = DateTime.now();
-    _echeanceController.text =
-        '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
+    _echeanceController.text = app_date.AppDateUtils.formatDate(now);
 
     _resetArticleForm();
 
@@ -942,8 +839,7 @@ class _AchatsModalState extends State<AchatsModal> {
     _numAchatsController.text = nextNum;
 
     // Remettre la date d'aujourd'hui
-    _dateController.text =
-        '${now.day.toString().padLeft(2, '0')}-${now.month.toString().padLeft(2, '0')}-${now.year}';
+    _dateController.text = app_date.AppDateUtils.formatDate(now);
   }
 
   Future<void> _validerAchat() async {
@@ -1013,21 +909,15 @@ class _AchatsModalState extends State<AchatsModal> {
           orElse: () => throw Exception('Article non trouvé'),
         );
 
-        // Calculer le nouveau CMUP
-        double nouveauCMUP = await _calculerNouveauCMUP(article, ligne['quantite'], ligne['prixUnitaire']);
-
-        // Mettre à jour le CMUP dans la table Articles
+        double nouveauCMUP = _stockService.calculateCMUP(article, ligne['quantite'], ligne['prixUnitaire']);
+        
         await (_databaseService.database.update(_databaseService.database.articles)
               ..where((a) => a.designation.equals(article.designation)))
-            .write(ArticlesCompanion(
-          cmup: drift.Value(nouveauCMUP),
-        ));
+            .write(ArticlesCompanion(cmup: drift.Value(nouveauCMUP)));
 
-        // Enregistrer le mouvement de stock dans la table Stocks
         await _databaseService.database.into(_databaseService.database.stocks).insert(
               StocksCompanion.insert(
-                ref:
-                    'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}',
+                ref: 'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}',
                 daty: drift.Value(dateForDB),
                 lib: drift.Value('Achat ${_numAchatsController.text}'),
                 numachats: drift.Value(_numAchatsController.text),
@@ -1041,71 +931,8 @@ class _AchatsModalState extends State<AchatsModal> {
               ),
             );
 
-        // Mettre à jour les stocks dans la table Articles (stocks globaux)
-        if (ligne['unites'] == article.u1) {
-          double newStock = (article.stocksu1 ?? 0) + ligne['quantite'];
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu1: drift.Value(newStock),
-          ));
-        } else if (ligne['unites'] == article.u2) {
-          double newStock = (article.stocksu2 ?? 0) + ligne['quantite'];
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu2: drift.Value(newStock),
-          ));
-        } else if (ligne['unites'] == article.u3) {
-          double newStock = (article.stocksu3 ?? 0) + ligne['quantite'];
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu3: drift.Value(newStock),
-          ));
-        }
-
-        // Mettre à jour les stocks par dépôt dans la table Depart
-        final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
-              ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
-            .getSingleOrNull();
-
-        if (existingDepart != null) {
-          // Mettre à jour le stock existant pour ce dépôt
-          if (ligne['unites'] == article.u1) {
-            double newStock = (existingDepart.stocksu1 ?? 0) + ligne['quantite'];
-            await (_databaseService.database.update(_databaseService.database.depart)
-                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
-                .write(DepartCompanion(
-              stocksu1: drift.Value(newStock),
-            ));
-          } else if (ligne['unites'] == article.u2) {
-            double newStock = (existingDepart.stocksu2 ?? 0) + ligne['quantite'];
-            await (_databaseService.database.update(_databaseService.database.depart)
-                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
-                .write(DepartCompanion(
-              stocksu2: drift.Value(newStock),
-            ));
-          } else if (ligne['unites'] == article.u3) {
-            double newStock = (existingDepart.stocksu3 ?? 0) + ligne['quantite'];
-            await (_databaseService.database.update(_databaseService.database.depart)
-                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
-                .write(DepartCompanion(
-              stocksu3: drift.Value(newStock),
-            ));
-          }
-        } else {
-          // Créer une nouvelle entrée pour ce dépôt
-          await _databaseService.database.into(_databaseService.database.depart).insert(
-                DepartCompanion.insert(
-                  designation: article.designation,
-                  depots: ligne['depot'],
-                  stocksu1: drift.Value(ligne['unites'] == article.u1 ? ligne['quantite'] : 0.0),
-                  stocksu2: drift.Value(ligne['unites'] == article.u2 ? ligne['quantite'] : 0.0),
-                  stocksu3: drift.Value(ligne['unites'] == article.u3 ? ligne['quantite'] : 0.0),
-                ),
-              );
-        }
+        await _stockService.updateStockForUnit(article, ligne['unites'], ligne['quantite']);
+        await _stockService.updateDepartStock(article, ligne['depot'], ligne['unites'], ligne['quantite']);
       }
 
       if (mounted) {
@@ -1167,9 +994,7 @@ class _AchatsModalState extends State<AchatsModal> {
 
                         final numAchats = achat.numachats?.toLowerCase() ?? '';
                         final fournisseur = achat.frns?.toLowerCase() ?? '';
-                        final dateStr = achat.daty != null
-                            ? '${achat.daty!.day.toString().padLeft(2, '0')}-${achat.daty!.month.toString().padLeft(2, '0')}-${achat.daty!.year}'
-                            : '';
+                        final dateStr = achat.daty != null ? app_date.AppDateUtils.formatDate(achat.daty!) : '';
 
                         return numAchats.contains(filterText) ||
                             fournisseur.contains(filterText) ||
@@ -1183,7 +1008,7 @@ class _AchatsModalState extends State<AchatsModal> {
                           return ListTile(
                             title: Text('N° ${achat.numachats}', style: const TextStyle(fontSize: 12)),
                             subtitle: Text(
-                              'Fournisseur: ${achat.frns ?? ""} - Date: ${achat.daty != null ? "${achat.daty!.day.toString().padLeft(2, '0')}-${achat.daty!.month.toString().padLeft(2, '0')}-${achat.daty!.year}" : ""}',
+                              'Fournisseur: ${achat.frns ?? ""} - Date: ${achat.daty != null ? app_date.AppDateUtils.formatDate(achat.daty!) : ""}',
                               style: const TextStyle(fontSize: 10),
                             ),
                             onTap: () {
@@ -1369,8 +1194,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                       lastDate: DateTime(2100),
                                     );
                                     if (date != null) {
-                                      _dateController.text =
-                                          '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
+                                      _dateController.text = app_date.AppDateUtils.formatDate(date);
                                     }
                                   },
                                 ),
@@ -2031,7 +1855,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                                 ),
                                               ),
                                               child: Text(
-                                                _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                                NumberUtils.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
                                                 style: const TextStyle(fontSize: 11),
                                               ),
                                             ),
@@ -2048,7 +1872,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                                 ),
                                               ),
                                               child: Text(
-                                                _formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                                NumberUtils.formatNumber(ligne['montant']?.toDouble() ?? 0),
                                                 style: const TextStyle(fontSize: 11),
                                               ),
                                             ),
@@ -2146,8 +1970,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                       lastDate: DateTime(2100),
                                     );
                                     if (date != null) {
-                                      _echeanceController.text =
-                                          '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
+                                      _echeanceController.text = app_date.AppDateUtils.formatDate(date);
                                     }
                                   },
                                 ),

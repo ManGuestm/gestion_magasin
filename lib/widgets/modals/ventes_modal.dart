@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
@@ -46,6 +47,11 @@ class _VentesModalState extends State<VentesModal> {
   String? _selectedDepot;
   String _selectedModePaiement = 'A crédit';
   int? _selectedRowIndex;
+  bool _isExistingPurchase = false;
+
+  // Stock management
+  double _stockDisponible = 0.0;
+  bool _stockInsuffisant = false;
 
   @override
   void initState() {
@@ -55,27 +61,18 @@ class _VentesModalState extends State<VentesModal> {
 
   Future<String> _getNextNumVentes() async {
     try {
-      // Récupérer toutes les ventes et trouver le plus grand numventes
       final ventes = await _databaseService.database.select(_databaseService.database.ventes).get();
+      if (ventes.isEmpty) return '10001';
 
-      if (ventes.isEmpty) {
-        return '10001';
-      }
-
-      // Trouver le plus grand numéro de vente
       int maxNum = 10000;
       for (var vente in ventes) {
         if (vente.numventes != null) {
           final num = int.tryParse(vente.numventes!) ?? 0;
-          if (num > maxNum) {
-            maxNum = num;
-          }
+          if (num > maxNum) maxNum = num;
         }
       }
-
       return (maxNum + 1).toString();
     } catch (e) {
-      // En cas d'erreur, commencer à 10001
       return '10001';
     }
   }
@@ -87,7 +84,6 @@ class _VentesModalState extends State<VentesModal> {
     _heureController.text =
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
-    // Générer les prochains numéros auto-incrémentés
     final nextNumVentes = await _getNextNumVentes();
     _numVentesController.text = nextNumVentes;
     _nFactureController.text = nextNumVentes;
@@ -107,6 +103,7 @@ class _VentesModalState extends State<VentesModal> {
       final articles = await _databaseService.database.getAllArticles();
       final clients = await _databaseService.database.getAllClients();
       final depots = await _databaseService.database.getAllDepots();
+      await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
 
       setState(() {
         _articles = articles;
@@ -122,30 +119,233 @@ class _VentesModalState extends State<VentesModal> {
     }
   }
 
-  void _onArticleSelected(Article? article) {
+  void _onArticleSelected(Article? article) async {
     setState(() {
       _selectedArticle = article;
       if (article != null) {
         _selectedUnite = article.u1;
-        if (!widget.tousDepots) {
-          _selectedDepot = 'MAG';
-        }
-
-        // Calculer le prix de vente basé sur le CMUP
-        double cmup = article.cmup ?? 0.0;
-        if (cmup > 0) {
-          double prixVente = cmup * 1.2; // Marge de 20%
-          if (article.tu2u1 != null && _selectedUnite == article.u1) {
-            prixVente = cmup * article.tu2u1! * 1.2;
-          }
-          _prixController.text = _formatNumber(prixVente);
-        } else {
-          _prixController.text = '';
-        }
+        _selectedDepot = 'MAG';
         _quantiteController.text = '';
         _montantController.text = '';
       }
     });
+
+    if (article != null) {
+      await _verifierStockEtBasculer(article);
+    }
+  }
+
+  List<DropdownMenuItem<String>> _getUnitsForSelectedArticle() {
+    if (_selectedArticle == null) {
+      return const [
+        DropdownMenuItem(value: 'Pce', child: Text('Pce', style: TextStyle(fontSize: 12))),
+      ];
+    }
+
+    List<DropdownMenuItem<String>> units = [];
+    if (_selectedArticle!.u1?.isNotEmpty == true) {
+      units.add(DropdownMenuItem(
+        value: _selectedArticle!.u1,
+        child: Text(_selectedArticle!.u1!, style: const TextStyle(fontSize: 12)),
+      ));
+    }
+    if (_selectedArticle!.u2?.isNotEmpty == true) {
+      units.add(DropdownMenuItem(
+        value: _selectedArticle!.u2,
+        child: Text(_selectedArticle!.u2!, style: const TextStyle(fontSize: 12)),
+      ));
+    }
+    if (_selectedArticle!.u3?.isNotEmpty == true) {
+      units.add(DropdownMenuItem(
+        value: _selectedArticle!.u3,
+        child: Text(_selectedArticle!.u3!, style: const TextStyle(fontSize: 12)),
+      ));
+    }
+
+    return units.isEmpty
+        ? [
+            const DropdownMenuItem(value: 'Pce', child: Text('Pce', style: TextStyle(fontSize: 12))),
+          ]
+        : units;
+  }
+
+  void _onUniteChanged(String? unite) async {
+    if (_selectedArticle == null || unite == null) return;
+
+    setState(() {
+      _selectedUnite = unite;
+      _calculerPrixPourUnite(_selectedArticle!, unite);
+      _quantiteController.text = '';
+    });
+
+    await _verifierStock(_selectedArticle!);
+  }
+
+  Future<void> _verifierStockEtBasculer(Article article) async {
+    try {
+      String depot = _selectedDepot ?? 'MAG';
+
+      // Récupérer le stock depuis la table depart
+      final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+          .getSingleOrNull();
+
+      // Vérifier les stocks pour chaque unité
+      Map<String, double> stocksParUnite = {};
+
+      if (stockDepart != null) {
+        if (article.u1?.isNotEmpty == true) stocksParUnite[article.u1!] = stockDepart.stocksu1 ?? 0.0;
+        if (article.u2?.isNotEmpty == true) stocksParUnite[article.u2!] = stockDepart.stocksu2 ?? 0.0;
+        if (article.u3?.isNotEmpty == true) stocksParUnite[article.u3!] = stockDepart.stocksu3 ?? 0.0;
+      } else {
+        // Fallback sur les stocks de l'article
+        if (article.u1?.isNotEmpty == true) stocksParUnite[article.u1!] = article.stocksu1 ?? 0.0;
+        if (article.u2?.isNotEmpty == true) stocksParUnite[article.u2!] = article.stocksu2 ?? 0.0;
+        if (article.u3?.isNotEmpty == true) stocksParUnite[article.u3!] = article.stocksu3 ?? 0.0;
+      }
+
+      // Trouver une unité avec stock disponible
+      String? uniteAvecStock;
+      double stockMax = 0.0;
+
+      for (var entry in stocksParUnite.entries) {
+        if (entry.value > 0 && entry.value > stockMax) {
+          uniteAvecStock = entry.key;
+          stockMax = entry.value;
+        }
+      }
+
+      setState(() {
+        if (uniteAvecStock != null) {
+          // Basculer vers l'unité avec stock
+          _selectedUnite = uniteAvecStock;
+          _stockDisponible = stockMax;
+          _stockInsuffisant = false;
+
+          // Recalculer le prix pour la nouvelle unité
+          _calculerPrixPourUnite(article, uniteAvecStock);
+        } else {
+          // Aucun stock disponible
+          _stockDisponible = 0.0;
+          _stockInsuffisant = true;
+          _quantiteController.text = '0';
+        }
+      });
+
+      if (_stockInsuffisant) {
+        _afficherModalStockInsuffisant();
+      }
+    } catch (e) {
+      setState(() {
+        _stockDisponible = 0.0;
+        _stockInsuffisant = true;
+        _quantiteController.text = '0';
+      });
+    }
+  }
+
+  Future<void> _verifierStock(Article article) async {
+    try {
+      String depot = _selectedDepot ?? 'MAG';
+      String unite = _selectedUnite ?? article.u1 ?? 'Pce';
+
+      // Récupérer le stock depuis la table depart
+      final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+          .getSingleOrNull();
+
+      setState(() {
+        if (stockDepart != null) {
+          // Sélectionner le stock selon l'unité
+          if (unite == article.u1) {
+            _stockDisponible = stockDepart.stocksu1 ?? 0.0;
+          } else if (unite == article.u2) {
+            _stockDisponible = stockDepart.stocksu2 ?? 0.0;
+          } else if (unite == article.u3) {
+            _stockDisponible = stockDepart.stocksu3 ?? 0.0;
+          } else {
+            _stockDisponible = stockDepart.stocksu1 ?? 0.0;
+          }
+        } else {
+          // Fallback sur le stock de l'article
+          if (unite == article.u1) {
+            _stockDisponible = article.stocksu1 ?? 0.0;
+          } else if (unite == article.u2) {
+            _stockDisponible = article.stocksu2 ?? 0.0;
+          } else if (unite == article.u3) {
+            _stockDisponible = article.stocksu3 ?? 0.0;
+          } else {
+            _stockDisponible = article.stocksu1 ?? 0.0;
+          }
+        }
+
+        _stockInsuffisant = _stockDisponible <= 0;
+
+        if (_stockInsuffisant) {
+          _quantiteController.text = '0';
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _stockDisponible = 0.0;
+        _stockInsuffisant = true;
+        _quantiteController.text = '0';
+      });
+    }
+  }
+
+  void _calculerPrixPourUnite(Article article, String unite) {
+    double cmup = article.cmup ?? 0.0;
+    if (cmup == 0.0) {
+      _prixController.text = '';
+    } else {
+      double prixUnitaire = cmup;
+      if (unite == article.u1 && article.tu2u1 != null) {
+        prixUnitaire = cmup * article.tu2u1! * 1.2;
+      } else if (unite == article.u2 && article.tu3u2 != null) {
+        prixUnitaire = cmup * article.tu3u2! * 1.2;
+      } else {
+        prixUnitaire = cmup * 1.2;
+      }
+      _prixController.text = _formatNumber(prixUnitaire);
+    }
+  }
+
+  void _afficherModalStockInsuffisant() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Stock insuffisant'),
+        content: Text('Stock épuisé pour l\'article "${_selectedArticle?.designation}".\nVente impossible.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _validerQuantite(String value) {
+    if (_selectedArticle == null) return;
+
+    double quantite = double.tryParse(value) ?? 0.0;
+
+    if (quantite > _stockDisponible) {
+      setState(() {
+        _quantiteController.text = _stockDisponible.toString();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Quantité maximale disponible: ${_stockDisponible.toStringAsFixed(0)}'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+
+    _calculerMontant();
   }
 
   String _formatNumber(double number) {
@@ -222,6 +422,8 @@ class _VentesModalState extends State<VentesModal> {
       _quantiteController.clear();
       _prixController.clear();
       _montantController.clear();
+      _stockDisponible = 0.0;
+      _stockInsuffisant = false;
     });
   }
 
@@ -234,9 +436,168 @@ class _VentesModalState extends State<VentesModal> {
 
   bool _isArticleFormValid() {
     return _selectedArticle != null &&
+        !_stockInsuffisant &&
         _quantiteController.text.isNotEmpty &&
         double.tryParse(_quantiteController.text) != null &&
         double.tryParse(_quantiteController.text)! > 0;
+  }
+
+  Future<void> _validerVente() async {
+    if (_lignesVente.isEmpty) return;
+
+    try {
+      double totalHT = 0;
+      for (var ligne in _lignesVente) {
+        totalHT += ligne['montant'] ?? 0;
+      }
+
+      double remise = double.tryParse(_remiseController.text) ?? 0;
+      double totalApresRemise = totalHT - (totalHT * remise / 100);
+      double tva = double.tryParse(_tvaController.text) ?? 0;
+      double totalTTC = totalApresRemise + (totalApresRemise * tva / 100);
+      double avance = double.tryParse(_avanceController.text) ?? 0;
+      double commission = double.tryParse(_commissionController.text) ?? 0;
+
+      final venteCompanion = VentesCompanion(
+        numventes: drift.Value(_numVentesController.text),
+        nfact: drift.Value(_nFactureController.text),
+        daty: drift.Value(DateTime.now()),
+        clt: drift.Value(_clientController.text),
+        modepai: drift.Value(_selectedModePaiement),
+        totalnt: drift.Value(totalApresRemise),
+        totalttc: drift.Value(totalTTC),
+        tva: drift.Value(tva),
+        avance: drift.Value(avance),
+        commission: drift.Value(commission),
+        remise: drift.Value(remise),
+        heure: drift.Value(_heureController.text),
+        verification: const drift.Value('Non vérifié'),
+      );
+
+      await _databaseService.database.insertVente(venteCompanion);
+
+      // for (var ligne in _lignesVente) {
+      //   final detailCompanion = DetventsCompanion(
+      //     numventes: drift.Value(_numVentesController.text),
+      //     designation: drift.Value(ligne['designation']),
+      //     unites: drift.Value(ligne['unites']),
+      //     q: drift.Value(ligne['quantite']),
+      //     pu: drift.Value(ligne['prixUnitaire']),
+      //     daty: drift.Value(DateTime.now()),
+      //     depots: drift.Value(ligne['depot']),
+      //   );
+
+      //   await _databaseService.database.into(_databaseService.database.detventes).insert(detailCompanion);
+      // }
+
+      setState(() {
+        _isExistingPurchase = true;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vente enregistrée avec succès'), backgroundColor: Colors.green),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'enregistrement: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _creerNouvelleVente() async {
+    setState(() {
+      _isExistingPurchase = false;
+      _selectedRowIndex = null;
+      _lignesVente.clear();
+      _clientController.clear();
+    });
+
+    _totalHTController.text = '0';
+    _remiseController.text = '0';
+    _tvaController.text = '0';
+    _totalTTCController.text = '0';
+    _avanceController.text = '0';
+    _resteController.text = '0';
+    _nouveauSoldeController.text = '0';
+    _commissionController.text = '0';
+
+    _resetArticleForm();
+    _initializeForm();
+  }
+
+  Future<void> _contrePasserVente() async {
+    if (!_isExistingPurchase) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune vente sélectionnée à contre-passer')),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: Text('Voulez-vous vraiment contre-passer la vente N° ${_numVentesController.text} ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Confirmer')),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await (_databaseService.database.delete(_databaseService.database.detventes)
+            ..where((d) => d.numventes.equals(_numVentesController.text)))
+          .go();
+
+      await (_databaseService.database.delete(_databaseService.database.ventes)
+            ..where((v) => v.numventes.equals(_numVentesController.text)))
+          .go();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vente contre-passée avec succès')),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du contre-passement: $e')),
+        );
+      }
+    }
+  }
+
+  void _apercuFacture() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Aperçu facture - Fonctionnalité à implémenter')),
+    );
+  }
+
+  void _imprimerFacture() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Impression facture - Fonctionnalité à implémenter')),
+    );
+  }
+
+  void _apercuBL() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Aperçu BL - Fonctionnalité à implémenter')),
+    );
+  }
+
+  void _imprimerBL() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Imprimer BL - Fonctionnalité à implémenter')),
+    );
   }
 
   @override
@@ -265,10 +626,7 @@ class _VentesModalState extends State<VentesModal> {
                         padding: const EdgeInsets.only(left: 16),
                         child: Text(
                           'VENTES (${widget.tousDepots ? 'Tous dépôts' : 'Dépôt MAG'})',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                         ),
                       ),
                     ),
@@ -287,7 +645,6 @@ class _VentesModalState extends State<VentesModal> {
                 padding: const EdgeInsets.all(8),
                 child: Column(
                   children: [
-                    // First row
                     Row(
                       children: [
                         Column(
@@ -296,10 +653,8 @@ class _VentesModalState extends State<VentesModal> {
                               width: 120,
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
                               color: Colors.green,
-                              child: const Text(
-                                'Enregistrement',
-                                style: TextStyle(color: Colors.white, fontSize: 12),
-                              ),
+                              child: const Text('Enregistrement',
+                                  style: TextStyle(color: Colors.white, fontSize: 12)),
                             ),
                             const SizedBox(height: 2),
                             SizedBox(
@@ -396,7 +751,6 @@ class _VentesModalState extends State<VentesModal> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    // Second row - Clients
                     Row(
                       children: [
                         const Text('Clients', style: TextStyle(fontSize: 12)),
@@ -433,7 +787,6 @@ class _VentesModalState extends State<VentesModal> {
                 padding: const EdgeInsets.all(8),
                 child: Row(
                   children: [
-                    // Designation Articles
                     Expanded(
                       flex: 3,
                       child: Column(
@@ -446,16 +799,43 @@ class _VentesModalState extends State<VentesModal> {
                             child: Autocomplete<Article>(
                               optionsBuilder: (textEditingValue) {
                                 if (textEditingValue.text.isEmpty) {
-                                  return const Iterable<Article>.empty();
+                                  return _articles.take(10);
                                 }
                                 return _articles.where((article) {
                                   return article.designation
                                       .toLowerCase()
                                       .contains(textEditingValue.text.toLowerCase());
-                                });
+                                }).take(10);
                               },
                               displayStringForOption: (article) => article.designation,
                               onSelected: _onArticleSelected,
+                              optionsViewBuilder: (context, onSelected, options) {
+                                return Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Material(
+                                    elevation: 4.0,
+                                    child: Container(
+                                      constraints: const BoxConstraints(maxHeight: 200, maxWidth: 300),
+                                      child: ListView.builder(
+                                        padding: EdgeInsets.zero,
+                                        itemCount: options.length,
+                                        itemBuilder: (context, index) {
+                                          final article = options.elementAt(index);
+                                          return ListTile(
+                                            dense: true,
+                                            title: Text(article.designation,
+                                                style: const TextStyle(fontSize: 11)),
+                                            subtitle: Text(
+                                                'Stock: ${article.stocksu1?.toStringAsFixed(0) ?? "0"}',
+                                                style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                            onTap: () => onSelected(article),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                               fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
                                 _autocompleteController = controller;
                                 return TextField(
@@ -464,6 +844,7 @@ class _VentesModalState extends State<VentesModal> {
                                   decoration: const InputDecoration(
                                     border: OutlineInputBorder(),
                                     contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    hintText: 'Rechercher un article...',
                                   ),
                                   style: const TextStyle(fontSize: 12),
                                 );
@@ -474,7 +855,6 @@ class _VentesModalState extends State<VentesModal> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Unités
                     Expanded(
                       flex: 1,
                       child: Column(
@@ -484,48 +864,56 @@ class _VentesModalState extends State<VentesModal> {
                           const SizedBox(height: 4),
                           SizedBox(
                             height: 25,
-                            child: TextField(
-                              controller: TextEditingController(text: _selectedUnite ?? ''),
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _selectedUnite,
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
                                 contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                               ),
-                              style: const TextStyle(fontSize: 12),
-                              readOnly: true,
+                              items: _getUnitsForSelectedArticle(),
+                              onChanged: _onUniteChanged,
                             ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Quantités
                     Expanded(
                       flex: 1,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Quantités', style: TextStyle(fontSize: 12)),
+                          Row(
+                            children: [
+                              const Text('Quantités', style: TextStyle(fontSize: 12)),
+                              if (_selectedArticle != null && _stockDisponible > 0)
+                                Text(' (Stock: ${_stockDisponible.toStringAsFixed(0)})',
+                                    style: const TextStyle(fontSize: 10, color: Colors.green)),
+                            ],
+                          ),
                           const SizedBox(height: 4),
                           SizedBox(
                             height: 25,
                             child: TextField(
                               controller: _quantiteController,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              enabled: !_stockInsuffisant,
+                              decoration: InputDecoration(
+                                border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                fillColor: _stockInsuffisant ? Colors.grey[300] : null,
+                                filled: _stockInsuffisant,
                               ),
-                              style: const TextStyle(fontSize: 12),
-                              onChanged: (value) {
-                                setState(() {});
-                                _calculerMontant();
-                              },
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: _stockInsuffisant ? Colors.grey[600] : null,
+                              ),
+                              onChanged: _validerQuantite,
                             ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // P.U HT
                     Expanded(
                       flex: 1,
                       child: Column(
@@ -549,7 +937,6 @@ class _VentesModalState extends State<VentesModal> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // Montant
                     Expanded(
                       flex: 1,
                       child: Column(
@@ -574,7 +961,6 @@ class _VentesModalState extends State<VentesModal> {
                     ),
                     if (widget.tousDepots) ...[
                       const SizedBox(width: 8),
-                      // Dépôts
                       Expanded(
                         flex: 1,
                         child: Column(
@@ -585,6 +971,7 @@ class _VentesModalState extends State<VentesModal> {
                             SizedBox(
                               height: 25,
                               child: DropdownButtonFormField<String>(
+                                initialValue: _selectedDepot,
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
                                   contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -595,10 +982,13 @@ class _VentesModalState extends State<VentesModal> {
                                     child: Text(depot.depots, style: const TextStyle(fontSize: 12)),
                                   );
                                 }).toList(),
-                                onChanged: (value) {
+                                onChanged: (value) async {
                                   setState(() {
                                     _selectedDepot = value;
                                   });
+                                  if (_selectedArticle != null) {
+                                    await _verifierStock(_selectedArticle!);
+                                  }
                                 },
                               ),
                             ),
@@ -637,12 +1027,9 @@ class _VentesModalState extends State<VentesModal> {
                   ),
                   child: Column(
                     children: [
-                      // Table header
                       Container(
                         height: 25,
-                        decoration: BoxDecoration(
-                          color: Colors.orange[300],
-                        ),
+                        decoration: BoxDecoration(color: Colors.orange[300]),
                         child: Row(
                           children: [
                             Container(
@@ -666,10 +1053,8 @@ class _VentesModalState extends State<VentesModal> {
                                     bottom: BorderSide(color: Colors.grey, width: 1),
                                   ),
                                 ),
-                                child: const Text(
-                                  'DESIGNATION',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
+                                child: const Text('DESIGNATION',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                               ),
                             ),
                             Expanded(
@@ -682,10 +1067,8 @@ class _VentesModalState extends State<VentesModal> {
                                     bottom: BorderSide(color: Colors.grey, width: 1),
                                   ),
                                 ),
-                                child: const Text(
-                                  'UNITES',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
+                                child: const Text('UNITES',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                               ),
                             ),
                             Expanded(
@@ -698,10 +1081,8 @@ class _VentesModalState extends State<VentesModal> {
                                     bottom: BorderSide(color: Colors.grey, width: 1),
                                   ),
                                 ),
-                                child: const Text(
-                                  'QUANTITES',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
+                                child: const Text('QUANTITES',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                               ),
                             ),
                             Expanded(
@@ -714,10 +1095,8 @@ class _VentesModalState extends State<VentesModal> {
                                     bottom: BorderSide(color: Colors.grey, width: 1),
                                   ),
                                 ),
-                                child: const Text(
-                                  'PRIX UNITAIRE (HT)',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
+                                child: const Text('PRIX UNITAIRE (HT)',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                               ),
                             ),
                             Expanded(
@@ -730,10 +1109,8 @@ class _VentesModalState extends State<VentesModal> {
                                     bottom: BorderSide(color: Colors.grey, width: 1),
                                   ),
                                 ),
-                                child: const Text(
-                                  'MONTANT',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                ),
+                                child: const Text('MONTANT',
+                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                               ),
                             ),
                             if (widget.tousDepots)
@@ -742,31 +1119,21 @@ class _VentesModalState extends State<VentesModal> {
                                 child: Container(
                                   alignment: Alignment.center,
                                   decoration: const BoxDecoration(
-                                    border: Border(
-                                      bottom: BorderSide(color: Colors.grey, width: 1),
-                                    ),
+                                    border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
                                   ),
-                                  child: const Text(
-                                    'DEPOTS',
-                                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                  ),
+                                  child: const Text('DEPOTS',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                 ),
                               ),
                           ],
                         ),
                       ),
-                      // Table content
                       Expanded(
                         child: _lignesVente.isEmpty
                             ? const Center(
-                                child: Text(
-                                  'Aucun article ajouté',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey,
-                                    fontStyle: FontStyle.italic,
-                                  ),
-                                ),
+                                child: Text('Aucun article ajouté',
+                                    style: TextStyle(
+                                        fontSize: 14, color: Colors.grey, fontStyle: FontStyle.italic)),
                               )
                             : ListView.builder(
                                 itemCount: _lignesVente.length,
@@ -809,11 +1176,24 @@ class _VentesModalState extends State<VentesModal> {
                                                 bottom: BorderSide(color: Colors.grey, width: 1),
                                               ),
                                             ),
-                                            child: Text(
-                                              ligne['designation'] ?? '',
-                                              style: const TextStyle(fontSize: 11),
-                                              overflow: TextOverflow.ellipsis,
+                                            child: Text(ligne['designation'] ?? '',
+                                                style: const TextStyle(fontSize: 11),
+                                                overflow: TextOverflow.ellipsis),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          flex: 1,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                                            alignment: Alignment.center,
+                                            decoration: const BoxDecoration(
+                                              border: Border(
+                                                right: BorderSide(color: Colors.grey, width: 1),
+                                                bottom: BorderSide(color: Colors.grey, width: 1),
+                                              ),
                                             ),
+                                            child: Text(ligne['unites'] ?? '',
+                                                style: const TextStyle(fontSize: 11)),
                                           ),
                                         ),
                                         Expanded(
@@ -828,26 +1208,8 @@ class _VentesModalState extends State<VentesModal> {
                                               ),
                                             ),
                                             child: Text(
-                                              ligne['unites'] ?? '',
-                                              style: const TextStyle(fontSize: 11),
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                                            alignment: Alignment.center,
-                                            decoration: const BoxDecoration(
-                                              border: Border(
-                                                right: BorderSide(color: Colors.grey, width: 1),
-                                                bottom: BorderSide(color: Colors.grey, width: 1),
-                                              ),
-                                            ),
-                                            child: Text(
-                                              (ligne['quantite'] as double?)?.round().toString() ?? '0',
-                                              style: const TextStyle(fontSize: 11),
-                                            ),
+                                                (ligne['quantite'] as double?)?.round().toString() ?? '0',
+                                                style: const TextStyle(fontSize: 11)),
                                           ),
                                         ),
                                         Expanded(
@@ -861,10 +1223,8 @@ class _VentesModalState extends State<VentesModal> {
                                                 bottom: BorderSide(color: Colors.grey, width: 1),
                                               ),
                                             ),
-                                            child: Text(
-                                              _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
-                                              style: const TextStyle(fontSize: 11),
-                                            ),
+                                            child: Text(_formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                                style: const TextStyle(fontSize: 11)),
                                           ),
                                         ),
                                         Expanded(
@@ -880,26 +1240,22 @@ class _VentesModalState extends State<VentesModal> {
                                                 bottom: const BorderSide(color: Colors.grey, width: 1),
                                               ),
                                             ),
-                                            child: Text(
-                                              _formatNumber(ligne['montant']?.toDouble() ?? 0),
-                                              style: const TextStyle(fontSize: 11),
-                                            ),
+                                            child: Text(_formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                                style: const TextStyle(fontSize: 11)),
                                           ),
                                         ),
                                         if (widget.tousDepots)
                                           Expanded(
                                             flex: 1,
                                             child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4),
                                               alignment: Alignment.center,
                                               decoration: const BoxDecoration(
-                                                border: Border(
-                                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                                ),
+                                                border:
+                                                    Border(bottom: BorderSide(color: Colors.grey, width: 1)),
                                               ),
-                                              child: Text(
-                                                ligne['depot'] ?? '',
-                                                style: const TextStyle(fontSize: 11),
-                                              ),
+                                              child: Text(ligne['depot'] ?? '',
+                                                  style: const TextStyle(fontSize: 11)),
                                             ),
                                           ),
                                       ],
@@ -913,247 +1269,186 @@ class _VentesModalState extends State<VentesModal> {
                 ),
               ),
 
-              // Bottom section with totals and payment info
+              // Bottom section - Totals and payment
               Container(
                 color: const Color(0xFFE6E6FA),
                 padding: const EdgeInsets.all(8),
-                child: Row(
+                child: Column(
                   children: [
-                    // Left side - Payment info
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Row(
                             children: [
-                              const Text('Mode de paiement', style: TextStyle(fontSize: 12)),
+                              const Text('Total HT', style: TextStyle(fontSize: 12)),
                               const SizedBox(width: 8),
                               SizedBox(
-                                width: 120,
-                                height: 25,
-                                child: DropdownButtonFormField<String>(
-                                  initialValue: _selectedModePaiement,
-                                  decoration: const InputDecoration(
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                        value: 'A crédit',
-                                        child: Text('A crédit', style: TextStyle(fontSize: 12))),
-                                    DropdownMenuItem(
-                                        value: 'Espèces',
-                                        child: Text('Espèces', style: TextStyle(fontSize: 12))),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _selectedModePaiement = value ?? 'A crédit';
-                                    });
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Text('Commerciaux', style: TextStyle(fontSize: 12)),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 120,
-                                height: 25,
-                                child: DropdownButtonFormField<String>(
-                                  decoration: const InputDecoration(
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                        value: 'Commercial',
-                                        child: Text('Commercial', style: TextStyle(fontSize: 12))),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() {});
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Text('Commission', style: TextStyle(fontSize: 12)),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                width: 120,
+                                width: 100,
                                 height: 25,
                                 child: TextField(
-                                  controller: _commissionController,
-                                  textAlign: TextAlign.right,
+                                  controller: _totalHTController,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    fillColor: Color(0xFFF5F5F5),
+                                    filled: true,
+                                  ),
+                                  style: const TextStyle(fontSize: 12),
+                                  readOnly: true,
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const Text('Remise %', style: TextStyle(fontSize: 12)),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 60,
+                                height: 25,
+                                child: TextField(
+                                  controller: _remiseController,
                                   decoration: const InputDecoration(
                                     border: OutlineInputBorder(),
                                     contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                   ),
                                   style: const TextStyle(fontSize: 12),
+                                  onChanged: (value) => _calculerTotaux(),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const Text('TVA %', style: TextStyle(fontSize: 12)),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 60,
+                                height: 25,
+                                child: TextField(
+                                  controller: _tvaController,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  ),
+                                  style: const TextStyle(fontSize: 12),
+                                  onChanged: (value) => _calculerTotaux(),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              const Text('Total TTC', style: TextStyle(fontSize: 12)),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 100,
+                                height: 25,
+                                child: TextField(
+                                  controller: _totalTTCController,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                    fillColor: Color(0xFFF5F5F5),
+                                    filled: true,
+                                  ),
+                                  style: const TextStyle(fontSize: 12),
+                                  readOnly: true,
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-
-                    const SizedBox(width: 32),
-
-                    // Right side - Totals
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            const Text('Total HT', style: TextStyle(fontSize: 12)),
-                            const SizedBox(width: 16),
-                            SizedBox(
-                              width: 100,
-                              height: 25,
-                              child: TextField(
-                                controller: _totalHTController,
-                                textAlign: TextAlign.right,
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                ),
-                                style: const TextStyle(fontSize: 12),
-                              ),
+                        const Text('Mode de paiement', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 120,
+                          height: 25,
+                          child: DropdownButtonFormField<String>(
+                            initialValue: _selectedModePaiement,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                             ),
-                          ],
+                            items: const [
+                              DropdownMenuItem(
+                                  value: 'A crédit', child: Text('A crédit', style: TextStyle(fontSize: 12))),
+                              DropdownMenuItem(
+                                  value: 'Espèces', child: Text('Espèces', style: TextStyle(fontSize: 12))),
+                              DropdownMenuItem(
+                                  value: 'Chèque', child: Text('Chèque', style: TextStyle(fontSize: 12))),
+                              DropdownMenuItem(
+                                  value: 'Virement', child: Text('Virement', style: TextStyle(fontSize: 12))),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedModePaiement = value!;
+                              });
+                            },
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Text('Remise (%)', style: TextStyle(fontSize: 12)),
-                            const SizedBox(width: 16),
-                            SizedBox(
-                              width: 100,
-                              height: 25,
-                              child: TextField(
-                                controller: _remiseController,
-                                textAlign: TextAlign.right,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                ),
-                                style: const TextStyle(fontSize: 12),
-                                onChanged: (value) => _calculerTotaux(),
-                              ),
+                        const SizedBox(width: 16),
+                        const Text('Avance', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 100,
+                          height: 25,
+                          child: TextField(
+                            controller: _avanceController,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                             ),
-                          ],
+                            style: const TextStyle(fontSize: 12),
+                            onChanged: (value) => _calculerTotaux(),
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Text('TVA', style: TextStyle(fontSize: 12)),
-                            const SizedBox(width: 16),
-                            SizedBox(
-                              width: 100,
-                              height: 25,
-                              child: TextField(
-                                controller: _tvaController,
-                                textAlign: TextAlign.right,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                ),
-                                style: const TextStyle(fontSize: 12),
-                                onChanged: (value) => _calculerTotaux(),
-                              ),
+                        const SizedBox(width: 16),
+                        const Text('Reste', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 100,
+                          height: 25,
+                          child: TextField(
+                            controller: _resteController,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              fillColor: Color(0xFFF5F5F5),
+                              filled: true,
                             ),
-                          ],
+                            style: const TextStyle(fontSize: 12),
+                            readOnly: true,
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Text('Total TTC', style: TextStyle(fontSize: 12)),
-                            const SizedBox(width: 16),
-                            SizedBox(
-                              width: 100,
-                              height: 25,
-                              child: TextField(
-                                controller: _totalTTCController,
-                                textAlign: TextAlign.right,
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                ),
-                                style: const TextStyle(fontSize: 12),
-                              ),
+                        const SizedBox(width: 16),
+                        const Text('Nouveau solde', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 100,
+                          height: 25,
+                          child: TextField(
+                            controller: _nouveauSoldeController,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                              fillColor: Color(0xFFF5F5F5),
+                              filled: true,
                             ),
-                          ],
+                            style: const TextStyle(fontSize: 12),
+                            readOnly: true,
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Text('Avance', style: TextStyle(fontSize: 12)),
-                            const SizedBox(width: 16),
-                            SizedBox(
-                              width: 100,
-                              height: 25,
-                              child: TextField(
-                                controller: _avanceController,
-                                textAlign: TextAlign.right,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                ),
-                                style: const TextStyle(fontSize: 12),
-                                onChanged: (value) => _calculerTotaux(),
-                              ),
+                        const SizedBox(width: 16),
+                        const Text('Commission', style: TextStyle(fontSize: 12)),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 80,
+                          height: 25,
+                          child: TextField(
+                            controller: _commissionController,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Text('Reste', style: TextStyle(fontSize: 12)),
-                            const SizedBox(width: 16),
-                            SizedBox(
-                              width: 100,
-                              height: 25,
-                              child: TextField(
-                                controller: _resteController,
-                                textAlign: TextAlign.right,
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                ),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            const Text('Nouveau Solde', style: TextStyle(fontSize: 12)),
-                            const SizedBox(width: 16),
-                            SizedBox(
-                              width: 100,
-                              height: 25,
-                              child: TextField(
-                                controller: _nouveauSoldeController,
-                                textAlign: TextAlign.right,
-                                readOnly: true,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                ),
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ],
+                            style: const TextStyle(fontSize: 12),
+                          ),
                         ),
                       ],
                     ),
@@ -1163,68 +1458,87 @@ class _VentesModalState extends State<VentesModal> {
 
               // Action buttons
               Container(
-                decoration: const BoxDecoration(
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
-                  ),
-                  color: Color(0xFFFFB6C1),
-                ),
                 padding: const EdgeInsets.all(8),
                 child: Row(
                   children: [
                     ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                      child: const Text('Créer', style: TextStyle(fontSize: 12)),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
-                      child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
-                    ),
-                    const Spacer(),
-                    ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
+                      onPressed: _lignesVente.isNotEmpty ? _validerVente : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(80, 32),
+                      ),
                       child: const Text('Valider', style: TextStyle(fontSize: 12)),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(70, 30)),
-                      child: const Text('Aperçu FACTURE', style: TextStyle(fontSize: 12)),
+                      onPressed: _isExistingPurchase ? _contrePasserVente : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(100, 32),
+                      ),
+                      child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(70, 30)),
+                      onPressed: _creerNouvelleVente,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(80, 32),
+                      ),
+                      child: const Text('Créer', style: TextStyle(fontSize: 12)),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _lignesVente.isNotEmpty ? _apercuFacture : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(100, 32),
+                      ),
+                      child: const Text('Aperçu Facture', style: TextStyle(fontSize: 12)),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _lignesVente.isNotEmpty ? _imprimerFacture : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(110, 32),
+                      ),
+                      child: const Text('Impression facture', style: TextStyle(fontSize: 12)),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _lignesVente.isNotEmpty ? _apercuBL : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.teal,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(80, 32),
+                      ),
                       child: const Text('Aperçu BL', style: TextStyle(fontSize: 12)),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
-                      child: const Text('Imprimer FACTURE', style: TextStyle(fontSize: 12)),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
+                      onPressed: _lignesVente.isNotEmpty ? _imprimerBL : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(90, 32),
+                      ),
                       child: const Text('Imprimer BL', style: TextStyle(fontSize: 12)),
                     ),
-                    const SizedBox(width: 8),
+                    const Spacer(),
                     ElevatedButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(80, 32),
+                      ),
                       child: const Text('Fermer', style: TextStyle(fontSize: 12)),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
-                      child: const Text('Gestion Emballages', style: TextStyle(fontSize: 12)),
                     ),
                   ],
                 ),

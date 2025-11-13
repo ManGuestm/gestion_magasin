@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'ventes_modal.dart';
+import 'ventes_modal.dart' as ventes;
 
 class VentesSelectionModal extends StatelessWidget {
   const VentesSelectionModal({super.key});
@@ -64,7 +64,7 @@ class VentesSelectionModal extends StatelessWidget {
                           Navigator.of(context).pop();
                           showDialog(
                             context: context,
-                            builder: (context) => const VentesModal(tousDepots: true),
+                            builder: (context) => const ventes.VentesModal(tousDepots: true),
                           );
                         },
                         style: ElevatedButton.styleFrom(
@@ -86,7 +86,7 @@ class VentesSelectionModal extends StatelessWidget {
                           Navigator.of(context).pop();
                           showDialog(
                             context: context,
-                            builder: (context) => const VentesModal(tousDepots: false),
+                            builder: (context) => const ventes.VentesModal(tousDepots: false),
                           );
                         },
                         style: ElevatedButton.styleFrom(

@@ -5,15 +5,54 @@ import '../services/menu_service.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
 import '../widgets/modals/achats_modal.dart';
+import '../widgets/modals/approximation_stocks_modal.dart';
 import '../widgets/modals/articles_modal.dart';
 import '../widgets/modals/banques_modal.dart';
 import '../widgets/modals/clients_modal.dart';
 import '../widgets/modals/company_info_modal.dart';
 import '../widgets/modals/depots_modal.dart';
 import '../widgets/modals/fournisseurs_modal.dart';
+import '../widgets/modals/liste_achats_modal.dart';
+import '../widgets/modals/liste_ventes_modal.dart';
+import '../widgets/modals/mouvements_clients_modal.dart';
 import '../widgets/modals/moyen_paiement_modal.dart';
 import '../widgets/modals/plan_comptes_modal.dart';
+import '../widgets/modals/sur_achats_modal.dart';
+import '../widgets/modals/sur_ventes_modal.dart';
+
 import '../widgets/modals/ventes_selection_modal.dart';
+import '../widgets/modals/transfert_marchandises_modal.dart';
+import '../widgets/modals/gestion_emballages_modal.dart';
+import '../widgets/modals/productions_modal.dart';
+import '../widgets/modals/regularisation_compte_tiers_modal.dart';
+import '../widgets/modals/encaissements_modal.dart';
+import '../widgets/modals/decaissements_modal.dart';
+import '../widgets/modals/journal_caisse_modal.dart';
+import '../widgets/modals/cheques_modal.dart';
+import '../widgets/modals/journal_banques_modal.dart';
+import '../widgets/modals/etats_fournisseurs_modal.dart';
+import '../widgets/modals/etats_clients_modal.dart';
+import '../widgets/modals/etats_articles_modal.dart';
+import '../widgets/modals/regularisation_compte_commerciaux_modal.dart';
+import '../widgets/modals/relance_clients_modal.dart';
+import '../widgets/modals/echance_fournisseurs_modal.dart';
+import '../widgets/modals/variation_stocks_modal.dart';
+import '../widgets/modals/mise_a_jour_valeurs_stocks_modal.dart';
+import '../widgets/modals/niveau_stocks_modal.dart';
+import '../widgets/modals/amortissement_immobilisations_modal.dart';
+import '../widgets/modals/reactualisation_base_donnees_modal.dart';
+import '../widgets/modals/effet_a_recevoir_modal.dart';
+import '../widgets/modals/virements_internes_modal.dart';
+import '../widgets/modals/operations_caisses_modal.dart';
+import '../widgets/modals/operations_banques_modal.dart';
+import '../widgets/modals/etats_commerciaux_modal.dart';
+import '../widgets/modals/etats_immobilisations_modal.dart';
+import '../widgets/modals/etats_autres_comptes_modal.dart';
+import '../widgets/modals/statistiques_ventes_modal.dart';
+import '../widgets/modals/statistiques_achats_modal.dart';
+import '../widgets/modals/marges_modal.dart';
+import '../widgets/modals/tableau_bord_modal.dart';
+import '../widgets/modals/bilan_compte_resultat_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,7 +78,46 @@ class _HomeScreenState extends State<HomeScreen> {
     'Banques': BanquesModal(),
     'Plan de comptes': PlanComptesModal(),
     'Achats': AchatsModal(),
+    'Sur Achats': SurAchatsModal(),
+    'Sur Ventes': SurVentesModal(),
+
+    'Liste des achats': ListeAchatsModal(),
+    'Liste des ventes': ListeVentesModal(),
+    'Mouvements Clients': MouvementsClientsModal(),
+    'Approximation Stocks ...': ApproximationStocksModal(),
     'Moyen de paiement': MoyenPaiementModal(),
+    'Transfert de Marchandises': TransfertMarchandisesModal(),
+    'Gestion Emballages': GestionEmballagesModal(),
+    'Productions': ProductionsModal(),
+    'Régularisation compte tiers': RegularisationCompteTiersModal(),
+    'Encaissements': EncaissementsModal(),
+    'Décaissements': DecaissementsModal(),
+    'Journal de caisse': JournalCaisseModal(),
+    'Chèques': ChequesModal(),
+    'Journal des banques': JournalBanquesModal(),
+    'Etats Fournisseurs': EtatsFournisseursModal(),
+    'Etats Clients': EtatsClientsModal(),
+    'Etats Articles': EtatsArticlesModal(),
+    'Régularisation compte Commerciaux': RegularisationCompteCommerciauxModal(),
+    'Relance Clients': RelanceClientsModal(),
+    'Echéance Fournisseurs': EchanceFournisseursModal(),
+    'Variation des stocks': VariationStocksModal(),
+    'Mise à jour des valeurs de stocks': MiseAJourValeursStocksModal(),
+    'Niveau des stocks (Articles à commandées)': NiveauStocksModal(),
+    'Amortissement des immobilisations': AmortissementImmobilisationsModal(),
+    'Réactualisation de la base de données': ReactualisationBaseDonneesModal(),
+    'Effet à recevoir': EffetARecevoirModal(),
+    'Virements Internes': VirementsInternesModal(),
+    'Opérations Caisses': OperationsCaissesModal(),
+    'Opérations Banques': OperationsBanquesModal(),
+    'Etats Commerciaux': EtatsCommerciauxModal(),
+    'Etats Immobilisations': EtatsImmobilisationsModal(),
+    'Etats Autres Comptes': EtatsAutresComptesModal(),
+    'Statistiques de ventes': StatistiquesVentesModal(),
+    'Statistiques d\'achats': StatistiquesAchatsModal(),
+    'Marges': MargesModal(),
+    'tableau de bord': TableauBordModal(),
+    'Bilan / Compte de Résultat': BilanCompteResultatModal(),
   };
 
   @override
@@ -167,7 +245,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleNestedSubmenuTap(String item) {
     _closeMenu();
-    debugPrint('Nested menu item tapped: $item');
+    final modal = _modals[item];
+    if (modal != null) {
+      showDialog(context: context, builder: (context) => modal);
+    } else {
+      debugPrint('Nested menu item tapped: $item');
+    }
   }
 
   void _handleNestedSubmenuHover(String item, double itemPosition, [double? secondLevelTopPosition]) {
@@ -217,7 +300,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleIconTap(String iconLabel) {
-    debugPrint('Icon tapped: $iconLabel');
+    if (iconLabel == 'Ventes') {
+      showDialog(
+        context: context,
+        builder: (context) => const VentesSelectionModal(),
+      );
+    } else {
+      final modal = _modals[iconLabel];
+      if (modal != null) {
+        showDialog(context: context, builder: (context) => modal);
+      } else {
+        debugPrint('No modal found for: $iconLabel');
+      }
+    }
   }
 
   void _closeMenu() {

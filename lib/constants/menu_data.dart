@@ -17,8 +17,6 @@ class MenuData {
       'Achats',
       'Ventes',
       'Retour de Marchandises',
-      'Sur Achats',
-      'Sur Ventes',
       'Liste des achats',
       'Liste des ventes',
       'Mouvements Clients',

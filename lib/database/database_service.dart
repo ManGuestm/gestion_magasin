@@ -5,14 +5,18 @@ class DatabaseService {
   factory DatabaseService() => _instance;
   DatabaseService._internal();
 
-  late AppDatabase _database;
-  AppDatabase get database => _database;
+  AppDatabase? _database;
+  AppDatabase get database {
+    _database ??= AppDatabase();
+    return _database!;
+  }
 
   Future<void> initialize() async {
     _database = AppDatabase();
   }
 
   Future<void> close() async {
-    await _database.close();
+    await _database?.close();
+    _database = null;
   }
 }
