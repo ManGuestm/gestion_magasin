@@ -1,9 +1,8 @@
-import 'package:drift/drift.dart' as drift;
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import '../../services/stock_service.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
 import 'bon_reception_preview.dart';
@@ -17,7 +16,6 @@ class AchatsModal extends StatefulWidget {
 
 class _AchatsModalState extends State<AchatsModal> {
   final DatabaseService _databaseService = DatabaseService();
-  final StockService _stockService = StockService();
 
   // Controllers
   final TextEditingController _numAchatsController = TextEditingController();
@@ -305,8 +303,6 @@ class _AchatsModalState extends State<AchatsModal> {
     _calculerTotaux();
   }
 
-
-
   void _calculerTotaux() {
     double totalHT = 0;
     for (var ligne in _lignesAchat) {
@@ -506,21 +502,41 @@ class _AchatsModalState extends State<AchatsModal> {
           orElse: () => throw Exception('Article non trouvé'),
         );
 
-        await _stockService.updateStockForUnit(article, ancienneLigne.unites ?? '', -(ancienneLigne.q ?? 0));
+        // Annuler l'impact sur les stocks
+        double quantiteAnnulee = -(ancienneLigne.q ?? 0);
+        if (ancienneLigne.unites == article.u1) {
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu1: Value((article.stocksu1 ?? 0) + quantiteAnnulee),
+          ));
+        } else if (ancienneLigne.unites == article.u2) {
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu2: Value((article.stocksu2 ?? 0) + quantiteAnnulee),
+          ));
+        } else if (ancienneLigne.unites == article.u3) {
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu3: Value((article.stocksu3 ?? 0) + quantiteAnnulee),
+          ));
+        }
       }
 
       // Mettre à jour l'achat principal
       await (_databaseService.database.update(_databaseService.database.achats)
             ..where((a) => a.numachats.equals(_numAchatsController.text)))
           .write(AchatsCompanion(
-        nfact: drift.Value(_nFactController.text.isEmpty ? null : _nFactController.text),
-        daty: drift.Value(dateForDB),
-        frns: drift.Value(_selectedFournisseur!),
-        modepai: drift.Value(_selectedModePaiement),
-        echeance: drift.Value(_echeanceController.text.isEmpty ? null : dateForDB),
-        totalnt: drift.Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0),
-        tva: drift.Value(double.tryParse(_tvaController.text) ?? 0.0),
-        totalttc: drift.Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
+        nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
+        daty: Value(dateForDB),
+        frns: Value(_selectedFournisseur!),
+        modepai: Value(_selectedModePaiement),
+        echeance: Value(_echeanceController.text.isEmpty ? null : dateForDB),
+        totalnt: Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0),
+        tva: Value(double.tryParse(_tvaController.text) ?? 0.0),
+        totalttc: Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
       ));
 
       // Supprimer les anciennes lignes
@@ -535,13 +551,13 @@ class _AchatsModalState extends State<AchatsModal> {
       for (var ligne in _lignesAchat) {
         await _databaseService.database.into(_databaseService.database.detachats).insert(
               DetachatsCompanion.insert(
-                numachats: drift.Value(_numAchatsController.text),
-                designation: drift.Value(ligne['designation']),
-                unites: drift.Value(ligne['unites']),
-                depots: drift.Value(ligne['depot']),
-                q: drift.Value(ligne['quantite']),
-                pu: drift.Value(ligne['prixUnitaire']),
-                daty: drift.Value(dateForDB),
+                numachats: Value(_numAchatsController.text),
+                designation: Value(ligne['designation']),
+                unites: Value(ligne['unites']),
+                depots: Value(ligne['depot']),
+                q: Value(ligne['quantite']),
+                pu: Value(ligne['prixUnitaire']),
+                daty: Value(dateForDB),
               ),
             );
 
@@ -551,11 +567,37 @@ class _AchatsModalState extends State<AchatsModal> {
           orElse: () => throw Exception('Article non trouvé'),
         );
 
-        double nouveauCMUP = _stockService.calculateCMUP(article, ligne['quantite'], ligne['prixUnitaire']);
-        await _stockService.updateStockForUnit(article, ligne['unites'], ligne['quantite']);
-        await (_databaseService.database.update(_databaseService.database.articles)
-              ..where((a) => a.designation.equals(article.designation)))
-            .write(ArticlesCompanion(cmup: drift.Value(nouveauCMUP)));
+        // Calculer le nouveau CMUP et mettre à jour les stocks
+        double stockActuel = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+        double cmupActuel = article.cmup ?? 0;
+        double valeurStockActuel = stockActuel * cmupActuel;
+        double valeurAjout = ligne['quantite'] * ligne['prixUnitaire'];
+        double nouveauStock = stockActuel + ligne['quantite'];
+        double nouveauCMUP = nouveauStock > 0 ? (valeurStockActuel + valeurAjout) / nouveauStock : 0;
+
+        // Mettre à jour le stock selon l'unité
+        if (ligne['unites'] == article.u1) {
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu1: Value((article.stocksu1 ?? 0) + ligne['quantite']),
+            cmup: Value(nouveauCMUP),
+          ));
+        } else if (ligne['unites'] == article.u2) {
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu2: Value((article.stocksu2 ?? 0) + ligne['quantite']),
+            cmup: Value(nouveauCMUP),
+          ));
+        } else if (ligne['unites'] == article.u3) {
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu3: Value((article.stocksu3 ?? 0) + ligne['quantite']),
+            cmup: Value(nouveauCMUP),
+          ));
+        }
       }
 
       if (mounted) {
@@ -572,8 +614,6 @@ class _AchatsModalState extends State<AchatsModal> {
       }
     }
   }
-
-
 
   Future<void> _contrePasserAchat() async {
     if (!_isExistingPurchase) {
@@ -623,21 +663,21 @@ class _AchatsModalState extends State<AchatsModal> {
           await (_databaseService.database.update(_databaseService.database.articles)
                 ..where((a) => a.designation.equals(article.designation)))
               .write(ArticlesCompanion(
-            stocksu1: drift.Value(newStock >= 0 ? newStock : 0),
+            stocksu1: Value(newStock >= 0 ? newStock : 0),
           ));
         } else if (ligne.unites == article.u2) {
           double newStock = (article.stocksu2 ?? 0) - (ligne.q ?? 0);
           await (_databaseService.database.update(_databaseService.database.articles)
                 ..where((a) => a.designation.equals(article.designation)))
               .write(ArticlesCompanion(
-            stocksu2: drift.Value(newStock >= 0 ? newStock : 0),
+            stocksu2: Value(newStock >= 0 ? newStock : 0),
           ));
         } else if (ligne.unites == article.u3) {
           double newStock = (article.stocksu3 ?? 0) - (ligne.q ?? 0);
           await (_databaseService.database.update(_databaseService.database.articles)
                 ..where((a) => a.designation.equals(article.designation)))
               .write(ArticlesCompanion(
-            stocksu3: drift.Value(newStock >= 0 ? newStock : 0),
+            stocksu3: Value(newStock >= 0 ? newStock : 0),
           ));
         }
 
@@ -672,7 +712,8 @@ class _AchatsModalState extends State<AchatsModal> {
 
   Future<void> _recalculerCMUPApresAnnulation(
       Article article, double quantiteAnnulee, double prixAnnule) async {
-    double stockActuel = _stockService.calculateTotalStock(article);
+    // Calculate total stock directly
+    double stockActuel = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
     double cmupActuel = article.cmup ?? 0.0;
     double valeurTotaleAvant = (stockActuel + quantiteAnnulee) * cmupActuel;
     double valeurARetirer = quantiteAnnulee * prixAnnule;
@@ -681,7 +722,7 @@ class _AchatsModalState extends State<AchatsModal> {
 
     await (_databaseService.database.update(_databaseService.database.articles)
           ..where((a) => a.designation.equals(article.designation)))
-        .write(ArticlesCompanion(cmup: drift.Value(nouveauCMUP.roundToDouble())));
+        .write(ArticlesCompanion(cmup: Value(nouveauCMUP.roundToDouble())));
   }
 
   Future<void> _mettreAJourStocksModification() async {
@@ -708,21 +749,21 @@ class _AchatsModalState extends State<AchatsModal> {
           await (_databaseService.database.update(_databaseService.database.depart)
                 ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
               .write(DepartCompanion(
-            stocksu1: drift.Value(newStock >= 0 ? newStock : 0),
+            stocksu1: Value(newStock >= 0 ? newStock : 0),
           ));
         } else if (unite == _selectedArticle!.u2) {
           double newStock = (existingDepart.stocksu2 ?? 0) + differenceQuantite;
           await (_databaseService.database.update(_databaseService.database.depart)
                 ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
               .write(DepartCompanion(
-            stocksu2: drift.Value(newStock >= 0 ? newStock : 0),
+            stocksu2: Value(newStock >= 0 ? newStock : 0),
           ));
         } else if (unite == _selectedArticle!.u3) {
           double newStock = (existingDepart.stocksu3 ?? 0) + differenceQuantite;
           await (_databaseService.database.update(_databaseService.database.depart)
                 ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
               .write(DepartCompanion(
-            stocksu3: drift.Value(newStock >= 0 ? newStock : 0),
+            stocksu3: Value(newStock >= 0 ? newStock : 0),
           ));
         }
       } else if (differenceQuantite > 0) {
@@ -731,9 +772,9 @@ class _AchatsModalState extends State<AchatsModal> {
               DepartCompanion.insert(
                 designation: _selectedArticle!.designation,
                 depots: depot,
-                stocksu1: drift.Value(unite == _selectedArticle!.u1 ? differenceQuantite : 0.0),
-                stocksu2: drift.Value(unite == _selectedArticle!.u2 ? differenceQuantite : 0.0),
-                stocksu3: drift.Value(unite == _selectedArticle!.u3 ? differenceQuantite : 0.0),
+                stocksu1: Value(unite == _selectedArticle!.u1 ? differenceQuantite : 0.0),
+                stocksu2: Value(unite == _selectedArticle!.u2 ? differenceQuantite : 0.0),
+                stocksu3: Value(unite == _selectedArticle!.u3 ? differenceQuantite : 0.0),
               ),
             );
       }
@@ -749,7 +790,7 @@ class _AchatsModalState extends State<AchatsModal> {
   Future<void> _loadAchatsNumbers() async {
     try {
       final achats = await (_databaseService.database.select(_databaseService.database.achats)
-            ..orderBy([(a) => drift.OrderingTerm.asc(a.numachats)]))
+            ..orderBy([(a) => OrderingTerm.asc(a.numachats)]))
           .get();
       setState(() {
         _achatsNumbers = achats.map((a) => a.numachats ?? '').where((n) => n.isNotEmpty).toList();
@@ -875,17 +916,17 @@ class _AchatsModalState extends State<AchatsModal> {
       // Insérer l'achat principal
       await _databaseService.database.into(_databaseService.database.achats).insert(
             AchatsCompanion.insert(
-              numachats: drift.Value(_numAchatsController.text),
-              nfact: drift.Value(_nFactController.text.isEmpty ? null : _nFactController.text),
-              daty: drift.Value(dateForDB),
-              frns: drift.Value(_selectedFournisseur!),
-              modepai: drift.Value(_selectedModePaiement),
-              echeance: drift.Value(_echeanceController.text.isEmpty
+              numachats: Value(_numAchatsController.text),
+              nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
+              daty: Value(dateForDB),
+              frns: Value(_selectedFournisseur!),
+              modepai: Value(_selectedModePaiement),
+              echeance: Value(_echeanceController.text.isEmpty
                   ? null
                   : DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]))),
-              totalnt: drift.Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0),
-              tva: drift.Value(double.tryParse(_tvaController.text) ?? 0.0),
-              totalttc: drift.Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
+              totalnt: Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0),
+              tva: Value(double.tryParse(_tvaController.text) ?? 0.0),
+              totalttc: Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
             ),
           );
 
@@ -893,13 +934,13 @@ class _AchatsModalState extends State<AchatsModal> {
       for (var ligne in _lignesAchat) {
         await _databaseService.database.into(_databaseService.database.detachats).insert(
               DetachatsCompanion.insert(
-                numachats: drift.Value(_numAchatsController.text),
-                designation: drift.Value(ligne['designation']),
-                unites: drift.Value(ligne['unites']),
-                depots: drift.Value(ligne['depot']),
-                q: drift.Value(ligne['quantite']),
-                pu: drift.Value(ligne['prixUnitaire']),
-                daty: drift.Value(dateForDB),
+                numachats: Value(_numAchatsController.text),
+                designation: Value(ligne['designation']),
+                unites: Value(ligne['unites']),
+                depots: Value(ligne['depot']),
+                q: Value(ligne['quantite']),
+                pu: Value(ligne['prixUnitaire']),
+                daty: Value(dateForDB),
               ),
             );
 
@@ -909,30 +950,92 @@ class _AchatsModalState extends State<AchatsModal> {
           orElse: () => throw Exception('Article non trouvé'),
         );
 
-        double nouveauCMUP = _stockService.calculateCMUP(article, ligne['quantite'], ligne['prixUnitaire']);
-        
+        // Calculate CMUP directly
+        double stockActuel = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+        double cmupActuel = article.cmup ?? 0;
+        double valeurStockActuel = stockActuel * cmupActuel;
+        double valeurAjout = ligne['quantite'] * ligne['prixUnitaire'];
+        double nouveauStock = stockActuel + ligne['quantite'];
+        double nouveauCMUP = nouveauStock > 0 ? (valeurStockActuel + valeurAjout) / nouveauStock : 0;
+
         await (_databaseService.database.update(_databaseService.database.articles)
               ..where((a) => a.designation.equals(article.designation)))
-            .write(ArticlesCompanion(cmup: drift.Value(nouveauCMUP)));
+            .write(ArticlesCompanion(cmup: Value(nouveauCMUP)));
 
         await _databaseService.database.into(_databaseService.database.stocks).insert(
               StocksCompanion.insert(
-                ref: 'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}',
-                daty: drift.Value(dateForDB),
-                lib: drift.Value('Achat ${_numAchatsController.text}'),
-                numachats: drift.Value(_numAchatsController.text),
-                refart: drift.Value(ligne['designation']),
-                qe: drift.Value(ligne['quantite']),
-                entres: drift.Value(ligne['quantite'] * ligne['prixUnitaire']),
-                ue: drift.Value(ligne['unites']),
-                depots: drift.Value(ligne['depot']),
-                cmup: drift.Value(nouveauCMUP),
-                frns: drift.Value(_selectedFournisseur!),
+                ref:
+                    'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}',
+                daty: Value(dateForDB),
+                lib: Value('Achat ${_numAchatsController.text}'),
+                numachats: Value(_numAchatsController.text),
+                refart: Value(ligne['designation']),
+                qe: Value(ligne['quantite']),
+                entres: Value(ligne['quantite'] * ligne['prixUnitaire']),
+                ue: Value(ligne['unites']),
+                depots: Value(ligne['depot']),
+                cmup: Value(nouveauCMUP),
+                frns: Value(_selectedFournisseur!),
               ),
             );
 
-        await _stockService.updateStockForUnit(article, ligne['unites'], ligne['quantite']);
-        await _stockService.updateDepartStock(article, ligne['depot'], ligne['unites'], ligne['quantite']);
+        // Update stock for unit directly
+        if (ligne['unites'] == article.u1) {
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu1: Value((article.stocksu1 ?? 0) + ligne['quantite']),
+          ));
+        } else if (ligne['unites'] == article.u2) {
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu2: Value((article.stocksu2 ?? 0) + ligne['quantite']),
+          ));
+        } else if (ligne['unites'] == article.u3) {
+          await (_databaseService.database.update(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(article.designation)))
+              .write(ArticlesCompanion(
+            stocksu3: Value((article.stocksu3 ?? 0) + ligne['quantite']),
+          ));
+        }
+
+        // Update depart stock directly
+        final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
+              ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
+            .getSingleOrNull();
+
+        if (existingDepart != null) {
+          if (ligne['unites'] == article.u1) {
+            await (_databaseService.database.update(_databaseService.database.depart)
+                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
+                .write(DepartCompanion(
+              stocksu1: Value((existingDepart.stocksu1 ?? 0) + ligne['quantite']),
+            ));
+          } else if (ligne['unites'] == article.u2) {
+            await (_databaseService.database.update(_databaseService.database.depart)
+                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
+                .write(DepartCompanion(
+              stocksu2: Value((existingDepart.stocksu2 ?? 0) + ligne['quantite']),
+            ));
+          } else if (ligne['unites'] == article.u3) {
+            await (_databaseService.database.update(_databaseService.database.depart)
+                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
+                .write(DepartCompanion(
+              stocksu3: Value((existingDepart.stocksu3 ?? 0) + ligne['quantite']),
+            ));
+          }
+        } else {
+          await _databaseService.database.into(_databaseService.database.depart).insert(
+                DepartCompanion.insert(
+                  designation: article.designation,
+                  depots: ligne['depot'],
+                  stocksu1: Value(ligne['unites'] == article.u1 ? ligne['quantite'] : 0.0),
+                  stocksu2: Value(ligne['unites'] == article.u2 ? ligne['quantite'] : 0.0),
+                  stocksu3: Value(ligne['unites'] == article.u3 ? ligne['quantite'] : 0.0),
+                ),
+              );
+        }
       }
 
       if (mounted) {
@@ -994,7 +1097,8 @@ class _AchatsModalState extends State<AchatsModal> {
 
                         final numAchats = achat.numachats?.toLowerCase() ?? '';
                         final fournisseur = achat.frns?.toLowerCase() ?? '';
-                        final dateStr = achat.daty != null ? app_date.AppDateUtils.formatDate(achat.daty!) : '';
+                        final dateStr =
+                            achat.daty != null ? app_date.AppDateUtils.formatDate(achat.daty!) : '';
 
                         return numAchats.contains(filterText) ||
                             fournisseur.contains(filterText) ||
@@ -1855,7 +1959,8 @@ class _AchatsModalState extends State<AchatsModal> {
                                                 ),
                                               ),
                                               child: Text(
-                                                NumberUtils.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                                NumberUtils.formatNumber(
+                                                    ligne['prixUnitaire']?.toDouble() ?? 0),
                                                 style: const TextStyle(fontSize: 11),
                                               ),
                                             ),

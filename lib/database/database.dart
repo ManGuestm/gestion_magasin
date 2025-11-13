@@ -1105,6 +1105,265 @@ class AppDatabase extends _$AppDatabase {
 
   /// Récupère tous les comptes fournisseurs
   Future<List<Comptefrn>> getAllComptefrns() => select(comptefrns).get();
+
+  // ========== MÉTHODES SPÉCIALISÉES VENTES ==========
+
+  /// Enregistre une vente complète avec détails et mise à jour des stocks
+  Future<void> enregistrerVenteComplete({
+    required VentesCompanion vente,
+    required List<Map<String, dynamic>> lignesVente,
+  }) async {
+    await transaction(() async {
+      // 1. Insérer la vente principale
+      await into(ventes).insert(vente);
+
+      // 2. Insérer les détails de vente
+      for (var ligne in lignesVente) {
+        final detailCompanion = DetventesCompanion(
+          numventes: vente.numventes,
+          designation: Value(ligne['designation']),
+          unites: Value(ligne['unites']),
+          q: Value(ligne['quantite']),
+          pu: Value(ligne['prixUnitaire']),
+          daty: vente.daty,
+          depots: Value(ligne['depot']),
+        );
+        await into(detventes).insert(detailCompanion);
+
+        // 3. Mettre à jour les stocks
+        await _mettreAJourStocksVente(
+          ligne['designation'],
+          ligne['depot'],
+          ligne['unites'],
+          ligne['quantite'],
+          ligne['article'],
+        );
+      }
+
+      // 4. Mettre à jour le solde client si nécessaire
+      if (vente.clt.present && vente.totalttc.present && vente.avance.present) {
+        await _mettreAJourSoldeClient(
+          vente.clt.value!,
+          vente.totalttc.value! - (vente.avance.value ?? 0),
+        );
+      }
+    });
+  }
+
+  /// Met à jour les stocks après une vente
+  Future<void> _mettreAJourStocksVente(
+    String designation,
+    String depot,
+    String unite,
+    double quantite,
+    Article article,
+  ) async {
+    // Convertir la quantité vendue en unités de base pour déduction
+    double quantiteU1 = 0, quantiteU2 = 0, quantiteU3 = 0;
+
+    if (unite == article.u1) {
+      quantiteU1 = quantite;
+    } else if (unite == article.u2) {
+      quantiteU2 = quantite;
+    } else if (unite == article.u3) {
+      quantiteU3 = quantite;
+    }
+
+    // Mettre à jour le stock dans la table Depart
+    final stockDepart = await (select(depart)
+          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+        .getSingleOrNull();
+
+    if (stockDepart != null) {
+      await (update(depart)..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+          .write(DepartCompanion(
+        stocksu1: Value((stockDepart.stocksu1 ?? 0) - quantiteU1),
+        stocksu2: Value((stockDepart.stocksu2 ?? 0) - quantiteU2),
+        stocksu3: Value((stockDepart.stocksu3 ?? 0) - quantiteU3),
+      ));
+    }
+
+    // Mettre à jour le stock global dans la table Articles
+    await (update(articles)..where((a) => a.designation.equals(designation))).write(ArticlesCompanion(
+      stocksu1: Value((article.stocksu1 ?? 0) - quantiteU1),
+      stocksu2: Value((article.stocksu2 ?? 0) - quantiteU2),
+      stocksu3: Value((article.stocksu3 ?? 0) - quantiteU3),
+    ));
+
+    // Créer un mouvement de stock
+    await _creerMouvementStock(
+      designation: designation,
+      depot: depot,
+      unite: unite,
+      quantiteSortie: quantite,
+      type: 'VENTE',
+      numVente: '',
+    );
+  }
+
+  /// Met à jour le solde d'un client
+  Future<void> _mettreAJourSoldeClient(String rsocClient, double montant) async {
+    final client = await getClientByRsoc(rsocClient);
+    if (client != null) {
+      await (update(clt)..where((c) => c.rsoc.equals(rsocClient))).write(CltCompanion(
+        soldes: Value((client.soldes ?? 0) + montant),
+        datedernop: Value(DateTime.now()),
+      ));
+    }
+  }
+
+  /// Crée un mouvement de stock
+  Future<void> _creerMouvementStock({
+    required String designation,
+    required String depot,
+    required String unite,
+    double? quantiteEntree,
+    double? quantiteSortie,
+    required String type,
+    String? numVente,
+    String? numAchat,
+  }) async {
+    final ref = 'MVT${DateTime.now().millisecondsSinceEpoch}';
+
+    await into(stocks).insert(StocksCompanion(
+      ref: Value(ref),
+      daty: Value(DateTime.now()),
+      lib: Value('$type - $designation'),
+      refart: Value(designation),
+      qe: Value(quantiteEntree ?? 0),
+      qs: Value(quantiteSortie ?? 0),
+      entres: Value(quantiteEntree ?? 0),
+      sortie: Value(quantiteSortie ?? 0),
+      ue: Value(unite),
+      us: Value(unite),
+      depots: Value(depot),
+      numventes: numVente != null ? Value(numVente) : const Value.absent(),
+      numachats: numAchat != null ? Value(numAchat) : const Value.absent(),
+    ));
+  }
+
+  // ========== MÉTHODES SPÉCIALISÉES STOCKS ==========
+
+  /// Récupère le stock détaillé d'un article par dépôt
+  Future<Map<String, Map<String, double>>> getStockDetailleArticle(String designation) async {
+    final stocksDepart = await (select(depart)..where((d) => d.designation.equals(designation))).get();
+
+    Map<String, Map<String, double>> result = {};
+
+    for (var stock in stocksDepart) {
+      result[stock.depots] = {
+        'u1': stock.stocksu1 ?? 0,
+        'u2': stock.stocksu2 ?? 0,
+        'u3': stock.stocksu3 ?? 0,
+      };
+    }
+
+    return result;
+  }
+
+  /// Initialise le stock d'un article dans un dépôt
+  Future<void> initialiserStockArticleDepot(String designation, String depot,
+      {double? stockU1, double? stockU2, double? stockU3}) async {
+    await into(depart).insertOnConflictUpdate(DepartCompanion(
+      designation: Value(designation),
+      depots: Value(depot),
+      stocksu1: Value(stockU1 ?? 0),
+      stocksu2: Value(stockU2 ?? 0),
+      stocksu3: Value(stockU3 ?? 0),
+    ));
+  }
+
+  // ========== MÉTHODES SPÉCIALISÉES PRIX ==========
+
+  /// Récupère ou calcule le prix de vente d'un article
+  Future<Map<String, double>> getPrixVenteArticle(String designation) async {
+    // Vérifier d'abord dans la table Prix de Vente
+    final prixVente = await (select(pv)..where((p) => p.designation.equals(designation))).getSingleOrNull();
+
+    if (prixVente != null) {
+      return {
+        'u1': prixVente.pvu1 ?? 0,
+        'u2': prixVente.pvu2 ?? 0,
+        'u3': prixVente.pvu3 ?? 0,
+      };
+    }
+
+    // Sinon calculer à partir du CMUP avec marge
+    final article = await getArticleByDesignation(designation);
+    if (article != null && article.cmup != null) {
+      double cmup = article.cmup!;
+      return {
+        'u1': cmup * (article.tu2u1 ?? 1) * (article.tu3u2 ?? 1) * 1.2,
+        'u2': cmup * (article.tu3u2 ?? 1) * 1.2,
+        'u3': cmup * 1.2,
+      };
+    }
+
+    return {'u1': 0, 'u2': 0, 'u3': 0};
+  }
+
+  // ========== MÉTHODES SPÉCIALISÉES RAPPORTS ==========
+
+  /// Récupère les statistiques de vente par période
+  Future<Map<String, dynamic>> getStatistiquesVentes(DateTime debut, DateTime fin) async {
+    final ventesQuery = select(ventes)..where((v) => v.daty.isBetweenValues(debut, fin));
+
+    final ventesListe = await ventesQuery.get();
+
+    double totalHT = 0;
+    double totalTTC = 0;
+    int nombreVentes = ventesListe.length;
+
+    for (var vente in ventesListe) {
+      totalHT += vente.totalnt ?? 0;
+      totalTTC += vente.totalttc ?? 0;
+    }
+
+    return {
+      'nombreVentes': nombreVentes,
+      'totalHT': totalHT,
+      'totalTTC': totalTTC,
+      'moyenneVente': nombreVentes > 0 ? totalTTC / nombreVentes : 0,
+    };
+  }
+
+  /// Récupère le top des articles vendus
+  Future<List<Map<String, dynamic>>> getTopArticlesVendus(int limite,
+      {DateTime? debut, DateTime? fin}) async {
+    String query = '''
+      SELECT
+        dv.designation,
+        SUM(dv.q) as quantite_totale,
+        SUM(dv.q * dv.pu) as chiffre_affaires,
+        COUNT(*) as nombre_ventes
+      FROM detventes dv
+      JOIN ventes v ON dv.numventes = v.numventes
+    ''';
+
+    final params = <dynamic>[];
+    if (debut != null && fin != null) {
+      query += ' WHERE v.daty BETWEEN ? AND ?';
+      params.addAll([debut.toIso8601String(), fin.toIso8601String()]);
+    }
+
+    query += '''
+      GROUP BY dv.designation
+      ORDER BY chiffre_affaires DESC
+      LIMIT ?
+    ''';
+    params.add(limite);
+
+    final result = await customSelect(query, variables: params.map((p) => Variable(p)).toList()).get();
+
+    return result
+        .map((row) => {
+              'designation': row.read<String>('designation'),
+              'quantite_totale': row.read<double>('quantite_totale'),
+              'chiffre_affaires': row.read<double>('chiffre_affaires'),
+              'nombre_ventes': row.read<int>('nombre_ventes'),
+            })
+        .toList();
+  }
 }
 
 /// Fonction de connexion à la base de données SQLite

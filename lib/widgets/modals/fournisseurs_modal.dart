@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:drift/drift.dart' hide Column;
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import 'add_fournisseur_modal.dart';
 
 class FournisseursModal extends StatefulWidget {
   const FournisseursModal({super.key});
@@ -12,12 +12,31 @@ class FournisseursModal extends StatefulWidget {
 }
 
 class _FournisseursModalState extends State<FournisseursModal> {
+  final DatabaseService _databaseService = DatabaseService();
+  
+  // Controllers
+  final TextEditingController _rsocController = TextEditingController();
+  final TextEditingController _adrController = TextEditingController();
+  final TextEditingController _capitalController = TextEditingController();
+  final TextEditingController _rcsController = TextEditingController();
+  final TextEditingController _nifController = TextEditingController();
+  final TextEditingController _statController = TextEditingController();
+  final TextEditingController _telController = TextEditingController();
+  final TextEditingController _portController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _siteController = TextEditingController();
+  final TextEditingController _faxController = TextEditingController();
+  final TextEditingController _telexController = TextEditingController();
+  final TextEditingController _soldesController = TextEditingController();
+  final TextEditingController _delaiController = TextEditingController();
+  final TextEditingController _soldesaController = TextEditingController();
+  final TextEditingController _actionController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+
   List<Frn> _fournisseurs = [];
   List<Frn> _filteredFournisseurs = [];
-  final TextEditingController _searchController = TextEditingController();
   Frn? _selectedFournisseur;
-  final int _pageSize = 100;
-  bool _isLoading = false;
+  bool _isEditing = false;
 
   @override
   void initState() {
@@ -25,147 +44,543 @@ class _FournisseursModalState extends State<FournisseursModal> {
     _loadFournisseurs();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.grey[100],
-        child: GestureDetector(
-          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-          child: Container(
-            width: 900,
-            height: 600,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[400]!),
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.white,
-            ),
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildContent(),
-                _buildButtons(),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+  Future<void> _loadFournisseurs() async {
+    try {
+      final fournisseurs = await _databaseService.database.getAllFournisseurs();
+      setState(() {
+        _fournisseurs = fournisseurs;
+        _filteredFournisseurs = fournisseurs;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du chargement: $e')),
+        );
+      }
+    }
   }
 
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Text(
-            'FOURNISSEURS',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+  void _filterFournisseurs(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        _filteredFournisseurs = _fournisseurs;
+      } else {
+        _filteredFournisseurs = _fournisseurs.where((frn) =>
+          frn.rsoc.toLowerCase().contains(query.toLowerCase()) ||
+          (frn.tel?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
+          (frn.email?.toLowerCase().contains(query.toLowerCase()) ?? false)
+        ).toList();
+      }
+    });
+  }
+
+  void _selectFournisseur(Frn fournisseur) {
+    setState(() {
+      _selectedFournisseur = fournisseur;
+      _isEditing = true;
+      
+      _rsocController.text = fournisseur.rsoc;
+      _adrController.text = fournisseur.adr ?? '';
+      _capitalController.text = fournisseur.capital?.toString() ?? '';
+      _rcsController.text = fournisseur.rcs ?? '';
+      _nifController.text = fournisseur.nif ?? '';
+      _statController.text = fournisseur.stat ?? '';
+      _telController.text = fournisseur.tel ?? '';
+      _portController.text = fournisseur.port ?? '';
+      _emailController.text = fournisseur.email ?? '';
+      _siteController.text = fournisseur.site ?? '';
+      _faxController.text = fournisseur.fax ?? '';
+      _telexController.text = fournisseur.telex ?? '';
+      _soldesController.text = fournisseur.soldes?.toString() ?? '0';
+      _delaiController.text = fournisseur.delai?.toString() ?? '';
+      _soldesaController.text = fournisseur.soldesa?.toString() ?? '0';
+      _actionController.text = fournisseur.action ?? '';
+    });
+  }
+
+  void _clearForm() {
+    setState(() {
+      _selectedFournisseur = null;
+      _isEditing = false;
+    });
+    
+    _rsocController.clear();
+    _adrController.clear();
+    _capitalController.clear();
+    _rcsController.clear();
+    _nifController.clear();
+    _statController.clear();
+    _telController.clear();
+    _portController.clear();
+    _emailController.clear();
+    _siteController.clear();
+    _faxController.clear();
+    _telexController.clear();
+    _soldesController.text = '0';
+    _delaiController.clear();
+    _soldesaController.text = '0';
+    _actionController.clear();
+  }
+
+  Future<void> _saveFournisseur() async {
+    if (_rsocController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('La raison sociale est obligatoire')),
+      );
+      return;
+    }
+
+    try {
+      final companion = FrnsCompanion(
+        rsoc: Value(_rsocController.text.trim()),
+        adr: Value(_adrController.text.trim().isEmpty ? null : _adrController.text.trim()),
+        capital: Value(double.tryParse(_capitalController.text)),
+        rcs: Value(_rcsController.text.trim().isEmpty ? null : _rcsController.text.trim()),
+        nif: Value(_nifController.text.trim().isEmpty ? null : _nifController.text.trim()),
+        stat: Value(_statController.text.trim().isEmpty ? null : _statController.text.trim()),
+        tel: Value(_telController.text.trim().isEmpty ? null : _telController.text.trim()),
+        port: Value(_portController.text.trim().isEmpty ? null : _portController.text.trim()),
+        email: Value(_emailController.text.trim().isEmpty ? null : _emailController.text.trim()),
+        site: Value(_siteController.text.trim().isEmpty ? null : _siteController.text.trim()),
+        fax: Value(_faxController.text.trim().isEmpty ? null : _faxController.text.trim()),
+        telex: Value(_telexController.text.trim().isEmpty ? null : _telexController.text.trim()),
+        soldes: Value(double.tryParse(_soldesController.text) ?? 0),
+        datedernop: Value(DateTime.now()),
+        delai: Value(int.tryParse(_delaiController.text)),
+        soldesa: Value(double.tryParse(_soldesaController.text) ?? 0),
+        action: Value(_actionController.text.trim().isEmpty ? null : _actionController.text.trim()),
+      );
+
+      if (_isEditing && _selectedFournisseur != null) {
+        await _databaseService.database.updateFournisseur(_selectedFournisseur!.rsoc, companion);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fournisseur modifié avec succès')),
+          );
+        }
+      } else {
+        await _databaseService.database.insertFournisseur(companion);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fournisseur ajouté avec succès')),
+          );
+        }
+      }
+
+      _clearForm();
+      await _loadFournisseurs();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'enregistrement: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteFournisseur() async {
+    if (_selectedFournisseur == null) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: Text('Voulez-vous vraiment supprimer le fournisseur "${_selectedFournisseur!.rsoc}" ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
           ),
-          const Spacer(),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Supprimer'),
           ),
         ],
       ),
     );
+
+    if (confirm == true) {
+      try {
+        await _databaseService.database.deleteFournisseur(_selectedFournisseur!.rsoc);
+        _clearForm();
+        await _loadFournisseurs();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Fournisseur supprimé avec succès')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur lors de la suppression: $e')),
+          );
+        }
+      }
+    }
   }
 
-  Widget _buildContent() {
-    return Expanded(
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.grey[100],
       child: Container(
+        width: 1000,
+        height: MediaQuery.of(context).size.height * 0.9,
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[400]!),
+          borderRadius: BorderRadius.circular(16),
+          color: Colors.grey[100],
         ),
         child: Column(
           children: [
-            _buildTableHeader(),
+            // Title bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: const BoxDecoration(
+                color: Colors.blue,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.business, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Gestion des Fournisseurs',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+
             Expanded(
-              child: ListView.builder(
-                itemCount: _filteredFournisseurs.length,
-                itemExtent: 18,
-                itemBuilder: (context, index) {
-                  final fournisseur = _filteredFournisseurs[index];
-                  final isSelected = _selectedFournisseur?.rsoc == fournisseur.rsoc;
-                  return GestureDetector(
-                    onTap: () => _selectFournisseur(fournisseur),
+              child: Row(
+                children: [
+                  // Liste des fournisseurs
+                  Expanded(
+                    flex: 1,
                     child: Container(
-                      height: 18,
+                      margin: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: isSelected ? Colors.blue[600] : Colors.white,
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          Expanded(
-                            flex: 4,
-                            child: Container(
-                              padding: const EdgeInsets.only(left: 4),
-                              alignment: Alignment.centerLeft,
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Colors.grey[400]!, width: 1),
-                                  bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-                                ),
+                          // Barre de recherche
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: TextField(
+                              controller: _searchController,
+                              decoration: const InputDecoration(
+                                labelText: 'Rechercher un fournisseur',
+                                prefixIcon: Icon(Icons.search),
+                                border: OutlineInputBorder(),
                               ),
-                              child: Text(
-                                fournisseur.rsoc,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                ),
-                              ),
+                              onChanged: _filterFournisseurs,
                             ),
                           ),
+                          
+                          // Liste
                           Expanded(
-                            flex: 2,
-                            child: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 4),
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Colors.grey[400]!, width: 1),
-                                  bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-                                ),
-                              ),
-                              child: Text(
-                                fournisseur.soldes?.toStringAsFixed(2) ?? '.00',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            width: 60,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-                              ),
-                            ),
-                            child: Text(
-                              fournisseur.action ?? 'A',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected ? Colors.white : Colors.black,
-                              ),
+                            child: ListView.builder(
+                              itemCount: _filteredFournisseurs.length,
+                              itemBuilder: (context, index) {
+                                final fournisseur = _filteredFournisseurs[index];
+                                final isSelected = _selectedFournisseur?.rsoc == fournisseur.rsoc;
+                                
+                                return ListTile(
+                                  selected: isSelected,
+                                  selectedTileColor: Colors.blue.shade100,
+                                  title: Text(
+                                    fournisseur.rsoc,
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      if (fournisseur.tel != null)
+                                        Text('Tél: ${fournisseur.tel}'),
+                                      if (fournisseur.email != null)
+                                        Text('Email: ${fournisseur.email}'),
+                                      Text('Solde: ${fournisseur.soldes ?? 0}'),
+                                    ],
+                                  ),
+                                  onTap: () => _selectFournisseur(fournisseur),
+                                );
+                              },
                             ),
                           ),
                         ],
                       ),
                     ),
-                  );
-                },
+                  ),
+
+                  // Formulaire de saisie
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      margin: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _isEditing ? 'Modifier le fournisseur' : 'Nouveau fournisseur',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            
+                            Expanded(
+                              child: SingleChildScrollView(
+                                child: Column(
+                                  children: [
+                                    // Informations générales
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _rsocController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Raison sociale *',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _capitalController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Capital',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                            keyboardType: TextInputType.number,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    
+                                    TextField(
+                                      controller: _adrController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Adresse',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      maxLines: 2,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    
+                                    // Informations légales
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _rcsController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'RCS',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _nifController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'NIF',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _statController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'STAT',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    
+                                    // Contact
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _telController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Téléphone',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _portController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Portable',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _faxController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Fax',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _emailController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Email',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _siteController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Site web',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    
+                                    // Informations financières
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _soldesController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Solde',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                            keyboardType: TextInputType.number,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _soldesaController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Solde antérieur',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                            keyboardType: TextInputType.number,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _delaiController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Délai (jours)',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                            keyboardType: TextInputType.number,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    
+                                    TextField(
+                                      controller: _actionController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Action/Notes',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            
+                            const SizedBox(height: 16),
+                            
+                            // Boutons d'action
+                            Row(
+                              children: [
+                                ElevatedButton.icon(
+                                  onPressed: _saveFournisseur,
+                                  icon: Icon(_isEditing ? Icons.edit : Icons.add),
+                                  label: Text(_isEditing ? 'Modifier' : 'Ajouter'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                
+                                ElevatedButton.icon(
+                                  onPressed: _clearForm,
+                                  icon: const Icon(Icons.clear),
+                                  label: const Text('Nouveau'),
+                                ),
+                                const SizedBox(width: 8),
+                                
+                                if (_isEditing)
+                                  ElevatedButton.icon(
+                                    onPressed: _deleteFournisseur,
+                                    icon: const Icon(Icons.delete),
+                                    label: const Text('Supprimer'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.red,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -174,298 +589,24 @@ class _FournisseursModalState extends State<FournisseursModal> {
     );
   }
 
-  Widget _buildTableHeader() {
-    return Container(
-      height: 25,
-      decoration: BoxDecoration(
-        color: Colors.orange[300],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 4,
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey[400]!, width: 1),
-                  bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-                ),
-              ),
-              child: const Text(
-                'RAISON SOCIALE',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey[400]!, width: 1),
-                  bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-                ),
-              ),
-              child: const Text(
-                'SOLDES',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          Container(
-            width: 60,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-              ),
-            ),
-            child: const Text(
-              'ACTION',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildButtons() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      child: Row(
-        children: [
-          _buildNavButton(Icons.first_page, _goToFirst),
-          _buildNavButton(Icons.chevron_left, _goToPrevious),
-          _buildNavButton(Icons.chevron_right, _goToNext),
-          _buildNavButton(Icons.last_page, _goToLast),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              height: 20,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[400]!),
-                color: Colors.white,
-              ),
-              child: TextFormField(
-                controller: _searchController,
-                style: const TextStyle(fontSize: 11),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  isDense: true,
-                ),
-                onChanged: _filterFournisseurs,
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Container(
-            height: 20,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[600]!),
-            ),
-            child: TextButton(
-              onPressed: _showAllFournisseurs,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Afficher tous',
-                style: TextStyle(fontSize: 12, color: Colors.black),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            height: 24,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[600]!),
-            ),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Fermer',
-                style: TextStyle(fontSize: 12, color: Colors.black),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNavButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      width: 20,
-      height: 20,
-      margin: const EdgeInsets.only(right: 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
-        color: Colors.grey[200],
-      ),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 12),
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(),
-      ),
-    );
-  }
-
-  void _selectFournisseur(Frn fournisseur) {
-    setState(() {
-      _selectedFournisseur = fournisseur;
-    });
-  }
-
-  Future<void> _loadFournisseurs() async {
-    if (_isLoading) return;
-    setState(() => _isLoading = true);
-
-    final fournisseurs = await DatabaseService().database.getAllFournisseurs();
-    setState(() {
-      _fournisseurs = fournisseurs;
-      _filteredFournisseurs = fournisseurs.take(_pageSize).toList();
-      _isLoading = false;
-    });
-  }
-
-  void _filterFournisseurs(String query) {
-    if (query.length < 2 && query.isNotEmpty) return;
-
-    setState(() {
-      if (query.isEmpty) {
-        _filteredFournisseurs = _fournisseurs.take(_pageSize).toList();
-      } else {
-        final filtered = _fournisseurs
-            .where((fournisseur) => fournisseur.rsoc.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-        _filteredFournisseurs = filtered.take(_pageSize).toList();
-      }
-    });
-  }
-
-  void _showAllFournisseurs() {
-    setState(() {
-      _filteredFournisseurs = _fournisseurs.take(_pageSize).toList();
-      _searchController.clear();
-    });
-  }
-
-  void _goToFirst() {
-    if (_filteredFournisseurs.isNotEmpty) {
-      _selectFournisseur(_filteredFournisseurs.first);
-    }
-  }
-
-  void _goToPrevious() {
-    if (_selectedFournisseur != null && _filteredFournisseurs.isNotEmpty) {
-      final currentIndex = _filteredFournisseurs.indexWhere((f) => f.rsoc == _selectedFournisseur?.rsoc);
-      if (currentIndex > 0) {
-        _selectFournisseur(_filteredFournisseurs[currentIndex - 1]);
-      }
-    }
-  }
-
-  void _goToNext() {
-    if (_selectedFournisseur != null && _filteredFournisseurs.isNotEmpty) {
-      final currentIndex = _filteredFournisseurs.indexWhere((f) => f.rsoc == _selectedFournisseur?.rsoc);
-      if (currentIndex < _filteredFournisseurs.length - 1) {
-        _selectFournisseur(_filteredFournisseurs[currentIndex + 1]);
-      }
-    }
-  }
-
-  void _goToLast() {
-    if (_filteredFournisseurs.isNotEmpty) {
-      _selectFournisseur(_filteredFournisseurs.last);
-    }
-  }
-
-  void _showContextMenu(BuildContext context, Offset position) {
-    showMenu(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx + 1,
-        position.dy + 1,
-      ),
-      items: [
-        const PopupMenuItem(
-          value: 'create',
-          child: Text('Créer', style: TextStyle(fontSize: 12)),
-        ),
-        const PopupMenuItem(
-          value: 'modify',
-          child: Text('Modifier', style: TextStyle(fontSize: 12)),
-        ),
-        const PopupMenuItem(
-          value: 'delete',
-          child: Text('Supprimer', style: TextStyle(fontSize: 12)),
-        ),
-      ],
-    ).then((value) {
-      if (value != null) {
-        _handleContextMenuAction(value);
-      }
-    });
-  }
-
-  void _handleContextMenuAction(String action) {
-    switch (action) {
-      case 'create':
-        _showAddFournisseurModal();
-        break;
-      case 'modify':
-        if (_selectedFournisseur != null) {
-          _showAddFournisseurModal(fournisseur: _selectedFournisseur);
-        }
-        break;
-      case 'delete':
-        if (_selectedFournisseur != null) {
-          _deleteFournisseur(_selectedFournisseur!);
-        }
-        break;
-    }
-  }
-
-  void _showAddFournisseurModal({Frn? fournisseur}) {
-    showDialog(
-      context: context,
-      builder: (context) => AddFournisseurModal(fournisseur: fournisseur),
-    ).then((_) => _loadFournisseurs());
-  }
-
-  Future<void> _deleteFournisseur(Frn fournisseur) async {
-    try {
-      await DatabaseService().database.deleteFournisseur(fournisseur.rsoc);
-      await _loadFournisseurs();
-      if (_selectedFournisseur?.rsoc == fournisseur.rsoc) {
-        setState(() {
-          _selectedFournisseur = null;
-        });
-      }
-    } catch (e) {
-      debugPrint('Erreur lors de la suppression: $e');
-    }
-  }
-
   @override
   void dispose() {
+    _rsocController.dispose();
+    _adrController.dispose();
+    _capitalController.dispose();
+    _rcsController.dispose();
+    _nifController.dispose();
+    _statController.dispose();
+    _telController.dispose();
+    _portController.dispose();
+    _emailController.dispose();
+    _siteController.dispose();
+    _faxController.dispose();
+    _telexController.dispose();
+    _soldesController.dispose();
+    _delaiController.dispose();
+    _soldesaController.dispose();
+    _actionController.dispose();
     _searchController.dispose();
     super.dispose();
   }

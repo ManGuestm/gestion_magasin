@@ -12,12 +12,15 @@ import '../widgets/modals/clients_modal.dart';
 import '../widgets/modals/company_info_modal.dart';
 import '../widgets/modals/depots_modal.dart';
 import '../widgets/modals/fournisseurs_modal.dart';
+import '../widgets/modals/comptes_fournisseurs_modal.dart';
+import '../widgets/modals/retours_achats_modal.dart';
+import '../widgets/modals/statistiques_fournisseurs_modal.dart';
 import '../widgets/modals/liste_achats_modal.dart';
 import '../widgets/modals/liste_ventes_modal.dart';
 import '../widgets/modals/mouvements_clients_modal.dart';
 import '../widgets/modals/moyen_paiement_modal.dart';
 import '../widgets/modals/plan_comptes_modal.dart';
-import '../widgets/modals/sur_achats_modal.dart';
+
 import '../widgets/modals/sur_ventes_modal.dart';
 
 import '../widgets/modals/ventes_selection_modal.dart';
@@ -78,8 +81,10 @@ class _HomeScreenState extends State<HomeScreen> {
     'Banques': BanquesModal(),
     'Plan de comptes': PlanComptesModal(),
     'Achats': AchatsModal(),
-    'Sur Achats': SurAchatsModal(),
+
     'Sur Ventes': SurVentesModal(),
+    'Retours achats': RetoursAchatsModal(),
+    'Comptes fournisseurs': ComptesFournisseursModal(),
 
     'Liste des achats': ListeAchatsModal(),
     'Liste des ventes': ListeVentesModal(),
@@ -118,6 +123,8 @@ class _HomeScreenState extends State<HomeScreen> {
     'Marges': MargesModal(),
     'tableau de bord': TableauBordModal(),
     'Bilan / Compte de Résultat': BilanCompteResultatModal(),
+    'Gestion fournisseurs': FournisseursModal(),
+    'Statistiques fournisseurs': StatistiquesFournisseursModal(),
   };
 
   @override

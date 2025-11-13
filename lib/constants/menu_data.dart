@@ -44,6 +44,7 @@ class MenuData {
       'Virements Internes',
       'Opérations Caisses',
       'Opérations Banques',
+      'Comptes fournisseurs',
       'Moyen de paiement',
     ],
     'États': [
@@ -72,6 +73,7 @@ class MenuData {
     'Etats Fournisseurs': [
       'Fiche Fournisseurs',
       'Balance des comptes Fournisseurs',
+      'Statistiques fournisseurs',
     ],
     'Etats Clients': [
       'Fiche Clients',
@@ -106,6 +108,7 @@ class MenuData {
     'Retour de Marchandises': [
       'Sur Achats',
       'Sur Ventes',
+      'Retours achats',
     ],
     'Etat tarifaire': [
       'Sans valeur d\'achats',
