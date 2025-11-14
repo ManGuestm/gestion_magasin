@@ -6,8 +6,9 @@ import '../../database/database_service.dart';
 
 class AddClientModal extends StatefulWidget {
   final CltData? client;
+  final String? nomClient;
 
-  const AddClientModal({super.key, this.client});
+  const AddClientModal({super.key, this.client, this.nomClient});
 
   @override
   State<AddClientModal> createState() => _AddClientModalState();
@@ -39,6 +40,8 @@ class _AddClientModalState extends State<AddClientModal> {
       _categorieController.text = widget.client!.categorie ?? '';
       _selectedCategorie = widget.client!.categorie;
     } else {
+      // Pré-remplir avec le nom fourni ou valeur par défaut
+      _rsocController.text = widget.nomClient ?? '';
       _selectedCategorie = 'Catégorie 1';
     }
   }

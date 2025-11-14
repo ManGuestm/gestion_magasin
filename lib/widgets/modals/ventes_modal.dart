@@ -1,8 +1,12 @@
 import 'package:drift/drift.dart' as drift hide Column;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import 'add_client_modal.dart';
+import 'bon_livraison_preview.dart';
+import 'facture_preview.dart';
 
 class VentesModal extends StatefulWidget {
   final bool tousDepots;
@@ -54,6 +58,8 @@ class _VentesModalState extends State<VentesModal> {
   bool _isExistingPurchase = false;
   List<String> _ventesNumbers = [];
   String _searchVentesText = '';
+  bool _isModifyingArticle = false;
+  Map<String, dynamic>? _originalArticleData;
 
   // Stock management
   double _stockDisponible = 0.0;
@@ -65,6 +71,12 @@ class _VentesModalState extends State<VentesModal> {
 
   // Paper format
   String _selectedFormat = 'A5';
+
+  // Focus nodes for tab navigation
+  final FocusNode _designationFocusNode = FocusNode();
+  final FocusNode _uniteFocusNode = FocusNode();
+  final FocusNode _quantiteFocusNode = FocusNode();
+  final FocusNode _prixFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -136,7 +148,8 @@ class _VentesModalState extends State<VentesModal> {
           _avanceController.text = (vente.avance ?? 0).toString();
           _commissionController.text = (vente.commission ?? 0).toString();
           _montantRecuController.text = (vente.montantRecu ?? 0) > 0 ? _formatNumber(vente.montantRecu!) : '';
-          _montantARendreController.text = (vente.monnaieARendre ?? 0) > 0 ? _formatNumber(vente.monnaieARendre!) : '';
+          _montantARendreController.text =
+              (vente.monnaieARendre ?? 0) > 0 ? _formatNumber(vente.monnaieARendre!) : '';
 
           _lignesVente.clear();
           for (var detail in details) {
@@ -193,6 +206,10 @@ class _VentesModalState extends State<VentesModal> {
     _montantARendreController.dispose();
     _searchVentesController.dispose();
     _soldeAnterieurController.dispose();
+    _designationFocusNode.dispose();
+    _uniteFocusNode.dispose();
+    _quantiteFocusNode.dispose();
+    _prixFocusNode.dispose();
     super.dispose();
   }
 
@@ -498,25 +515,25 @@ class _VentesModalState extends State<VentesModal> {
     double stockU1 = article.stocksu1 ?? 0.0;
     double stockU2 = article.stocksu2 ?? 0.0;
     double stockU3 = article.stocksu3 ?? 0.0;
-    
+
     // Vérifier s'il y a du stock
     if (stockU1 <= 0 && stockU2 <= 0 && stockU3 <= 0) return 'Stock: 0';
-    
+
     // Afficher les stocks réels par unité
     List<String> stocks = [];
-    
+
     if (article.u1?.isNotEmpty == true) {
       stocks.add('${stockU1.toStringAsFixed(0)} ${article.u1}');
     }
-    
+
     if (article.u2?.isNotEmpty == true) {
       stocks.add('${stockU2.toStringAsFixed(0)} ${article.u2}');
     }
-    
+
     if (article.u3?.isNotEmpty == true) {
       stocks.add('${stockU3.toStringAsFixed(0)} ${article.u3}');
     }
-    
+
     return stocks.isEmpty ? 'Stock: 0' : stocks.join(' / ');
   }
 
@@ -574,7 +591,7 @@ class _VentesModalState extends State<VentesModal> {
   Future<void> _gererStockInsuffisant(Article article, String depotActuel) async {
     // Vérifier les stocks dans les autres dépôts
     final autresStocks = await _verifierStocksAutresDepots(article, depotActuel);
-    
+
     if (widget.tousDepots && autresStocks.isNotEmpty) {
       // Mode tous dépôts: basculer automatiquement vers un dépôt disponible
       await _basculerVersDepotDisponible(article, depotActuel, autresStocks);
@@ -586,22 +603,19 @@ class _VentesModalState extends State<VentesModal> {
 
   Future<List<Map<String, dynamic>>> _verifierStocksAutresDepots(Article article, String depotActuel) async {
     final autresStocks = <Map<String, dynamic>>[];
-    
+
     try {
       final tousStocksDepart = await (_databaseService.database.select(_databaseService.database.depart)
             ..where((d) => d.designation.equals(article.designation) & d.depots.isNotValue(depotActuel)))
           .get();
-      
+
       for (var stock in tousStocksDepart) {
         double stockTotalU3 = _calculerStockTotalEnU3(
-          article, 
-          stock.stocksu1 ?? 0.0, 
-          stock.stocksu2 ?? 0.0, 
-          stock.stocksu3 ?? 0.0
-        );
-        
+            article, stock.stocksu1 ?? 0.0, stock.stocksu2 ?? 0.0, stock.stocksu3 ?? 0.0);
+
         if (stockTotalU3 > 0) {
-          double stockPourUnite = _calculerStockPourUnite(article, _selectedUnite ?? article.u1!, stockTotalU3);
+          double stockPourUnite =
+              _calculerStockPourUnite(article, _selectedUnite ?? article.u1!, stockTotalU3);
           autresStocks.add({
             'depot': stock.depots,
             'stockDisponible': stockPourUnite,
@@ -612,23 +626,23 @@ class _VentesModalState extends State<VentesModal> {
     } catch (e) {
       // Ignore errors
     }
-    
+
     return autresStocks;
   }
 
-  Future<void> _basculerVersDepotDisponible(Article article, String depotEpuise, List<Map<String, dynamic>> autresStocks) async {
+  Future<void> _basculerVersDepotDisponible(
+      Article article, String depotEpuise, List<Map<String, dynamic>> autresStocks) async {
     final depotDisponible = autresStocks.first;
-    
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Stock épuisé - Basculement automatique'),
         content: Text(
-          'Stock épuisé dans le dépôt "$depotEpuise" pour l\'article "${article.designation}".\n\n'
-          'Basculement automatique vers le dépôt "${depotDisponible['depot']}" '
-          '(Stock disponible: ${depotDisponible['stockDisponible'].toStringAsFixed(0)} ${depotDisponible['unite']}).\n\n'
-          'Continuer avec ce dépôt?'
-        ),
+            'Stock épuisé dans le dépôt "$depotEpuise" pour l\'article "${article.designation}".\n\n'
+            'Basculement automatique vers le dépôt "${depotDisponible['depot']}" '
+            '(Stock disponible: ${depotDisponible['stockDisponible'].toStringAsFixed(0)} ${depotDisponible['unite']}).\n\n'
+            'Continuer avec ce dépôt?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -651,23 +665,27 @@ class _VentesModalState extends State<VentesModal> {
     }
   }
 
-  void _afficherModalStockInsuffisant(Article article, String depotActuel, List<Map<String, dynamic>> autresStocks) {
+  void _afficherModalStockInsuffisant(
+      Article article, String depotActuel, List<Map<String, dynamic>> autresStocks) {
     String message;
-    
+
     if (widget.tousDepots) {
-      message = 'Stock épuisé dans tous les dépôts pour l\'article "${article.designation}".\nVente impossible.';
+      message =
+          'Stock épuisé dans tous les dépôts pour l\'article "${article.designation}".\nVente impossible.';
     } else {
-      message = 'Stock épuisé dans le dépôt "$depotActuel" pour l\'article "${article.designation}".\nVente impossible.';
-      
+      message =
+          'Stock épuisé dans le dépôt "$depotActuel" pour l\'article "${article.designation}".\nVente impossible.';
+
       if (autresStocks.isNotEmpty) {
         message += '\n\nStock disponible dans d\'autres dépôts:';
         for (var stock in autresStocks) {
-          message += '\n• ${stock['depot']}: ${stock['stockDisponible'].toStringAsFixed(0)} ${stock['unite']}';
+          message +=
+              '\n• ${stock['depot']}: ${stock['stockDisponible'].toStringAsFixed(0)} ${stock['unite']}';
         }
         message += '\n\nUtilisez le mode "Tous dépôts" pour accéder à ces stocks.';
       }
     }
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -776,6 +794,67 @@ class _VentesModalState extends State<VentesModal> {
     _resetArticleForm();
   }
 
+  void _validerAjout() {
+    if (_isModifyingArticle && _originalArticleData != null) {
+      // En mode modification : simplement ajouter la ligne modifiée
+      _ajouterLigne();
+    } else {
+      // Mode normal : ajouter nouvelle ligne
+      _ajouterLigne();
+    }
+  }
+
+  void _annulerAjout() {
+    if (_isModifyingArticle && _originalArticleData != null) {
+      // En cas de modification : remettre l'article dans la table
+      setState(() {
+        _lignesVente.add(_originalArticleData!);
+        _originalArticleData = null;
+        _isModifyingArticle = false;
+      });
+      _calculerTotaux();
+    }
+    _resetArticleForm();
+  }
+
+  void _chargerLigneArticle(int index) {
+    final ligne = _lignesVente[index];
+
+    // Trouver l'article correspondant
+    Article? article;
+    try {
+      article = _articles.firstWhere(
+        (a) => a.designation == ligne['designation'],
+      );
+    } catch (e) {
+      if (_articles.isNotEmpty) {
+        article = _articles.first;
+      } else {
+        return;
+      }
+    }
+
+    setState(() {
+      _selectedArticle = article;
+      _selectedUnite = ligne['unites'];
+      _selectedDepot = ligne['depot'];
+      _isModifyingArticle = true;
+      _originalArticleData = Map<String, dynamic>.from(ligne);
+
+      if (_autocompleteController != null) {
+        _autocompleteController!.text = ligne['designation'];
+      }
+      _quantiteController.text = ligne['quantite'].toString();
+      _prixController.text = _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
+    });
+
+    // Supprimer la ligne de la table pour éviter les doublons
+    _supprimerLigne(index);
+
+    // Vérifier le stock pour l'article sélectionné
+    _verifierStockEtBasculer(article);
+  }
+
   Future<void> _chargerSoldeClient(String? client) async {
     if (client == null || client.isEmpty) {
       setState(() {
@@ -857,6 +936,8 @@ class _VentesModalState extends State<VentesModal> {
       if (widget.tousDepots) {
         _selectedDepot = null;
       }
+      _isModifyingArticle = false;
+      _originalArticleData = null;
       if (_autocompleteController != null) {
         _autocompleteController!.clear();
       }
@@ -890,6 +971,14 @@ class _VentesModalState extends State<VentesModal> {
   Future<void> _validerVente() async {
     if (_lignesVente.isEmpty) return;
 
+    if (_isExistingPurchase) {
+      await _modifierVente();
+    } else {
+      await _creerNouvelleVenteDB();
+    }
+  }
+
+  Future<void> _creerNouvelleVenteDB() async {
     try {
       double totalHT = 0;
       for (var ligne in _lignesVente) {
@@ -924,31 +1013,95 @@ class _VentesModalState extends State<VentesModal> {
         monnaieARendre: drift.Value(monnaieARendre),
       );
 
-      // Utiliser la nouvelle méthode intégrée
       await _databaseService.database.enregistrerVenteComplete(
         vente: venteCompanion,
         lignesVente: _lignesVente,
       );
 
-      // Ajouter la nouvelle vente à la liste
-      setState(() {
-        if (!_ventesNumbers.contains(_numVentesController.text)) {
-          _ventesNumbers.add(_numVentesController.text);
-          _ventesNumbers.sort();
-        }
-      });
+      await _loadVentesNumbers();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vente enregistrée avec succès'), backgroundColor: Colors.green),
         );
-        // Créer une nouvelle vente au lieu de fermer le modal
         await _creerNouvelleVente();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors de l\'enregistrement: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _modifierVente() async {
+    try {
+      double totalHT = 0;
+      for (var ligne in _lignesVente) {
+        totalHT += ligne['montant'] ?? 0;
+      }
+
+      double remise = double.tryParse(_remiseController.text) ?? 0;
+      double totalApresRemise = totalHT - (totalHT * remise / 100);
+      double tva = double.tryParse(_tvaController.text) ?? 0;
+      double totalTTC = totalApresRemise + (totalApresRemise * tva / 100);
+      double avance = double.tryParse(_avanceController.text) ?? 0;
+      double commission = double.tryParse(_commissionController.text) ?? 0;
+
+      double montantRecu = double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0;
+      double monnaieARendre = double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0;
+
+      await _databaseService.database.transaction(() async {
+        // Supprimer les anciennes lignes
+        await (_databaseService.database.delete(_databaseService.database.detventes)
+              ..where((d) => d.numventes.equals(_numVentesController.text)))
+            .go();
+
+        // Mettre à jour la vente principale
+        await (_databaseService.database.update(_databaseService.database.ventes)
+              ..where((v) => v.numventes.equals(_numVentesController.text)))
+            .write(VentesCompanion(
+          nfact: drift.Value(_nFactureController.text),
+          daty: drift.Value(DateTime.now()),
+          clt: drift.Value(_selectedClient ?? ''),
+          modepai: drift.Value(_selectedModePaiement),
+          totalnt: drift.Value(totalApresRemise),
+          totalttc: drift.Value(totalTTC),
+          tva: drift.Value(tva),
+          avance: drift.Value(avance),
+          commission: drift.Value(commission),
+          remise: drift.Value(remise),
+          heure: drift.Value(_heureController.text),
+          montantRecu: drift.Value(montantRecu),
+          monnaieARendre: drift.Value(monnaieARendre),
+        ));
+
+        // Insérer les nouvelles lignes
+        for (var ligne in _lignesVente) {
+          await _databaseService.database.into(_databaseService.database.detventes).insert(
+                DetventesCompanion.insert(
+                  numventes: drift.Value(_numVentesController.text),
+                  designation: drift.Value(ligne['designation']),
+                  unites: drift.Value(ligne['unites']),
+                  depots: drift.Value(ligne['depot']),
+                  q: drift.Value(ligne['quantite']),
+                  pu: drift.Value(ligne['prixUnitaire']),
+                  daty: drift.Value(DateTime.now()),
+                ),
+              );
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vente modifiée avec succès'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la modification: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -1028,16 +1181,160 @@ class _VentesModalState extends State<VentesModal> {
     }
   }
 
-  void _apercuFacture() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Aperçu facture - Fonctionnalité à implémenter')),
-    );
+  void _apercuFacture() async {
+    if (_lignesVente.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun article à afficher dans la facture')),
+      );
+      return;
+    }
+
+    try {
+      final societe =
+          await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => FacturePreview(
+            numVente: _numVentesController.text,
+            nFacture: _nFactureController.text,
+            date: _dateController.text,
+            client: _selectedClient ?? '',
+            lignesVente: _lignesVente,
+            totalHT: double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0,
+            remise: double.tryParse(_remiseController.text) ?? 0,
+            tva: double.tryParse(_tvaController.text) ?? 0,
+            totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
+            format: _selectedFormat,
+            societe: societe,
+            modePaiement: _selectedModePaiement,
+            montantRecu: double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0,
+            monnaieARendre: double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'ouverture de l\'aperçu: $e')),
+        );
+      }
+    }
   }
 
-  void _apercuBL() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Aperçu BL - Fonctionnalité à implémenter')),
-    );
+  void _apercuBL() async {
+    if (_lignesVente.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucun article à afficher dans le bon de livraison')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final societe =
+          await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => BonLivraisonPreview(
+            numVente: _numVentesController.text,
+            nFacture: _nFactureController.text,
+            date: _dateController.text,
+            client: _selectedClient ?? '',
+            lignesVente: _lignesVente,
+            totalHT: double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0,
+            remise: double.tryParse(_remiseController.text) ?? 0,
+            tva: double.tryParse(_tvaController.text) ?? 0,
+            totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
+            format: _selectedFormat,
+            societe: societe,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'ouverture de l\'aperçu: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _verifierEtCreerClient(String nomClient) async {
+    if (nomClient.trim().isEmpty) return;
+
+    // Vérifier si le client existe
+    final clientExiste = _clients.any((client) => client.rsoc.toLowerCase() == nomClient.toLowerCase());
+
+    if (!clientExiste) {
+      // Afficher le modal de confirmation
+      final confirmer = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Client inconnu!!'),
+          content: Text('Le client "$nomClient" n\'existe pas.\n\nVoulez-vous le créer?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Non'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Oui'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmer == true) {
+        // Ouvrir le modal d'ajout de client avec le nom pré-rempli
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder: (context) => AddClientModal(nomClient: nomClient),
+          );
+        }
+
+        // Recharger la liste des clients
+        await _loadData();
+
+        // Chercher le client créé et le sélectionner
+        final nouveauClient = _clients
+            .where((client) => client.rsoc.toLowerCase().contains(nomClient.toLowerCase()))
+            .firstOrNull;
+
+        if (nouveauClient != null) {
+          setState(() {
+            _selectedClient = nouveauClient.rsoc;
+            _clientController.text = nouveauClient.rsoc;
+          });
+          _chargerSoldeClient(nouveauClient.rsoc);
+        }
+      } else {
+        // Réinitialiser le champ client
+        setState(() {
+          _selectedClient = null;
+          _clientController.clear();
+        });
+      }
+    } else {
+      // Client existe, le sélectionner
+      final client = _clients.firstWhere(
+        (client) => client.rsoc.toLowerCase() == nomClient.toLowerCase(),
+      );
+      setState(() {
+        _selectedClient = client.rsoc;
+        _clientController.text = client.rsoc;
+      });
+      _chargerSoldeClient(client.rsoc);
+    }
   }
 
   @override
@@ -1263,14 +1560,15 @@ class _VentesModalState extends State<VentesModal> {
                                         height: 25,
                                         child: Autocomplete<CltData>(
                                           optionsBuilder: (textEditingValue) {
-                                            if (textEditingValue.text.isEmpty) {
-                                              return _clients;
+                                            if (textEditingValue.text.isEmpty ||
+                                                textEditingValue.text == ' ') {
+                                              return _clients.take(100);
                                             }
                                             return _clients.where((client) {
                                               return client.rsoc
                                                   .toLowerCase()
                                                   .contains(textEditingValue.text.toLowerCase());
-                                            });
+                                            }).take(100);
                                           },
                                           displayStringForOption: (client) => client.rsoc,
                                           onSelected: (client) {
@@ -1289,16 +1587,68 @@ class _VentesModalState extends State<VentesModal> {
                                             if (_selectedClient == null) {
                                               controller.clear();
                                             }
-                                            return TextField(
-                                              controller: controller,
-                                              focusNode: focusNode,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                hintText: 'Rechercher un client...',
+                                            return KeyboardListener(
+                                              focusNode: FocusNode(),
+                                              onKeyEvent: (KeyEvent event) {
+                                                if (event is KeyDownEvent &&
+                                                    event.logicalKey == LogicalKeyboardKey.tab) {
+                                                  // Sélectionner le premier client disponible
+                                                  final filteredClients =
+                                                      controller.text.isEmpty || controller.text == ' '
+                                                          ? _clients.take(100).toList()
+                                                          : _clients
+                                                              .where((client) {
+                                                                return client.rsoc
+                                                                    .toLowerCase()
+                                                                    .contains(controller.text.toLowerCase());
+                                                              })
+                                                              .take(100)
+                                                              .toList();
+
+                                                  if (filteredClients.isNotEmpty) {
+                                                    final firstClient = filteredClients.first;
+                                                    setState(() {
+                                                      _selectedClient = firstClient.rsoc;
+                                                      _clientController.text = firstClient.rsoc;
+                                                    });
+                                                    controller.text = firstClient.rsoc;
+                                                    _chargerSoldeClient(firstClient.rsoc);
+                                                    focusNode.unfocus(); // Fermer l'autocomplétion
+                                                  }
+                                                }
+                                              },
+                                              child: TextField(
+                                                controller: controller,
+                                                focusNode: focusNode,
+                                                onTap: () {
+                                                  // Afficher automatiquement la liste quand on clique
+                                                  if (controller.text.isEmpty) {
+                                                    controller.text =
+                                                        ' '; // Espace pour déclencher les options
+                                                    controller.selection = TextSelection.fromPosition(
+                                                      const TextPosition(offset: 0),
+                                                    );
+                                                    Future.delayed(const Duration(milliseconds: 50), () {
+                                                      controller.clear();
+                                                    });
+                                                  }
+                                                },
+                                                onEditingComplete: () async {
+                                                  await _verifierEtCreerClient(controller.text);
+                                                  onEditingComplete();
+                                                },
+                                                onSubmitted: (value) async {
+                                                  await _verifierEtCreerClient(value);
+                                                },
+                                                decoration: const InputDecoration(
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  hintText:
+                                                      'Cliquer pour voir les clients... (Tab pour sélectionner)',
+                                                ),
+                                                style: const TextStyle(fontSize: 12),
                                               ),
-                                              style: const TextStyle(fontSize: 12),
                                             );
                                           },
                                         ),
@@ -1369,16 +1719,44 @@ class _VentesModalState extends State<VentesModal> {
                                           fieldViewBuilder:
                                               (context, controller, focusNode, onEditingComplete) {
                                             _autocompleteController = controller;
-                                            return TextField(
-                                              controller: controller,
-                                              focusNode: focusNode,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                hintText: 'Rechercher un article...',
+                                            return KeyboardListener(
+                                              focusNode: FocusNode(),
+                                              onKeyEvent: (KeyEvent event) {
+                                                if (event is KeyDownEvent &&
+                                                    event.logicalKey == LogicalKeyboardKey.tab) {
+                                                  // Sélectionner le premier article disponible
+                                                  final filteredArticles = controller.text.isEmpty
+                                                      ? _articles.toList()
+                                                      : _articles.where((article) {
+                                                          return article.designation
+                                                              .toLowerCase()
+                                                              .contains(controller.text.toLowerCase());
+                                                        }).toList();
+
+                                                  if (filteredArticles.isNotEmpty) {
+                                                    final firstArticle = filteredArticles.first;
+                                                    controller.text = firstArticle.designation;
+                                                    _onArticleSelected(firstArticle);
+                                                    focusNode.unfocus(); // Fermer l'autocomplétion
+                                                    // Naviguer vers le champ Unité
+                                                    Future.delayed(const Duration(milliseconds: 100), () {
+                                                      _uniteFocusNode.requestFocus();
+                                                    });
+                                                  }
+                                                }
+                                              },
+                                              child: TextField(
+                                                controller: controller,
+                                                focusNode: focusNode,
+                                                decoration: const InputDecoration(
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  hintText:
+                                                      'Rechercher un article... (Tab pour sélectionner)',
+                                                ),
+                                                style: const TextStyle(fontSize: 12),
                                               ),
-                                              style: const TextStyle(fontSize: 12),
                                             );
                                           },
                                         ),
@@ -1396,14 +1774,35 @@ class _VentesModalState extends State<VentesModal> {
                                       const SizedBox(height: 4),
                                       SizedBox(
                                         height: 25,
-                                        child: DropdownButtonFormField<String>(
-                                          initialValue: _selectedUnite,
-                                          decoration: const InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                        child: Focus(
+                                          focusNode: _uniteFocusNode,
+                                          onKeyEvent: (node, event) {
+                                            if (event is KeyDownEvent &&
+                                                event.logicalKey == LogicalKeyboardKey.tab) {
+                                              // Naviguer vers le champ Quantité
+                                              Future.delayed(const Duration(milliseconds: 100), () {
+                                                _quantiteFocusNode.requestFocus();
+                                              });
+                                              return KeyEventResult.handled;
+                                            }
+                                            return KeyEventResult.ignored;
+                                          },
+                                          child: DropdownButtonFormField<String>(
+                                            initialValue: _selectedUnite,
+                                            decoration: const InputDecoration(
+                                              border: OutlineInputBorder(),
+                                              contentPadding:
+                                                  EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            ),
+                                            items: _getUnitsForSelectedArticle(),
+                                            onChanged: (value) {
+                                              _onUniteChanged(value);
+                                              // Naviguer automatiquement vers le champ Quantité après sélection
+                                              Future.delayed(const Duration(milliseconds: 100), () {
+                                                _quantiteFocusNode.requestFocus();
+                                              });
+                                            },
                                           ),
-                                          items: _getUnitsForSelectedArticle(),
-                                          onChanged: _onUniteChanged,
                                         ),
                                       ),
                                     ],
@@ -1434,6 +1833,7 @@ class _VentesModalState extends State<VentesModal> {
                                         height: 25,
                                         child: TextField(
                                           controller: _quantiteController,
+                                          focusNode: _quantiteFocusNode,
                                           enabled: !_stockInsuffisant,
                                           decoration: InputDecoration(
                                             border: const OutlineInputBorder(),
@@ -1447,6 +1847,10 @@ class _VentesModalState extends State<VentesModal> {
                                             color: _stockInsuffisant ? Colors.grey[600] : null,
                                           ),
                                           onChanged: _validerQuantite,
+                                          onSubmitted: (value) {
+                                            // Naviguer vers le champ Prix après validation
+                                            _prixFocusNode.requestFocus();
+                                          },
                                         ),
                                       ),
                                     ],
@@ -1464,12 +1868,19 @@ class _VentesModalState extends State<VentesModal> {
                                         height: 25,
                                         child: TextField(
                                           controller: _prixController,
+                                          focusNode: _prixFocusNode,
                                           decoration: const InputDecoration(
                                             border: OutlineInputBorder(),
                                             contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                           ),
                                           style: const TextStyle(fontSize: 12),
                                           onChanged: (value) => _calculerMontant(),
+                                          onSubmitted: (value) {
+                                            // Ajouter la ligne après validation du prix
+                                            if (_isArticleFormValid()) {
+                                              _ajouterLigne();
+                                            }
+                                          },
                                         ),
                                       ),
                                     ],
@@ -1542,15 +1953,43 @@ class _VentesModalState extends State<VentesModal> {
                                   Column(
                                     children: [
                                       const SizedBox(height: 16),
-                                      ElevatedButton(
-                                        onPressed: _isArticleFormValid() ? _ajouterLigne : null,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: _isArticleFormValid() ? Colors.green : Colors.grey,
-                                          foregroundColor: Colors.white,
-                                          minimumSize: const Size(60, 25),
+                                      if (_isModifyingArticle) ...[
+                                        Row(
+                                          children: [
+                                            ElevatedButton(
+                                              onPressed: _isArticleFormValid() ? _validerAjout : null,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor:
+                                                    _isArticleFormValid() ? Colors.green : Colors.grey,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(50, 25),
+                                              ),
+                                              child: const Text('OK', style: TextStyle(fontSize: 12)),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            ElevatedButton(
+                                              onPressed: _annulerAjout,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.red,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(50, 25),
+                                              ),
+                                              child: const Text('X', style: TextStyle(fontSize: 12)),
+                                            ),
+                                          ],
                                         ),
-                                        child: const Text('Ajouter', style: TextStyle(fontSize: 12)),
-                                      ),
+                                      ] else ...[
+                                        ElevatedButton(
+                                          onPressed: _isArticleFormValid() ? _validerAjout : null,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                _isArticleFormValid() ? Colors.green : Colors.grey,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(60, 25),
+                                          ),
+                                          child: const Text('Ajouter', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ],
@@ -1685,51 +2124,19 @@ class _VentesModalState extends State<VentesModal> {
                                             itemExtent: 18,
                                             itemBuilder: (context, index) {
                                               final ligne = _lignesVente[index];
-                                              return Container(
-                                                height: 18,
-                                                decoration: BoxDecoration(
-                                                  color: _selectedRowIndex == index
-                                                      ? Colors.blue[200]
-                                                      : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Container(
-                                                      width: 30,
-                                                      alignment: Alignment.center,
-                                                      decoration: const BoxDecoration(
-                                                        border: Border(
-                                                          right: BorderSide(color: Colors.grey, width: 1),
-                                                          bottom: BorderSide(color: Colors.grey, width: 1),
-                                                        ),
-                                                      ),
-                                                      child: IconButton(
-                                                        icon: const Icon(Icons.close, size: 12),
-                                                        onPressed: () => _supprimerLigne(index),
-                                                        padding: EdgeInsets.zero,
-                                                        constraints: const BoxConstraints(),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 3,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.only(left: 4),
-                                                        alignment: Alignment.centerLeft,
-                                                        decoration: const BoxDecoration(
-                                                          border: Border(
-                                                            right: BorderSide(color: Colors.grey, width: 1),
-                                                            bottom: BorderSide(color: Colors.grey, width: 1),
-                                                          ),
-                                                        ),
-                                                        child: Text(ligne['designation'] ?? '',
-                                                            style: const TextStyle(fontSize: 11),
-                                                            overflow: TextOverflow.ellipsis),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 1,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                                              return GestureDetector(
+                                                onTap: () => _chargerLigneArticle(index),
+                                                child: Container(
+                                                  height: 18,
+                                                  decoration: BoxDecoration(
+                                                    color: _selectedRowIndex == index
+                                                        ? Colors.blue[200]
+                                                        : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 30,
                                                         alignment: Alignment.center,
                                                         decoration: const BoxDecoration(
                                                           border: Border(
@@ -1737,67 +2144,30 @@ class _VentesModalState extends State<VentesModal> {
                                                             bottom: BorderSide(color: Colors.grey, width: 1),
                                                           ),
                                                         ),
-                                                        child: Text(ligne['unites'] ?? '',
-                                                            style: const TextStyle(fontSize: 11)),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 1,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                        alignment: Alignment.center,
-                                                        decoration: const BoxDecoration(
-                                                          border: Border(
-                                                            right: BorderSide(color: Colors.grey, width: 1),
-                                                            bottom: BorderSide(color: Colors.grey, width: 1),
-                                                          ),
+                                                        child: IconButton(
+                                                          icon: const Icon(Icons.close, size: 12),
+                                                          onPressed: () => _supprimerLigne(index),
+                                                          padding: EdgeInsets.zero,
+                                                          constraints: const BoxConstraints(),
                                                         ),
-                                                        child: Text(
-                                                            (ligne['quantite'] as double?)
-                                                                    ?.round()
-                                                                    .toString() ??
-                                                                '0',
-                                                            style: const TextStyle(fontSize: 11)),
                                                       ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                        alignment: Alignment.center,
-                                                        decoration: const BoxDecoration(
-                                                          border: Border(
-                                                            right: BorderSide(color: Colors.grey, width: 1),
-                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      Expanded(
+                                                        flex: 3,
+                                                        child: Container(
+                                                          padding: const EdgeInsets.only(left: 4),
+                                                          alignment: Alignment.centerLeft,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
                                                           ),
+                                                          child: Text(ligne['designation'] ?? '',
+                                                              style: const TextStyle(fontSize: 11),
+                                                              overflow: TextOverflow.ellipsis),
                                                         ),
-                                                        child: Text(
-                                                            _formatNumber(
-                                                                ligne['prixUnitaire']?.toDouble() ?? 0),
-                                                            style: const TextStyle(fontSize: 11)),
                                                       ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                        alignment: Alignment.center,
-                                                        decoration: BoxDecoration(
-                                                          border: Border(
-                                                            right: widget.tousDepots
-                                                                ? const BorderSide(
-                                                                    color: Colors.grey, width: 1)
-                                                                : BorderSide.none,
-                                                            bottom: const BorderSide(
-                                                                color: Colors.grey, width: 1),
-                                                          ),
-                                                        ),
-                                                        child: Text(
-                                                            _formatNumber(ligne['montant']?.toDouble() ?? 0),
-                                                            style: const TextStyle(fontSize: 11)),
-                                                      ),
-                                                    ),
-                                                    if (widget.tousDepots)
                                                       Expanded(
                                                         flex: 1,
                                                         child: Container(
@@ -1805,14 +2175,92 @@ class _VentesModalState extends State<VentesModal> {
                                                           alignment: Alignment.center,
                                                           decoration: const BoxDecoration(
                                                             border: Border(
-                                                                bottom:
-                                                                    BorderSide(color: Colors.grey, width: 1)),
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
                                                           ),
-                                                          child: Text(ligne['depot'] ?? '',
+                                                          child: Text(ligne['unites'] ?? '',
                                                               style: const TextStyle(fontSize: 11)),
                                                         ),
                                                       ),
-                                                  ],
+                                                      Expanded(
+                                                        flex: 1,
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                          alignment: Alignment.center,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                              (ligne['quantite'] as double?)
+                                                                      ?.round()
+                                                                      .toString() ??
+                                                                  '0',
+                                                              style: const TextStyle(fontSize: 11)),
+                                                        ),
+                                                      ),
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                          alignment: Alignment.center,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                              _formatNumber(
+                                                                  ligne['prixUnitaire']?.toDouble() ?? 0),
+                                                              style: const TextStyle(fontSize: 11)),
+                                                        ),
+                                                      ),
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                          alignment: Alignment.center,
+                                                          decoration: BoxDecoration(
+                                                            border: Border(
+                                                              right: widget.tousDepots
+                                                                  ? const BorderSide(
+                                                                      color: Colors.grey, width: 1)
+                                                                  : BorderSide.none,
+                                                              bottom: const BorderSide(
+                                                                  color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                              _formatNumber(
+                                                                  ligne['montant']?.toDouble() ?? 0),
+                                                              style: const TextStyle(fontSize: 11)),
+                                                        ),
+                                                      ),
+                                                      if (widget.tousDepots)
+                                                        Expanded(
+                                                          flex: 1,
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(horizontal: 4),
+                                                            alignment: Alignment.center,
+                                                            decoration: const BoxDecoration(
+                                                              border: Border(
+                                                                  bottom: BorderSide(
+                                                                      color: Colors.grey, width: 1)),
+                                                            ),
+                                                            child: Text(ligne['depot'] ?? '',
+                                                                style: const TextStyle(fontSize: 11)),
+                                                          ),
+                                                        ),
+                                                    ],
+                                                  ),
                                                 ),
                                               );
                                             },
@@ -2050,7 +2498,7 @@ class _VentesModalState extends State<VentesModal> {
                                                 const Text('Remise:', style: TextStyle(fontSize: 12)),
                                                 const SizedBox(width: 4),
                                                 SizedBox(
-                                                  width: 40,
+                                                  width: 50,
                                                   height: 25,
                                                   child: TextField(
                                                     controller: _remiseController,
@@ -2098,7 +2546,7 @@ class _VentesModalState extends State<VentesModal> {
                                                 const Text('TVA:', style: TextStyle(fontSize: 12)),
                                                 const SizedBox(width: 4),
                                                 SizedBox(
-                                                  width: 40,
+                                                  width: 70,
                                                   height: 25,
                                                   child: TextField(
                                                     controller: _tvaController,

@@ -244,21 +244,58 @@ class _ClientsModalState extends State<ClientsModal> {
           _buildNavButton(Icons.last_page, _goToLast),
           const SizedBox(width: 8),
           Expanded(
-            child: Container(
+            child: SizedBox(
               height: 20,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[400]!),
-                color: Colors.white,
-              ),
-              child: TextFormField(
-                controller: _searchController,
-                style: const TextStyle(fontSize: 11),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  isDense: true,
-                ),
-                onChanged: _filterClients,
+              child: Autocomplete<CltData>(
+                optionsBuilder: (textEditingValue) {
+                  // Toujours afficher tous les clients (limité à 100 pour performance)
+                  if (textEditingValue.text.isEmpty || textEditingValue.text == ' ') {
+                    return _clients.take(100);
+                  }
+                  return _clients.where((client) {
+                    return client.rsoc.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                  }).take(100);
+                },
+                displayStringForOption: (client) => client.rsoc,
+                onSelected: (client) {
+                  _selectClient(client);
+                },
+                fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                  return TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    onTap: () {
+                      // Afficher automatiquement la liste quand on clique
+                      if (controller.text.isEmpty) {
+                        controller.text = ' '; // Espace pour déclencher les options
+                        controller.selection = TextSelection.fromPosition(
+                          const TextPosition(offset: 0),
+                        );
+                        Future.delayed(const Duration(milliseconds: 50), () {
+                          controller.clear();
+                        });
+                      }
+                    },
+                    onEditingComplete: () async {
+                      await _verifierEtCreerClient(controller.text);
+                      onEditingComplete();
+                    },
+                    onSubmitted: (value) async {
+                      await _verifierEtCreerClient(value);
+                    },
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.grey[400]!),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      fillColor: Colors.white,
+                      filled: true,
+                      hintText: 'Cliquer pour voir les clients...',
+                      hintStyle: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                    style: const TextStyle(fontSize: 11),
+                  );
+                },
               ),
             ),
           ),
@@ -344,18 +381,62 @@ class _ClientsModalState extends State<ClientsModal> {
     });
   }
 
-  void _filterClients(String query) {
-    if (query.length < 2 && query.isNotEmpty) return;
+  Future<void> _verifierEtCreerClient(String nomClient) async {
+    if (nomClient.trim().isEmpty) return;
 
-    setState(() {
-      if (query.isEmpty) {
-        _filteredClients = _clients.take(_pageSize).toList();
-      } else {
-        final filtered =
-            _clients.where((client) => client.rsoc.toLowerCase().contains(query.toLowerCase())).toList();
-        _filteredClients = filtered.take(_pageSize).toList();
+    // Vérifier si le client existe
+    final clientExiste = _clients.any((client) => client.rsoc.toLowerCase() == nomClient.toLowerCase());
+
+    if (!clientExiste) {
+      // Afficher le modal de confirmation
+      final confirmer = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Client inconnu!!'),
+          content: Text('Le client "$nomClient" n\'existe pas.\n\nVoulez-vous le créer?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Non'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Oui'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmer == true) {
+        // Ouvrir le modal d'ajout de client avec le nom pré-rempli
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder: (context) => AddClientModal(nomClient: nomClient),
+          );
+        }
+
+        // Recharger la liste des clients
+        await _loadClients();
+
+        // Chercher le client créé et le sélectionner
+        final nouveauClient = _clients
+            .where((client) => client.rsoc.toLowerCase().contains(nomClient.toLowerCase()))
+            .firstOrNull;
+
+        if (nouveauClient != null) {
+          _selectClient(nouveauClient);
+        }
       }
-    });
+    } else {
+      // Client existe, le sélectionner
+      final client = _clients.firstWhere(
+        (client) => client.rsoc.toLowerCase() == nomClient.toLowerCase(),
+      );
+      _selectClient(client);
+    }
   }
 
   void _showAllClients() {
@@ -460,7 +541,9 @@ class _ClientsModalState extends State<ClientsModal> {
         });
       }
     } catch (e) {
-      debugPrint('Erreur lors de la suppression: $e');
+      if (mounted) {
+        debugPrint('Erreur lors de la suppression: $e');
+      }
     }
   }
 

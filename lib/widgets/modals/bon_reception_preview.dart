@@ -197,7 +197,7 @@ class BonReceptionPreview extends StatelessWidget {
                     style: TextStyle(fontSize: _fontSize),
                   ),
                   Text(
-                    societe?.adr ?? 'Lot IVO 69 D Antohomadinka Sud',
+                    societe?.adr ?? 'Lot IVO 69 D Antohomadinika Sud',
                     style: TextStyle(fontSize: _fontSize),
                   ),
                 ],

@@ -5,59 +5,56 @@ import '../services/menu_service.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
 import '../widgets/modals/achats_modal.dart';
+import '../widgets/modals/amortissement_immobilisations_modal.dart';
 import '../widgets/modals/approximation_stocks_modal.dart';
 import '../widgets/modals/articles_modal.dart';
 import '../widgets/modals/banques_modal.dart';
+import '../widgets/modals/bilan_compte_resultat_modal.dart';
+import '../widgets/modals/cheques_modal.dart';
 import '../widgets/modals/clients_modal.dart';
 import '../widgets/modals/company_info_modal.dart';
-import '../widgets/modals/depots_modal.dart';
-import '../widgets/modals/fournisseurs_modal.dart';
 import '../widgets/modals/comptes_fournisseurs_modal.dart';
-import '../widgets/modals/retours_achats_modal.dart';
-import '../widgets/modals/statistiques_fournisseurs_modal.dart';
+import '../widgets/modals/decaissements_modal.dart';
+import '../widgets/modals/depots_modal.dart';
+import '../widgets/modals/echance_fournisseurs_modal.dart';
+import '../widgets/modals/effet_a_recevoir_modal.dart';
+import '../widgets/modals/encaissements_modal.dart';
+import '../widgets/modals/etats_articles_modal.dart';
+import '../widgets/modals/etats_autres_comptes_modal.dart';
+import '../widgets/modals/etats_clients_modal.dart';
+import '../widgets/modals/etats_commerciaux_modal.dart';
+import '../widgets/modals/etats_fournisseurs_modal.dart';
+import '../widgets/modals/etats_immobilisations_modal.dart';
+import '../widgets/modals/fournisseurs_modal.dart';
+import '../widgets/modals/gestion_emballages_modal.dart';
+import '../widgets/modals/journal_banques_modal.dart';
+import '../widgets/modals/journal_caisse_modal.dart';
 import '../widgets/modals/liste_achats_modal.dart';
 import '../widgets/modals/liste_ventes_modal.dart';
+import '../widgets/modals/marges_modal.dart';
+import '../widgets/modals/mise_a_jour_valeurs_stocks_modal.dart';
 import '../widgets/modals/mouvements_clients_modal.dart';
 import '../widgets/modals/moyen_paiement_modal.dart';
-import '../widgets/modals/plan_comptes_modal.dart';
-
-import '../widgets/modals/sur_ventes_modal.dart';
-
-import '../widgets/modals/ventes_selection_modal.dart';
-import '../widgets/modals/transfert_marchandises_modal.dart';
-import '../widgets/modals/gestion_emballages_modal.dart';
-import '../widgets/modals/productions_modal.dart';
-import '../widgets/modals/regularisation_compte_tiers_modal.dart';
-import '../widgets/modals/encaissements_modal.dart';
-import '../widgets/modals/decaissements_modal.dart';
-import '../widgets/modals/journal_caisse_modal.dart';
-import '../widgets/modals/cheques_modal.dart';
-import '../widgets/modals/journal_banques_modal.dart';
-import '../widgets/modals/etats_fournisseurs_modal.dart';
-import '../widgets/modals/etats_clients_modal.dart';
-import '../widgets/modals/etats_articles_modal.dart';
-import '../widgets/modals/regularisation_compte_commerciaux_modal.dart';
-import '../widgets/modals/relance_clients_modal.dart';
-import '../widgets/modals/echance_fournisseurs_modal.dart';
-import '../widgets/modals/variation_stocks_modal.dart';
-import '../widgets/modals/mise_a_jour_valeurs_stocks_modal.dart';
 import '../widgets/modals/niveau_stocks_modal.dart';
-import '../widgets/modals/amortissement_immobilisations_modal.dart';
-import '../widgets/modals/reactualisation_base_donnees_modal.dart';
-import '../widgets/modals/effet_a_recevoir_modal.dart';
-import '../widgets/modals/virements_internes_modal.dart';
-import '../widgets/modals/operations_caisses_modal.dart';
 import '../widgets/modals/operations_banques_modal.dart';
-import '../widgets/modals/etats_commerciaux_modal.dart';
-import '../widgets/modals/etats_immobilisations_modal.dart';
-import '../widgets/modals/etats_autres_comptes_modal.dart';
-import '../widgets/modals/statistiques_ventes_modal.dart';
-import '../widgets/modals/statistiques_achats_modal.dart';
-import '../widgets/modals/marges_modal.dart';
-import '../widgets/modals/tableau_bord_modal.dart';
-import '../widgets/modals/bilan_compte_resultat_modal.dart';
+import '../widgets/modals/operations_caisses_modal.dart';
+import '../widgets/modals/plan_comptes_modal.dart';
+import '../widgets/modals/productions_modal.dart';
+import '../widgets/modals/reactualisation_base_donnees_modal.dart';
+import '../widgets/modals/regularisation_compte_commerciaux_modal.dart';
+import '../widgets/modals/regularisation_compte_tiers_modal.dart';
 import '../widgets/modals/reinitialiser_donnees_modal.dart';
-import '../widgets/modals/test_conversions_modal.dart';
+import '../widgets/modals/relance_clients_modal.dart';
+import '../widgets/modals/retours_achats_modal.dart';
+import '../widgets/modals/statistiques_achats_modal.dart';
+import '../widgets/modals/statistiques_fournisseurs_modal.dart';
+import '../widgets/modals/statistiques_ventes_modal.dart';
+import '../widgets/modals/sur_ventes_modal.dart';
+import '../widgets/modals/tableau_bord_modal.dart';
+import '../widgets/modals/transferts_modal.dart';
+import '../widgets/modals/variation_stocks_modal.dart';
+import '../widgets/modals/ventes_selection_modal.dart';
+import '../widgets/modals/virements_internes_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -83,17 +80,15 @@ class _HomeScreenState extends State<HomeScreen> {
     'Banques': BanquesModal(),
     'Plan de comptes': PlanComptesModal(),
     'Achats': AchatsModal(),
-
     'Sur Ventes': SurVentesModal(),
     'Retours achats': RetoursAchatsModal(),
     'Comptes fournisseurs': ComptesFournisseursModal(),
-
     'Liste des achats': ListeAchatsModal(),
     'Liste des ventes': ListeVentesModal(),
     'Mouvements Clients': MouvementsClientsModal(),
     'Approximation Stocks ...': ApproximationStocksModal(),
     'Moyen de paiement': MoyenPaiementModal(),
-    'Transfert de Marchandises': TransfertMarchandisesModal(),
+    'Transferts': TransfertsModal(),
     'Gestion Emballages': GestionEmballagesModal(),
     'Productions': ProductionsModal(),
     'Régularisation compte tiers': RegularisationCompteTiersModal(),
@@ -128,7 +123,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'Gestion fournisseurs': FournisseursModal(),
     'Statistiques fournisseurs': StatistiquesFournisseursModal(),
     'Réinitialiser les données': ReinitialiserDonneesModal(),
-    'Test Conversions': TestConversionsModal(),
+    'Transfert de Marchandises': TransfertsModal(),
   };
 
   @override
@@ -154,35 +149,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       height: 30,
       color: Colors.grey[300],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
-            const Icon(Icons.business, size: 16, color: Colors.red),
-            const SizedBox(width: 4),
-            const Text(
+            Icon(Icons.business, size: 16, color: Colors.red),
+            SizedBox(width: 4),
+            Text(
               'GESTION COMMERCIALE DES GROSSISTES PPN - Administrateurs',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
-            const Spacer(),
-            // Bouton de test des conversions
-            TextButton.icon(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => const TestConversionsModal(),
-                );
-              },
-              icon: const Icon(Icons.science, size: 14, color: Colors.blue),
-              label: const Text(
-                'Test Conversions',
-                style: TextStyle(fontSize: 11, color: Colors.blue),
-              ),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                minimumSize: const Size(0, 26),
-              ),
-            ),
+            Spacer(),
           ],
         ),
       ),
@@ -334,6 +311,11 @@ class _HomeScreenState extends State<HomeScreen> {
       showDialog(
         context: context,
         builder: (context) => const VentesSelectionModal(),
+      );
+    } else if (iconLabel == 'Transferts') {
+      showDialog(
+        context: context,
+        builder: (context) => const TransfertsModal(),
       );
     } else {
       final modal = _modals[iconLabel];

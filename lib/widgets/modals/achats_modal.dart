@@ -181,10 +181,12 @@ class _AchatsModalState extends State<AchatsModal> {
 
       if (confirmer == true) {
         // Ouvrir le modal d'ajout de fournisseur avec le nom pré-rempli
-        await showDialog(
-          context: context,
-          builder: (context) => AddFournisseurModal(nomFournisseur: nomFournisseur),
-        );
+        if (mounted) {
+          await showDialog(
+            context: context,
+            builder: (context) => AddFournisseurModal(nomFournisseur: nomFournisseur),
+          );
+        }
 
         // Recharger la liste des fournisseurs
         await _loadData();
