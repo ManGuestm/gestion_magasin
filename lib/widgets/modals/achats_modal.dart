@@ -7,6 +7,7 @@ import '../../utils/cmup_calculator.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
 import '../../utils/stock_converter.dart';
+import 'add_fournisseur_modal.dart';
 import 'bon_reception_preview.dart';
 
 class AchatsModal extends StatefulWidget {
@@ -144,6 +145,67 @@ class _AchatsModalState extends State<AchatsModal> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors du chargement: $e')),
         );
+      }
+    }
+  }
+
+  Future<void> _verifierEtCreerFournisseur(String nomFournisseur) async {
+    if (nomFournisseur.trim().isEmpty) return;
+
+    // Vérifier si le fournisseur existe
+    final fournisseurExiste =
+        _fournisseurs.any((frn) => frn.rsoc.toLowerCase() == nomFournisseur.toLowerCase());
+
+    if (!fournisseurExiste) {
+      // Afficher le modal de confirmation
+      final confirmer = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Fournisseur inconnu!!'),
+          content: Text('Le fournisseur "$nomFournisseur" n\'existe pas.\n\nVoulez-vous le créer?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Non'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Oui'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmer == true) {
+        // Ouvrir le modal d'ajout de fournisseur avec le nom pré-rempli
+        await showDialog(
+          context: context,
+          builder: (context) => AddFournisseurModal(nomFournisseur: nomFournisseur),
+        );
+
+        // Recharger la liste des fournisseurs
+        await _loadData();
+
+        // Chercher le fournisseur créé et le sélectionner
+        final nouveauFournisseur = _fournisseurs
+            .where(
+              (frn) => frn.rsoc.toLowerCase().contains(nomFournisseur.toLowerCase()),
+            )
+            .firstOrNull;
+
+        if (nouveauFournisseur != null) {
+          setState(() {
+            _selectedFournisseur = nouveauFournisseur.rsoc;
+          });
+        }
+      } else {
+        // Réinitialiser le champ fournisseur
+        setState(() {
+          _selectedFournisseur = null;
+        });
       }
     }
   }
@@ -791,6 +853,21 @@ class _AchatsModalState extends State<AchatsModal> {
             orElse: () => throw Exception('Article ${ligne.designation} non trouvé'),
           );
 
+          // Ajouter entrée de sortie dans variation des stocks
+          await _databaseService.database.into(_databaseService.database.stocks).insert(
+                StocksCompanion.insert(
+                  ref:
+                      'CP-${_numAchatsController.text}-${ligne.designation}-${DateTime.now().millisecondsSinceEpoch}',
+                  daty: Value(DateTime.now()),
+                  lib: Value('Contre-passement achat ${_numAchatsController.text}'),
+                  refart: Value(ligne.designation ?? ''),
+                  sortie: Value(ligne.q ?? 0),
+                  ue: Value(ligne.unites ?? ''),
+                  depots: Value(ligne.depots ?? ''),
+                  cmup: Value(article.cmup ?? 0),
+                ),
+              );
+
           // Convertir la quantité à annuler en unités optimales
           final conversionAnnulation = StockConverter.convertirQuantiteAchat(
             article: article,
@@ -1244,88 +1321,6 @@ class _AchatsModalState extends State<AchatsModal> {
     }
   }
 
-  Widget _buildSearchDialog() {
-    final TextEditingController filterController = TextEditingController();
-    String filterText = '';
-
-    return StatefulBuilder(
-      builder: (context, setDialogState) {
-        return AlertDialog(
-          title: const Text('Rechercher un achat', style: TextStyle(fontSize: 14)),
-          content: SizedBox(
-            width: 400,
-            height: 350,
-            child: Column(
-              children: [
-                TextField(
-                  controller: filterController,
-                  decoration: const InputDecoration(
-                    labelText: 'Filtrer par N°, Fournisseur ou Date',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.search),
-                  ),
-                  onChanged: (value) {
-                    setDialogState(() {
-                      filterText = value.toLowerCase();
-                    });
-                  },
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: FutureBuilder<List<Achat>>(
-                    future: _databaseService.database.select(_databaseService.database.achats).get(),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-
-                      final achats = snapshot.data!;
-                      final filteredAchats = achats.where((achat) {
-                        if (filterText.isEmpty) return true;
-
-                        final numAchats = achat.numachats?.toLowerCase() ?? '';
-                        final fournisseur = achat.frns?.toLowerCase() ?? '';
-                        final dateStr =
-                            achat.daty != null ? app_date.AppDateUtils.formatDate(achat.daty!) : '';
-
-                        return numAchats.contains(filterText) ||
-                            fournisseur.contains(filterText) ||
-                            dateStr.contains(filterText);
-                      }).toList();
-
-                      return ListView.builder(
-                        itemCount: filteredAchats.length,
-                        itemBuilder: (context, index) {
-                          final achat = filteredAchats[index];
-                          return ListTile(
-                            title: Text('N° ${achat.numachats}', style: const TextStyle(fontSize: 12)),
-                            subtitle: Text(
-                              'Fournisseur: ${achat.frns ?? ""} - Date: ${achat.daty != null ? app_date.AppDateUtils.formatDate(achat.daty!) : ""}',
-                              style: const TextStyle(fontSize: 10),
-                            ),
-                            onTap: () {
-                              Navigator.of(context).pop(achat.numachats);
-                            },
-                          );
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Annuler'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -1533,32 +1528,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: SizedBox(
-                                        height: 25,
-                                        child: ElevatedButton.icon(
-                                          label: const Text("Historiques", style: TextStyle(fontSize: 11)),
-                                          icon: const Icon(Icons.history, size: 14),
-                                          onPressed: () async {
-                                            final result = await showDialog<String>(
-                                              context: context,
-                                              builder: (context) => _buildSearchDialog(),
-                                            );
-                                            if (result != null) {
-                                              _numAchatsController.text = result;
-                                              _chargerAchatExistant(result);
-                                              _currentAchatIndex = _achatsNumbers.indexOf(result);
-                                            }
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6),
-                                            minimumSize: const Size(25, 25),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
+                                    const Spacer(),
                                     const Text('Date', style: TextStyle(fontSize: 12)),
                                     const SizedBox(width: 4),
                                     SizedBox(
@@ -1585,7 +1555,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                         },
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 16),
                                     const Text('N° Facture/ BL', style: TextStyle(fontSize: 12)),
                                     const SizedBox(width: 8),
                                     SizedBox(
@@ -1617,7 +1587,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                               child: Autocomplete<Frn>(
                                                 optionsBuilder: (textEditingValue) {
                                                   if (textEditingValue.text.isEmpty) {
-                                                    return const Iterable<Frn>.empty();
+                                                    return _fournisseurs;
                                                   }
                                                   return _fournisseurs.where((frn) {
                                                     return frn.rsoc
@@ -1640,23 +1610,14 @@ class _AchatsModalState extends State<AchatsModal> {
                                                   return TextField(
                                                     controller: controller,
                                                     focusNode: focusNode,
-                                                    onEditingComplete: () {
-                                                      // Get current options
-                                                      final options = _fournisseurs.where((frn) {
-                                                        return frn.rsoc
-                                                            .toLowerCase()
-                                                            .contains(controller.text.toLowerCase());
-                                                      });
-
-                                                      // If there's a suggestion, select the first one
-                                                      if (options.isNotEmpty) {
-                                                        final firstOption = options.first;
-                                                        setState(() {
-                                                          _selectedFournisseur = firstOption.rsoc;
-                                                          controller.text = firstOption.rsoc;
-                                                        });
-                                                      }
+                                                    onEditingComplete: () async {
+                                                      // Vérifier et créer le fournisseur si nécessaire
+                                                      await _verifierEtCreerFournisseur(controller.text);
                                                       onEditingComplete();
+                                                    },
+                                                    onSubmitted: (value) async {
+                                                      // Vérifier et créer le fournisseur si nécessaire
+                                                      await _verifierEtCreerFournisseur(value);
                                                     },
                                                     decoration: const InputDecoration(
                                                       border: OutlineInputBorder(),

@@ -6,8 +6,9 @@ import '../../database/database_service.dart';
 
 class AddFournisseurModal extends StatefulWidget {
   final Frn? fournisseur;
+  final String? nomFournisseur;
 
-  const AddFournisseurModal({super.key, this.fournisseur});
+  const AddFournisseurModal({super.key, this.fournisseur, this.nomFournisseur});
 
   @override
   State<AddFournisseurModal> createState() => _AddFournisseurModalState();
@@ -35,6 +36,8 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
     super.initState();
     if (_isEditing) {
       _loadFournisseurData();
+    } else if (widget.nomFournisseur != null) {
+      _rsocController.text = widget.nomFournisseur!;
     }
   }
 
