@@ -164,6 +164,8 @@ class Ventes extends Table {
   TextColumn get transp => text().withLength(max: 100).nullable()();
   TextColumn get heure => text().withLength(max: 10).nullable()();
   TextColumn get poste => text().withLength(max: 50).nullable()();
+  RealColumn get montantRecu => real().nullable()();
+  RealColumn get monnaieARendre => real().nullable()();
 }
 
 // Table Achats - utilisée par: Menu Commerces - Achats, Menu États - Statistiques Achats
@@ -747,7 +749,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
   @override
-  int get schemaVersion => 39;
+  int get schemaVersion => 40;
 
   /// Stratégie de migration de la base de données
   /// Gère la création initiale et les mises à jour de schéma
@@ -867,6 +869,10 @@ class AppDatabase extends _$AppDatabase {
             // Forcer la recréation de la table depart avec clé primaire composite
             await m.deleteTable('depart');
             await m.createTable(depart);
+          } else if (from == 39) {
+            // Ajouter les colonnes montantRecu et monnaieARendre à la table ventes
+            await m.addColumn(ventes, ventes.montantRecu as GeneratedColumn);
+            await m.addColumn(ventes, ventes.monnaieARendre as GeneratedColumn);
           }
         },
       );
@@ -1363,6 +1369,35 @@ class AppDatabase extends _$AppDatabase {
               'nombre_ventes': row.read<int>('nombre_ventes'),
             })
         .toList();
+  }
+
+  /// Calcule le solde d'un client basé sur les ventes, retours et mouvements de compte
+  Future<double> calculerSoldeClient(String rsocClient) async {
+    const query = '''
+      SELECT 
+        COALESCE(SUM(CASE 
+          WHEN v.totalttc IS NOT NULL AND v.avance IS NOT NULL 
+          THEN v.totalttc - v.avance 
+          ELSE 0 
+        END), 0) as solde_ventes,
+        COALESCE(SUM(rv.totalttc), 0) as solde_retours,
+        COALESCE(SUM(cc.entres - cc.sorties), 0) as solde_compte
+      FROM (SELECT ? as client) c
+      LEFT JOIN ventes v ON v.clt = c.client AND v.modepai = 'A crédit'
+      LEFT JOIN retventes rv ON rv.clt = c.client
+      LEFT JOIN compteclt cc ON cc.clt = c.client
+    ''';
+
+    final result = await customSelect(
+      query,
+      variables: [Variable(rsocClient)],
+    ).getSingle();
+
+    final soldeVentes = result.read<double>('solde_ventes');
+    final soldeRetours = result.read<double>('solde_retours');
+    final soldeCompte = result.read<double>('solde_compte');
+
+    return soldeVentes - soldeRetours + soldeCompte;
   }
 }
 

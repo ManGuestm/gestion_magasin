@@ -22,6 +22,8 @@ class _AddClientModalState extends State<AddClientModal> {
   final _nifController = TextEditingController();
   final _rcsController = TextEditingController();
   final _soldesController = TextEditingController();
+  final _categorieController = TextEditingController();
+  String? _selectedCategorie;
 
   @override
   void initState() {
@@ -34,6 +36,10 @@ class _AddClientModalState extends State<AddClientModal> {
       _nifController.text = widget.client!.nif ?? '';
       _rcsController.text = widget.client!.rcs ?? '';
       _soldesController.text = widget.client!.soldes?.toString() ?? '0';
+      _categorieController.text = widget.client!.categorie ?? '';
+      _selectedCategorie = widget.client!.categorie;
+    } else {
+      _selectedCategorie = 'Catégorie 1';
     }
   }
 
@@ -44,7 +50,7 @@ class _AddClientModalState extends State<AddClientModal> {
       child: Dialog(
         child: Container(
           width: 700,
-          height: 450,
+          height: MediaQuery.of(context).size.height * 0.6,
           decoration: BoxDecoration(
             color: Colors.grey[200],
             border: Border.all(color: Colors.grey[400]!),
@@ -124,7 +130,7 @@ class _AddClientModalState extends State<AddClientModal> {
                     children: [
                       _buildLabeledField('Raison Social', _rsocController, required: true),
                       const SizedBox(height: 8),
-                      _buildLabeledField('Siège Social', _adrController),
+                      _buildTextAreaField('Siège Social', _adrController),
                     ],
                   ),
                 ),
@@ -239,7 +245,7 @@ class _AddClientModalState extends State<AddClientModal> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _buildLabeledField('Catégorie', TextEditingController(), width: 120),
+                    _buildCategorieDropdown(),
                     const SizedBox(width: 8),
                     _buildLabeledField('Plafonnement BL', TextEditingController(), width: 120),
                   ],
@@ -287,6 +293,84 @@ class _AddClientModalState extends State<AddClientModal> {
                     return null;
                   }
                 : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextAreaField(String label, TextEditingController controller) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 200,
+          height: 70,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.grey[400]!),
+          ),
+          child: TextFormField(
+            controller: controller,
+            style: const TextStyle(fontSize: 11),
+            maxLines: 3,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              isDense: true,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategorieDropdown() {
+    return Row(
+      children: [
+        const SizedBox(
+          width: 80,
+          child: Text(
+            'Catégorie',
+            style: TextStyle(fontSize: 11),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 120,
+          height: 20,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.grey[400]!),
+          ),
+          child: DropdownButtonFormField<String>(
+            initialValue: _selectedCategorie,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              isDense: true,
+            ),
+            style: const TextStyle(fontSize: 11, color: Colors.black),
+            items: const [
+              DropdownMenuItem(value: 'Catégorie 1', child: Text('Catégorie 1')),
+              DropdownMenuItem(value: 'Catégorie 2', child: Text('Catégorie 2')),
+              DropdownMenuItem(value: 'Catégorie 3', child: Text('Catégorie 3')),
+              DropdownMenuItem(value: 'Catégorie 4', child: Text('Catégorie 4')),
+              DropdownMenuItem(value: 'Catégorie 5', child: Text('Catégorie 5')),
+            ],
+            onChanged: (value) {
+              setState(() {
+                _selectedCategorie = value;
+              });
+            },
           ),
         ),
       ],
@@ -361,6 +445,7 @@ class _AddClientModalState extends State<AddClientModal> {
         nif: drift.Value(_nifController.text.isEmpty ? null : _nifController.text),
         rcs: drift.Value(_rcsController.text.isEmpty ? null : _rcsController.text),
         soldes: drift.Value(double.tryParse(_soldesController.text) ?? 0.0),
+        categorie: drift.Value(_selectedCategorie),
       );
 
       if (widget.client == null) {
@@ -390,6 +475,7 @@ class _AddClientModalState extends State<AddClientModal> {
     _nifController.dispose();
     _rcsController.dispose();
     _soldesController.dispose();
+    _categorieController.dispose();
     super.dispose();
   }
 }

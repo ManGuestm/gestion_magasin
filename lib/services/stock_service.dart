@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../database/database.dart';
 import '../database/database_service.dart';
+import '../utils/stock_converter.dart';
 
 /// Service spécialisé pour la gestion des stocks
 class StockService {
@@ -19,16 +20,12 @@ class StockService {
     double totalU3 = 0;
 
     for (var stockDepot in stocksDepots.values) {
-      // Convertir tout en u3 (unité de base)
-      totalU3 += stockDepot['u3'] ?? 0;
-
-      if (article.tu3u2 != null) {
-        totalU3 += (stockDepot['u2'] ?? 0) * article.tu3u2!;
-      }
-
-      if (article.tu2u1 != null && article.tu3u2 != null) {
-        totalU3 += (stockDepot['u1'] ?? 0) * article.tu2u1! * article.tu3u2!;
-      }
+      totalU3 += StockConverter.calculerStockTotalU3(
+        article: article,
+        stockU1: stockDepot['u1'] ?? 0,
+        stockU2: stockDepot['u2'] ?? 0,
+        stockU3: stockDepot['u3'] ?? 0,
+      );
     }
 
     return totalU3;
@@ -49,36 +46,50 @@ class StockService {
       String depot = entry.key;
       Map<String, double> stocks = entry.value;
 
-      double stockDisponible = 0;
+      // Vérifier si le stock est suffisant pour cette vente
+      bool stockSuffisant = StockConverter.verifierStockSuffisant(
+        article: article,
+        stockU1: stocks['u1'] ?? 0,
+        stockU2: stocks['u2'] ?? 0,
+        stockU3: stocks['u3'] ?? 0,
+        uniteVente: uniteVente,
+        quantiteVente: quantiteRestante,
+      );
 
-      // Calculer le stock disponible dans l'unité de vente
-      if (uniteVente == article.u1) {
-        stockDisponible = stocks['u1'] ?? 0;
-      } else if (uniteVente == article.u2) {
-        stockDisponible = stocks['u2'] ?? 0;
-        // Ajouter la conversion depuis u1
-        if (article.tu2u1 != null) {
-          stockDisponible += (stocks['u1'] ?? 0) * article.tu2u1!;
+      if (stockSuffisant && quantiteRestante > 0) {
+        double quantiteAPrendre = quantiteRestante;
+        
+        // Calculer le stock total disponible en unité de vente
+        double stockTotalU3 = StockConverter.calculerStockTotalU3(
+          article: article,
+          stockU1: stocks['u1'] ?? 0,
+          stockU2: stocks['u2'] ?? 0,
+          stockU3: stocks['u3'] ?? 0,
+        );
+        
+        // Convertir en unité de vente pour affichage
+        double stockDisponibleUniteVente = stockTotalU3;
+        if (uniteVente == article.u2 && article.tu3u2 != null) {
+          stockDisponibleUniteVente = stockTotalU3 / article.tu3u2!;
+        } else if (uniteVente == article.u1 && article.tu2u1 != null && article.tu3u2 != null) {
+          stockDisponibleUniteVente = stockTotalU3 / (article.tu2u1! * article.tu3u2!);
         }
-      } else if (uniteVente == article.u3) {
-        stockDisponible = stocks['u3'] ?? 0;
-        // Ajouter les conversions
-        if (article.tu3u2 != null) {
-          stockDisponible += (stocks['u2'] ?? 0) * article.tu3u2!;
-          if (article.tu2u1 != null) {
-            stockDisponible += (stocks['u1'] ?? 0) * article.tu2u1! * article.tu3u2!;
-          }
+        
+        if (quantiteAPrendre > stockDisponibleUniteVente) {
+          quantiteAPrendre = stockDisponibleUniteVente;
         }
-      }
-
-      if (stockDisponible > 0 && quantiteRestante > 0) {
-        double quantiteAPrendre = quantiteRestante > stockDisponible ? stockDisponible : quantiteRestante;
 
         suggestions.add({
           'depot': depot,
           'quantite': quantiteAPrendre,
           'unite': uniteVente,
-          'stockDisponible': stockDisponible,
+          'stockDisponible': stockDisponibleUniteVente,
+          'affichageStock': StockConverter.formaterAffichageStock(
+            article: article,
+            stockU1: stocks['u1'] ?? 0,
+            stockU2: stocks['u2'] ?? 0,
+            stockU3: stocks['u3'] ?? 0,
+          ),
         });
 
         quantiteRestante -= quantiteAPrendre;

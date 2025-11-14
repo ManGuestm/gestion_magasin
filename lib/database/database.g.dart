@@ -4302,6 +4302,18 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
       additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
       type: DriftSqlType.string,
       requiredDuringInsert: false);
+  static const VerificationMeta _montantRecuMeta =
+      const VerificationMeta('montantRecu');
+  @override
+  late final GeneratedColumn<double> montantRecu = GeneratedColumn<double>(
+      'montant_recu', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _monnaieARendreMeta =
+      const VerificationMeta('monnaieARendre');
+  @override
+  late final GeneratedColumn<double> monnaieARendre = GeneratedColumn<double>(
+      'monnaie_a_rendre', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         num,
@@ -4329,7 +4341,9 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
         emb,
         transp,
         heure,
-        poste
+        poste,
+        montantRecu,
+        monnaieARendre
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4447,6 +4461,18 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
       context.handle(
           _posteMeta, poste.isAcceptableOrUnknown(data['poste']!, _posteMeta));
     }
+    if (data.containsKey('montant_recu')) {
+      context.handle(
+          _montantRecuMeta,
+          montantRecu.isAcceptableOrUnknown(
+              data['montant_recu']!, _montantRecuMeta));
+    }
+    if (data.containsKey('monnaie_a_rendre')) {
+      context.handle(
+          _monnaieARendreMeta,
+          monnaieARendre.isAcceptableOrUnknown(
+              data['monnaie_a_rendre']!, _monnaieARendreMeta));
+    }
     return context;
   }
 
@@ -4508,6 +4534,10 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
           .read(DriftSqlType.string, data['${effectivePrefix}heure']),
       poste: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}poste']),
+      montantRecu: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}montant_recu']),
+      monnaieARendre: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}monnaie_a_rendre']),
     );
   }
 
@@ -4544,6 +4574,8 @@ class Vente extends DataClass implements Insertable<Vente> {
   final String? transp;
   final String? heure;
   final String? poste;
+  final double? montantRecu;
+  final double? monnaieARendre;
   const Vente(
       {required this.num,
       this.numventes,
@@ -4570,7 +4602,9 @@ class Vente extends DataClass implements Insertable<Vente> {
       this.emb,
       this.transp,
       this.heure,
-      this.poste});
+      this.poste,
+      this.montantRecu,
+      this.monnaieARendre});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -4650,6 +4684,12 @@ class Vente extends DataClass implements Insertable<Vente> {
     if (!nullToAbsent || poste != null) {
       map['poste'] = Variable<String>(poste);
     }
+    if (!nullToAbsent || montantRecu != null) {
+      map['montant_recu'] = Variable<double>(montantRecu);
+    }
+    if (!nullToAbsent || monnaieARendre != null) {
+      map['monnaie_a_rendre'] = Variable<double>(monnaieARendre);
+    }
     return map;
   }
 
@@ -4707,6 +4747,12 @@ class Vente extends DataClass implements Insertable<Vente> {
           heure == null && nullToAbsent ? const Value.absent() : Value(heure),
       poste:
           poste == null && nullToAbsent ? const Value.absent() : Value(poste),
+      montantRecu: montantRecu == null && nullToAbsent
+          ? const Value.absent()
+          : Value(montantRecu),
+      monnaieARendre: monnaieARendre == null && nullToAbsent
+          ? const Value.absent()
+          : Value(monnaieARendre),
     );
   }
 
@@ -4740,6 +4786,8 @@ class Vente extends DataClass implements Insertable<Vente> {
       transp: serializer.fromJson<String?>(json['transp']),
       heure: serializer.fromJson<String?>(json['heure']),
       poste: serializer.fromJson<String?>(json['poste']),
+      montantRecu: serializer.fromJson<double?>(json['montantRecu']),
+      monnaieARendre: serializer.fromJson<double?>(json['monnaieARendre']),
     );
   }
   @override
@@ -4772,6 +4820,8 @@ class Vente extends DataClass implements Insertable<Vente> {
       'transp': serializer.toJson<String?>(transp),
       'heure': serializer.toJson<String?>(heure),
       'poste': serializer.toJson<String?>(poste),
+      'montantRecu': serializer.toJson<double?>(montantRecu),
+      'monnaieARendre': serializer.toJson<double?>(monnaieARendre),
     };
   }
 
@@ -4801,7 +4851,9 @@ class Vente extends DataClass implements Insertable<Vente> {
           Value<String?> emb = const Value.absent(),
           Value<String?> transp = const Value.absent(),
           Value<String?> heure = const Value.absent(),
-          Value<String?> poste = const Value.absent()}) =>
+          Value<String?> poste = const Value.absent(),
+          Value<double?> montantRecu = const Value.absent(),
+          Value<double?> monnaieARendre = const Value.absent()}) =>
       Vente(
         num: num ?? this.num,
         numventes: numventes.present ? numventes.value : this.numventes,
@@ -4830,6 +4882,9 @@ class Vente extends DataClass implements Insertable<Vente> {
         transp: transp.present ? transp.value : this.transp,
         heure: heure.present ? heure.value : this.heure,
         poste: poste.present ? poste.value : this.poste,
+        montantRecu: montantRecu.present ? montantRecu.value : this.montantRecu,
+        monnaieARendre:
+            monnaieARendre.present ? monnaieARendre.value : this.monnaieARendre,
       );
   Vente copyWithCompanion(VentesCompanion data) {
     return Vente(
@@ -4862,6 +4917,11 @@ class Vente extends DataClass implements Insertable<Vente> {
       transp: data.transp.present ? data.transp.value : this.transp,
       heure: data.heure.present ? data.heure.value : this.heure,
       poste: data.poste.present ? data.poste.value : this.poste,
+      montantRecu:
+          data.montantRecu.present ? data.montantRecu.value : this.montantRecu,
+      monnaieARendre: data.monnaieARendre.present
+          ? data.monnaieARendre.value
+          : this.monnaieARendre,
     );
   }
 
@@ -4893,7 +4953,9 @@ class Vente extends DataClass implements Insertable<Vente> {
           ..write('emb: $emb, ')
           ..write('transp: $transp, ')
           ..write('heure: $heure, ')
-          ..write('poste: $poste')
+          ..write('poste: $poste, ')
+          ..write('montantRecu: $montantRecu, ')
+          ..write('monnaieARendre: $monnaieARendre')
           ..write(')'))
         .toString();
   }
@@ -4925,7 +4987,9 @@ class Vente extends DataClass implements Insertable<Vente> {
         emb,
         transp,
         heure,
-        poste
+        poste,
+        montantRecu,
+        monnaieARendre
       ]);
   @override
   bool operator ==(Object other) =>
@@ -4956,7 +5020,9 @@ class Vente extends DataClass implements Insertable<Vente> {
           other.emb == this.emb &&
           other.transp == this.transp &&
           other.heure == this.heure &&
-          other.poste == this.poste);
+          other.poste == this.poste &&
+          other.montantRecu == this.montantRecu &&
+          other.monnaieARendre == this.monnaieARendre);
 }
 
 class VentesCompanion extends UpdateCompanion<Vente> {
@@ -4986,6 +5052,8 @@ class VentesCompanion extends UpdateCompanion<Vente> {
   final Value<String?> transp;
   final Value<String?> heure;
   final Value<String?> poste;
+  final Value<double?> montantRecu;
+  final Value<double?> monnaieARendre;
   const VentesCompanion({
     this.num = const Value.absent(),
     this.numventes = const Value.absent(),
@@ -5013,6 +5081,8 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     this.transp = const Value.absent(),
     this.heure = const Value.absent(),
     this.poste = const Value.absent(),
+    this.montantRecu = const Value.absent(),
+    this.monnaieARendre = const Value.absent(),
   });
   VentesCompanion.insert({
     this.num = const Value.absent(),
@@ -5041,6 +5111,8 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     this.transp = const Value.absent(),
     this.heure = const Value.absent(),
     this.poste = const Value.absent(),
+    this.montantRecu = const Value.absent(),
+    this.monnaieARendre = const Value.absent(),
   });
   static Insertable<Vente> custom({
     Expression<int>? num,
@@ -5069,6 +5141,8 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     Expression<String>? transp,
     Expression<String>? heure,
     Expression<String>? poste,
+    Expression<double>? montantRecu,
+    Expression<double>? monnaieARendre,
   }) {
     return RawValuesInsertable({
       if (num != null) 'num': num,
@@ -5097,6 +5171,8 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       if (transp != null) 'transp': transp,
       if (heure != null) 'heure': heure,
       if (poste != null) 'poste': poste,
+      if (montantRecu != null) 'montant_recu': montantRecu,
+      if (monnaieARendre != null) 'monnaie_a_rendre': monnaieARendre,
     });
   }
 
@@ -5126,7 +5202,9 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       Value<String?>? emb,
       Value<String?>? transp,
       Value<String?>? heure,
-      Value<String?>? poste}) {
+      Value<String?>? poste,
+      Value<double?>? montantRecu,
+      Value<double?>? monnaieARendre}) {
     return VentesCompanion(
       num: num ?? this.num,
       numventes: numventes ?? this.numventes,
@@ -5154,6 +5232,8 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       transp: transp ?? this.transp,
       heure: heure ?? this.heure,
       poste: poste ?? this.poste,
+      montantRecu: montantRecu ?? this.montantRecu,
+      monnaieARendre: monnaieARendre ?? this.monnaieARendre,
     );
   }
 
@@ -5238,6 +5318,12 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     if (poste.present) {
       map['poste'] = Variable<String>(poste.value);
     }
+    if (montantRecu.present) {
+      map['montant_recu'] = Variable<double>(montantRecu.value);
+    }
+    if (monnaieARendre.present) {
+      map['monnaie_a_rendre'] = Variable<double>(monnaieARendre.value);
+    }
     return map;
   }
 
@@ -5269,7 +5355,9 @@ class VentesCompanion extends UpdateCompanion<Vente> {
           ..write('emb: $emb, ')
           ..write('transp: $transp, ')
           ..write('heure: $heure, ')
-          ..write('poste: $poste')
+          ..write('poste: $poste, ')
+          ..write('montantRecu: $montantRecu, ')
+          ..write('monnaieARendre: $monnaieARendre')
           ..write(')'))
         .toString();
   }
@@ -23633,6 +23721,8 @@ typedef $$VentesTableCreateCompanionBuilder = VentesCompanion Function({
   Value<String?> transp,
   Value<String?> heure,
   Value<String?> poste,
+  Value<double?> montantRecu,
+  Value<double?> monnaieARendre,
 });
 typedef $$VentesTableUpdateCompanionBuilder = VentesCompanion Function({
   Value<int> num,
@@ -23661,6 +23751,8 @@ typedef $$VentesTableUpdateCompanionBuilder = VentesCompanion Function({
   Value<String?> transp,
   Value<String?> heure,
   Value<String?> poste,
+  Value<double?> montantRecu,
+  Value<double?> monnaieARendre,
 });
 
 class $$VentesTableFilterComposer
@@ -23749,6 +23841,13 @@ class $$VentesTableFilterComposer
 
   ColumnFilters<String> get poste => $composableBuilder(
       column: $table.poste, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get montantRecu => $composableBuilder(
+      column: $table.montantRecu, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get monnaieARendre => $composableBuilder(
+      column: $table.monnaieARendre,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$VentesTableOrderingComposer
@@ -23838,6 +23937,13 @@ class $$VentesTableOrderingComposer
 
   ColumnOrderings<String> get poste => $composableBuilder(
       column: $table.poste, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get montantRecu => $composableBuilder(
+      column: $table.montantRecu, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get monnaieARendre => $composableBuilder(
+      column: $table.monnaieARendre,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$VentesTableAnnotationComposer
@@ -23926,6 +24032,12 @@ class $$VentesTableAnnotationComposer
 
   GeneratedColumn<String> get poste =>
       $composableBuilder(column: $table.poste, builder: (column) => column);
+
+  GeneratedColumn<double> get montantRecu => $composableBuilder(
+      column: $table.montantRecu, builder: (column) => column);
+
+  GeneratedColumn<double> get monnaieARendre => $composableBuilder(
+      column: $table.monnaieARendre, builder: (column) => column);
 }
 
 class $$VentesTableTableManager extends RootTableManager<
@@ -23977,6 +24089,8 @@ class $$VentesTableTableManager extends RootTableManager<
             Value<String?> transp = const Value.absent(),
             Value<String?> heure = const Value.absent(),
             Value<String?> poste = const Value.absent(),
+            Value<double?> montantRecu = const Value.absent(),
+            Value<double?> monnaieARendre = const Value.absent(),
           }) =>
               VentesCompanion(
             num: num,
@@ -24005,6 +24119,8 @@ class $$VentesTableTableManager extends RootTableManager<
             transp: transp,
             heure: heure,
             poste: poste,
+            montantRecu: montantRecu,
+            monnaieARendre: monnaieARendre,
           ),
           createCompanionCallback: ({
             Value<int> num = const Value.absent(),
@@ -24033,6 +24149,8 @@ class $$VentesTableTableManager extends RootTableManager<
             Value<String?> transp = const Value.absent(),
             Value<String?> heure = const Value.absent(),
             Value<String?> poste = const Value.absent(),
+            Value<double?> montantRecu = const Value.absent(),
+            Value<double?> monnaieARendre = const Value.absent(),
           }) =>
               VentesCompanion.insert(
             num: num,
@@ -24061,6 +24179,8 @@ class $$VentesTableTableManager extends RootTableManager<
             transp: transp,
             heure: heure,
             poste: poste,
+            montantRecu: montantRecu,
+            monnaieARendre: monnaieARendre,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

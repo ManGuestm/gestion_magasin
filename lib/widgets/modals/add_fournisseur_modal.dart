@@ -15,43 +15,43 @@ class AddFournisseurModal extends StatefulWidget {
 
 class _AddFournisseurModalState extends State<AddFournisseurModal> {
   final _formKey = GlobalKey<FormState>();
-
-  // Controllers pour les champs
-  final _raisonSocialeController = TextEditingController();
-  final _siegeSocialController = TextEditingController();
+  final _rsocController = TextEditingController();
+  final _adrController = TextEditingController();
   final _capitalController = TextEditingController();
   final _rcsController = TextEditingController();
   final _nifController = TextEditingController();
   final _statController = TextEditingController();
-  final _telephoneController = TextEditingController();
-  final _faxController = TextEditingController();
-  final _portablesController = TextEditingController();
-  final _telexController = TextEditingController();
+  final _telController = TextEditingController();
+  final _portController = TextEditingController();
   final _emailController = TextEditingController();
-  final _siteInternetController = TextEditingController();
+  final _siteController = TextEditingController();
+  final _faxController = TextEditingController();
+  final _telexController = TextEditingController();
+
+  bool get _isEditing => widget.fournisseur != null;
 
   @override
   void initState() {
     super.initState();
-    if (widget.fournisseur != null) {
+    if (_isEditing) {
       _loadFournisseurData();
     }
   }
 
   void _loadFournisseurData() {
     final fournisseur = widget.fournisseur!;
-    _raisonSocialeController.text = fournisseur.rsoc;
-    _siegeSocialController.text = fournisseur.adr ?? '';
+    _rsocController.text = fournisseur.rsoc;
+    _adrController.text = fournisseur.adr ?? '';
     _capitalController.text = fournisseur.capital?.toString() ?? '';
     _rcsController.text = fournisseur.rcs ?? '';
     _nifController.text = fournisseur.nif ?? '';
     _statController.text = fournisseur.stat ?? '';
-    _telephoneController.text = fournisseur.tel ?? '';
-    _faxController.text = fournisseur.fax ?? '';
-    _portablesController.text = fournisseur.port ?? '';
-    _telexController.text = fournisseur.telex ?? '';
+    _telController.text = fournisseur.tel ?? '';
+    _portController.text = fournisseur.port ?? '';
     _emailController.text = fournisseur.email ?? '';
-    _siteInternetController.text = fournisseur.site ?? '';
+    _siteController.text = fournisseur.site ?? '';
+    _faxController.text = fournisseur.fax ?? '';
+    _telexController.text = fournisseur.telex ?? '';
   }
 
   @override
@@ -63,33 +63,31 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
           width: 700,
           height: 450,
           decoration: BoxDecoration(
+            color: Colors.grey[200],
             border: Border.all(color: Colors.grey[400]!),
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.white,
           ),
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Form(
-                      key: _formKey,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildIdentificationSection(),
-                          const SizedBox(height: 16),
-                          _buildCoordonneesSection(),
+                          const SizedBox(height: 8),
+                          _buildCoordonneeSection(),
                         ],
                       ),
                     ),
                   ),
                 ),
-              ),
-              _buildButtons(),
-            ],
+                _buildButtons(),
+              ],
+            ),
           ),
         ),
       ),
@@ -102,148 +100,191 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: Colors.blue[100],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
       ),
       child: Text(
-        widget.fournisseur == null ? 'CREER ...' : 'MODIFIER ...',
-        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        widget.fournisseur == null ? 'NOUVEAU ...' : 'MODIFIER ...',
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
       ),
     );
   }
 
   Widget _buildIdentificationSection() {
     return Container(
-      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
         color: Colors.blue[50],
+        border: Border.all(color: Colors.grey[400]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'IDENTIFICATION',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.blue[200],
+              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+            ),
+            child: const Text(
+              'IDENTIFICATION',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: Column(
-                  children: [
-                    _buildTextField('Raison Social', _raisonSocialeController, required: true),
-                    const SizedBox(height: 8),
-                    _buildTextField('Siège Social', _siegeSocialController, multiline: true),
-                  ],
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildLabeledField('Raison Social', _rsocController, required: true),
+                      const SizedBox(height: 8),
+                      _buildTextAreaField('Siège Social', _adrController),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  children: [
-                    _buildTextField('Capital', _capitalController),
-                    const SizedBox(height: 8),
-                    _buildTextField('RCS', _rcsController),
-                    const SizedBox(height: 8),
-                    _buildTextField('N.I.F', _nifController),
-                    const SizedBox(height: 8),
-                    _buildTextField('STAT', _statController),
-                  ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildLabeledField('Capital', _capitalController),
+                      const SizedBox(height: 8),
+                      _buildLabeledField('RCS', _rcsController),
+                      const SizedBox(height: 8),
+                      _buildLabeledField('N.I.F', _nifController),
+                      const SizedBox(height: 8),
+                      _buildLabeledField('STAT', _statController),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildCoordonneesSection() {
+  Widget _buildCoordonneeSection() {
     return Container(
-      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
         color: Colors.blue[50],
+        border: Border.all(color: Colors.grey[400]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'COORDONNEES',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.blue[200],
+              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+            ),
+            child: const Text(
+              'COORDONNEES',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Column(
+              children: [
+                Row(
                   children: [
-                    _buildTextField('Telephone', _telephoneController),
-                    const SizedBox(height: 8),
-                    _buildTextField('Portables', _portablesController),
+                    Expanded(child: _buildLabeledField('Telephone', _telController)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildLabeledField('Fax', _faxController)),
                   ],
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
+                const SizedBox(height: 8),
+                Row(
                   children: [
-                    _buildTextField('Fax', _faxController),
-                    const SizedBox(height: 8),
-                    _buildTextField('Telex', _telexController),
+                    Expanded(child: _buildLabeledField('Portables', _portController)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildLabeledField('Telex', _telexController)),
                   ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                _buildLabeledField('Email', _emailController),
+                const SizedBox(height: 8),
+                _buildLabeledField('Site internet', _siteController),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          _buildTextField('Email', _emailController),
-          const SizedBox(height: 8),
-          _buildTextField('Site internet', _siteInternetController),
         ],
       ),
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller,
-      {bool required = false, bool multiline = false}) {
+  Widget _buildLabeledField(String label, TextEditingController controller,
+      {bool required = false, double? width}) {
     return Row(
       children: [
         SizedBox(
-          width: 100,
+          width: 80,
           child: Text(
             label,
             style: const TextStyle(fontSize: 11),
           ),
         ),
-        Expanded(
-          child: Container(
-            height: multiline ? 60 : 20,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[400]!),
-              color: Colors.white,
+        const SizedBox(width: 8),
+        Container(
+          width: width ?? 200,
+          height: 20,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.grey[400]!),
+          ),
+          child: TextFormField(
+            controller: controller,
+            style: const TextStyle(fontSize: 11),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              isDense: true,
             ),
-            child: TextFormField(
-              controller: controller,
-              maxLines: multiline ? 3 : 1,
-              style: const TextStyle(fontSize: 11),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                isDense: true,
-              ),
-              validator: required
-                  ? (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Ce champ est requis';
-                      }
-                      return null;
+            validator: required
+                ? (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Requis';
                     }
-                  : null,
+                    return null;
+                  }
+                : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextAreaField(String label, TextEditingController controller) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 80,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 11),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 200,
+          height: 70,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.grey[400]!),
+          ),
+          child: TextFormField(
+            controller: controller,
+            style: const TextStyle(fontSize: 11),
+            maxLines: 3,
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              isDense: true,
             ),
           ),
         ),
@@ -253,13 +294,10 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
 
   Widget _buildButtons() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.blue[100],
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(8),
-          bottomRight: Radius.circular(8),
-        ),
+        color: Colors.grey[300],
+        border: Border(top: BorderSide(color: Colors.grey[400]!)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -311,43 +349,37 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
   }
 
   Future<void> _saveFournisseur() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     try {
-      final fournisseurData = FrnsCompanion(
-        rsoc: drift.Value(_raisonSocialeController.text),
-        adr: drift.Value(_siegeSocialController.text.isEmpty ? null : _siegeSocialController.text),
-        capital:
-            drift.Value(_capitalController.text.isEmpty ? null : double.tryParse(_capitalController.text)),
+      final companion = FrnsCompanion(
+        rsoc: drift.Value(_rsocController.text),
+        adr: drift.Value(_adrController.text.isEmpty ? null : _adrController.text),
+        capital: drift.Value(double.tryParse(_capitalController.text)),
         rcs: drift.Value(_rcsController.text.isEmpty ? null : _rcsController.text),
         nif: drift.Value(_nifController.text.isEmpty ? null : _nifController.text),
         stat: drift.Value(_statController.text.isEmpty ? null : _statController.text),
-        tel: drift.Value(_telephoneController.text.isEmpty ? null : _telephoneController.text),
-        fax: drift.Value(_faxController.text.isEmpty ? null : _faxController.text),
-        port: drift.Value(_portablesController.text.isEmpty ? null : _portablesController.text),
-        telex: drift.Value(_telexController.text.isEmpty ? null : _telexController.text),
+        tel: drift.Value(_telController.text.isEmpty ? null : _telController.text),
+        port: drift.Value(_portController.text.isEmpty ? null : _portController.text),
         email: drift.Value(_emailController.text.isEmpty ? null : _emailController.text),
-        site: drift.Value(_siteInternetController.text.isEmpty ? null : _siteInternetController.text),
-        soldes: const drift.Value(0.0),
-        action: const drift.Value('A'),
+        site: drift.Value(_siteController.text.isEmpty ? null : _siteController.text),
+        fax: drift.Value(_faxController.text.isEmpty ? null : _faxController.text),
+        telex: drift.Value(_telexController.text.isEmpty ? null : _telexController.text),
       );
 
       if (widget.fournisseur == null) {
-        await DatabaseService().database.insertFournisseur(fournisseurData);
+        await DatabaseService().database.insertFournisseur(companion);
       } else {
-        await DatabaseService().database.updateFournisseur(widget.fournisseur!.rsoc, fournisseurData);
+        await DatabaseService().database.updateFournisseur(widget.fournisseur!.rsoc, companion);
       }
 
       if (mounted) {
         Navigator.of(context).pop();
       }
     } catch (e) {
-      debugPrint('Erreur lors de la sauvegarde: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la sauvegarde: $e')),
+          SnackBar(content: Text('Erreur: $e')),
         );
       }
     }
@@ -355,18 +387,18 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
 
   @override
   void dispose() {
-    _raisonSocialeController.dispose();
-    _siegeSocialController.dispose();
+    _rsocController.dispose();
+    _adrController.dispose();
     _capitalController.dispose();
     _rcsController.dispose();
     _nifController.dispose();
     _statController.dispose();
-    _telephoneController.dispose();
-    _faxController.dispose();
-    _portablesController.dispose();
-    _telexController.dispose();
+    _telController.dispose();
+    _portController.dispose();
     _emailController.dispose();
-    _siteInternetController.dispose();
+    _siteController.dispose();
+    _faxController.dispose();
+    _telexController.dispose();
     super.dispose();
   }
 }

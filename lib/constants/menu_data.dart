@@ -12,6 +12,7 @@ class MenuData {
       'Fournisseurs',
       'Banques',
       'Plan de comptes',
+      'Réinitialiser les données',
     ],
     'Commerces': [
       'Achats',
@@ -106,7 +107,6 @@ class MenuData {
       'Par Clients Détaillés',
     ],
     'Retour de Marchandises': [
-      'Sur Achats',
       'Sur Ventes',
       'Retours achats',
     ],

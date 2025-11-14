@@ -17,7 +17,6 @@ class _ArticlesModalState extends State<ArticlesModal> {
   List<Depot> _depots = [];
   final TextEditingController _searchController = TextEditingController();
   Article? _selectedArticle;
-  final int _pageSize = 100;
   bool _isLoading = false;
 
   @override
@@ -137,12 +136,17 @@ class _ArticlesModalState extends State<ArticlesModal> {
                                   bottom: BorderSide(color: Colors.grey, width: 1),
                                 ),
                               ),
-                              child: Text(
-                                _buildStockText(article),
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                ),
+                              child: FutureBuilder<String>(
+                                future: _getAllStocksText(article),
+                                builder: (context, snapshot) {
+                                  return Text(
+                                    snapshot.data ?? 'Chargement...',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: isSelected ? Colors.white : Colors.black,
+                                    ),
+                                  );
+                                },
                               ),
                             ),
                           ),
@@ -454,9 +458,41 @@ class _ArticlesModalState extends State<ArticlesModal> {
     );
   }
 
-  String _buildStockText(Article article) {
-    // Afficher "Voir détails" pour indiquer que les stocks sont par dépôt
-    return 'Voir détails par dépôt';
+  Future<String> _getAllStocksText(Article article) async {
+    final db = DatabaseService().database;
+    final stocksDepart =
+        await (db.select(db.depart)..where((d) => d.designation.equals(article.designation))).get();
+
+    if (stocksDepart.isEmpty) {
+      return 'Aucun stock';
+    }
+
+    List<String> stockTexts = [];
+
+    for (var stock in stocksDepart) {
+      List<String> unitStocks = [];
+
+      // U1
+      if (article.u1?.isNotEmpty == true && (stock.stocksu1 ?? 0) > 0) {
+        unitStocks.add('${(stock.stocksu1 ?? 0).toStringAsFixed(0)} ${article.u1}');
+      }
+
+      // U2
+      if (article.u2?.isNotEmpty == true && (stock.stocksu2 ?? 0) > 0) {
+        unitStocks.add('${(stock.stocksu2 ?? 0).toStringAsFixed(0)} ${article.u2}');
+      }
+
+      // U3
+      if (article.u3?.isNotEmpty == true && (stock.stocksu3 ?? 0) > 0) {
+        unitStocks.add('${(stock.stocksu3 ?? 0).toStringAsFixed(0)} ${article.u3}');
+      }
+
+      if (unitStocks.isNotEmpty) {
+        stockTexts.add('${stock.depots}: ${unitStocks.join(", ")}');
+      }
+    }
+
+    return stockTexts.isEmpty ? 'Stock vide' : stockTexts.join(' | ');
   }
 
   void _selectArticle(Article article) {
@@ -511,12 +547,24 @@ class _ArticlesModalState extends State<ArticlesModal> {
     if (_isLoading) return;
     setState(() => _isLoading = true);
 
-    final articles = await DatabaseService().database.getAllArticles();
-    setState(() {
-      _articles = articles;
-      _filteredArticles = articles.take(_pageSize).toList();
-      _isLoading = false;
-    });
+    try {
+      final articles = await DatabaseService().database.getAllArticles();
+      // Trier par ordre croissant de désignation
+      articles.sort((a, b) => a.designation.compareTo(b.designation));
+
+      setState(() {
+        _articles = articles;
+        _filteredArticles = articles;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Erreur lors du chargement des articles: $e');
+      setState(() {
+        _articles = [];
+        _filteredArticles = [];
+        _isLoading = false;
+      });
+    }
   }
 
   void _filterArticles(String query) {
@@ -524,19 +572,20 @@ class _ArticlesModalState extends State<ArticlesModal> {
 
     setState(() {
       if (query.isEmpty) {
-        _filteredArticles = _articles.take(_pageSize).toList();
+        _filteredArticles = _articles;
       } else {
-        final filtered = _articles
+        _filteredArticles = _articles
             .where((article) => article.designation.toLowerCase().contains(query.toLowerCase()))
             .toList();
-        _filteredArticles = filtered.take(_pageSize).toList();
+        // Maintenir le tri après filtrage
+        _filteredArticles.sort((a, b) => a.designation.compareTo(b.designation));
       }
     });
   }
 
   void _showAllArticles() {
     setState(() {
-      _filteredArticles = _articles.take(_pageSize).toList();
+      _filteredArticles = _articles;
       _searchController.clear();
     });
   }

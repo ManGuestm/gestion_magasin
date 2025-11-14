@@ -56,6 +56,8 @@ import '../widgets/modals/statistiques_achats_modal.dart';
 import '../widgets/modals/marges_modal.dart';
 import '../widgets/modals/tableau_bord_modal.dart';
 import '../widgets/modals/bilan_compte_resultat_modal.dart';
+import '../widgets/modals/reinitialiser_donnees_modal.dart';
+import '../widgets/modals/test_conversions_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -125,6 +127,8 @@ class _HomeScreenState extends State<HomeScreen> {
     'Bilan / Compte de Résultat': BilanCompteResultatModal(),
     'Gestion fournisseurs': FournisseursModal(),
     'Statistiques fournisseurs': StatistiquesFournisseursModal(),
+    'Réinitialiser les données': ReinitialiserDonneesModal(),
+    'Test Conversions': TestConversionsModal(),
   };
 
   @override
@@ -150,15 +154,34 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       height: 30,
       color: Colors.grey[300],
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
-            Icon(Icons.business, size: 16, color: Colors.red),
-            SizedBox(width: 4),
-            Text(
+            const Icon(Icons.business, size: 16, color: Colors.red),
+            const SizedBox(width: 4),
+            const Text(
               'GESTION COMMERCIALE DES GROSSISTES PPN - Administrateurs',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+            const Spacer(),
+            // Bouton de test des conversions
+            TextButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => const TestConversionsModal(),
+                );
+              },
+              icon: const Icon(Icons.science, size: 14, color: Colors.blue),
+              label: const Text(
+                'Test Conversions',
+                style: TextStyle(fontSize: 11, color: Colors.blue),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                minimumSize: const Size(0, 26),
+              ),
             ),
           ],
         ),

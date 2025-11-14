@@ -492,14 +492,7 @@ class _SurVentesModalState extends State<SurVentesModal> {
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: _lignesRetour.isNotEmpty
-                        ? () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Retour enregistré avec succès')),
-                            );
-                            Navigator.of(context).pop();
-                          }
-                        : null,
+                    onPressed: _lignesRetour.isNotEmpty ? _saveRetourVente : null,
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
                     child: const Text('Valider Retour'),
                   ),
@@ -515,6 +508,171 @@ class _SurVentesModalState extends State<SurVentesModal> {
         ),
       ),
     );
+  }
+
+  Future<void> _saveRetourVente() async {
+    if (_selectedClient == null || _selectedVente == null || _lignesRetour.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez remplir tous les champs requis')),
+      );
+      return;
+    }
+
+    try {
+      final numRetour = _numRetourController.text;
+      List<String> dateParts = _dateController.text.split('-');
+      DateTime dateForDB =
+          DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+
+      double totalMontant = 0;
+      for (var ligne in _lignesRetour) {
+        totalMontant += ligne['montant'] ?? 0;
+      }
+
+      // Enregistrer le retour sur vente
+      final retourCompanion = RetventesCompanion(
+        numventes: drift.Value(numRetour),
+        daty: drift.Value(dateForDB),
+        clt: drift.Value(_selectedClient!),
+        totalttc: drift.Value(totalMontant),
+      );
+
+      await _databaseService.database.into(_databaseService.database.retventes).insert(retourCompanion);
+
+      // Enregistrer les détails et mettre à jour le stock
+      for (var ligne in _lignesRetour) {
+        final detailCompanion = RetdeventesCompanion(
+          numventes: drift.Value(numRetour),
+          designation: drift.Value(ligne['designation']),
+          unites: drift.Value(ligne['unite']),
+          depots: drift.Value(ligne['depot']),
+          q: drift.Value(ligne['quantite']),
+          pu: drift.Value(ligne['prixUnitaire']),
+        );
+        await _databaseService.database.into(_databaseService.database.retdeventes).insert(detailCompanion);
+
+        // Mettre à jour le stock (ENTRÉE pour retour sur vente)
+        await _mettreAJourStockRetourVente(
+          ligne['designation'],
+          ligne['depot'],
+          ligne['unite'],
+          ligne['quantite'],
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Retour sur vente enregistré avec succès')),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _mettreAJourStockRetourVente(
+      String designation, String depot, String unite, double quantite) async {
+    try {
+      // Créer un mouvement d'ENTRÉE de stock pour le retour sur vente
+      final ref = 'RV${DateTime.now().millisecondsSinceEpoch}';
+      await _databaseService.database.into(_databaseService.database.stocks).insert(
+            StocksCompanion(
+              ref: drift.Value(ref),
+              daty: drift.Value(DateTime.now()),
+              lib: drift.Value('RETOUR VENTE - $designation'),
+              refart: drift.Value(designation),
+              qe: drift.Value(quantite),
+              entres: drift.Value(quantite),
+              ue: drift.Value(unite),
+              depots: drift.Value(depot),
+            ),
+          );
+
+      // Récupérer l'article pour mettre à jour le stock global
+      final article = await _databaseService.database.getArticleByDesignation(designation);
+      if (article != null) {
+        double nouvelleQuantiteU1 = article.stocksu1 ?? 0;
+        double nouvelleQuantiteU2 = article.stocksu2 ?? 0;
+        double nouvelleQuantiteU3 = article.stocksu3 ?? 0;
+
+        // AJOUTER la quantité retournée selon l'unité dans la table articles
+        if (unite == 'Ctn' || unite == 'Pck') {
+          nouvelleQuantiteU1 += quantite;
+        } else if (unite == 'Kg') {
+          nouvelleQuantiteU2 += quantite;
+        } else if (unite == 'L') {
+          nouvelleQuantiteU3 += quantite;
+        }
+
+        // Mettre à jour le stock global dans la table articles
+        await (_databaseService.database.update(_databaseService.database.articles)
+              ..where((a) => a.designation.equals(designation)))
+            .write(ArticlesCompanion(
+          stocksu1: drift.Value(nouvelleQuantiteU1),
+          stocksu2: drift.Value(nouvelleQuantiteU2),
+          stocksu3: drift.Value(nouvelleQuantiteU3),
+        ));
+      }
+
+      // Mettre à jour le stock dans la table depart (AUGMENTER le stock)
+      final query = _databaseService.database.select(_databaseService.database.depart);
+      query.where((d) => d.designation.equals(designation) & d.depots.equals(depot));
+      final stockDepart = await query.getSingleOrNull();
+
+      if (stockDepart != null) {
+        double nouvelleQuantiteU1 = stockDepart.stocksu1 ?? 0;
+        double nouvelleQuantiteU2 = stockDepart.stocksu2 ?? 0;
+        double nouvelleQuantiteU3 = stockDepart.stocksu3 ?? 0;
+
+        // AJOUTER la quantité retournée selon l'unité
+        if (unite == 'Ctn' || unite == 'Pck') {
+          nouvelleQuantiteU1 += quantite;
+        } else if (unite == 'Kg') {
+          nouvelleQuantiteU2 += quantite;
+        } else if (unite == 'L') {
+          nouvelleQuantiteU3 += quantite;
+        }
+
+        await (_databaseService.database.update(_databaseService.database.depart)
+              ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+            .write(DepartCompanion(
+          stocksu1: drift.Value(nouvelleQuantiteU1),
+          stocksu2: drift.Value(nouvelleQuantiteU2),
+          stocksu3: drift.Value(nouvelleQuantiteU3),
+        ));
+      } else {
+        // Créer une nouvelle entrée si elle n'existe pas
+        double stockU1 = 0, stockU2 = 0, stockU3 = 0;
+        if (unite == 'Ctn' || unite == 'Pck') {
+          stockU1 = quantite;
+        } else if (unite == 'Kg') {
+          stockU2 = quantite;
+        } else if (unite == 'L') {
+          stockU3 = quantite;
+        }
+
+        await _databaseService.database.into(_databaseService.database.depart).insert(
+              DepartCompanion(
+                designation: drift.Value(designation),
+                depots: drift.Value(depot),
+                stocksu1: drift.Value(stockU1),
+                stocksu2: drift.Value(stockU2),
+                stocksu3: drift.Value(stockU3),
+              ),
+            );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur mise à jour stock: $e')),
+        );
+      }
+    }
   }
 
   @override

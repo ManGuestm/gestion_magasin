@@ -13,7 +13,8 @@ class VariationStocksModal extends StatefulWidget {
 
 class _VariationStocksModalState extends State<VariationStocksModal> {
   final DatabaseService _databaseService = DatabaseService();
-  List<Stock> _mouvements = [];
+  List<Stock> mouvements = [];
+  List<Map<String, dynamic>> _mouvementsAvecStock = [];
   bool _isLoading = true;
   String _selectedPeriod = 'Aujourd\'hui';
 
@@ -27,36 +28,56 @@ class _VariationStocksModalState extends State<VariationStocksModal> {
     try {
       final allStocks = await _databaseService.database.getAllStocks();
       List<Stock> filteredStocks = [];
-      
+
       final now = DateTime.now();
       switch (_selectedPeriod) {
         case 'Aujourd\'hui':
-          filteredStocks = allStocks.where((s) => 
-            s.daty != null && 
-            s.daty!.year == now.year && 
-            s.daty!.month == now.month && 
-            s.daty!.day == now.day
-          ).toList();
+          filteredStocks = allStocks
+              .where((s) =>
+                  s.daty != null &&
+                  s.daty!.year == now.year &&
+                  s.daty!.month == now.month &&
+                  s.daty!.day == now.day)
+              .toList();
           break;
         case 'Cette semaine':
           final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-          filteredStocks = allStocks.where((s) => 
-            s.daty != null && s.daty!.isAfter(startOfWeek)
-          ).toList();
+          filteredStocks = allStocks.where((s) => s.daty != null && s.daty!.isAfter(startOfWeek)).toList();
           break;
         case 'Ce mois':
-          filteredStocks = allStocks.where((s) => 
-            s.daty != null && 
-            s.daty!.year == now.year && 
-            s.daty!.month == now.month
-          ).toList();
+          filteredStocks = allStocks
+              .where((s) => s.daty != null && s.daty!.year == now.year && s.daty!.month == now.month)
+              .toList();
           break;
         default:
           filteredStocks = allStocks;
       }
-      
+
+      // Trier par date et calculer le stock cumulé
+      filteredStocks.sort((a, b) => (a.daty ?? DateTime.now()).compareTo(b.daty ?? DateTime.now()));
+
+      Map<String, double> stocksParArticle = {};
+      List<Map<String, dynamic>> mouvementsAvecStock = [];
+
+      for (var mouvement in filteredStocks) {
+        String cle = '${mouvement.refart}_${mouvement.depots}';
+        double stockActuel = stocksParArticle[cle] ?? 0.0;
+
+        double entree = mouvement.entres ?? 0.0;
+        double sortie = mouvement.sortie ?? 0.0;
+        double nouveauStock = stockActuel + entree - sortie;
+
+        stocksParArticle[cle] = nouveauStock;
+
+        mouvementsAvecStock.add({
+          'mouvement': mouvement,
+          'stockDisponible': nouveauStock,
+        });
+      }
+
       setState(() {
-        _mouvements = filteredStocks;
+        mouvements = filteredStocks;
+        _mouvementsAvecStock = mouvementsAvecStock;
         _isLoading = false;
       });
     } catch (e) {
@@ -147,28 +168,51 @@ class _VariationStocksModalState extends State<VariationStocksModal> {
                             ),
                             child: const Row(
                               children: [
-                                Expanded(child: Center(child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(flex: 2, child: Center(child: Text('Article', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Dépôt', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Entrées', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Sorties', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Stock', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                        child:
+                                            Text('Article', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Dépôt', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Entrées', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Sorties', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Stock Dispo.',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
                           Expanded(
-                            child: _mouvements.isEmpty
+                            child: _mouvementsAvecStock.isEmpty
                                 ? const Center(child: Text('Aucun mouvement de stock pour cette période'))
                                 : ListView.builder(
-                                    itemCount: _mouvements.length,
+                                    itemCount: _mouvementsAvecStock.length,
                                     itemBuilder: (context, index) {
-                                      final mouvement = _mouvements[index];
+                                      final item = _mouvementsAvecStock[index];
+                                      final mouvement = item['mouvement'] as Stock;
+                                      final stockDisponible = item['stockDisponible'] as double;
+
                                       return Container(
                                         height: 35,
                                         decoration: BoxDecoration(
                                           color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          border: const Border(
+                                              bottom: BorderSide(color: Colors.grey, width: 0.5)),
                                         ),
                                         child: Row(
                                           children: [
@@ -218,8 +262,12 @@ class _VariationStocksModalState extends State<VariationStocksModal> {
                                             Expanded(
                                               child: Center(
                                                 child: Text(
-                                                  NumberUtils.formatNumber(mouvement.stocksu1 ?? 0),
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                                  '${NumberUtils.formatNumber(stockDisponible)} ${mouvement.ue ?? ''}',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: stockDisponible < 0 ? Colors.red : Colors.black,
+                                                  ),
                                                 ),
                                               ),
                                             ),
