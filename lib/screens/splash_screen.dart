@@ -1,0 +1,107 @@
+import 'package:flutter/material.dart';
+
+import '../database/database_service.dart';
+import '../services/modal_loader.dart';
+import 'home_screen.dart';
+
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    final stopwatch = Stopwatch()..start();
+    
+    try {
+      // Phase 1: Initialisation critique
+      await DatabaseService().initialize();
+      
+      // Phase 2: Pré-chargement en parallèle (non bloquant)
+      final preloadFuture = _preloadResources();
+      
+      // Attendre un minimum de temps pour l'UX
+      final minDelay = Future.delayed(const Duration(milliseconds: 800));
+      
+      // Attendre que les deux tâches soient terminées
+      await Future.wait([preloadFuture, minDelay]);
+      
+      stopwatch.stop();
+      debugPrint('Initialisation complétée en ${stopwatch.elapsedMilliseconds}ms');
+      
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      }
+    } catch (e) {
+      stopwatch.stop();
+      debugPrint('Erreur d\'initialisation après ${stopwatch.elapsedMilliseconds}ms: $e');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur d\'initialisation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+  
+  Future<void> _preloadResources() async {
+    try {
+      // Pré-charger les modals les plus utilisés en arrière-plan
+      ModalLoader.preloadFrequentModals();
+    } catch (e) {
+      // Ignorer les erreurs de pré-chargement pour ne pas bloquer l'app
+      debugPrint('Erreur de pré-chargement: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.grey[100],
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.business,
+              size: 80,
+              color: Colors.blue,
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Gestion de Magasin',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
+            ),
+            const SizedBox(height: 40),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            Text(
+              'Initialisation en cours...',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

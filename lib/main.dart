@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import 'database/database_service.dart';
-import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await DatabaseService().initialize();
+
+  // Optimisations de performance
+  await _configurePerformance();
+
   runApp(const MyApp());
+}
+
+Future<void> _configurePerformance() async {
+  // Optimiser les performances de rendu
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+  // Pré-charger les polices système
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+    DeviceOrientation.portraitUp,
+  ]);
 }
 
 class MyApp extends StatelessWidget {
@@ -20,7 +35,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: true,
       ),
-      home: const HomeScreen(),
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

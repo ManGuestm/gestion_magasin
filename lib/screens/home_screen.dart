@@ -2,65 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../constants/menu_data.dart';
 import '../services/menu_service.dart';
+import '../services/modal_loader.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
-import '../widgets/modals/achats_modal.dart';
-import '../widgets/modals/amortissement_immobilisations_modal.dart';
-import '../widgets/modals/approximation_stocks_modal.dart';
-import '../widgets/modals/articles_modal.dart';
-import '../widgets/modals/banques_modal.dart';
-import '../widgets/modals/bilan_compte_resultat_modal.dart';
-import '../widgets/modals/cheques_modal.dart';
-import '../widgets/modals/clients_modal.dart';
-import '../widgets/modals/company_info_modal.dart';
-import '../widgets/modals/comptes_fournisseurs_modal.dart';
-import '../widgets/modals/decaissements_modal.dart';
-import '../widgets/modals/depots_modal.dart';
-import '../widgets/modals/echeance_fournisseurs_modal.dart';
-import '../widgets/modals/effet_a_recevoir_modal.dart';
-import '../widgets/modals/encaissements_modal.dart';
-import '../widgets/modals/etats_articles_modal.dart';
-import '../widgets/modals/etiquettes_prix_modal.dart';
-import '../widgets/modals/etat_tarifaire_modal.dart';
-import '../widgets/modals/etat_stocks_modal.dart';
-import '../widgets/modals/mouvement_stocks_journalieres_modal.dart';
-import '../widgets/modals/fiche_stocks_modal.dart';
-import '../widgets/modals/estimation_valeur_articles_modal.dart';
-import '../widgets/modals/etats_autres_comptes_modal.dart';
-import '../widgets/modals/etats_clients_modal.dart';
-import '../widgets/modals/etats_commerciaux_modal.dart';
-import '../widgets/modals/etats_fournisseurs_modal.dart';
-import '../widgets/modals/etats_immobilisations_modal.dart';
-import '../widgets/modals/fournisseurs_modal.dart';
-import '../widgets/modals/gestion_emballages_modal.dart';
-import '../widgets/modals/journal_banques_modal.dart';
-import '../widgets/modals/journal_caisse_modal.dart';
-import '../widgets/modals/liste_achats_modal.dart';
-import '../widgets/modals/liste_ventes_modal.dart';
-import '../widgets/modals/marges_modal.dart';
-import '../widgets/modals/mise_a_jour_valeurs_stocks_modal.dart';
-import '../widgets/modals/mouvements_clients_modal.dart';
-import '../widgets/modals/moyen_paiement_modal.dart';
-import '../widgets/modals/niveau_stocks_modal.dart';
-import '../widgets/modals/operations_banques_modal.dart';
-import '../widgets/modals/operations_caisses_modal.dart';
-import '../widgets/modals/plan_comptes_modal.dart';
-import '../widgets/modals/productions_modal.dart';
-import '../widgets/modals/reactualisation_base_donnees_modal.dart';
-import '../widgets/modals/regularisation_compte_commerciaux_modal.dart';
-import '../widgets/modals/regularisation_modal.dart';
-import '../widgets/modals/reinitialiser_donnees_modal.dart';
-import '../widgets/modals/relance_clients_modal.dart';
-import '../widgets/modals/retours_achats_modal.dart';
-import '../widgets/modals/statistiques_achats_modal.dart';
-import '../widgets/modals/statistiques_fournisseurs_modal.dart';
-import '../widgets/modals/statistiques_ventes_modal.dart';
-import '../widgets/modals/sur_ventes_modal.dart';
-import '../widgets/modals/tableau_bord_modal.dart';
-import '../widgets/modals/transferts_modal.dart';
-import '../widgets/modals/variation_stocks_modal.dart';
 import '../widgets/modals/ventes_selection_modal.dart';
-import '../widgets/modals/virements_internes_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -77,66 +22,16 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isHoveringNestedMenu = false;
   bool _isHoveringThirdLevelMenu = false;
 
-  static const Map<String, Widget> _modals = {
-    'Informations sur la société': CompanyInfoModal(),
-    'Dépôts': DepotsModal(),
-    'Articles': ArticlesModal(),
-    'Clients': ClientsModal(),
-    'Fournisseurs': FournisseursModal(),
-    'Banques': BanquesModal(),
-    'Plan de comptes': PlanComptesModal(),
-    'Achats': AchatsModal(),
-    'Sur Ventes': SurVentesModal(),
-    'Retours achats': RetoursAchatsModal(),
-    'Comptes fournisseurs': ComptesFournisseursModal(),
-    'Liste des achats': ListeAchatsModal(),
-    'Liste des ventes': ListeVentesModal(),
-    'Mouvements Clients': MouvementsClientsModal(),
-    'Approximation Stocks ...': ApproximationStocksModal(),
-    'Moyen de paiement': MoyenPaiementModal(),
-    'Transferts': TransfertsModal(),
-    'Gestion Emballages': GestionEmballagesModal(),
-    'Productions': ProductionsModal(),
-    'Régularisation compte tiers': RegularisationModal(),
-    'Encaissements': EncaissementsModal(),
-    'Décaissements': DecaissementsModal(),
-    'Journal de caisse': JournalCaisseModal(),
-    'Chèques': ChequesModal(),
-    'Journal des banques': JournalBanquesModal(),
-    'Etats Fournisseurs': EtatsFournisseursModal(),
-    'Etats Clients': EtatsClientsModal(),
-    'Etats Articles': EtatsArticlesModal(),
-    'Etiquettes de prix': EtiquettesPrixModal(),
-    'Etat tarifaire': EtatTarifaireModal(),
-    'Etat de stocks': EtatStocksModal(),
-    'Mouvement de stocks journalières': MouvementStocksJournalieresModal(),
-    'Fiche de stocks': FicheStocksModal(),
-    'Estimation en valeur des articles (CMUP)': EstimationValeurArticlesModal(),
-    'Régularisation compte Commerciaux': RegularisationCompteCommerciauxModal(),
-    'Relance Clients': RelanceClientsModal(),
-    'Echéance Fournisseurs': EchanceFournisseursModal(),
-    'Variation des stocks': VariationStocksModal(),
-    'Mise à jour des valeurs de stocks': MiseAJourValeursStocksModal(),
-    'Niveau des stocks (Articles à commandées)': NiveauStocksModal(),
-    'Amortissement des immobilisations': AmortissementImmobilisationsModal(),
-    'Réactualisation de la base de données': ReactualisationBaseDonneesModal(),
-    'Effet à recevoir': EffetARecevoirModal(),
-    'Virements Internes': VirementsInternesModal(),
-    'Opérations Caisses': OperationsCaissesModal(),
-    'Opérations Banques': OperationsBanquesModal(),
-    'Etats Commerciaux': EtatsCommerciauxModal(),
-    'Etats Immobilisations': EtatsImmobilisationsModal(),
-    'Etats Autres Comptes': EtatsAutresComptesModal(),
-    'Statistiques de ventes': StatistiquesVentesModal(),
-    'Statistiques d\'achats': StatistiquesAchatsModal(),
-    'Marges': MargesModal(),
-    'tableau de bord': TableauBordModal(),
-    'Bilan / Compte de Résultat': BilanCompteResultatModal(),
-    'Gestion fournisseurs': FournisseursModal(),
-    'Statistiques fournisseurs': StatistiquesFournisseursModal(),
-    'Réinitialiser les données': ReinitialiserDonneesModal(),
-    'Transfert de Marchandises': TransfertsModal(),
-  };
+  Future<void> _showModal(String item) async {
+    try {
+      final modal = await ModalLoader.loadModal(item);
+      if (modal != null && mounted) {
+        showDialog(context: context, builder: (context) => modal);
+      }
+    } catch (e) {
+      debugPrint('Erreur lors du chargement du modal $item: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -212,12 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context) => const VentesSelectionModal(),
       );
     } else {
-      final modal = _modals[item];
-      if (modal != null) {
-        showDialog(context: context, builder: (context) => modal);
-      } else {
-        debugPrint('Menu item tapped: $item');
-      }
+      _showModal(item);
     }
   }
 
@@ -264,12 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleNestedSubmenuTap(String item) {
     _closeMenu();
-    final modal = _modals[item];
-    if (modal != null) {
-      showDialog(context: context, builder: (context) => modal);
-    } else {
-      debugPrint('Nested menu item tapped: $item');
-    }
+    _showModal(item);
   }
 
   void _handleNestedSubmenuHover(String item, double itemPosition, [double? secondLevelTopPosition]) {
@@ -324,18 +209,8 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         builder: (context) => const VentesSelectionModal(),
       );
-    } else if (iconLabel == 'Transferts') {
-      showDialog(
-        context: context,
-        builder: (context) => const TransfertsModal(),
-      );
     } else {
-      final modal = _modals[iconLabel];
-      if (modal != null) {
-        showDialog(context: context, builder: (context) => modal);
-      } else {
-        debugPrint('No modal found for: $iconLabel');
-      }
+      _showModal(iconLabel);
     }
   }
 
