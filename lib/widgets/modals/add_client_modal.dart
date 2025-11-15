@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
@@ -50,37 +51,53 @@ class _AddClientModalState extends State<AddClientModal> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: Dialog(
-        child: Container(
-          width: 700,
-          height: MediaQuery.of(context).size.height * 0.6,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            border: Border.all(color: Colors.grey[400]!),
-          ),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        children: [
-                          _buildIdentificationSection(),
-                          const SizedBox(height: 8),
-                          _buildCoordonneeSection(),
-                          const SizedBox(height: 8),
-                          _buildComptesSection(),
-                        ],
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            //Raccouris clavier
+            if (event.logicalKey == LogicalKeyboardKey.enter) {
+              _saveClient();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+              Navigator.of(context).pop();
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Dialog(
+          child: Container(
+            width: 700,
+            height: MediaQuery.of(context).size.height * 0.6,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              border: Border.all(color: Colors.grey[400]!),
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Column(
+                          children: [
+                            _buildIdentificationSection(),
+                            const SizedBox(height: 8),
+                            _buildCoordonneeSection(),
+                            const SizedBox(height: 8),
+                            _buildComptesSection(),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                _buildButtons(),
-              ],
+                  _buildButtons(),
+                ],
+              ),
             ),
           ),
         ),
@@ -391,8 +408,9 @@ class _AddClientModalState extends State<AddClientModal> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 80,
+            // width: 80,
             height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: Colors.orange[200],
               border: Border.all(color: Colors.grey[600]!),
@@ -405,15 +423,16 @@ class _AddClientModalState extends State<AddClientModal> {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: const Text(
-                'Valider',
+                'Valider (Entrée)',
                 style: TextStyle(fontSize: 12, color: Colors.black),
               ),
             ),
           ),
           const SizedBox(width: 16),
           Container(
-            width: 80,
+            // width: 80,
             height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
               color: Colors.orange[200],
               border: Border.all(color: Colors.grey[600]!),
@@ -426,7 +445,7 @@ class _AddClientModalState extends State<AddClientModal> {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: const Text(
-                'Annuler',
+                'Annuler (Échap)',
                 style: TextStyle(fontSize: 12, color: Colors.black),
               ),
             ),
