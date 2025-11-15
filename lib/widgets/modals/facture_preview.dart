@@ -371,6 +371,36 @@ class FacturePreview extends StatelessWidget {
                             societe!.adr!,
                             style: TextStyle(fontSize: _fontSize - 1),
                           ),
+                        if (societe?.rcs != null)
+                          Text(
+                            'RCS: ${societe!.rcs!}',
+                            style: TextStyle(fontSize: _fontSize - 2),
+                          ),
+                        if (societe?.nif != null)
+                          Text(
+                            'NIF: ${societe!.nif!}',
+                            style: TextStyle(fontSize: _fontSize - 2),
+                          ),
+                        if (societe?.stat != null)
+                          Text(
+                            'STAT: ${societe!.stat!}',
+                            style: TextStyle(fontSize: _fontSize - 2),
+                          ),
+                        if (societe?.cif != null)
+                          Text(
+                            'CIF: ${societe!.cif!}',
+                            style: TextStyle(fontSize: _fontSize - 2),
+                          ),
+                        if (societe?.email != null)
+                          Text(
+                            'Email: ${societe!.email!}',
+                            style: TextStyle(fontSize: _fontSize - 2),
+                          ),
+                        if (societe?.port != null)
+                          Text(
+                            'Tél: ${societe!.port!}',
+                            style: TextStyle(fontSize: _fontSize - 2),
+                          ),
                       ],
                     ),
                   ),
@@ -509,6 +539,7 @@ class FacturePreview extends StatelessWidget {
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.black, width: 0.5),
                 ),
+                alignment: Alignment.center,
                 child: Text(
                   'Arrêté à la somme de ${_numberToWords(totalTTC.round())} Ariary',
                   style: TextStyle(
@@ -741,6 +772,36 @@ class FacturePreview extends StatelessWidget {
                                     societe!.adr!,
                                     style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                   ),
+                                if (societe?.rcs != null)
+                                  pw.Text(
+                                    'RCS: ${societe!.rcs!}',
+                                    style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                                  ),
+                                if (societe?.nif != null)
+                                  pw.Text(
+                                    'NIF: ${societe!.nif!}',
+                                    style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                                  ),
+                                if (societe?.stat != null)
+                                  pw.Text(
+                                    'STAT: ${societe!.stat!}',
+                                    style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                                  ),
+                                if (societe?.cif != null)
+                                  pw.Text(
+                                    'CIF: ${societe!.cif!}',
+                                    style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                                  ),
+                                if (societe?.email != null)
+                                  pw.Text(
+                                    'Email: ${societe!.email!}',
+                                    style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                                  ),
+                                if (societe?.port != null)
+                                  pw.Text(
+                                    'Tél: ${societe!.port!}',
+                                    style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                                  ),
                               ],
                             ),
                           ),
@@ -886,6 +947,7 @@ class FacturePreview extends StatelessWidget {
                         decoration: pw.BoxDecoration(
                           border: pw.Border.all(color: PdfColors.black, width: 0.5),
                         ),
+                        alignment: pw.Alignment.center,
                         child: pw.Text(
                           'Arrêté à la somme de ${_numberToWords(totalTTC.round())} Ariary',
                           style: pw.TextStyle(

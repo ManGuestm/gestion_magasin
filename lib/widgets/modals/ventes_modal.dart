@@ -64,6 +64,7 @@ class _VentesModalState extends State<VentesModal> {
   // Stock management
   double _stockDisponible = 0.0;
   bool _stockInsuffisant = false;
+  String _stockAffichage = '';
 
   // Client balance
   double _soldeAnterieur = 0.0;
@@ -370,6 +371,7 @@ class _VentesModalState extends State<VentesModal> {
       setState(() {
         _stockDisponible = stockPourUniteSelectionnee;
         _stockInsuffisant = stockTotalU3 <= 0;
+        _stockAffichage = _formaterAffichageStock(article, stockU1, stockU2, stockU3);
 
         if (_stockInsuffisant) {
           _quantiteController.text = '0';
@@ -426,6 +428,7 @@ class _VentesModalState extends State<VentesModal> {
       setState(() {
         _stockDisponible = stockPourUniteSelectionnee;
         _stockInsuffisant = stockTotalU3 <= 0;
+        _stockAffichage = _formaterAffichageStock(article, stockU1, stockU2, stockU3);
 
         if (_stockInsuffisant) {
           _quantiteController.text = '0';
@@ -509,83 +512,41 @@ class _VentesModalState extends State<VentesModal> {
     return 0.0;
   }
 
-  // Construit un résumé du stock pour l'autocomplete
-  String _buildStockSummary(Article article) {
-    // Afficher les stocks réels par unité (pas de conversion)
-    double stockU1 = article.stocksu1 ?? 0.0;
-    double stockU2 = article.stocksu2 ?? 0.0;
-    double stockU3 = article.stocksu3 ?? 0.0;
-
-    // Vérifier s'il y a du stock
-    if (stockU1 <= 0 && stockU2 <= 0 && stockU3 <= 0) return 'Stock: 0';
-
-    // Afficher les stocks réels par unité
-    List<String> stocks = [];
-
-    if (article.u1?.isNotEmpty == true) {
-      stocks.add('${stockU1.toStringAsFixed(0)} ${article.u1}');
-    }
-
-    if (article.u2?.isNotEmpty == true) {
-      stocks.add('${stockU2.toStringAsFixed(0)} ${article.u2}');
-    }
-
-    if (article.u3?.isNotEmpty == true) {
-      stocks.add('${stockU3.toStringAsFixed(0)} ${article.u3}');
-    }
-
-    return stocks.isEmpty ? 'Stock: 0' : stocks.join(' / ');
-  }
-
-  // Construit l'info de stock détaillée
-  Widget _buildStockInfo() {
-    if (_selectedArticle == null) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(left: 2),
-      child: Tooltip(
-        message: _buildDetailedStockInfo(_selectedArticle!),
-        child: const Icon(Icons.info_outline, size: 10, color: Colors.blue),
-      ),
-    );
-  }
-
-  // Construit l'information détaillée du stock avec conversions
-  String _buildDetailedStockInfo(Article article) {
-    double stockU1 = article.stocksu1 ?? 0.0;
-    double stockU2 = article.stocksu2 ?? 0.0;
-    double stockU3 = article.stocksu3 ?? 0.0;
-
+  // Formate l'affichage du stock réel selon la logique demandée
+  String _formaterAffichageStock(Article article, double stockU1, double stockU2, double stockU3) {
+    // Convertir tout en unité de base (u3) puis redistribuer
     double stockTotalU3 = _calculerStockTotalEnU3(article, stockU1, stockU2, stockU3);
 
-    List<String> infos = [];
-    infos.add('Stock détaillé:');
-
-    if (article.u1?.isNotEmpty == true) {
-      infos.add('${article.u1}: ${stockU1.toStringAsFixed(0)}');
-    }
-    if (article.u2?.isNotEmpty == true) {
-      infos.add('${article.u2}: ${stockU2.toStringAsFixed(0)}');
-    }
-    if (article.u3?.isNotEmpty == true) {
-      infos.add('${article.u3}: ${stockU3.toStringAsFixed(0)}');
+    if (stockTotalU3 <= 0) {
+      return '0 ${article.u1 ?? 'Ctn'} / 0 ${article.u2 ?? 'Grs'} / 0 ${article.u3 ?? 'Pcs'}';
     }
 
-    infos.add('');
-    infos.add('Total disponible:');
-    if (article.u1?.isNotEmpty == true) {
-      double totalU1 = _calculerStockPourUnite(article, article.u1!, stockTotalU3);
-      infos.add('${totalU1.toStringAsFixed(0)} ${article.u1}');
-    }
-    if (article.u2?.isNotEmpty == true) {
-      double totalU2 = _calculerStockPourUnite(article, article.u2!, stockTotalU3);
-      infos.add('${totalU2.toStringAsFixed(0)} ${article.u2}');
-    }
-    if (article.u3?.isNotEmpty == true) {
-      infos.add('${stockTotalU3.toStringAsFixed(0)} ${article.u3}');
+    // Calculer les conversions
+    double tu2u1 = article.tu2u1 ?? 1.0; // Ex: 50 Grs = 1 Ctn
+    double tu3u2 = article.tu3u2 ?? 1.0; // Ex: 10 Pcs = 1 Grs
+
+    // Redistribuer le stock total selon la hiérarchie
+    double stockRestant = stockTotalU3;
+
+    // Calculer u1 (plus grande unité)
+    double stockFinalU1 = 0;
+    if (tu2u1 > 0 && tu3u2 > 0) {
+      double uniteU1EnU3 = tu2u1 * tu3u2; // Ex: 1 Ctn = 50 * 10 = 500 Pcs
+      stockFinalU1 = (stockRestant / uniteU1EnU3).floor().toDouble();
+      stockRestant = stockRestant % uniteU1EnU3;
     }
 
-    return infos.join('\n');
+    // Calculer u2 (unité intermédiaire)
+    double stockFinalU2 = 0;
+    if (tu3u2 > 0) {
+      stockFinalU2 = (stockRestant / tu3u2).floor().toDouble();
+      stockRestant = stockRestant % tu3u2;
+    }
+
+    // Le reste va en u3 (plus petite unité)
+    double stockFinalU3 = stockRestant;
+
+    return '${stockFinalU1.toInt()} ${article.u1 ?? 'Ctn'} / ${stockFinalU2.toInt()} ${article.u2 ?? 'Grs'} / ${stockFinalU3.toInt()} ${article.u3 ?? 'Pcs'}';
   }
 
   Future<void> _gererStockInsuffisant(Article article, String depotActuel) async {
@@ -946,6 +907,7 @@ class _VentesModalState extends State<VentesModal> {
       _montantController.clear();
       _stockDisponible = 0.0;
       _stockInsuffisant = false;
+      _stockAffichage = '';
     });
   }
 
@@ -1705,9 +1667,6 @@ class _VentesModalState extends State<VentesModal> {
                                                         dense: true,
                                                         title: Text(article.designation,
                                                             style: const TextStyle(fontSize: 11)),
-                                                        subtitle: Text(_buildStockSummary(article),
-                                                            style: const TextStyle(
-                                                                fontSize: 9, color: Colors.grey)),
                                                         onTap: () => onSelected(article),
                                                       );
                                                     },
@@ -1814,18 +1773,16 @@ class _VentesModalState extends State<VentesModal> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Row(
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           const Text('Quantités', style: TextStyle(fontSize: 12)),
-                                          if (_selectedArticle != null && _stockDisponible > 0)
-                                            Flexible(
-                                              child: Text(
-                                                  ' (Stock: ${_stockDisponible.toStringAsFixed(0)} ${_selectedUnite ?? ''})',
-                                                  style: const TextStyle(fontSize: 9, color: Colors.green),
-                                                  overflow: TextOverflow.ellipsis),
+                                          if (_selectedArticle != null && _stockAffichage.isNotEmpty)
+                                            Text(
+                                              'Stock: $_stockAffichage',
+                                              style: const TextStyle(fontSize: 9, color: Colors.green),
+                                              overflow: TextOverflow.ellipsis,
                                             ),
-                                          if (_selectedArticle != null && _stockDisponible > 0)
-                                            _buildStockInfo(),
                                         ],
                                       ),
                                       const SizedBox(height: 4),
