@@ -5,6 +5,8 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import '../utils/stock_converter.dart';
+
 part 'database.g.dart';
 
 // Table Société - utilisée par: Menu Paramètres - Configuration société
@@ -1112,6 +1114,12 @@ class AppDatabase extends _$AppDatabase {
   /// Récupère tous les comptes fournisseurs
   Future<List<Comptefrn>> getAllComptefrns() => select(comptefrns).get();
 
+  /// Insère un nouveau compte client
+  Future<int> insertCompteclt(ComptecltCompanion entry) => into(compteclt).insert(entry);
+
+  /// Insère un nouveau compte fournisseur
+  Future<int> insertComptefrns(ComptefrnsCompanion entry) => into(comptefrns).insert(entry);
+
   // ========== MÉTHODES SPÉCIALISÉES VENTES ==========
 
   /// Enregistre une vente complète avec détails et mise à jour des stocks
@@ -1156,7 +1164,7 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  /// Met à jour les stocks après une vente
+  /// Met à jour les stocks après une vente avec conversion automatique
   Future<void> _mettreAJourStocksVente(
     String designation,
     String depot,
@@ -1164,36 +1172,85 @@ class AppDatabase extends _$AppDatabase {
     double quantite,
     Article article,
   ) async {
-    // Convertir la quantité vendue en unités de base pour déduction
-    double quantiteU1 = 0, quantiteU2 = 0, quantiteU3 = 0;
-
-    if (unite == article.u1) {
-      quantiteU1 = quantite;
-    } else if (unite == article.u2) {
-      quantiteU2 = quantite;
-    } else if (unite == article.u3) {
-      quantiteU3 = quantite;
-    }
-
-    // Mettre à jour le stock dans la table Depart
+    // Récupérer le stock actuel du dépôt
     final stockDepart = await (select(depart)
           ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
         .getSingleOrNull();
 
-    if (stockDepart != null) {
-      await (update(depart)..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-          .write(DepartCompanion(
-        stocksu1: Value((stockDepart.stocksu1 ?? 0) - quantiteU1),
-        stocksu2: Value((stockDepart.stocksu2 ?? 0) - quantiteU2),
-        stocksu3: Value((stockDepart.stocksu3 ?? 0) - quantiteU3),
-      ));
+    if (stockDepart == null) return;
+
+    // Calculer le stock total en unité de base
+    double stockTotalU2 = StockConverter.calculerStockTotalU3(
+      article: article,
+      stockU1: stockDepart.stocksu1 ?? 0,
+      stockU2: stockDepart.stocksu2 ?? 0,
+      stockU3: stockDepart.stocksu3 ?? 0,
+    );
+
+    // Convertir la quantité vendue en unité de base (u2 pour Gauffrette = Pqt)
+    double quantiteVenteU2 = 0;
+    if (unite == article.u1 && article.tu2u1 != null) {
+      // Vente en Ctn -> convertir en Pqt
+      quantiteVenteU2 = quantite * article.tu2u1!;
+    } else if (unite == article.u2) {
+      // Vente en Pqt -> direct
+      quantiteVenteU2 = quantite;
     }
 
-    // Mettre à jour le stock global dans la table Articles
+    // Déduire du stock total
+    double nouveauStockTotalU2 = stockTotalU2 - quantiteVenteU2;
+
+    // Reconvertir en unités optimales avec des entiers pour éviter les problèmes de précision
+    double nouveauU1 = 0, nouveauU2 = 0;
+    
+    if (article.tu2u1 != null) {
+      // Article à 2 unités (comme Gauffrette: Ctn/Pqt)
+      int stockTotalInt = nouveauStockTotalU2.round();
+      int facteurInt = article.tu2u1!.round();
+      
+      nouveauU1 = (stockTotalInt ~/ facteurInt).toDouble();
+      nouveauU2 = (stockTotalInt % facteurInt).toDouble();
+      
+
+    } else {
+      // Article à 1 unité
+      nouveauU1 = nouveauStockTotalU2;
+    }
+
+    // Mettre à jour le stock dans la table Depart DIRECTEMENT
+    await (update(depart)..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+        .write(DepartCompanion(
+      stocksu1: Value(nouveauU1),
+      stocksu2: Value(nouveauU2),
+      stocksu3: const Value(0),
+    ));
+
+    // Mettre à jour le stock global dans la table Articles de la même manière
+    double stockGlobalTotalU2 = StockConverter.calculerStockTotalU3(
+      article: article,
+      stockU1: article.stocksu1 ?? 0,
+      stockU2: article.stocksu2 ?? 0,
+      stockU3: article.stocksu3 ?? 0,
+    );
+
+    double nouveauStockGlobalTotalU2 = stockGlobalTotalU2 - quantiteVenteU2;
+    
+    double nouveauGlobalU1 = 0, nouveauGlobalU2 = 0;
+    
+    if (article.tu2u1 != null) {
+      int stockGlobalTotalInt = nouveauStockGlobalTotalU2.round();
+      int facteurInt = article.tu2u1!.round();
+      
+      nouveauGlobalU1 = (stockGlobalTotalInt ~/ facteurInt).toDouble();
+      nouveauGlobalU2 = (stockGlobalTotalInt % facteurInt).toDouble();
+    } else {
+      nouveauGlobalU1 = nouveauStockGlobalTotalU2;
+    }
+
     await (update(articles)..where((a) => a.designation.equals(designation))).write(ArticlesCompanion(
-      stocksu1: Value((article.stocksu1 ?? 0) - quantiteU1),
-      stocksu2: Value((article.stocksu2 ?? 0) - quantiteU2),
-      stocksu3: Value((article.stocksu3 ?? 0) - quantiteU3),
+      stocksu1: Value(nouveauGlobalU1),
+      stocksu2: Value(nouveauGlobalU2),
+      stocksu3: const Value(0),
     ));
 
     // Créer un mouvement de stock
@@ -1398,6 +1455,42 @@ class AppDatabase extends _$AppDatabase {
     final soldeCompte = result.read<double>('solde_compte');
 
     return soldeVentes - soldeRetours + soldeCompte;
+  }
+
+  // ========== MÉTHODES RÉGULARISATION ==========
+  
+  /// Enregistre une régularisation de compte tiers
+  Future<void> enregistrerRegularisation({
+    required String type,
+    required String raisonSociale,
+    required DateTime date,
+    required String libelle,
+    required double montant,
+    required String affectation,
+  }) async {
+    final ref = 'REG-${DateTime.now().millisecondsSinceEpoch}';
+    
+    if (type == 'Client') {
+      await into(compteclt).insert(ComptecltCompanion(
+        ref: Value(ref),
+        daty: Value(date),
+        lib: Value(libelle),
+        entres: Value(affectation == 'Débit' ? montant : 0.0),
+        sorties: Value(affectation == 'Crédit' ? montant : 0.0),
+        clt: Value(raisonSociale),
+        solde: Value(affectation == 'Débit' ? montant : -montant),
+      ));
+    } else {
+      await into(comptefrns).insert(ComptefrnsCompanion(
+        ref: Value(ref),
+        daty: Value(date),
+        lib: Value(libelle),
+        entres: Value(affectation == 'Crédit' ? montant : 0.0),
+        sortie: Value(affectation == 'Débit' ? montant : 0.0),
+        frns: Value(raisonSociale),
+        solde: Value(affectation == 'Crédit' ? montant : -montant),
+      ));
+    }
   }
 }
 

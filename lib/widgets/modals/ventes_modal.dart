@@ -1,9 +1,11 @@
+import 'package:collection/collection.dart';
 import 'package:drift/drift.dart' as drift hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../utils/stock_converter.dart';
 import 'add_client_modal.dart';
 import 'bon_livraison_preview.dart';
 import 'facture_preview.dart';
@@ -279,9 +281,12 @@ class _VentesModalState extends State<VentesModal> {
       _selectedArticle = article;
       if (article != null) {
         _selectedUnite = article.u1;
-        _selectedDepot = 'MAG';
+        if (!widget.tousDepots) {
+          _selectedDepot = 'MAG';
+        }
         _quantiteController.text = '';
         _montantController.text = '';
+        _stockAffichage = ''; // Reset stock display
       }
     });
 
@@ -336,33 +341,33 @@ class _VentesModalState extends State<VentesModal> {
     await _verifierStock(_selectedArticle!);
   }
 
+  void _onDepotChanged(String? depot) async {
+    if (_selectedArticle == null || depot == null) return;
+
+    setState(() {
+      _selectedDepot = depot;
+      _quantiteController.text = '';
+    });
+
+    await _verifierStockEtBasculer(_selectedArticle!);
+  }
+
   Future<void> _verifierStockEtBasculer(Article article) async {
     try {
       String depot = _selectedDepot ?? 'MAG';
 
-      // Récupérer les stocks par unité selon le mode
-      double stockU1 = 0.0, stockU2 = 0.0, stockU3 = 0.0;
+      // Utiliser exactement la même logique que le modal articles
+      final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+          .getSingleOrNull();
 
-      if (widget.tousDepots) {
-        // Mode tous dépôts: utiliser les stocks globaux
-        stockU1 = article.stocksu1 ?? 0.0;
-        stockU2 = article.stocksu2 ?? 0.0;
-        stockU3 = article.stocksu3 ?? 0.0;
-      } else {
-        // Mode dépôt spécifique: utiliser uniquement le stock du dépôt sélectionné
-        final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
-              ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-            .getSingleOrNull();
-
-        if (stockDepart != null) {
-          stockU1 = stockDepart.stocksu1 ?? 0.0;
-          stockU2 = stockDepart.stocksu2 ?? 0.0;
-          stockU3 = stockDepart.stocksu3 ?? 0.0;
-        }
-      }
-
-      // Calculer le stock total disponible en unité de base (u3)
-      double stockTotalU3 = _calculerStockTotalEnU3(article, stockU1, stockU2, stockU3);
+      // Calculer le stock total disponible en unité de base DIRECTEMENT
+      double stockTotalU3 = StockConverter.calculerStockTotalU3(
+        article: article,
+        stockU1: stockDepart?.stocksu1 ?? 0.0,
+        stockU2: stockDepart?.stocksu2 ?? 0.0,
+        stockU3: stockDepart?.stocksu3 ?? 0.0,
+      );
 
       // Calculer le stock disponible pour l'unité sélectionnée
       double stockPourUniteSelectionnee =
@@ -371,7 +376,12 @@ class _VentesModalState extends State<VentesModal> {
       setState(() {
         _stockDisponible = stockPourUniteSelectionnee;
         _stockInsuffisant = stockTotalU3 <= 0;
-        _stockAffichage = _formaterAffichageStock(article, stockU1, stockU2, stockU3);
+        _stockAffichage = StockConverter.formaterAffichageStock(
+          article: article,
+          stockU1: stockDepart?.stocksu1 ?? 0.0,
+          stockU2: stockDepart?.stocksu2 ?? 0.0,
+          stockU3: stockDepart?.stocksu3 ?? 0.0,
+        );
 
         if (_stockInsuffisant) {
           _quantiteController.text = '0';
@@ -389,6 +399,7 @@ class _VentesModalState extends State<VentesModal> {
         _stockDisponible = 0.0;
         _stockInsuffisant = true;
         _quantiteController.text = '0';
+        _stockAffichage = '0 Ctn / 0 Pqt';
       });
     }
   }
@@ -398,29 +409,18 @@ class _VentesModalState extends State<VentesModal> {
       String depot = _selectedDepot ?? 'MAG';
       String unite = _selectedUnite ?? article.u1 ?? 'Pce';
 
-      // Récupérer les stocks par unité selon le mode
-      double stockU1 = 0.0, stockU2 = 0.0, stockU3 = 0.0;
+      // Utiliser exactement la même logique que le modal articles
+      final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+          .getSingleOrNull();
 
-      if (widget.tousDepots) {
-        // Mode tous dépôts: utiliser les stocks globaux
-        stockU1 = article.stocksu1 ?? 0.0;
-        stockU2 = article.stocksu2 ?? 0.0;
-        stockU3 = article.stocksu3 ?? 0.0;
-      } else {
-        // Mode dépôt spécifique: utiliser uniquement le stock du dépôt sélectionné
-        final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
-              ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-            .getSingleOrNull();
-
-        if (stockDepart != null) {
-          stockU1 = stockDepart.stocksu1 ?? 0.0;
-          stockU2 = stockDepart.stocksu2 ?? 0.0;
-          stockU3 = stockDepart.stocksu3 ?? 0.0;
-        }
-      }
-
-      // Calculer le stock total disponible en unité de base (u3)
-      double stockTotalU3 = _calculerStockTotalEnU3(article, stockU1, stockU2, stockU3);
+      // Calculer le stock total disponible en unité de base DIRECTEMENT
+      double stockTotalU3 = StockConverter.calculerStockTotalU3(
+        article: article,
+        stockU1: stockDepart?.stocksu1 ?? 0.0,
+        stockU2: stockDepart?.stocksu2 ?? 0.0,
+        stockU3: stockDepart?.stocksu3 ?? 0.0,
+      );
 
       // Calculer le stock disponible pour l'unité sélectionnée
       double stockPourUniteSelectionnee = _calculerStockPourUnite(article, unite, stockTotalU3);
@@ -428,7 +428,12 @@ class _VentesModalState extends State<VentesModal> {
       setState(() {
         _stockDisponible = stockPourUniteSelectionnee;
         _stockInsuffisant = stockTotalU3 <= 0;
-        _stockAffichage = _formaterAffichageStock(article, stockU1, stockU2, stockU3);
+        _stockAffichage = StockConverter.formaterAffichageStock(
+          article: article,
+          stockU1: stockDepart?.stocksu1 ?? 0.0,
+          stockU2: stockDepart?.stocksu2 ?? 0.0,
+          stockU3: stockDepart?.stocksu3 ?? 0.0,
+        );
 
         if (_stockInsuffisant) {
           _quantiteController.text = '0';
@@ -439,6 +444,7 @@ class _VentesModalState extends State<VentesModal> {
         _stockDisponible = 0.0;
         _stockInsuffisant = true;
         _quantiteController.text = '0';
+        _stockAffichage = '0 Ctn / 0 Pqt';
       });
     }
   }
@@ -480,21 +486,14 @@ class _VentesModalState extends State<VentesModal> {
     }
   }
 
-  // Calcule le stock total en unité de base (u3)
+  // Calcule le stock total en unité de base (u3) - utilise StockConverter
   double _calculerStockTotalEnU3(Article article, double stockU1, double stockU2, double stockU3) {
-    double total = stockU3; // Stock direct en u3
-
-    // Convertir u2 vers u3
-    if (stockU2 > 0 && article.tu3u2 != null) {
-      total += stockU2 * article.tu3u2!;
-    }
-
-    // Convertir u1 vers u3
-    if (stockU1 > 0 && article.tu2u1 != null && article.tu3u2 != null) {
-      total += stockU1 * article.tu2u1! * article.tu3u2!;
-    }
-
-    return total;
+    return StockConverter.calculerStockTotalU3(
+      article: article,
+      stockU1: stockU1,
+      stockU2: stockU2,
+      stockU3: stockU3,
+    );
   }
 
   // Calcule le stock disponible pour une unité donnée
@@ -510,43 +509,6 @@ class _VentesModalState extends State<VentesModal> {
     }
 
     return 0.0;
-  }
-
-  // Formate l'affichage du stock réel selon la logique demandée
-  String _formaterAffichageStock(Article article, double stockU1, double stockU2, double stockU3) {
-    // Convertir tout en unité de base (u3) puis redistribuer
-    double stockTotalU3 = _calculerStockTotalEnU3(article, stockU1, stockU2, stockU3);
-
-    if (stockTotalU3 <= 0) {
-      return '0 ${article.u1 ?? 'Ctn'} / 0 ${article.u2 ?? 'Grs'} / 0 ${article.u3 ?? 'Pcs'}';
-    }
-
-    // Calculer les conversions
-    double tu2u1 = article.tu2u1 ?? 1.0; // Ex: 50 Grs = 1 Ctn
-    double tu3u2 = article.tu3u2 ?? 1.0; // Ex: 10 Pcs = 1 Grs
-
-    // Redistribuer le stock total selon la hiérarchie
-    double stockRestant = stockTotalU3;
-
-    // Calculer u1 (plus grande unité)
-    double stockFinalU1 = 0;
-    if (tu2u1 > 0 && tu3u2 > 0) {
-      double uniteU1EnU3 = tu2u1 * tu3u2; // Ex: 1 Ctn = 50 * 10 = 500 Pcs
-      stockFinalU1 = (stockRestant / uniteU1EnU3).floor().toDouble();
-      stockRestant = stockRestant % uniteU1EnU3;
-    }
-
-    // Calculer u2 (unité intermédiaire)
-    double stockFinalU2 = 0;
-    if (tu3u2 > 0) {
-      stockFinalU2 = (stockRestant / tu3u2).floor().toDouble();
-      stockRestant = stockRestant % tu3u2;
-    }
-
-    // Le reste va en u3 (plus petite unité)
-    double stockFinalU3 = stockRestant;
-
-    return '${stockFinalU1.toInt()} ${article.u1 ?? 'Ctn'} / ${stockFinalU2.toInt()} ${article.u2 ?? 'Grs'} / ${stockFinalU3.toInt()} ${article.u3 ?? 'Pcs'}';
   }
 
   Future<void> _gererStockInsuffisant(Article article, String depotActuel) async {
@@ -571,8 +533,16 @@ class _VentesModalState extends State<VentesModal> {
           .get();
 
       for (var stock in tousStocksDepart) {
+        // Convertir les stocks en format optimal AVANT les calculs
+        final stocksOptimaux = StockConverter.convertirStockOptimal(
+          article: article,
+          quantiteU1: stock.stocksu1 ?? 0.0,
+          quantiteU2: stock.stocksu2 ?? 0.0,
+          quantiteU3: stock.stocksu3 ?? 0.0,
+        );
+
         double stockTotalU3 = _calculerStockTotalEnU3(
-            article, stock.stocksu1 ?? 0.0, stock.stocksu2 ?? 0.0, stock.stocksu3 ?? 0.0);
+            article, stocksOptimaux['u1']!, stocksOptimaux['u2']!, stocksOptimaux['u3']!);
 
         if (stockTotalU3 > 0) {
           double stockPourUnite =
@@ -623,6 +593,8 @@ class _VentesModalState extends State<VentesModal> {
         _stockDisponible = depotDisponible['stockDisponible'];
         _stockInsuffisant = false;
       });
+      // Actualiser l'affichage du stock pour le nouveau dépôt
+      await _verifierStockEtBasculer(article);
     }
   }
 
@@ -896,6 +868,8 @@ class _VentesModalState extends State<VentesModal> {
       _selectedUnite = null;
       if (widget.tousDepots) {
         _selectedDepot = null;
+      } else {
+        _selectedDepot = 'MAG';
       }
       _isModifyingArticle = false;
       _originalArticleData = null;
@@ -1109,7 +1083,8 @@ class _VentesModalState extends State<VentesModal> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmation'),
-        content: Text('Voulez-vous vraiment contre-passer la vente N° ${_numVentesController.text} ?'),
+        content: Text(
+            'Voulez-vous vraiment contre-passer la vente N° ${_numVentesController.text} ?\n\nLes stocks seront automatiquement restaurés.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Confirmer')),
@@ -1120,24 +1095,76 @@ class _VentesModalState extends State<VentesModal> {
     if (confirm != true) return;
 
     try {
-      await (_databaseService.database.delete(_databaseService.database.detventes)
+      // Récupérer les détails de la vente avant suppression pour restaurer les stocks
+      final detailsVente = await (_databaseService.database.select(_databaseService.database.detventes)
             ..where((d) => d.numventes.equals(_numVentesController.text)))
-          .go();
+          .get();
 
-      await (_databaseService.database.delete(_databaseService.database.ventes)
-            ..where((v) => v.numventes.equals(_numVentesController.text)))
-          .go();
+      await _databaseService.database.transaction(() async {
+        // Restaurer les stocks pour chaque ligne de vente
+        for (var detail in detailsVente) {
+          if (detail.designation != null &&
+              detail.depots != null &&
+              detail.unites != null &&
+              detail.q != null) {
+            // Trouver l'article correspondant
+            final article = _articles.where((a) => a.designation == detail.designation).firstOrNull;
+            if (article == null) continue;
+
+            // Récupérer le stock actuel du dépôt
+            final stockActuel = await (_databaseService.database.select(_databaseService.database.depart)
+                  ..where((d) => d.designation.equals(detail.designation!) & d.depots.equals(detail.depots!)))
+                .getSingleOrNull();
+
+            if (stockActuel != null) {
+              // Convertir la quantité vendue vers les unités de stock
+              final ajoutStock = StockConverter.convertirQuantiteAchat(
+                article: article,
+                uniteAchat: detail.unites!,
+                quantiteAchat: detail.q!,
+              );
+
+              // Ajouter les quantités au stock existant
+              final nouveauStockU1 = (stockActuel.stocksu1 ?? 0) + ajoutStock['u1']!;
+              final nouveauStockU2 = (stockActuel.stocksu2 ?? 0) + ajoutStock['u2']!;
+              final nouveauStockU3 = (stockActuel.stocksu3 ?? 0) + ajoutStock['u3']!;
+
+              // Mettre à jour le stock dans la base
+              await (_databaseService.database.update(_databaseService.database.depart)
+                    ..where(
+                        (d) => d.designation.equals(detail.designation!) & d.depots.equals(detail.depots!)))
+                  .write(DepartCompanion(
+                stocksu1: drift.Value(nouveauStockU1),
+                stocksu2: drift.Value(nouveauStockU2),
+                stocksu3: drift.Value(nouveauStockU3),
+              ));
+            }
+          }
+        }
+
+        // Supprimer les détails de vente
+        await (_databaseService.database.delete(_databaseService.database.detventes)
+              ..where((d) => d.numventes.equals(_numVentesController.text)))
+            .go();
+
+        // Supprimer la vente
+        await (_databaseService.database.delete(_databaseService.database.ventes)
+              ..where((v) => v.numventes.equals(_numVentesController.text)))
+            .go();
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vente contre-passée avec succès')),
+          const SnackBar(
+              content: Text('Vente contre-passée avec succès - Stocks restaurés'),
+              backgroundColor: Colors.green),
         );
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du contre-passement: $e')),
+          SnackBar(content: Text('Erreur lors du contre-passement: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -1891,14 +1918,7 @@ class _VentesModalState extends State<VentesModal> {
                                                     Text(depot.depots, style: const TextStyle(fontSize: 12)),
                                               );
                                             }).toList(),
-                                            onChanged: (value) async {
-                                              setState(() {
-                                                _selectedDepot = value;
-                                              });
-                                              if (_selectedArticle != null) {
-                                                await _verifierStock(_selectedArticle!);
-                                              }
-                                            },
+                                            onChanged: _onDepotChanged,
                                           ),
                                         ),
                                       ],

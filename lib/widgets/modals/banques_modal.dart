@@ -27,7 +27,7 @@ class _BanquesModalState extends State<BanquesModal> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-        canPop: false,
+      canPop: false,
       child: Dialog(
         backgroundColor: Colors.grey[100],
         child: GestureDetector(

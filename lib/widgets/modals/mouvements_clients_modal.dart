@@ -1,10 +1,8 @@
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import '../../utils/date_utils.dart' as app_date;
-import '../../utils/number_utils.dart';
 
 class MouvementsClientsModal extends StatefulWidget {
   const MouvementsClientsModal({super.key});
@@ -15,125 +13,60 @@ class MouvementsClientsModal extends StatefulWidget {
 
 class _MouvementsClientsModalState extends State<MouvementsClientsModal> {
   final DatabaseService _databaseService = DatabaseService();
+
+  List<ComptecltData> _mouvements = [];
+  List<ComptecltData> _filteredMouvements = [];
   List<CltData> _clients = [];
-  List<Map<String, dynamic>> _mouvements = [];
-  bool _isLoading = true;
   String? _selectedClient;
-  DateTime? _dateDebut;
-  DateTime? _dateFin;
-  final TextEditingController _dateDebutController = TextEditingController();
-  final TextEditingController _dateFinController = TextEditingController();
+  String? _selectedCommercial;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadClients();
-    _initializeDates();
+    _loadData();
   }
 
-  void _initializeDates() {
-    final now = DateTime.now();
-    final firstDayOfMonth = DateTime(now.year, now.month, 1);
-    _dateDebut = firstDayOfMonth;
-    _dateFin = now;
-    _dateDebutController.text = app_date.AppDateUtils.formatDate(firstDayOfMonth);
-    _dateFinController.text = app_date.AppDateUtils.formatDate(now);
-  }
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
 
-  Future<void> _loadClients() async {
     try {
       final clients = await _databaseService.database.getAllClients();
+      final mouvements = await _databaseService.database.getAllCompteclts();
+
       setState(() {
         _clients = clients;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _loadMouvements() async {
-    if (_selectedClient == null || _dateDebut == null || _dateFin == null) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      // Charger les ventes du client dans la période
-      final ventes = await (_databaseService.database.select(_databaseService.database.ventes)
-            ..where((v) =>
-                v.clt.equals(_selectedClient!) &
-                v.daty.isBiggerOrEqualValue(_dateDebut!) &
-                v.daty.isSmallerOrEqualValue(_dateFin!)))
-          .get();
-
-      // Charger les comptes clients (mouvements de compte)
-      final comptesClient = await (_databaseService.database.select(_databaseService.database.compteclt)
-            ..where((c) =>
-                c.clt.equals(_selectedClient!) &
-                c.daty.isBiggerOrEqualValue(_dateDebut!) &
-                c.daty.isSmallerOrEqualValue(_dateFin!)))
-          .get();
-
-      List<Map<String, dynamic>> mouvements = [];
-
-      // Ajouter les ventes
-      for (var vente in ventes) {
-        mouvements.add({
-          'type': 'Vente',
-          'date': vente.daty,
-          'reference': vente.numventes ?? '',
-          'description': 'Vente N° ${vente.numventes ?? ''}',
-          'debit': vente.totalttc ?? 0.0,
-          'credit': 0.0,
-        });
-      }
-
-      // Ajouter les mouvements de compte client
-      for (var compte in comptesClient) {
-        mouvements.add({
-          'type': 'Règlement',
-          'date': compte.daty,
-          'reference': compte.ref,
-          'description': compte.lib ?? 'Règlement',
-          'debit': compte.entres ?? 0.0,
-          'credit': compte.sorties ?? 0.0,
-        });
-      }
-
-      // Trier par date
-      mouvements.sort((a, b) => (a['date'] as DateTime).compareTo(b['date'] as DateTime));
-
-      setState(() {
         _mouvements = mouvements;
+        _filteredMouvements = mouvements;
         _isLoading = false;
       });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement: $e')),
+          SnackBar(content: Text('Erreur: $e')),
         );
       }
     }
   }
 
-  double _calculateSolde() {
-    double solde = 0.0;
-    for (var mouvement in _mouvements) {
-      solde += (mouvement['debit'] as double) - (mouvement['credit'] as double);
-    }
-    return solde;
+  void _filterMouvements() {
+    setState(() {
+      _filteredMouvements = _mouvements.where((mouvement) {
+        bool matchClient = _selectedClient == null || mouvement.clt == _selectedClient;
+        return matchClient;
+      }).toList();
+    });
+  }
+
+  String _formatNumber(double? number) {
+    if (number == null || number == 0) return '';
+    return NumberFormat('#,##0.00', 'fr_FR').format(number);
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return '';
+    return DateFormat('dd/MM/yyyy').format(date);
   }
 
   @override
@@ -141,338 +74,152 @@ class _MouvementsClientsModalState extends State<MouvementsClientsModal> {
     return Dialog(
       backgroundColor: Colors.grey[100],
       child: Container(
+        width: 1200,
+        height: 700,
         decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(Radius.circular(16)),
-          color: Colors.grey[100],
+          border: Border.all(color: Colors.grey, width: 1),
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.white,
         ),
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.8,
         child: Column(
           children: [
-            // Title bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Mouvements Clients',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 20),
-                    padding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
+            _buildHeader(),
+            _buildFilters(),
+            _buildTable(),
+            _buildFooter(),
+          ],
+        ),
+      ),
+    );
+  }
 
-            // Filter section
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      // Client selection
-                      Expanded(
-                        flex: 2,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Client:',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            DropdownButtonFormField<String>(
-                              initialValue: _selectedClient,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              ),
-                              items: _clients.map((client) {
-                                return DropdownMenuItem<String>(
-                                  value: client.rsoc,
-                                  child: Text(client.rsoc, style: const TextStyle(fontSize: 12)),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedClient = value;
-                                  _mouvements.clear();
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Date debut
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Date début:',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            TextField(
-                              controller: _dateDebutController,
-                              readOnly: true,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                suffixIcon: Icon(Icons.calendar_today, size: 16),
-                              ),
-                              onTap: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: _dateDebut ?? DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime.now(),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    _dateDebut = date;
-                                    _dateDebutController.text = app_date.AppDateUtils.formatDate(date);
-                                  });
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Date fin
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Date fin:',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            TextField(
-                              controller: _dateFinController,
-                              readOnly: true,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                suffixIcon: Icon(Icons.calendar_today, size: 16),
-                              ),
-                              onTap: () async {
-                                final date = await showDatePicker(
-                                  context: context,
-                                  initialDate: _dateFin ?? DateTime.now(),
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime.now(),
-                                );
-                                if (date != null) {
-                                  setState(() {
-                                    _dateFin = date;
-                                    _dateFinController.text = app_date.AppDateUtils.formatDate(date);
-                                  });
-                                }
-                              },
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Search button
-                      ElevatedButton(
-                        onPressed: _selectedClient != null ? _loadMouvements : null,
-                        child: const Text('Rechercher'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+  Widget _buildHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.blue[300],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(8),
+          topRight: Radius.circular(8),
+        ),
+        border: Border.all(color: Colors.grey, width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.account_balance_wallet, color: Colors.white, size: 16),
+          const SizedBox(width: 8),
+          const Text(
+            'MOUVEMENTS CLIENTS',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close, color: Colors.white),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Data table
+  Widget _buildFilters() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Colors.grey)),
+      ),
+      child: Row(
+        children: [
+          const Text('Commercial:', style: TextStyle(fontSize: 12)),
+          const SizedBox(width: 8),
+          Container(
+            width: 150,
+            height: 25,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              color: Colors.white,
+            ),
+            child: DropdownButtonFormField<String>(
+              initialValue: _selectedCommercial,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 11, color: Colors.black),
+              items: const [
+                DropdownMenuItem(value: null, child: Text('Tous')),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedCommercial = value;
+                });
+              },
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Text('Client:', style: TextStyle(fontSize: 12)),
+          const SizedBox(width: 8),
+          Container(
+            width: 200,
+            height: 25,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              color: Colors.white,
+            ),
+            child: DropdownButtonFormField<String>(
+              initialValue: _selectedClient,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 11, color: Colors.black),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Tous les clients')),
+                ..._clients.map((client) => DropdownMenuItem(
+                      value: client.rsoc,
+                      child: Text(client.rsoc, style: const TextStyle(fontSize: 11)),
+                    )),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedClient = value;
+                });
+                _filterMouvements();
+              },
+            ),
+          ),
+          const Spacer(),
+          const Text('Commercial:', style: TextStyle(fontSize: 12)),
+          const SizedBox(width: 8),
+          const Text('Vérification:', style: TextStyle(fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTable() {
+    return Expanded(
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey, width: 1),
+        ),
+        child: Column(
+          children: [
+            _buildTableHeader(),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
-                  : Container(
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        children: [
-                          // Header
-                          Container(
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.orange[100],
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(8),
-                                topRight: Radius.circular(8),
-                              ),
-                            ),
-                            child: const Row(
-                              children: [
-                                Expanded(
-                                  flex: 2,
-                                  child: Center(
-                                    child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Center(
-                                    child: Text('Type', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Center(
-                                    child: Text('Référence', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Center(
-                                    child: Text('Description', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Center(
-                                    child: Text('Débit', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Center(
-                                    child: Text('Crédit', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          // Data rows
-                          Expanded(
-                            child: _mouvements.isEmpty
-                                ? const Center(
-                                    child: Text(
-                                      'Aucun mouvement trouvé',
-                                      style: TextStyle(fontSize: 16, color: Colors.grey),
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    itemCount: _mouvements.length,
-                                    itemBuilder: (context, index) {
-                                      final mouvement = _mouvements[index];
-                                      return Container(
-                                        height: 35,
-                                        decoration: BoxDecoration(
-                                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(
-                                            bottom: BorderSide(color: Colors.grey, width: 0.5),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  app_date.AppDateUtils.formatDate(mouvement['date']),
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  mouvement['type'],
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  mouvement['reference'],
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 3,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                child: Text(
-                                                  mouvement['description'],
-                                                  style: const TextStyle(fontSize: 12),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  mouvement['debit'] > 0
-                                                      ? NumberUtils.formatNumber(mouvement['debit'])
-                                                      : '',
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  mouvement['credit'] > 0
-                                                      ? NumberUtils.formatNumber(mouvement['credit'])
-                                                      : '',
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
-                      ),
+                  : ListView.builder(
+                      itemCount: _filteredMouvements.length,
+                      itemExtent: 18,
+                      itemBuilder: (context, index) {
+                        final mouvement = _filteredMouvements[index];
+                        return _buildTableRow(mouvement, index);
+                      },
                     ),
-            ),
-
-            // Summary section
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Total: ${_mouvements.length} mouvement(s)',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  if (_mouvements.isNotEmpty)
-                    Text(
-                      'Solde: ${NumberUtils.formatNumber(_calculateSolde())}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: _calculateSolde() >= 0 ? Colors.green : Colors.red,
-                      ),
-                    ),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Fermer'),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -480,10 +227,128 @@ class _MouvementsClientsModalState extends State<MouvementsClientsModal> {
     );
   }
 
+  Widget _buildTableHeader() {
+    return Container(
+      height: 25,
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+      ),
+      child: Row(
+        children: [
+          _buildHeaderCell('DATE', 80),
+          _buildHeaderCell('N° FACTURES', 80),
+          _buildHeaderCell('N° PIECES', 80),
+          _buildHeaderCell('MONTANT', 100),
+          _buildHeaderCell('ECHEANCE BL', 80),
+          _buildHeaderCell('LIBELLE PAIEMENT', 120),
+          _buildHeaderCell('ECHEANCE P.', 80),
+          _buildHeaderCell('MONTANT PAYE', 100),
+          _buildHeaderCell('RESTE A PAYER', 100),
+          _buildHeaderCell('Vérification', 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderCell(String text, double width) {
+    return Container(
+      width: width,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        border: Border(
+          right: BorderSide(color: Colors.grey, width: 1),
+          bottom: BorderSide(color: Colors.grey, width: 1),
+        ),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildTableRow(ComptecltData mouvement, int index) {
+// Pas de sélection pour l'instant
+    final bgColor = index % 2 == 0 ? Colors.white : Colors.grey[50];
+
+    return Container(
+      height: 18,
+      decoration: BoxDecoration(
+        color: bgColor,
+      ),
+      child: Row(
+        children: [
+          _buildCell(_formatDate(mouvement.daty), 80),
+          _buildCell(mouvement.nfact ?? '', 80),
+          _buildCell(mouvement.ref, 80),
+          _buildCell(_formatNumber(mouvement.entres), 100, alignment: Alignment.centerRight),
+          _buildCell('', 80), // Echéance BL
+          _buildCell(mouvement.lib ?? '', 120),
+          _buildCell('', 80), // Echéance P.
+          _buildCell(_formatNumber(mouvement.sorties), 100, alignment: Alignment.centerRight),
+          _buildCell(_formatNumber(mouvement.solde), 100, alignment: Alignment.centerRight),
+          _buildCell(mouvement.verification ?? '', 80),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCell(String text, double width, {Alignment alignment = Alignment.centerLeft}) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      alignment: alignment,
+      decoration: const BoxDecoration(
+        border: Border(
+          right: BorderSide(color: Colors.grey, width: 1),
+          bottom: BorderSide(color: Colors.grey, width: 0.5),
+        ),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 10),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: Colors.grey)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Container(
+            height: 24,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              border: Border.all(color: Colors.grey[600]!),
+            ),
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                'Fermer',
+                style: TextStyle(fontSize: 12, color: Colors.black),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
-    _dateDebutController.dispose();
-    _dateFinController.dispose();
     super.dispose();
   }
 }

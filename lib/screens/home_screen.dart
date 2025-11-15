@@ -16,10 +16,16 @@ import '../widgets/modals/company_info_modal.dart';
 import '../widgets/modals/comptes_fournisseurs_modal.dart';
 import '../widgets/modals/decaissements_modal.dart';
 import '../widgets/modals/depots_modal.dart';
-import '../widgets/modals/echance_fournisseurs_modal.dart';
+import '../widgets/modals/echeance_fournisseurs_modal.dart';
 import '../widgets/modals/effet_a_recevoir_modal.dart';
 import '../widgets/modals/encaissements_modal.dart';
 import '../widgets/modals/etats_articles_modal.dart';
+import '../widgets/modals/etiquettes_prix_modal.dart';
+import '../widgets/modals/etat_tarifaire_modal.dart';
+import '../widgets/modals/etat_stocks_modal.dart';
+import '../widgets/modals/mouvement_stocks_journalieres_modal.dart';
+import '../widgets/modals/fiche_stocks_modal.dart';
+import '../widgets/modals/estimation_valeur_articles_modal.dart';
 import '../widgets/modals/etats_autres_comptes_modal.dart';
 import '../widgets/modals/etats_clients_modal.dart';
 import '../widgets/modals/etats_commerciaux_modal.dart';
@@ -42,7 +48,7 @@ import '../widgets/modals/plan_comptes_modal.dart';
 import '../widgets/modals/productions_modal.dart';
 import '../widgets/modals/reactualisation_base_donnees_modal.dart';
 import '../widgets/modals/regularisation_compte_commerciaux_modal.dart';
-import '../widgets/modals/regularisation_compte_tiers_modal.dart';
+import '../widgets/modals/regularisation_modal.dart';
 import '../widgets/modals/reinitialiser_donnees_modal.dart';
 import '../widgets/modals/relance_clients_modal.dart';
 import '../widgets/modals/retours_achats_modal.dart';
@@ -91,7 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'Transferts': TransfertsModal(),
     'Gestion Emballages': GestionEmballagesModal(),
     'Productions': ProductionsModal(),
-    'Régularisation compte tiers': RegularisationCompteTiersModal(),
+    'Régularisation compte tiers': RegularisationModal(),
     'Encaissements': EncaissementsModal(),
     'Décaissements': DecaissementsModal(),
     'Journal de caisse': JournalCaisseModal(),
@@ -100,6 +106,12 @@ class _HomeScreenState extends State<HomeScreen> {
     'Etats Fournisseurs': EtatsFournisseursModal(),
     'Etats Clients': EtatsClientsModal(),
     'Etats Articles': EtatsArticlesModal(),
+    'Etiquettes de prix': EtiquettesPrixModal(),
+    'Etat tarifaire': EtatTarifaireModal(),
+    'Etat de stocks': EtatStocksModal(),
+    'Mouvement de stocks journalières': MouvementStocksJournalieresModal(),
+    'Fiche de stocks': FicheStocksModal(),
+    'Estimation en valeur des articles (CMUP)': EstimationValeurArticlesModal(),
     'Régularisation compte Commerciaux': RegularisationCompteCommerciauxModal(),
     'Relance Clients': RelanceClientsModal(),
     'Echéance Fournisseurs': EchanceFournisseursModal(),

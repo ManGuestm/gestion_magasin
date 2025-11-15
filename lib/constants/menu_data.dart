@@ -30,7 +30,7 @@ class MenuData {
       'Régularisation compte tiers',
       'Régularisation compte Commerciaux',
       'Relance Clients',
-      'Echenance Fournisseurs',
+      'Echéance Fournisseurs',
       'Variation des stocks',
       'Mise à jour des valeurs de stocks',
       'Niveau des stocks (Articles à commandées)',

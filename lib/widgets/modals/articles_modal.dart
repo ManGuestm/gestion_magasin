@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../utils/stock_converter.dart';
 import 'add_article_modal.dart';
 
 class ArticlesModal extends StatefulWidget {
@@ -470,26 +471,16 @@ class _ArticlesModalState extends State<ArticlesModal> {
     List<String> stockTexts = [];
 
     for (var stock in stocksDepart) {
-      List<String> unitStocks = [];
+      // Afficher les stocks DIRECTEMENT sans conversion
+      final stockFormate = StockConverter.formaterAffichageStock(
+        article: article,
+        stockU1: stock.stocksu1 ?? 0.0,
+        stockU2: stock.stocksu2 ?? 0.0,
+        stockU3: stock.stocksu3 ?? 0.0,
+      );
 
-      // U1
-      if (article.u1?.isNotEmpty == true && (stock.stocksu1 ?? 0) > 0) {
-        unitStocks.add('${(stock.stocksu1 ?? 0).toStringAsFixed(0)} ${article.u1}');
-      }
-
-      // U2
-      if (article.u2?.isNotEmpty == true && (stock.stocksu2 ?? 0) > 0) {
-        unitStocks.add('${(stock.stocksu2 ?? 0).toStringAsFixed(0)} ${article.u2}');
-      }
-
-      // U3
-      if (article.u3?.isNotEmpty == true && (stock.stocksu3 ?? 0) > 0) {
-        unitStocks.add('${(stock.stocksu3 ?? 0).toStringAsFixed(0)} ${article.u3}');
-      }
-
-      if (unitStocks.isNotEmpty) {
-        stockTexts.add('${stock.depots}: ${unitStocks.join(", ")}');
-      }
+      // Toujours afficher le stock, même s'il est à 0
+      stockTexts.add('${stock.depots}: $stockFormate');
     }
 
     return stockTexts.isEmpty ? 'Stock vide' : stockTexts.join(' | ');
@@ -520,27 +511,13 @@ class _ArticlesModalState extends State<ArticlesModal> {
   String _getStockTextForDepot(DepartData? depart) {
     if (_selectedArticle == null) return '0';
 
-    List<String> stocks = [];
-
-    // Toujours afficher u1 si défini
-    if (_selectedArticle!.u1?.isNotEmpty == true) {
-      double stock1 = (depart?.stocksu1 ?? 0.0);
-      stocks.add('${stock1.toStringAsFixed(0)} ${_selectedArticle!.u1}');
-    }
-
-    // Toujours afficher u2 si défini
-    if (_selectedArticle!.u2?.isNotEmpty == true) {
-      double stock2 = (depart?.stocksu2 ?? 0.0);
-      stocks.add('${stock2.toStringAsFixed(0)} ${_selectedArticle!.u2}');
-    }
-
-    // Toujours afficher u3 si défini
-    if (_selectedArticle!.u3?.isNotEmpty == true) {
-      double stock3 = (depart?.stocksu3 ?? 0.0);
-      stocks.add('${stock3.toStringAsFixed(0)} ${_selectedArticle!.u3}');
-    }
-
-    return stocks.isEmpty ? '0' : stocks.join(' / ');
+    // Afficher les stocks DIRECTEMENT sans conversion
+    return StockConverter.formaterAffichageStock(
+      article: _selectedArticle!,
+      stockU1: depart?.stocksu1 ?? 0.0,
+      stockU2: depart?.stocksu2 ?? 0.0,
+      stockU3: depart?.stocksu3 ?? 0.0,
+    );
   }
 
   Future<void> _loadArticles() async {

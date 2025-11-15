@@ -336,7 +336,7 @@ class _AddArticleModalState extends State<AddArticleModal> {
       double? pvu3 = double.tryParse(_controllers['pvu3']?.text ?? '');
       double? pvu2 = double.tryParse(_controllers['pvu2']?.text ?? '');
       double? pvu1 = double.tryParse(_controllers['pvu1']?.text ?? '');
-      
+
       double cmup = 0.0;
       if (pvu3 != null) {
         cmup = pvu3;
