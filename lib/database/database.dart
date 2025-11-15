@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:crypto/crypto.dart';
 
 import '../utils/stock_converter.dart';
 
@@ -685,6 +687,25 @@ class Tricaisse extends Table {
   Set<Column> get primaryKey => {ref};
 }
 
+// Table Users - utilisée par: Système d'authentification multi-utilisateur
+class Users extends Table {
+  TextColumn get id => text().withLength(min: 1, max: 50)();
+  TextColumn get nom => text().withLength(min: 1, max: 100)();
+  TextColumn get username => text().withLength(min: 1, max: 100)();
+  TextColumn get motDePasse => text().withLength(min: 1, max: 255)();
+  TextColumn get role => text().withLength(min: 1, max: 50)();
+  BoolColumn get actif => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get dateCreation => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  @override
+  List<Set<Column>> get uniqueKeys => [
+        {username},
+      ];
+}
+
 /// Base de données principale de l'application Gestion de Magasin
 ///
 /// Cette classe gère toutes les opérations de base de données pour l'application
@@ -741,7 +762,8 @@ class Tricaisse extends Table {
   Tblunit,
   Transf,
   Tribanque,
-  Tricaisse
+  Tricaisse,
+  Users
 ])
 class AppDatabase extends _$AppDatabase {
   /// Constructeur de la base de données
@@ -751,7 +773,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
   @override
-  int get schemaVersion => 40;
+  int get schemaVersion => 42;
 
   /// Stratégie de migration de la base de données
   /// Gère la création initiale et les mises à jour de schéma
@@ -875,6 +897,13 @@ class AppDatabase extends _$AppDatabase {
             // Ajouter les colonnes montantRecu et monnaieARendre à la table ventes
             await m.addColumn(ventes, ventes.montantRecu as GeneratedColumn);
             await m.addColumn(ventes, ventes.monnaieARendre as GeneratedColumn);
+          } else if (from == 40) {
+            // Ajouter la table Users pour l'authentification
+            await m.createTable(users);
+          } else if (from == 41) {
+            // Modifier la table Users pour utiliser username au lieu d'email
+            await m.deleteTable('users');
+            await m.createTable(users);
           }
         },
       );
@@ -1202,16 +1231,14 @@ class AppDatabase extends _$AppDatabase {
 
     // Reconvertir en unités optimales avec des entiers pour éviter les problèmes de précision
     double nouveauU1 = 0, nouveauU2 = 0;
-    
+
     if (article.tu2u1 != null) {
       // Article à 2 unités (comme Gauffrette: Ctn/Pqt)
       int stockTotalInt = nouveauStockTotalU2.round();
       int facteurInt = article.tu2u1!.round();
-      
+
       nouveauU1 = (stockTotalInt ~/ facteurInt).toDouble();
       nouveauU2 = (stockTotalInt % facteurInt).toDouble();
-      
-
     } else {
       // Article à 1 unité
       nouveauU1 = nouveauStockTotalU2;
@@ -1234,13 +1261,13 @@ class AppDatabase extends _$AppDatabase {
     );
 
     double nouveauStockGlobalTotalU2 = stockGlobalTotalU2 - quantiteVenteU2;
-    
+
     double nouveauGlobalU1 = 0, nouveauGlobalU2 = 0;
-    
+
     if (article.tu2u1 != null) {
       int stockGlobalTotalInt = nouveauStockGlobalTotalU2.round();
       int facteurInt = article.tu2u1!.round();
-      
+
       nouveauGlobalU1 = (stockGlobalTotalInt ~/ facteurInt).toDouble();
       nouveauGlobalU2 = (stockGlobalTotalInt % facteurInt).toDouble();
     } else {
@@ -1457,8 +1484,72 @@ class AppDatabase extends _$AppDatabase {
     return soldeVentes - soldeRetours + soldeCompte;
   }
 
+  // ========== MÉTHODES UTILISATEURS ==========
+
+  /// Récupère tous les utilisateurs
+  Future<List<User>> getAllUsers() => select(users).get();
+
+  /// Récupère un utilisateur par username
+  Future<User?> getUserByUsername(String username) =>
+      (select(users)..where((u) => u.username.equals(username))).getSingleOrNull();
+
+  /// Récupère un utilisateur par ID
+  Future<User?> getUserById(String id) => (select(users)..where((u) => u.id.equals(id))).getSingleOrNull();
+
+  /// Insère un nouvel utilisateur
+  Future<int> insertUser(UsersCompanion entry) => into(users).insert(entry);
+
+  /// Met à jour un utilisateur existant
+  Future<bool> updateUser(UsersCompanion entry) => update(users).replace(entry);
+
+  /// Supprime un utilisateur par ID
+  Future<int> deleteUser(String id) => (delete(users)..where((u) => u.id.equals(id))).go();
+
+  /// Active/désactive un utilisateur
+  Future<int> toggleUserStatus(String id, bool actif) =>
+      (update(users)..where((u) => u.id.equals(id))).write(UsersCompanion(actif: Value(actif)));
+
+  /// Authentifie un utilisateur
+  Future<User?> authenticateUser(String username, String motDePasse) async {
+    final user = await (select(users)
+          ..where((u) => u.username.equals(username) & u.motDePasse.equals(motDePasse) & u.actif.equals(true)))
+        .getSingleOrNull();
+    return user;
+  }
+
+  /// Crée l'utilisateur administrateur par défaut avec mot de passe crypté
+  Future<void> createDefaultAdmin() async {
+    final existingAdmin =
+        await (select(users)..where((u) => u.role.equals('Administrateur'))).getSingleOrNull();
+
+    final hashedPassword = _hashPassword('admin123');
+    
+    if (existingAdmin == null) {
+      await into(users).insert(UsersCompanion(
+        id: const Value('admin'),
+        nom: const Value('Administrateur'),
+        username: const Value('admin'),
+        motDePasse: Value(hashedPassword),
+        role: const Value('Administrateur'),
+        actif: const Value(true),
+        dateCreation: Value(DateTime.now()),
+      ));
+    } else if (existingAdmin.motDePasse == 'admin123') {
+      // Mettre à jour l'admin existant avec mot de passe crypté
+      await (update(users)..where((u) => u.id.equals(existingAdmin.id)))
+          .write(UsersCompanion(motDePasse: Value(hashedPassword)));
+    }
+  }
+
+  /// Crypte un mot de passe avec SHA-256
+  String _hashPassword(String password) {
+    var bytes = utf8.encode(password);
+    var digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
   // ========== MÉTHODES RÉGULARISATION ==========
-  
+
   /// Enregistre une régularisation de compte tiers
   Future<void> enregistrerRegularisation({
     required String type,
@@ -1469,7 +1560,7 @@ class AppDatabase extends _$AppDatabase {
     required String affectation,
   }) async {
     final ref = 'REG-${DateTime.now().millisecondsSinceEpoch}';
-    
+
     if (type == 'Client') {
       await into(compteclt).insert(ComptecltCompanion(
         ref: Value(ref),
@@ -1500,6 +1591,6 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'gestion_magasin.db'));
-    return NativeDatabase.createInBackground(file);
+    return NativeDatabase(file);
   });
 }

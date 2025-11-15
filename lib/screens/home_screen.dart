@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../constants/menu_data.dart';
+import '../services/auth_service.dart';
 import '../services/menu_service.dart';
 import '../services/modal_loader.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
 import '../widgets/modals/ventes_selection_modal.dart';
+import 'login_screen.dart';
+import 'profil_screen.dart';
+import 'gestion_utilisateurs_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,6 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isHoveringThirdLevelMenu = false;
 
   Future<void> _showModal(String item) async {
+    // Vérifier les permissions avant d'ouvrir le modal
+    if (!_hasPermissionForItem(item)) {
+      _showAccessDeniedDialog(item);
+      return;
+    }
+    
     try {
       final modal = await ModalLoader.loadModal(item);
       if (modal != null && mounted) {
@@ -31,6 +41,41 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       debugPrint('Erreur lors du chargement du modal $item: $e');
     }
+  }
+
+  bool _hasPermissionForItem(String item) {
+    // Mapping des items vers les permissions
+    final permissions = {
+      'Ventes': 'ventes',
+      'Achats': 'achats',
+      'Clients': 'clients',
+      'Fournisseurs': 'fournisseurs',
+      'Caisse': 'caisse',
+      'Banque': 'banque',
+      'Articles': 'articles_view',
+      'Stocks': 'stocks_view',
+    };
+    
+    final requiredPermission = permissions[item];
+    if (requiredPermission == null) return true; // Pas de restriction
+    
+    return AuthService().canAccess(requiredPermission);
+  }
+
+  void _showAccessDeniedDialog(String item) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Accès refusé'),
+        content: Text('Vous n\'avez pas les permissions nécessaires pour accéder à "$item".'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -53,22 +98,73 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader() {
+    final currentUser = AuthService().currentUser;
+    
     return Container(
       height: 30,
       color: Colors.grey[300],
-      child: const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
-            Icon(Icons.business, size: 16, color: Colors.red),
-            SizedBox(width: 4),
+            const Icon(Icons.business, size: 16, color: Colors.red),
+            const SizedBox(width: 4),
             Text(
-              'GESTION COMMERCIALE DES GROSSISTES PPN - Administrateurs',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+              'GESTION COMMERCIALE - ${currentUser?.nom ?? 'Utilisateur'} (${currentUser?.role ?? 'Invité'})',
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
-            Spacer(),
+            const Spacer(),
+            // Bouton de déconnexion
+            InkWell(
+              onTap: _logout,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.red[600],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.logout, size: 12, color: Colors.white),
+                    SizedBox(width: 4),
+                    Text(
+                      'Déconnexion',
+                      style: TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _logout() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Déconnexion'),
+        content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              AuthService().logout();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+                (route) => false,
+              );
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Déconnecter', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
@@ -105,6 +201,19 @@ class _HomeScreenState extends State<HomeScreen> {
       showDialog(
         context: context,
         builder: (context) => const VentesSelectionModal(),
+      );
+    } else if (item == 'Gestion des utilisateurs') {
+      // Vérifier les permissions admin
+      if (!AuthService().hasRole('Administrateur')) {
+        _showAccessDeniedDialog(item);
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const GestionUtilisateursScreen()),
+      );
+    } else if (item == 'Profil') {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (context) => const ProfilScreen()),
       );
     } else {
       _showModal(item);

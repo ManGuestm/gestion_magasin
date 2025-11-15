@@ -21763,6 +21763,413 @@ class TricaisseCompanion extends UpdateCompanion<TricaisseData> {
   }
 }
 
+class $UsersTable extends Users with TableInfo<$UsersTable, User> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UsersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 50),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _nomMeta = const VerificationMeta('nom');
+  @override
+  late final GeneratedColumn<String> nom = GeneratedColumn<String>(
+      'nom', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _usernameMeta =
+      const VerificationMeta('username');
+  @override
+  late final GeneratedColumn<String> username = GeneratedColumn<String>(
+      'username', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _motDePasseMeta =
+      const VerificationMeta('motDePasse');
+  @override
+  late final GeneratedColumn<String> motDePasse = GeneratedColumn<String>(
+      'mot_de_passe', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 255),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+      'role', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 50),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _actifMeta = const VerificationMeta('actif');
+  @override
+  late final GeneratedColumn<bool> actif = GeneratedColumn<bool>(
+      'actif', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("actif" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _dateCreationMeta =
+      const VerificationMeta('dateCreation');
+  @override
+  late final GeneratedColumn<DateTime> dateCreation = GeneratedColumn<DateTime>(
+      'date_creation', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, nom, username, motDePasse, role, actif, dateCreation];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'users';
+  @override
+  VerificationContext validateIntegrity(Insertable<User> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('nom')) {
+      context.handle(
+          _nomMeta, nom.isAcceptableOrUnknown(data['nom']!, _nomMeta));
+    } else if (isInserting) {
+      context.missing(_nomMeta);
+    }
+    if (data.containsKey('username')) {
+      context.handle(_usernameMeta,
+          username.isAcceptableOrUnknown(data['username']!, _usernameMeta));
+    } else if (isInserting) {
+      context.missing(_usernameMeta);
+    }
+    if (data.containsKey('mot_de_passe')) {
+      context.handle(
+          _motDePasseMeta,
+          motDePasse.isAcceptableOrUnknown(
+              data['mot_de_passe']!, _motDePasseMeta));
+    } else if (isInserting) {
+      context.missing(_motDePasseMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+          _roleMeta, role.isAcceptableOrUnknown(data['role']!, _roleMeta));
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('actif')) {
+      context.handle(
+          _actifMeta, actif.isAcceptableOrUnknown(data['actif']!, _actifMeta));
+    }
+    if (data.containsKey('date_creation')) {
+      context.handle(
+          _dateCreationMeta,
+          dateCreation.isAcceptableOrUnknown(
+              data['date_creation']!, _dateCreationMeta));
+    } else if (isInserting) {
+      context.missing(_dateCreationMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+        {username},
+      ];
+  @override
+  User map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return User(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      nom: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nom'])!,
+      username: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}username'])!,
+      motDePasse: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}mot_de_passe'])!,
+      role: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}role'])!,
+      actif: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}actif'])!,
+      dateCreation: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}date_creation'])!,
+    );
+  }
+
+  @override
+  $UsersTable createAlias(String alias) {
+    return $UsersTable(attachedDatabase, alias);
+  }
+}
+
+class User extends DataClass implements Insertable<User> {
+  final String id;
+  final String nom;
+  final String username;
+  final String motDePasse;
+  final String role;
+  final bool actif;
+  final DateTime dateCreation;
+  const User(
+      {required this.id,
+      required this.nom,
+      required this.username,
+      required this.motDePasse,
+      required this.role,
+      required this.actif,
+      required this.dateCreation});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['nom'] = Variable<String>(nom);
+    map['username'] = Variable<String>(username);
+    map['mot_de_passe'] = Variable<String>(motDePasse);
+    map['role'] = Variable<String>(role);
+    map['actif'] = Variable<bool>(actif);
+    map['date_creation'] = Variable<DateTime>(dateCreation);
+    return map;
+  }
+
+  UsersCompanion toCompanion(bool nullToAbsent) {
+    return UsersCompanion(
+      id: Value(id),
+      nom: Value(nom),
+      username: Value(username),
+      motDePasse: Value(motDePasse),
+      role: Value(role),
+      actif: Value(actif),
+      dateCreation: Value(dateCreation),
+    );
+  }
+
+  factory User.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return User(
+      id: serializer.fromJson<String>(json['id']),
+      nom: serializer.fromJson<String>(json['nom']),
+      username: serializer.fromJson<String>(json['username']),
+      motDePasse: serializer.fromJson<String>(json['motDePasse']),
+      role: serializer.fromJson<String>(json['role']),
+      actif: serializer.fromJson<bool>(json['actif']),
+      dateCreation: serializer.fromJson<DateTime>(json['dateCreation']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'nom': serializer.toJson<String>(nom),
+      'username': serializer.toJson<String>(username),
+      'motDePasse': serializer.toJson<String>(motDePasse),
+      'role': serializer.toJson<String>(role),
+      'actif': serializer.toJson<bool>(actif),
+      'dateCreation': serializer.toJson<DateTime>(dateCreation),
+    };
+  }
+
+  User copyWith(
+          {String? id,
+          String? nom,
+          String? username,
+          String? motDePasse,
+          String? role,
+          bool? actif,
+          DateTime? dateCreation}) =>
+      User(
+        id: id ?? this.id,
+        nom: nom ?? this.nom,
+        username: username ?? this.username,
+        motDePasse: motDePasse ?? this.motDePasse,
+        role: role ?? this.role,
+        actif: actif ?? this.actif,
+        dateCreation: dateCreation ?? this.dateCreation,
+      );
+  User copyWithCompanion(UsersCompanion data) {
+    return User(
+      id: data.id.present ? data.id.value : this.id,
+      nom: data.nom.present ? data.nom.value : this.nom,
+      username: data.username.present ? data.username.value : this.username,
+      motDePasse:
+          data.motDePasse.present ? data.motDePasse.value : this.motDePasse,
+      role: data.role.present ? data.role.value : this.role,
+      actif: data.actif.present ? data.actif.value : this.actif,
+      dateCreation: data.dateCreation.present
+          ? data.dateCreation.value
+          : this.dateCreation,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('User(')
+          ..write('id: $id, ')
+          ..write('nom: $nom, ')
+          ..write('username: $username, ')
+          ..write('motDePasse: $motDePasse, ')
+          ..write('role: $role, ')
+          ..write('actif: $actif, ')
+          ..write('dateCreation: $dateCreation')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, nom, username, motDePasse, role, actif, dateCreation);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is User &&
+          other.id == this.id &&
+          other.nom == this.nom &&
+          other.username == this.username &&
+          other.motDePasse == this.motDePasse &&
+          other.role == this.role &&
+          other.actif == this.actif &&
+          other.dateCreation == this.dateCreation);
+}
+
+class UsersCompanion extends UpdateCompanion<User> {
+  final Value<String> id;
+  final Value<String> nom;
+  final Value<String> username;
+  final Value<String> motDePasse;
+  final Value<String> role;
+  final Value<bool> actif;
+  final Value<DateTime> dateCreation;
+  final Value<int> rowid;
+  const UsersCompanion({
+    this.id = const Value.absent(),
+    this.nom = const Value.absent(),
+    this.username = const Value.absent(),
+    this.motDePasse = const Value.absent(),
+    this.role = const Value.absent(),
+    this.actif = const Value.absent(),
+    this.dateCreation = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  UsersCompanion.insert({
+    required String id,
+    required String nom,
+    required String username,
+    required String motDePasse,
+    required String role,
+    this.actif = const Value.absent(),
+    required DateTime dateCreation,
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        nom = Value(nom),
+        username = Value(username),
+        motDePasse = Value(motDePasse),
+        role = Value(role),
+        dateCreation = Value(dateCreation);
+  static Insertable<User> custom({
+    Expression<String>? id,
+    Expression<String>? nom,
+    Expression<String>? username,
+    Expression<String>? motDePasse,
+    Expression<String>? role,
+    Expression<bool>? actif,
+    Expression<DateTime>? dateCreation,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (nom != null) 'nom': nom,
+      if (username != null) 'username': username,
+      if (motDePasse != null) 'mot_de_passe': motDePasse,
+      if (role != null) 'role': role,
+      if (actif != null) 'actif': actif,
+      if (dateCreation != null) 'date_creation': dateCreation,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  UsersCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? nom,
+      Value<String>? username,
+      Value<String>? motDePasse,
+      Value<String>? role,
+      Value<bool>? actif,
+      Value<DateTime>? dateCreation,
+      Value<int>? rowid}) {
+    return UsersCompanion(
+      id: id ?? this.id,
+      nom: nom ?? this.nom,
+      username: username ?? this.username,
+      motDePasse: motDePasse ?? this.motDePasse,
+      role: role ?? this.role,
+      actif: actif ?? this.actif,
+      dateCreation: dateCreation ?? this.dateCreation,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (nom.present) {
+      map['nom'] = Variable<String>(nom.value);
+    }
+    if (username.present) {
+      map['username'] = Variable<String>(username.value);
+    }
+    if (motDePasse.present) {
+      map['mot_de_passe'] = Variable<String>(motDePasse.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (actif.present) {
+      map['actif'] = Variable<bool>(actif.value);
+    }
+    if (dateCreation.present) {
+      map['date_creation'] = Variable<DateTime>(dateCreation.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UsersCompanion(')
+          ..write('id: $id, ')
+          ..write('nom: $nom, ')
+          ..write('username: $username, ')
+          ..write('motDePasse: $motDePasse, ')
+          ..write('role: $role, ')
+          ..write('actif: $actif, ')
+          ..write('dateCreation: $dateCreation, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -21808,6 +22215,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TransfTable transf = $TransfTable(this);
   late final $TribanqueTable tribanque = $TribanqueTable(this);
   late final $TricaisseTable tricaisse = $TricaisseTable(this);
+  late final $UsersTable users = $UsersTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -21854,7 +22262,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         tblunit,
         transf,
         tribanque,
-        tricaisse
+        tricaisse,
+        users
       ];
 }
 
@@ -32042,6 +32451,201 @@ typedef $$TricaisseTableProcessedTableManager = ProcessedTableManager<
     ),
     TricaisseData,
     PrefetchHooks Function()>;
+typedef $$UsersTableCreateCompanionBuilder = UsersCompanion Function({
+  required String id,
+  required String nom,
+  required String username,
+  required String motDePasse,
+  required String role,
+  Value<bool> actif,
+  required DateTime dateCreation,
+  Value<int> rowid,
+});
+typedef $$UsersTableUpdateCompanionBuilder = UsersCompanion Function({
+  Value<String> id,
+  Value<String> nom,
+  Value<String> username,
+  Value<String> motDePasse,
+  Value<String> role,
+  Value<bool> actif,
+  Value<DateTime> dateCreation,
+  Value<int> rowid,
+});
+
+class $$UsersTableFilterComposer extends Composer<_$AppDatabase, $UsersTable> {
+  $$UsersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nom => $composableBuilder(
+      column: $table.nom, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get username => $composableBuilder(
+      column: $table.username, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get motDePasse => $composableBuilder(
+      column: $table.motDePasse, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get role => $composableBuilder(
+      column: $table.role, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get actif => $composableBuilder(
+      column: $table.actif, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get dateCreation => $composableBuilder(
+      column: $table.dateCreation, builder: (column) => ColumnFilters(column));
+}
+
+class $$UsersTableOrderingComposer
+    extends Composer<_$AppDatabase, $UsersTable> {
+  $$UsersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nom => $composableBuilder(
+      column: $table.nom, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get username => $composableBuilder(
+      column: $table.username, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get motDePasse => $composableBuilder(
+      column: $table.motDePasse, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get role => $composableBuilder(
+      column: $table.role, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get actif => $composableBuilder(
+      column: $table.actif, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get dateCreation => $composableBuilder(
+      column: $table.dateCreation,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$UsersTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UsersTable> {
+  $$UsersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get nom =>
+      $composableBuilder(column: $table.nom, builder: (column) => column);
+
+  GeneratedColumn<String> get username =>
+      $composableBuilder(column: $table.username, builder: (column) => column);
+
+  GeneratedColumn<String> get motDePasse => $composableBuilder(
+      column: $table.motDePasse, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<bool> get actif =>
+      $composableBuilder(column: $table.actif, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dateCreation => $composableBuilder(
+      column: $table.dateCreation, builder: (column) => column);
+}
+
+class $$UsersTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $UsersTable,
+    User,
+    $$UsersTableFilterComposer,
+    $$UsersTableOrderingComposer,
+    $$UsersTableAnnotationComposer,
+    $$UsersTableCreateCompanionBuilder,
+    $$UsersTableUpdateCompanionBuilder,
+    (User, BaseReferences<_$AppDatabase, $UsersTable, User>),
+    User,
+    PrefetchHooks Function()> {
+  $$UsersTableTableManager(_$AppDatabase db, $UsersTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UsersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UsersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UsersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> nom = const Value.absent(),
+            Value<String> username = const Value.absent(),
+            Value<String> motDePasse = const Value.absent(),
+            Value<String> role = const Value.absent(),
+            Value<bool> actif = const Value.absent(),
+            Value<DateTime> dateCreation = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              UsersCompanion(
+            id: id,
+            nom: nom,
+            username: username,
+            motDePasse: motDePasse,
+            role: role,
+            actif: actif,
+            dateCreation: dateCreation,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String nom,
+            required String username,
+            required String motDePasse,
+            required String role,
+            Value<bool> actif = const Value.absent(),
+            required DateTime dateCreation,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              UsersCompanion.insert(
+            id: id,
+            nom: nom,
+            username: username,
+            motDePasse: motDePasse,
+            role: role,
+            actif: actif,
+            dateCreation: dateCreation,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$UsersTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $UsersTable,
+    User,
+    $$UsersTableFilterComposer,
+    $$UsersTableOrderingComposer,
+    $$UsersTableAnnotationComposer,
+    $$UsersTableCreateCompanionBuilder,
+    $$UsersTableUpdateCompanionBuilder,
+    (User, BaseReferences<_$AppDatabase, $UsersTable, User>),
+    User,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -32119,4 +32723,6 @@ class $AppDatabaseManager {
       $$TribanqueTableTableManager(_db, _db.tribanque);
   $$TricaisseTableTableManager get tricaisse =>
       $$TricaisseTableTableManager(_db, _db.tricaisse);
+  $$UsersTableTableManager get users =>
+      $$UsersTableTableManager(_db, _db.users);
 }

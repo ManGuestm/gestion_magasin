@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../database/database_service.dart';
+import '../services/auth_service.dart';
 import '../services/modal_loader.dart';
+import 'login_screen.dart';
 import 'home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -25,6 +27,9 @@ class _SplashScreenState extends State<SplashScreen> {
       // Phase 1: Initialisation critique
       await DatabaseService().initialize();
       
+      // Initialiser le service d'authentification
+      await AuthService().initialize();
+      
       // Phase 2: Pré-chargement en parallèle (non bloquant)
       final preloadFuture = _preloadResources();
       
@@ -38,9 +43,16 @@ class _SplashScreenState extends State<SplashScreen> {
       debugPrint('Initialisation complétée en ${stopwatch.elapsedMilliseconds}ms');
       
       if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        // Vérifier si un utilisateur est déjà connecté
+        if (AuthService().isLoggedIn) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+          );
+        }
       }
     } catch (e) {
       stopwatch.stop();

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+
 import 'database.dart';
 
 class DatabaseService {
@@ -24,38 +25,21 @@ class DatabaseService {
 
   Future<void> initialize() async {
     try {
-      // Configurer Drift pour éviter les warnings de multiples instances
+      // Configurer Drift pour éviter les warnings
       driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
       
-      // Initialiser la base de données de manière asynchrone
+      // Initialiser la base de données
       _database = AppDatabase();
       _isInitialized = true;
 
-      // Pré-charger les tables essentielles en arrière-plan
-      _preloadEssentialData();
+      // Créer l'utilisateur administrateur par défaut
+      await _database?.createDefaultAdmin();
     } catch (e) {
       throw Exception('Failed to initialize database: $e');
     }
   }
 
-  void _preloadEssentialData() {
-    // Charger les données essentielles en arrière-plan sans bloquer l'UI
-    Future.microtask(() async {
-      try {
-        // Pré-charger les données les plus utilisées
-        await _database?.select(_database!.soc).get();
-        await _database?.select(_database!.depots).get();
-        await _database?.select(_database!.articles).get();
-        await _database?.select(_database!.frns).get();
-        await _database?.select(_database!.clt).get();
-        await _database?.select(_database!.ventes).get();
-        await _database?.select(_database!.achats).get();
-        await _database?.select(_database!.depart).get();
-      } catch (e) {
-        // Ignorer les erreurs de pré-chargement
-      }
-    });
-  }
+
 
   Future<void> close() async {
     await _database?.close();

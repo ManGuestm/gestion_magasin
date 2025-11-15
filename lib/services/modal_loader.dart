@@ -57,6 +57,8 @@ import '../widgets/modals/tableau_bord_modal.dart';
 import '../widgets/modals/bilan_compte_resultat_modal.dart';
 import '../widgets/modals/statistiques_fournisseurs_modal.dart';
 import '../widgets/modals/reinitialiser_donnees_modal.dart';
+import '../widgets/modals/users_management_modal.dart';
+import '../widgets/modals/profil_modal.dart';
 
 class ModalLoader {
   static final Map<String, Widget Function()> _factories = {};
@@ -125,6 +127,8 @@ class ModalLoader {
       'Bilan / Compte de Résultat': () => const BilanCompteResultatModal(),
       'Statistiques fournisseurs': () => const StatistiquesFournisseursModal(),
       'Réinitialiser les données': () => const ReinitialiserDonneesModal(),
+      'Gestion des utilisateurs': () => const UsersManagementModal(),
+      'Profil': () => const ProfilModal(),
     });
     
     _initialized = true;

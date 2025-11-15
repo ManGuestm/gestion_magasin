@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 
 class MenuData {
   static const Map<String, List<String>> subMenus = {
+    'Fichier': [
+      'Profil',
+      'Gestion des utilisateurs',
+    ],
     'Paramètres': [
       'Informations sur la société',
       'Immobilisations',
