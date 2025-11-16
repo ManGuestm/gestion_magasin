@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_constants.dart';
 import '../constants/menu_data.dart';
 import '../services/auth_service.dart';
 import '../services/menu_service.dart';
@@ -7,9 +8,9 @@ import '../services/modal_loader.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
 import '../widgets/modals/ventes_selection_modal.dart';
+import 'gestion_utilisateurs_screen.dart';
 import 'login_screen.dart';
 import 'profil_screen.dart';
-import 'gestion_utilisateurs_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _showAccessDeniedDialog(item);
       return;
     }
-    
+
     try {
       final modal = await ModalLoader.loadModal(item);
       if (modal != null && mounted) {
@@ -43,23 +44,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  static const _itemPermissions = AppConstants.defaultPermissions;
+
   bool _hasPermissionForItem(String item) {
-    // Mapping des items vers les permissions
-    final permissions = {
-      'Ventes': 'ventes',
-      'Achats': 'achats',
-      'Clients': 'clients',
-      'Fournisseurs': 'fournisseurs',
-      'Caisse': 'caisse',
-      'Banque': 'banque',
-      'Articles': 'articles_view',
-      'Stocks': 'stocks_view',
-    };
-    
-    final requiredPermission = permissions[item];
-    if (requiredPermission == null) return true; // Pas de restriction
-    
-    return AuthService().canAccess(requiredPermission);
+    final requiredPermission = _itemPermissions[item];
+    return requiredPermission == null || AuthService().canAccess(requiredPermission);
   }
 
   void _showAccessDeniedDialog(String item) {
@@ -99,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader() {
     final currentUser = AuthService().currentUser;
-    
+
     return Container(
       height: 30,
       color: Colors.grey[300],
@@ -175,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    _removeOverlay();
+    _removeAllOverlays();
     setState(() => _selectedMenu = menu);
 
     _overlayEntry = MenuService.createSubmenuOverlay(
@@ -185,9 +174,10 @@ class _HomeScreenState extends State<HomeScreen> {
       onItemHover: _handleSubmenuHover,
       onMouseExit: () {
         // Delay removal to allow moving to nested menu
-        Future.delayed(const Duration(milliseconds: 100), () {
+        Future.delayed(AppConstants.shortAnimation, () {
           if (!_isHoveringNestedMenu) {
-            _removeNestedOverlay();
+            _nestedOverlayEntry?.remove();
+            _nestedOverlayEntry = null;
           }
         });
       },
@@ -225,14 +215,17 @@ class _HomeScreenState extends State<HomeScreen> {
       _showNestedSubmenu(item, itemPosition);
     } else {
       if (!_isHoveringNestedMenu) {
-        _removeNestedOverlay();
-        _removeThirdLevelOverlay();
+        _nestedOverlayEntry?.remove();
+        _nestedOverlayEntry = null;
+        _thirdLevelOverlayEntry?.remove();
+        _thirdLevelOverlayEntry = null;
       }
     }
   }
 
   void _showNestedSubmenu(String parentItem, double itemPosition) {
-    _removeNestedOverlay();
+    _nestedOverlayEntry?.remove();
+    _nestedOverlayEntry = null;
 
     String parentMenu = _selectedMenu ?? '';
     double baseLeftPosition = MenuService.getMenuPosition(parentMenu) + 250;
@@ -250,10 +243,12 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       onMouseExit: () {
         _isHoveringNestedMenu = false;
-        Future.delayed(const Duration(milliseconds: 100), () {
+        Future.delayed(AppConstants.shortAnimation, () {
           if (!_isHoveringNestedMenu && !_isHoveringThirdLevelMenu) {
-            _removeNestedOverlay();
-            _removeThirdLevelOverlay();
+            _nestedOverlayEntry?.remove();
+            _nestedOverlayEntry = null;
+            _thirdLevelOverlayEntry?.remove();
+            _thirdLevelOverlayEntry = null;
           }
         });
       },
@@ -272,14 +267,16 @@ class _HomeScreenState extends State<HomeScreen> {
       _showThirdLevelSubmenu(item, itemPosition, secondLevelTopPosition);
     } else {
       if (!_isHoveringThirdLevelMenu) {
-        _removeThirdLevelOverlay();
+        _thirdLevelOverlayEntry?.remove();
+        _thirdLevelOverlayEntry = null;
       }
     }
   }
 
   void _showThirdLevelSubmenu(String parentItem, double itemPosition, [double? secondLevelTopPosition]) {
     secondLevelTopPosition ??= 65;
-    _removeThirdLevelOverlay();
+    _thirdLevelOverlayEntry?.remove();
+    _thirdLevelOverlayEntry = null;
 
     String parentMenu = _selectedMenu ?? '';
     double firstLevelPosition = MenuService.getMenuPosition(parentMenu);
@@ -297,9 +294,10 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       onMouseExit: () {
         _isHoveringThirdLevelMenu = false;
-        Future.delayed(const Duration(milliseconds: 100), () {
+        Future.delayed(AppConstants.shortAnimation, () {
           if (!_isHoveringThirdLevelMenu) {
-            _removeThirdLevelOverlay();
+            _thirdLevelOverlayEntry?.remove();
+            _thirdLevelOverlayEntry = null;
           }
         });
       },
@@ -324,9 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _closeMenu() {
-    _removeOverlay();
-    _removeNestedOverlay();
-    _removeThirdLevelOverlay();
+    _removeAllOverlays();
     setState(() {
       _selectedMenu = null;
       _isHoveringNestedMenu = false;
@@ -334,26 +330,18 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _removeOverlay() {
+  void _removeAllOverlays() {
     _overlayEntry?.remove();
-    _overlayEntry = null;
-  }
-
-  void _removeNestedOverlay() {
     _nestedOverlayEntry?.remove();
-    _nestedOverlayEntry = null;
-  }
-
-  void _removeThirdLevelOverlay() {
     _thirdLevelOverlayEntry?.remove();
+    _overlayEntry = null;
+    _nestedOverlayEntry = null;
     _thirdLevelOverlayEntry = null;
   }
 
   @override
   void dispose() {
-    _removeOverlay();
-    _removeNestedOverlay();
-    _removeThirdLevelOverlay();
+    _removeAllOverlays();
     super.dispose();
   }
 }

@@ -14,13 +14,25 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _usernameFocus = FocusNode();
+  final _passwordFocus = FocusNode();
   bool _isLoading = false;
   bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _usernameFocus.requestFocus();
+    });
+  }
 
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
+    _usernameFocus.dispose();
+    _passwordFocus.dispose();
     super.dispose();
   }
 
@@ -114,6 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Champ Username
                 TextFormField(
                   controller: _usernameController,
+                  focusNode: _usernameFocus,
                   decoration: InputDecoration(
                     labelText: 'Nom d\'utilisateur',
                     prefixIcon: const Icon(Icons.person),
@@ -132,13 +145,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     }
                     return null;
                   },
-                  onFieldSubmitted: (_) => _login(),
+                  onFieldSubmitted: (_) => _passwordFocus.requestFocus(),
                 ),
                 const SizedBox(height: 16),
 
                 // Champ Mot de passe
                 TextFormField(
                   controller: _passwordController,
+                  focusNode: _passwordFocus,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     labelText: 'Mot de passe',

@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../constants/app_constants.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../mixins/form_navigation_mixin.dart';
+import '../../services/stock_management_service.dart';
 import '../../utils/stock_converter.dart';
+import '../../widgets/common/base_modal.dart';
 import 'add_article_modal.dart';
+import 'historique_stock_modal.dart';
+import 'mouvement_stock_modal.dart';
 
 class ArticlesModal extends StatefulWidget {
   const ArticlesModal({super.key});
@@ -12,73 +19,64 @@ class ArticlesModal extends StatefulWidget {
   State<ArticlesModal> createState() => _ArticlesModalState();
 }
 
-class _ArticlesModalState extends State<ArticlesModal> {
+class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin {
   List<Article> _articles = [];
   List<Article> _filteredArticles = [];
   List<Depot> _depots = [];
   final TextEditingController _searchController = TextEditingController();
+  late final FocusNode _searchFocus;
   Article? _selectedArticle;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    _searchFocus = createFocusNode();
     _loadArticles();
     _loadDepots();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _searchFocus.requestFocus();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.grey[100],
-        child: GestureDetector(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          if (HardwareKeyboard.instance.isControlPressed) {
+            if (event.logicalKey == LogicalKeyboardKey.keyF) {
+              _focusSearchField();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.keyC) {
+              _copyTableData();
+              return KeyEventResult.handled;
+            } else if (event.logicalKey == LogicalKeyboardKey.keyA) {
+              _selectAllArticles();
+              return KeyEventResult.handled;
+            }
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: BaseModal(
+        title: 'Articles',
+        width: AppConstants.defaultModalWidth,
+        height: AppConstants.defaultModalHeight,
+        onNew: () => _showAddArticleModal(),
+        onDelete: () => _selectedArticle != null ? _deleteArticle(_selectedArticle!) : null,
+        onRefresh: _loadArticles,
+        content: GestureDetector(
           onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-          child: Container(
-            width: 900,
-            height: 600,
-            decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey, width: 1),
-                borderRadius: BorderRadius.circular(8),
-                color: Colors.white),
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildContent(),
-                _buildButtons(),
-              ],
-            ),
+          child: Column(
+            children: [
+              _buildContent(),
+              _buildButtons(),
+            ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
-        border: Border.all(color: Colors.grey, width: 1),
-      ),
-      child: Row(
-        children: [
-          const Text(
-            'Articles',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
-          ),
-        ],
       ),
     );
   }
@@ -87,90 +85,20 @@ class _ArticlesModalState extends State<ArticlesModal> {
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey, width: 1),
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
           children: [
-            _buildTableHeader(),
+            _buildModernHeader(),
             Expanded(
               child: ListView.builder(
                 itemCount: _filteredArticles.length,
-                itemExtent: 18,
+                itemExtent: 24,
                 itemBuilder: (context, index) {
                   final article = _filteredArticles[index];
                   final isSelected = _selectedArticle?.designation == article.designation;
-                  return GestureDetector(
-                    onTap: () => _selectArticle(article),
-                    child: Container(
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color:
-                            isSelected ? Colors.blue[600] : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 200,
-                            padding: const EdgeInsets.only(left: 4),
-                            alignment: Alignment.centerLeft,
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                right: BorderSide(color: Colors.grey, width: 1),
-                                bottom: BorderSide(color: Colors.grey, width: 1),
-                              ),
-                            ),
-                            child: Text(
-                              article.designation,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              alignment: Alignment.center,
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Colors.grey, width: 1),
-                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                ),
-                              ),
-                              child: FutureBuilder<String>(
-                                future: _getAllStocksText(article),
-                                builder: (context, snapshot) {
-                                  return Text(
-                                    snapshot.data ?? 'Chargement...',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: isSelected ? Colors.white : Colors.black,
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                          Container(
-                            width: 60,
-                            alignment: Alignment.center,
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: Colors.grey, width: 1),
-                              ),
-                            ),
-                            child: Text(
-                              article.action ?? 'A',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                  return _buildModernRow(article, isSelected, index);
                 },
               ),
             ),
@@ -180,59 +108,127 @@ class _ArticlesModalState extends State<ArticlesModal> {
     );
   }
 
-  Widget _buildTableHeader() {
+  Widget _buildModernHeader() {
     return Container(
-      height: 25,
+      height: 32,
       decoration: BoxDecoration(
-        color: Colors.orange[300],
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.grey[200]!, Colors.grey[300]!],
+        ),
+        border: Border(bottom: BorderSide(color: Colors.grey[400]!, width: 1)),
       ),
       child: Row(
         children: [
-          Container(
-            width: 200,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: Colors.grey, width: 1),
-                bottom: BorderSide(color: Colors.grey, width: 1),
-              ),
-            ),
-            child: const Text(
-              'DESIGNATION',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey, width: 1),
-                  bottom: BorderSide(color: Colors.grey, width: 1),
-                ),
-              ),
-              child: const Text(
-                'STOCKS DISPONIBLES',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          Container(
-            width: 60,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey, width: 1),
-              ),
-            ),
-            child: const Text(
-              'ACTION',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            ),
-          ),
+          _buildHeaderCell('DESIGNATION', flex: 4),
+          _buildHeaderCell('STOCKS DISPONIBLES', flex: 5),
+          _buildHeaderCell('ACTION', width: 80),
         ],
       ),
     );
+  }
+
+  Widget _buildHeaderCell(String text, {int? flex, double? width}) {
+    Widget cell = Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+    );
+
+    if (flex != null) {
+      return Expanded(flex: flex, child: cell);
+    } else {
+      return SizedBox(width: width, child: cell);
+    }
+  }
+
+  Widget _buildModernRow(Article article, bool isSelected, int index) {
+    return GestureDetector(
+      onTap: () => _selectArticle(article),
+      child: Container(
+        height: 24,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue[100] : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
+          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            _buildDataCell(
+              article.designation,
+              flex: 4,
+              isSelected: isSelected,
+              alignment: Alignment.centerLeft,
+            ),
+            _buildDataCell(
+              '',
+              flex: 5,
+              isSelected: isSelected,
+              alignment: Alignment.center,
+              child: FutureBuilder<String>(
+                future: _getAllStocksText(article),
+                builder: (context, snapshot) => Text(
+                  snapshot.data ?? AppConstants.loadingMessage,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isSelected ? Colors.blue[800] : Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+            _buildDataCell(
+              article.action ?? 'A',
+              width: 80,
+              isSelected: isSelected,
+              alignment: Alignment.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataCell(
+    String text, {
+    int? flex,
+    double? width,
+    required bool isSelected,
+    required Alignment alignment,
+    Widget? child,
+  }) {
+    Widget cell = Container(
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+      ),
+      child: child ??
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              color: isSelected ? Colors.blue[800] : Colors.black87,
+              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+    );
+
+    if (flex != null) {
+      return Expanded(flex: flex, child: cell);
+    } else {
+      return SizedBox(width: width, child: cell);
+    }
   }
 
   Widget _buildButtons() {
@@ -250,40 +246,96 @@ class _ArticlesModalState extends State<ArticlesModal> {
               const SizedBox(width: 8),
               Expanded(
                 child: Container(
-                  height: 20,
+                  height: 28,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[400]!),
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(4),
                     color: Colors.white,
                   ),
                   child: TextFormField(
                     controller: _searchController,
-                    style: const TextStyle(fontSize: 11),
-                    decoration: const InputDecoration(
+                    focusNode: _searchFocus,
+                    style: const TextStyle(fontSize: 12),
+                    decoration: InputDecoration(
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                       isDense: true,
+                      hintText: 'Rechercher (Ctrl+F)...',
+                      hintStyle: TextStyle(color: Colors.grey[500], fontSize: 11),
+                      prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey[500]),
                     ),
                     onChanged: _filterArticles,
+                    onFieldSubmitted: (_) => _showAllArticles(),
                   ),
                 ),
               ),
               const SizedBox(width: 4),
               Container(
-                height: 20,
+                height: 28,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  border: Border.all(color: Colors.grey[600]!),
+                  gradient: LinearGradient(
+                    colors: [Colors.orange[100]!, Colors.orange[200]!],
+                  ),
+                  border: Border.all(color: Colors.orange[300]!),
+                  borderRadius: BorderRadius.circular(4),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.orange.withValues(alpha: 0.2),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
                 ),
                 child: TextButton(
                   onPressed: _showAllArticles,
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text(
-                    'Afficher tous',
-                    style: TextStyle(fontSize: 12, color: Colors.black),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.refresh, size: 14, color: Colors.orange),
+                      SizedBox(width: 4),
+                      Text(
+                        'Afficher tous',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.orange,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                height: 24,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.blue[100],
+                  border: Border.all(color: Colors.blue[300]!),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: TextButton(
+                  onPressed: _copyTableData,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.copy, size: 14, color: Colors.blue),
+                      SizedBox(width: 4),
+                      Text(
+                        'Copier (Ctrl+C)',
+                        style: TextStyle(fontSize: 11, color: Colors.blue),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -304,7 +356,7 @@ class _ArticlesModalState extends State<ArticlesModal> {
                   ),
                   child: const Text(
                     'Fermer',
-                    style: TextStyle(fontSize: 12, color: Colors.black),
+                    style: TextStyle(fontSize: AppConstants.defaultFontSize, color: Colors.black),
                   ),
                 ),
               ),
@@ -321,28 +373,47 @@ class _ArticlesModalState extends State<ArticlesModal> {
     return Container(
       margin: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(4),
         color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.red[300],
-              border: const Border(bottom: BorderSide(color: Colors.grey)),
+              gradient: LinearGradient(
+                colors: [Colors.blue[600]!, Colors.blue[700]!],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(4),
+                topRight: Radius.circular(4),
+              ),
             ),
             child: const Text(
-              'SITUATION DE STOCKS DANS CHAQUE DEPOTS',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+              'SITUATION DE STOCKS DANS CHAQUE DÉPÔT',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
           Container(
-            height: 25,
+            height: 28,
             decoration: BoxDecoration(
-              color: Colors.grey[200],
+              gradient: LinearGradient(
+                colors: [Colors.grey[200]!, Colors.grey[300]!],
+              ),
             ),
             child: Row(
               children: [
@@ -350,15 +421,18 @@ class _ArticlesModalState extends State<ArticlesModal> {
                   flex: 2,
                   child: Container(
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       border: Border(
-                        right: BorderSide(color: Colors.grey),
-                        bottom: BorderSide(color: Colors.grey),
+                        right: BorderSide(color: Colors.grey[400]!, width: 1),
                       ),
                     ),
                     child: const Text(
-                      'DEPOTS',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      'DÉPÔTS',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                 ),
@@ -366,14 +440,13 @@ class _ArticlesModalState extends State<ArticlesModal> {
                   flex: 3,
                   child: Container(
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey),
-                      ),
-                    ),
                     child: const Text(
                       'STOCKS DISPONIBLES',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
                     ),
                   ),
                 ),
@@ -387,26 +460,31 @@ class _ArticlesModalState extends State<ArticlesModal> {
               itemBuilder: (context, index) {
                 final depot = _depots[index];
                 return Container(
-                  height: 20,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                    border: Border(
+                      bottom: BorderSide(color: Colors.grey[200]!, width: 0.5),
+                    ),
                   ),
                   child: Row(
                     children: [
                       Expanded(
                         flex: 2,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           alignment: Alignment.centerLeft,
-                          decoration: const BoxDecoration(
+                          decoration: BoxDecoration(
                             border: Border(
-                              right: BorderSide(color: Colors.grey),
-                              bottom: BorderSide(color: Colors.grey, width: 0.5),
+                              right: BorderSide(color: Colors.grey[200]!, width: 0.5),
                             ),
                           ),
                           child: Text(
                             depot.depots,
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.black87,
+                            ),
                           ),
                         ),
                       ),
@@ -414,17 +492,16 @@ class _ArticlesModalState extends State<ArticlesModal> {
                         flex: 3,
                         child: Container(
                           alignment: Alignment.center,
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(color: Colors.grey, width: 0.5),
-                            ),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           child: FutureBuilder<DepartData?>(
                             future: _getStockForDepotFuture(depot.depots),
                             builder: (context, snapshot) {
                               return Text(
                                 _getStockTextForDepot(snapshot.data),
-                                style: const TextStyle(fontSize: 11),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.black87,
+                                ),
                               );
                             },
                           ),
@@ -608,18 +685,31 @@ class _ArticlesModalState extends State<ArticlesModal> {
         position.dx + 1,
         position.dy + 1,
       ),
-      items: [
-        const PopupMenuItem(
+      items: <PopupMenuEntry<String>>[
+        const PopupMenuItem<String>(
           value: 'create',
           child: Text('Créer', style: TextStyle(fontSize: 12)),
         ),
-        const PopupMenuItem(
+        const PopupMenuItem<String>(
           value: 'modify',
           child: Text('Modifier', style: TextStyle(fontSize: 12)),
         ),
-        const PopupMenuItem(
+        const PopupMenuItem<String>(
           value: 'delete',
           child: Text('Supprimer', style: TextStyle(fontSize: 12)),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem<String>(
+          value: 'entree_stock',
+          child: Text('Entrée Stock', style: TextStyle(fontSize: 12)),
+        ),
+        const PopupMenuItem<String>(
+          value: 'sortie_stock',
+          child: Text('Sortie Stock', style: TextStyle(fontSize: 12)),
+        ),
+        const PopupMenuItem<String>(
+          value: 'historique_stock',
+          child: Text('Historique Stock', style: TextStyle(fontSize: 12)),
         ),
       ],
     ).then((value) {
@@ -644,7 +734,45 @@ class _ArticlesModalState extends State<ArticlesModal> {
           _deleteArticle(_selectedArticle!);
         }
         break;
+      case 'entree_stock':
+        if (_selectedArticle != null) {
+          _showMouvementStock(TypeMouvement.entree);
+        }
+        break;
+      case 'sortie_stock':
+        if (_selectedArticle != null) {
+          _showMouvementStock(TypeMouvement.sortie);
+        }
+        break;
+      case 'historique_stock':
+        if (_selectedArticle != null) {
+          _showHistoriqueStock();
+        }
+        break;
     }
+  }
+
+  void _showMouvementStock(TypeMouvement type) {
+    showDialog(
+      context: context,
+      builder: (context) => MouvementStockModal(
+        refArticle: _selectedArticle!.designation,
+        typeMouvement: type,
+      ),
+    ).then((result) {
+      if (result == true) {
+        _loadArticles(); // Recharger pour mettre à jour les stocks
+      }
+    });
+  }
+
+  void _showHistoriqueStock() {
+    showDialog(
+      context: context,
+      builder: (context) => HistoriqueStockModal(
+        refArticle: _selectedArticle!.designation,
+      ),
+    );
   }
 
   void _showAddArticleModal({Article? article}) {
@@ -665,6 +793,44 @@ class _ArticlesModalState extends State<ArticlesModal> {
       }
     } catch (e) {
       debugPrint('Erreur lors de la suppression: $e');
+    }
+  }
+
+  void _focusSearchField() {
+    if (mounted) {
+      FocusScope.of(context).requestFocus(_searchFocus);
+    }
+  }
+
+  void _selectAllArticles() {
+    // Sélectionner tous les articles visibles
+    setState(() {
+      // Logique de sélection multiple si nécessaire
+    });
+  }
+
+  Future<void> _copyTableData() async {
+    final buffer = StringBuffer();
+
+    // En-têtes
+    buffer.writeln('DESIGNATION\tSTOCKS DISPONIBLES\tACTION');
+
+    // Données
+    for (final article in _filteredArticles) {
+      final stocks = await _getAllStocksText(article);
+      buffer.writeln('${article.designation}\t$stocks\t${article.action ?? 'A'}');
+    }
+
+    await Clipboard.setData(ClipboardData(text: buffer.toString()));
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${_filteredArticles.length} articles copiés dans le presse-papiers'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.green,
+        ),
+      );
     }
   }
 

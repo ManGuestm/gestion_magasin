@@ -1,7 +1,12 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../../constants/app_constants.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../mixins/form_navigation_mixin.dart';
+import '../../widgets/common/base_modal.dart';
 import 'add_fournisseur_modal.dart';
 
 class FournisseursModal extends StatefulWidget {
@@ -11,17 +16,21 @@ class FournisseursModal extends StatefulWidget {
   State<FournisseursModal> createState() => _FournisseursModalState();
 }
 
-class _FournisseursModalState extends State<FournisseursModal> {
+class _FournisseursModalState extends State<FournisseursModal> with FormNavigationMixin {
   List<Frn> _fournisseurs = [];
   List<Frn> _filteredFournisseurs = [];
   final TextEditingController _searchController = TextEditingController();
+  late final FocusNode _searchFocus;
   Frn? _selectedFournisseur;
+  List<Comptefrn> _historiqueFournisseur = [];
   final int _pageSize = 100;
   bool _isLoading = false;
+  final NumberFormat _numberFormat = NumberFormat('#,##0', 'fr_FR');
 
   @override
   void initState() {
     super.initState();
+    _searchFocus = createFocusNode();
     _loadFournisseurs();
   }
 
@@ -29,59 +38,28 @@ class _FournisseursModalState extends State<FournisseursModal> {
     setState(() {
       _selectedFournisseur = fournisseur;
     });
+    _loadHistoriqueFournisseur(fournisseur.rsoc);
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.grey[100],
-        child: GestureDetector(
-          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-          child: Container(
-            width: 900,
-            height: 600,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[400]!),
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.white,
-            ),
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildContent(),
-                _buildButtons(),
-              ],
-            ),
-          ),
+    return BaseModal(
+      title: 'Fournisseurs',
+      width: AppConstants.defaultModalWidth,
+      height: AppConstants.defaultModalHeight,
+      onNew: () => _showAddFournisseurModal(),
+      onDelete: () => _selectedFournisseur != null ? _deleteFournisseur(_selectedFournisseur!) : null,
+      onSearch: () => _searchFocus.requestFocus(),
+      onRefresh: _loadFournisseurs,
+      content: GestureDetector(
+        onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+        child: Column(
+          children: [
+            _buildContent(),
+            _buildHistoriqueSection(),
+            _buildButtons(),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Text(
-            'Fournisseurs',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
-          ),
-        ],
       ),
     );
   }
@@ -90,11 +68,12 @@ class _FournisseursModalState extends State<FournisseursModal> {
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey),
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
           children: [
-            _buildTableHeader(),
+            _buildModernHeader(),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
@@ -107,79 +86,11 @@ class _FournisseursModalState extends State<FournisseursModal> {
                         )
                       : ListView.builder(
                           itemCount: _filteredFournisseurs.length,
-                          itemExtent: 25,
+                          itemExtent: 24,
                           itemBuilder: (context, index) {
                             final fournisseur = _filteredFournisseurs[index];
                             final isSelected = _selectedFournisseur?.rsoc == fournisseur.rsoc;
-                            return GestureDetector(
-                              onTap: () => _selectFournisseur(fournisseur),
-                              child: Container(
-                                height: 18,
-                                decoration: BoxDecoration(
-                                  color: isSelected ? Colors.blue[600] : Colors.white,
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 4,
-                                      child: Container(
-                                        padding: const EdgeInsets.only(left: 4),
-                                        alignment: Alignment.centerLeft,
-                                        decoration: const BoxDecoration(
-                                          border: Border(
-                                            right: BorderSide(color: Colors.grey, width: 1),
-                                            bottom: BorderSide(color: Colors.grey, width: 1),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          fournisseur.rsoc,
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isSelected ? Colors.white : Colors.black,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Container(
-                                        alignment: Alignment.centerRight,
-                                        padding: const EdgeInsets.only(right: 4),
-                                        decoration: const BoxDecoration(
-                                          border: Border(
-                                            right: BorderSide(color: Colors.grey, width: 1),
-                                            bottom: BorderSide(color: Colors.grey, width: 1),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          fournisseur.soldes?.toStringAsFixed(2) ?? '.00',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isSelected ? Colors.white : Colors.black,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Container(
-                                      width: 60,
-                                      alignment: Alignment.center,
-                                      decoration: const BoxDecoration(
-                                        border: Border(
-                                          bottom: BorderSide(color: Colors.grey, width: 1),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        fournisseur.action ?? 'A',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: isSelected ? Colors.white : Colors.black,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
+                            return _buildModernRow(fournisseur, isSelected, index);
                           },
                         ),
             ),
@@ -189,62 +100,115 @@ class _FournisseursModalState extends State<FournisseursModal> {
     );
   }
 
-  Widget _buildTableHeader() {
+  Widget _buildModernHeader() {
     return Container(
-      height: 25,
+      height: 32,
       decoration: BoxDecoration(
-        color: Colors.orange[300],
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.grey[200]!, Colors.grey[300]!],
+        ),
+        border: Border(bottom: BorderSide(color: Colors.grey[400]!, width: 1)),
       ),
       child: Row(
         children: [
-          Expanded(
-            flex: 4,
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey[400]!, width: 1),
-                  bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-                ),
-              ),
-              child: const Text(
-                'RAISON SOCIALE',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey[400]!, width: 1),
-                  bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-                ),
-              ),
-              child: const Text(
-                'SOLDES',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          Container(
-            width: 60,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-              ),
-            ),
-            child: const Text(
-              'ACTION',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            ),
-          ),
+          _buildHeaderCell('RAISON SOCIALE', flex: 4),
+          _buildHeaderCell('SOLDES', flex: 2),
+          _buildHeaderCell('ACTION', width: 80),
         ],
       ),
     );
+  }
+
+  Widget _buildHeaderCell(String text, {int? flex, double? width}) {
+    Widget cell = Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+    );
+
+    if (flex != null) {
+      return Expanded(flex: flex, child: cell);
+    } else {
+      return SizedBox(width: width, child: cell);
+    }
+  }
+
+  Widget _buildModernRow(Frn fournisseur, bool isSelected, int index) {
+    return GestureDetector(
+      onTap: () => _selectFournisseur(fournisseur),
+      child: Container(
+        height: 24,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue[100] : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
+          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            _buildDataCell(
+              fournisseur.rsoc,
+              flex: 4,
+              isSelected: isSelected,
+              alignment: Alignment.centerLeft,
+            ),
+            _buildDataCell(
+              _formatMontant(fournisseur.soldes ?? 0),
+              flex: 2,
+              isSelected: isSelected,
+              alignment: Alignment.centerRight,
+            ),
+            _buildDataCell(
+              fournisseur.action ?? 'A',
+              width: 80,
+              isSelected: isSelected,
+              alignment: Alignment.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataCell(
+    String text, {
+    int? flex,
+    double? width,
+    required bool isSelected,
+    required Alignment alignment,
+  }) {
+    Widget cell = Container(
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          color: isSelected ? Colors.blue[800] : Colors.black87,
+          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+
+    if (flex != null) {
+      return Expanded(flex: flex, child: cell);
+    } else {
+      return SizedBox(width: width, child: cell);
+    }
   }
 
   Widget _buildButtons() {
@@ -258,41 +222,94 @@ class _FournisseursModalState extends State<FournisseursModal> {
           _buildNavButton(Icons.last_page, _goToLast),
           const SizedBox(width: 8),
           Expanded(
-            child: Container(
+            child: SizedBox(
               height: 20,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[400]!),
-                color: Colors.white,
-              ),
-              child: TextFormField(
-                controller: _searchController,
-                style: const TextStyle(fontSize: 11),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  isDense: true,
+              child: Container(
+                height: 28,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.white,
                 ),
-                onChanged: _filterFournisseurs,
+                child: Autocomplete<Frn>(
+                  optionsBuilder: (textEditingValue) {
+                    if (textEditingValue.text.isEmpty || textEditingValue.text == ' ') {
+                      return _fournisseurs.take(100);
+                    }
+                    return _fournisseurs.where((fournisseur) {
+                      return fournisseur.rsoc.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    }).take(100);
+                  },
+                  displayStringForOption: (fournisseur) => fournisseur.rsoc,
+                  onSelected: (fournisseur) => _selectFournisseur(fournisseur),
+                  fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      style: const TextStyle(fontSize: 12),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        isDense: true,
+                        hintText: 'Rechercher fournisseur...',
+                        hintStyle: TextStyle(color: Colors.grey[500], fontSize: 11),
+                        prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey[500]),
+                      ),
+                      onTap: () {
+                        if (controller.text.isEmpty) {
+                          controller.text = ' ';
+                          controller.selection = TextSelection.fromPosition(
+                            const TextPosition(offset: 0),
+                          );
+                          Future.delayed(const Duration(milliseconds: 50), () {
+                            controller.clear();
+                          });
+                        }
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ),
           const SizedBox(width: 4),
           Container(
-            height: 20,
+            height: 28,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[600]!),
+              gradient: LinearGradient(
+                colors: [Colors.orange[100]!, Colors.orange[200]!],
+              ),
+              border: Border.all(color: Colors.orange[300]!),
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withValues(alpha: 0.2),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
             child: TextButton(
               onPressed: _showAllFournisseurs,
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text(
-                'Afficher tous',
-                style: TextStyle(fontSize: 12, color: Colors.black),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.refresh, size: 14, color: Colors.orange),
+                  SizedBox(width: 4),
+                  Text(
+                    'Afficher tous',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.orange,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -345,22 +362,45 @@ class _FournisseursModalState extends State<FournisseursModal> {
     setState(() => _isLoading = true);
 
     try {
-      final fournisseurs = await DatabaseService().database.getAllFournisseurs();
+      // Chargement direct avec requête SQL pour éviter les problèmes de conversion
+      final result = await DatabaseService()
+          .database
+          .customSelect(
+            'SELECT rsoc, adr, capital, rcs, nif, stat, tel, port, email, site, fax, telex, soldes, datedernop, delai, soldesa, action FROM frns',
+          )
+          .get();
+
+      final fournisseurs = result
+          .map((row) => Frn(
+                rsoc: row.read<String>('rsoc'),
+                adr: row.read<String?>('adr'),
+                capital: _safeReadDouble(row, 'capital'),
+                rcs: row.read<String?>('rcs'),
+                nif: row.read<String?>('nif'),
+                stat: row.read<String?>('stat'),
+                tel: row.read<String?>('tel'),
+                port: row.read<String?>('port'),
+                email: row.read<String?>('email'),
+                site: row.read<String?>('site'),
+                fax: row.read<String?>('fax'),
+                telex: row.read<String?>('telex'),
+                soldes: _safeReadDouble(row, 'soldes'),
+                datedernop: row.read<DateTime?>('datedernop'),
+                delai: row.read<int?>('delai'),
+                soldesa: _safeReadDouble(row, 'soldesa'),
+                action: row.read<String?>('action'),
+              ))
+          .toList();
+
       debugPrint('Nombre de fournisseurs trouvés: ${fournisseurs.length}');
 
-      // Mettre à jour tous les soldes en une seule opération
-      await _updateAllFournisseursSoldes();
-
-      // Recharger les fournisseurs avec les soldes mis à jour
-      final updatedFournisseurs = await DatabaseService().database.getAllFournisseurs();
-
       setState(() {
-        _fournisseurs = updatedFournisseurs;
-        _filteredFournisseurs = updatedFournisseurs.take(_pageSize).toList();
+        _fournisseurs = fournisseurs;
+        _filteredFournisseurs = fournisseurs.take(_pageSize).toList();
         _isLoading = false;
       });
 
-      debugPrint('Soldes mis à jour pour ${fournisseurs.length} fournisseurs');
+      debugPrint('Fournisseurs chargés: ${_filteredFournisseurs.length}');
     } catch (e) {
       debugPrint('Erreur lors du chargement des fournisseurs: $e');
       setState(() {
@@ -369,7 +409,33 @@ class _FournisseursModalState extends State<FournisseursModal> {
     }
   }
 
-  void _filterFournisseurs(String query) {
+  double? _safeReadDouble(QueryRow row, String column) {
+    try {
+      // Essayer d'abord comme double
+      try {
+        return row.readNullable<double>(column);
+      } catch (_) {}
+
+      // Puis comme int
+      try {
+        final intValue = row.readNullable<int>(column);
+        return intValue?.toDouble();
+      } catch (_) {}
+
+      // Enfin comme string
+      try {
+        final stringValue = row.readNullable<String>(column);
+        if (stringValue == null || stringValue.isEmpty) return 0.0;
+        return double.tryParse(stringValue) ?? 0.0;
+      } catch (_) {}
+
+      return 0.0;
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  void filterFournisseurs(String query) {
     if (query.length < 2 && query.isNotEmpty) return;
 
     setState(() {
@@ -490,17 +556,225 @@ class _FournisseursModalState extends State<FournisseursModal> {
     }
   }
 
-  Future<void> _updateAllFournisseursSoldes() async {
-    final db = DatabaseService().database;
+  Future<void> _loadHistoriqueFournisseur(String rsocFournisseur) async {
+    final historique = await DatabaseService().database.customSelect(
+      'SELECT * FROM comptefrns WHERE frns = ? ORDER BY daty DESC LIMIT 50',
+      variables: [Variable(rsocFournisseur)],
+    ).get();
 
-    // Mise à jour optimisée en une seule requête SQL
-    await db.customUpdate('''
-      UPDATE frns SET soldes = (
-        COALESCE((SELECT SUM(totalttc) FROM achats WHERE achats.frns = frns.rsoc), 0) -
-        COALESCE((SELECT SUM(totalttc) FROM retachats WHERE retachats.frns = frns.rsoc), 0) -
-        COALESCE((SELECT SUM(entres) FROM comptefrns WHERE comptefrns.frns = frns.rsoc), 0)
-      )
-    ''');
+    setState(() {
+      _historiqueFournisseur = historique
+          .map((row) => Comptefrn(
+                ref: row.read<String>('ref'),
+                daty: row.read<DateTime?>('daty'),
+                lib: row.read<String?>('lib'),
+                numachats: row.read<String?>('numachats'),
+                nfact: row.read<String?>('nfact'),
+                refart: row.read<String?>('refart'),
+                qe: row.read<double?>('qe'),
+                pu: row.read<double?>('pu'),
+                entres: row.read<double?>('entres'),
+                sortie: row.read<double?>('sortie'),
+                solde: row.read<double?>('solde'),
+                frns: row.read<String?>('frns'),
+                verification: row.read<String?>('verification'),
+              ))
+          .toList();
+    });
+  }
+
+  Widget _buildHistoriqueSection() {
+    return Container(
+      height: 120,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[400]!),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Column(
+        children: [
+          Container(
+            height: 24,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.green[400]!, Colors.green[500]!],
+              ),
+              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+            ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'HISTORIQUE DE SOLDE',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_selectedFournisseur != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      'Solde dû: ${_formatMontant(_selectedFournisseur!.soldes ?? 0)}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Container(
+            height: 20,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.grey[200]!, Colors.grey[300]!],
+              ),
+              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+            ),
+            child: const Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: Center(
+                    child: Text(
+                      'DATE',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Center(
+                    child: Text(
+                      'LIBELLÉ',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'DÉBIT',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'CRÉDIT',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'SOLDE',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: _historiqueFournisseur.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Aucun mouvement',
+                      style: TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _historiqueFournisseur.length,
+                    itemExtent: 18,
+                    itemBuilder: (context, index) {
+                      final mouvement = _historiqueFournisseur[index];
+                      return Container(
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  mouvement.daty?.toString().substring(0, 10) ?? '',
+                                  style: const TextStyle(fontSize: 9),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  mouvement.lib ?? '',
+                                  style: const TextStyle(fontSize: 9),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  (mouvement.sortie ?? 0) > 0 ? _formatMontant(mouvement.sortie!) : '',
+                                  style: const TextStyle(fontSize: 9),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  (mouvement.entres ?? 0) > 0 ? _formatMontant(mouvement.entres!) : '',
+                                  style: const TextStyle(fontSize: 9),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  _formatMontant(mouvement.solde ?? 0),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w500,
+                                    color: (mouvement.solde ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatMontant(double montant) {
+    return _numberFormat.format(montant.round());
   }
 
   @override

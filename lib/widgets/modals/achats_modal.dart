@@ -1636,27 +1636,6 @@ class _AchatsModalState extends State<AchatsModal> {
                                                 },
                                               ),
                                             ),
-                                            SizedBox(
-                                              width: 25,
-                                              height: 25,
-                                              child: PopupMenuButton<Frn>(
-                                                icon: const Icon(Icons.arrow_drop_down, size: 16),
-                                                itemBuilder: (context) {
-                                                  return _fournisseurs.map((frn) {
-                                                    return PopupMenuItem<Frn>(
-                                                      value: frn,
-                                                      child: Text(frn.rsoc,
-                                                          style: const TextStyle(fontSize: 12)),
-                                                    );
-                                                  }).toList();
-                                                },
-                                                onSelected: (frn) {
-                                                  setState(() {
-                                                    _selectedFournisseur = frn.rsoc;
-                                                  });
-                                                },
-                                              ),
-                                            ),
                                           ],
                                         ),
                                       ),

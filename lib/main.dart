@@ -2,26 +2,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'screens/splash_screen.dart';
+import 'services/modal_loader.dart';
+import 'services/navigation_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Optimisations de performance
-  await _configurePerformance();
-
+  await _initializeApp();
   runApp(const MyApp());
 }
 
-Future<void> _configurePerformance() async {
-  // Optimiser les performances de rendu
+Future<void> _initializeApp() async {
+  // Configuration système
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-
-  // Pré-charger les polices système
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.landscapeLeft,
     DeviceOrientation.landscapeRight,
     DeviceOrientation.portraitUp,
   ]);
+
+  // Pré-chargement des modals fréquents
+  ModalLoader.preloadFrequentModals();
 }
 
 class MyApp extends StatelessWidget {
@@ -31,12 +31,20 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Gestion de Magasin',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
+      navigatorKey: NavigationService().navigatorKey,
+      theme: _buildTheme(),
       home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
+    );
+  }
+
+  ThemeData _buildTheme() {
+    return ThemeData(
+      primarySwatch: Colors.blue,
+      useMaterial3: true,
+      visualDensity: VisualDensity.compact,
+      // Optimisations de performance
+      splashFactory: InkRipple.splashFactory,
     );
   }
 }

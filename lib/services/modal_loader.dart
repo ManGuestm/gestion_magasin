@@ -61,14 +61,12 @@ import '../widgets/modals/users_management_modal.dart';
 import '../widgets/modals/profil_modal.dart';
 
 class ModalLoader {
-  static final Map<String, Widget Function()> _factories = {};
+  static final Map<String, Widget Function()> _factories = _createFactories();
   static final Map<String, Widget> _cache = {};
-  static bool _initialized = false;
+  static const int _maxCacheSize = 10;
 
-  static void _initializeFactories() {
-    if (_initialized) return;
-    
-    _factories.addAll({
+  static Map<String, Widget Function()> _createFactories() {
+    return {
       'Informations sur la société': () => const CompanyInfoModal(),
       'Dépôts': () => const DepotsModal(),
       'Articles': () => const ArticlesModal(),
@@ -129,13 +127,10 @@ class ModalLoader {
       'Réinitialiser les données': () => const ReinitialiserDonneesModal(),
       'Gestion des utilisateurs': () => const UsersManagementModal(),
       'Profil': () => const ProfilModal(),
-    });
-    
-    _initialized = true;
+    };
   }
 
   static Future<Widget?> loadModal(String item) async {
-    _initializeFactories();
     
     // Vérifier le cache d'abord
     if (_cache.containsKey(item)) {
@@ -145,14 +140,11 @@ class ModalLoader {
     final factory = _factories[item];
     if (factory == null) return null;
     
-    // Créer le widget de manière asynchrone pour ne pas bloquer l'UI
-    await Future.delayed(Duration.zero);
-    
     final modal = factory();
     
-    // Mettre en cache seulement les modals fréquemment utilisés
+    // Gérer la taille du cache
     if (_isFrequentModal(item)) {
-      _cache[item] = modal;
+      _manageCache(item, modal);
     }
     
     return modal;
@@ -172,26 +164,25 @@ class ModalLoader {
   }
 
 
-  static void clearCache() {
-    _cache.clear();
+  static void _manageCache(String item, Widget modal) {
+    if (_cache.length >= _maxCacheSize) {
+      // Supprimer le plus ancien
+      final firstKey = _cache.keys.first;
+      _cache.remove(firstKey);
+    }
+    _cache[item] = modal;
   }
 
+  static void clearCache() => _cache.clear();
+
   static void preloadFrequentModals() {
-    // Pré-charger les modals les plus utilisés en arrière-plan
+    const frequentModals = ['Articles', 'Clients', 'Fournisseurs', 'Achats'];
+    
     Future.microtask(() async {
-      final frequentModals = [
-        'Articles',
-        'Clients', 
-        'Fournisseurs',
-        'Achats'
-      ];
-      
       for (final modal in frequentModals) {
         try {
           await loadModal(modal);
-        } catch (e) {
-          // Ignorer les erreurs de pré-chargement
-        }
+        } catch (_) {}
       }
     });
   }

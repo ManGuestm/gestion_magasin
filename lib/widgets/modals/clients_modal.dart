@@ -1,7 +1,12 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../../constants/app_constants.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../mixins/form_navigation_mixin.dart';
+import '../../widgets/common/base_modal.dart';
 import 'add_client_modal.dart';
 
 class ClientsModal extends StatefulWidget {
@@ -11,72 +16,43 @@ class ClientsModal extends StatefulWidget {
   State<ClientsModal> createState() => _ClientsModalState();
 }
 
-class _ClientsModalState extends State<ClientsModal> {
+class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
   List<CltData> _clients = [];
   List<CltData> _filteredClients = [];
   final TextEditingController _searchController = TextEditingController();
+  late final FocusNode _searchFocus;
   CltData? _selectedClient;
+  List<ComptecltData> _historiqueClient = [];
   final int _pageSize = 100;
   bool _isLoading = false;
+  final NumberFormat _numberFormat = NumberFormat('#,##0', 'fr_FR');
 
   @override
   void initState() {
     super.initState();
+    _searchFocus = createFocusNode();
     _loadClients();
   }
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.grey[100],
-        child: GestureDetector(
-          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-          child: Container(
-            width: 900,
-            height: 600,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[400]!),
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.white,
-            ),
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildContent(),
-                _buildEmballagesSection(),
-                _buildButtons(),
-              ],
-            ),
-          ),
+    return BaseModal(
+      title: 'Clients',
+      width: AppConstants.defaultModalWidth,
+      height: AppConstants.defaultModalHeight,
+      onNew: () => _showAddClientModal(),
+      onDelete: () => _selectedClient != null ? _deleteClient(_selectedClient!) : null,
+      onSearch: () => _searchFocus.requestFocus(),
+      onRefresh: _loadClients,
+      content: GestureDetector(
+        onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+        child: Column(
+          children: [
+            _buildContent(),
+            _buildHistoriqueSection(),
+            _buildButtons(),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Text(
-            'Clients',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-          ),
-          const Spacer(),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
-          ),
-        ],
       ),
     );
   }
@@ -85,87 +61,20 @@ class _ClientsModalState extends State<ClientsModal> {
     return Expanded(
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey),
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
           children: [
-            _buildTableHeader(),
+            _buildModernHeader(),
             Expanded(
               child: ListView.builder(
                 itemCount: _filteredClients.length,
-                itemExtent: 18,
+                itemExtent: 24,
                 itemBuilder: (context, index) {
                   final client = _filteredClients[index];
                   final isSelected = _selectedClient?.rsoc == client.rsoc;
-                  return GestureDetector(
-                    onTap: () => _selectClient(client),
-                    child: Container(
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.blue[600] : Colors.white,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 4,
-                            child: Container(
-                              padding: const EdgeInsets.only(left: 4),
-                              alignment: Alignment.centerLeft,
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Colors.grey, width: 1),
-                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                ),
-                              ),
-                              child: Text(
-                                client.rsoc,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 4),
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Colors.grey, width: 1),
-                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                ),
-                              ),
-                              child: Text(
-                                client.soldes?.toStringAsFixed(2) ?? '.00',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            width: 60,
-                            alignment: Alignment.center,
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: Colors.grey, width: 1),
-                              ),
-                            ),
-                            child: Text(
-                              client.action ?? 'A',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
+                  return _buildModernRow(client, isSelected, index);
                 },
               ),
             ),
@@ -175,62 +84,115 @@ class _ClientsModalState extends State<ClientsModal> {
     );
   }
 
-  Widget _buildTableHeader() {
+  Widget _buildModernHeader() {
     return Container(
-      height: 25,
+      height: 32,
       decoration: BoxDecoration(
-        color: Colors.orange[300],
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.grey[200]!, Colors.grey[300]!],
+        ),
+        border: Border(bottom: BorderSide(color: Colors.grey[400]!, width: 1)),
       ),
       child: Row(
         children: [
-          Expanded(
-            flex: 4,
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey[400]!, width: 1),
-                  bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-                ),
-              ),
-              child: const Text(
-                'RAISON SOCIALE',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Container(
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey[400]!, width: 1),
-                  bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-                ),
-              ),
-              child: const Text(
-                'SOLDES',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          Container(
-            width: 60,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[400]!, width: 1),
-              ),
-            ),
-            child: const Text(
-              'ACTION',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-            ),
-          ),
+          _buildHeaderCell('RAISON SOCIALE', flex: 4),
+          _buildHeaderCell('SOLDES', flex: 2),
+          _buildHeaderCell('ACTION', width: 80),
         ],
       ),
     );
+  }
+
+  Widget _buildHeaderCell(String text, {int? flex, double? width}) {
+    Widget cell = Container(
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+    );
+
+    if (flex != null) {
+      return Expanded(flex: flex, child: cell);
+    } else {
+      return SizedBox(width: width, child: cell);
+    }
+  }
+
+  Widget _buildModernRow(CltData client, bool isSelected, int index) {
+    return GestureDetector(
+      onTap: () => _selectClient(client),
+      child: Container(
+        height: 24,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue[100] : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
+          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            _buildDataCell(
+              client.rsoc,
+              flex: 4,
+              isSelected: isSelected,
+              alignment: Alignment.centerLeft,
+            ),
+            _buildDataCell(
+              _formatMontant(client.soldes ?? 0),
+              flex: 2,
+              isSelected: isSelected,
+              alignment: Alignment.centerRight,
+            ),
+            _buildDataCell(
+              client.action ?? 'A',
+              width: 80,
+              isSelected: isSelected,
+              alignment: Alignment.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataCell(
+    String text, {
+    int? flex,
+    double? width,
+    required bool isSelected,
+    required Alignment alignment,
+  }) {
+    Widget cell = Container(
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          color: isSelected ? Colors.blue[800] : Colors.black87,
+          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+        ),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+
+    if (flex != null) {
+      return Expanded(flex: flex, child: cell);
+    } else {
+      return SizedBox(width: width, child: cell);
+    }
   }
 
   Widget _buildButtons() {
@@ -246,76 +208,99 @@ class _ClientsModalState extends State<ClientsModal> {
           Expanded(
             child: SizedBox(
               height: 20,
-              child: Autocomplete<CltData>(
-                optionsBuilder: (textEditingValue) {
-                  // Toujours afficher tous les clients (limité à 100 pour performance)
-                  if (textEditingValue.text.isEmpty || textEditingValue.text == ' ') {
-                    return _clients.take(100);
-                  }
-                  return _clients.where((client) {
-                    return client.rsoc.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                  }).take(100);
-                },
-                displayStringForOption: (client) => client.rsoc,
-                onSelected: (client) {
-                  _selectClient(client);
-                },
-                fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
-                  return TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    onTap: () {
-                      // Afficher automatiquement la liste quand on clique
-                      if (controller.text.isEmpty) {
-                        controller.text = ' '; // Espace pour déclencher les options
-                        controller.selection = TextSelection.fromPosition(
-                          const TextPosition(offset: 0),
-                        );
-                        Future.delayed(const Duration(milliseconds: 50), () {
-                          controller.clear();
-                        });
-                      }
-                    },
-                    onEditingComplete: () async {
-                      await _verifierEtCreerClient(controller.text);
-                      onEditingComplete();
-                    },
-                    onSubmitted: (value) async {
-                      await _verifierEtCreerClient(value);
-                    },
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.grey[400]!),
+              child: Container(
+                height: 28,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey[300]!),
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.white,
+                ),
+                child: Autocomplete<CltData>(
+                  optionsBuilder: (textEditingValue) {
+                    if (textEditingValue.text.isEmpty || textEditingValue.text == ' ') {
+                      return _clients.take(100);
+                    }
+                    return _clients.where((client) {
+                      return client.rsoc.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                    }).take(100);
+                  },
+                  displayStringForOption: (client) => client.rsoc,
+                  onSelected: (client) => _selectClient(client),
+                  fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                    return TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      style: const TextStyle(fontSize: 12),
+                      decoration: InputDecoration(
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        isDense: true,
+                        hintText: 'Rechercher client...',
+                        hintStyle: TextStyle(color: Colors.grey[500], fontSize: 11),
+                        prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey[500]),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                      fillColor: Colors.white,
-                      filled: true,
-                      hintText: 'Cliquer pour voir les clients...',
-                      hintStyle: const TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                    style: const TextStyle(fontSize: 11),
-                  );
-                },
+                      onTap: () {
+                        if (controller.text.isEmpty) {
+                          controller.text = ' ';
+                          controller.selection = TextSelection.fromPosition(
+                            const TextPosition(offset: 0),
+                          );
+                          Future.delayed(const Duration(milliseconds: 50), () {
+                            controller.clear();
+                          });
+                        }
+                      },
+                      onEditingComplete: () async {
+                        await _verifierEtCreerClient(controller.text);
+                        onEditingComplete();
+                      },
+                      onSubmitted: (value) async {
+                        await _verifierEtCreerClient(value);
+                      },
+                    );
+                  },
+                ),
               ),
             ),
           ),
           const SizedBox(width: 4),
           Container(
-            height: 20,
+            height: 28,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[600]!),
+              gradient: LinearGradient(
+                colors: [Colors.orange[100]!, Colors.orange[200]!],
+              ),
+              border: Border.all(color: Colors.orange[300]!),
+              borderRadius: BorderRadius.circular(4),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withValues(alpha: 0.2),
+                  blurRadius: 2,
+                  offset: const Offset(0, 1),
+                ),
+              ],
             ),
             child: TextButton(
               onPressed: _showAllClients,
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text(
-                'Afficher tous',
-                style: TextStyle(fontSize: 12, color: Colors.black),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.refresh, size: 14, color: Colors.orange),
+                  SizedBox(width: 4),
+                  Text(
+                    'Afficher tous',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.orange,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -367,6 +352,7 @@ class _ClientsModalState extends State<ClientsModal> {
     setState(() {
       _selectedClient = client;
     });
+    _loadHistoriqueClient(client.rsoc);
   }
 
   Future<void> _loadClients() async {
@@ -547,51 +533,129 @@ class _ClientsModalState extends State<ClientsModal> {
     }
   }
 
-  Widget _buildEmballagesSection() {
+  Future<void> _loadHistoriqueClient(String rsocClient) async {
+    final historique = await DatabaseService().database.customSelect(
+      'SELECT * FROM compteclt WHERE clt = ? ORDER BY daty DESC LIMIT 50',
+      variables: [Variable(rsocClient)],
+    ).get();
+
+    setState(() {
+      _historiqueClient = historique
+          .map((row) => ComptecltData(
+                ref: row.read<String>('ref'),
+                daty: row.read<DateTime?>('daty'),
+                lib: row.read<String?>('lib'),
+                numventes: row.read<String?>('numventes'),
+                nfact: row.read<String?>('nfact'),
+                refart: row.read<String?>('refart'),
+                qs: row.read<double?>('qs'),
+                pus: row.read<double?>('pus'),
+                entres: row.read<double?>('entres'),
+                sorties: row.read<double?>('sorties'),
+                solde: row.read<double?>('solde'),
+                clt: row.read<String?>('clt'),
+                verification: row.read<String?>('verification'),
+              ))
+          .toList();
+    });
+  }
+
+  Widget _buildHistoriqueSection() {
     return Container(
       height: 120,
       margin: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey[400]!),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Column(
         children: [
           Container(
-            height: 20,
-            width: double.infinity,
-            color: Colors.red[400],
-            alignment: Alignment.centerLeft,
-            padding: const EdgeInsets.only(left: 4),
-            child: const Text(
-              'EMBALLAGES',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+            height: 24,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.blue[400]!, Colors.blue[500]!],
               ),
+              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+            ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Center(
+                    child: Text(
+                      'HISTORIQUE DE SOLDE',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                if (_selectedClient != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      'Solde dû: ${_formatMontant(_selectedClient!.soldes ?? 0)}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           Container(
             height: 20,
             decoration: BoxDecoration(
-              color: Colors.orange[300],
+              gradient: LinearGradient(
+                colors: [Colors.grey[200]!, Colors.grey[300]!],
+              ),
               border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
             ),
             child: const Row(
               children: [
                 Expanded(
+                  flex: 2,
                   child: Center(
                     child: Text(
-                      'DESIGNATION',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      'DATE',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 3,
+                  child: Center(
+                    child: Text(
+                      'LIBELLÉ',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
                 Expanded(
                   child: Center(
                     child: Text(
-                      'QUANTITES',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      'DÉBIT',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'CRÉDIT',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'SOLDE',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -599,13 +663,95 @@ class _ClientsModalState extends State<ClientsModal> {
             ),
           ),
           Expanded(
-            child: Container(
-              color: Colors.white,
-            ),
+            child: _historiqueClient.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Aucun mouvement',
+                      style: TextStyle(fontSize: 10, color: Colors.grey),
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: _historiqueClient.length,
+                    itemExtent: 18,
+                    itemBuilder: (context, index) {
+                      final mouvement = _historiqueClient[index];
+                      return Container(
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  mouvement.daty?.toString().substring(0, 10) ?? '',
+                                  style: const TextStyle(fontSize: 9),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  mouvement.lib ?? '',
+                                  style: const TextStyle(fontSize: 9),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  (mouvement.entres ?? 0) > 0 ? _formatMontant(mouvement.entres!) : '',
+                                  style: const TextStyle(fontSize: 9),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  (mouvement.sorties ?? 0) > 0 ? _formatMontant(mouvement.sorties!) : '',
+                                  style: const TextStyle(fontSize: 9),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(
+                                  _formatMontant(mouvement.solde ?? 0),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w500,
+                                    color: (mouvement.solde ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+                                  ),
+                                  textAlign: TextAlign.right,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
     );
+  }
+
+  String _formatMontant(double montant) {
+    return _numberFormat.format(montant.round());
   }
 
   @override

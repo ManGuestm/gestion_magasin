@@ -1,11 +1,11 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:crypto/crypto.dart';
 
 import '../utils/stock_converter.dart';
 
@@ -1512,7 +1512,8 @@ class AppDatabase extends _$AppDatabase {
   /// Authentifie un utilisateur
   Future<User?> authenticateUser(String username, String motDePasse) async {
     final user = await (select(users)
-          ..where((u) => u.username.equals(username) & u.motDePasse.equals(motDePasse) & u.actif.equals(true)))
+          ..where(
+              (u) => u.username.equals(username) & u.motDePasse.equals(motDePasse) & u.actif.equals(true)))
         .getSingleOrNull();
     return user;
   }
@@ -1523,7 +1524,7 @@ class AppDatabase extends _$AppDatabase {
         await (select(users)..where((u) => u.role.equals('Administrateur'))).getSingleOrNull();
 
     final hashedPassword = _hashPassword('admin123');
-    
+
     if (existingAdmin == null) {
       await into(users).insert(UsersCompanion(
         id: const Value('admin'),

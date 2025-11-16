@@ -122,6 +122,15 @@ class DatabaseService {
     return result;
   }
 
+  // Méthodes directes sans cache
+  Future<List<Article>> getAllArticles() async {
+    return await database.getAllArticles();
+  }
+
+  Future<List<Frn>> getAllFournisseurs() async {
+    return await database.getAllFournisseurs();
+  }
+
   // Invalider le cache lors des modifications
   void invalidateCache(String pattern) {
     final keysToRemove = _cache.keys.where((key) => key.contains(pattern)).toList();

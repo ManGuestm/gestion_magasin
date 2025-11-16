@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 
 class MenuData {
+  // Constantes pour éviter les erreurs de frappe
+  static const String fichier = 'Fichier';
+  static const String parametres = 'Paramètres';
+  static const String commerces = 'Commerces';
+  static const String gestions = 'Gestions';
+  static const String tresoreries = 'Trésoreries';
+  static const String etats = 'États';
+  static const String aide = '?';
+
   static const Map<String, List<String>> subMenus = {
-    'Fichier': [
+    fichier: [
       'Profil',
       'Gestion des utilisateurs',
     ],
-    'Paramètres': [
+    parametres: [
       'Informations sur la société',
       'Immobilisations',
       'Dépôts',
@@ -18,7 +27,7 @@ class MenuData {
       'Plan de comptes',
       'Réinitialiser les données',
     ],
-    'Commerces': [
+    commerces: [
       'Achats',
       'Ventes',
       'Retour de Marchandises',
@@ -27,7 +36,7 @@ class MenuData {
       'Mouvements Clients',
       'Approximation Stocks ...',
     ],
-    'Gestions': [
+    gestions: [
       'Transfert de Marchandises',
       'Gestion Emballages',
       'Productions',
@@ -41,7 +50,7 @@ class MenuData {
       'Ammortissement des immobilisations',
       'Réactualisation de la abse de données',
     ],
-    'Trésoreries': [
+    tresoreries: [
       'Encaissements',
       'Décaissements',
       'Chèques',
@@ -52,7 +61,7 @@ class MenuData {
       'Comptes fournisseurs',
       'Moyen de paiement',
     ],
-    'États': [
+    etats: [
       'Journal de caisse',
       'Journal des banques',
       'Etats Fournisseurs',
@@ -127,7 +136,7 @@ class MenuData {
       'Charges',
       'Produits',
     ],
-    '?': [
+    aide: [
       'À propos',
       'Aides et documentations',
     ],
@@ -150,13 +159,13 @@ class MenuData {
   ];
 
   static const Map<String, double> menuPositions = {
-    'Fichier': 0,
-    'Paramètres': 70,
-    'Commerces': 158,
-    'Gestions': 248,
-    'Trésoreries': 320,
-    'États': 403,
-    '?': 455,
+    fichier: 0,
+    parametres: 70,
+    commerces: 158,
+    gestions: 248,
+    tresoreries: 320,
+    etats: 403,
+    aide: 455,
   };
 
   static const Map<String, bool> hasSubMenu = {
