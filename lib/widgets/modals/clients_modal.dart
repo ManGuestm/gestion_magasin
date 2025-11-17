@@ -6,6 +6,7 @@ import '../../constants/app_constants.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../mixins/form_navigation_mixin.dart';
+import '../../services/auth_service.dart';
 import '../../widgets/common/base_modal.dart';
 import 'add_client_modal.dart';
 
@@ -400,7 +401,10 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
         if (mounted) {
           await showDialog(
             context: context,
-            builder: (context) => AddClientModal(nomClient: nomClient),
+            builder: (context) => AddClientModal(
+              nomClient: nomClient,
+              tousDepots: !AuthService().hasRole('Vendeur'),
+            ),
           );
         }
 
@@ -513,7 +517,10 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
   void _showAddClientModal({CltData? client}) {
     showDialog(
       context: context,
-      builder: (context) => AddClientModal(client: client),
+      builder: (context) => AddClientModal(
+        client: client,
+        tousDepots: !AuthService().hasRole('Vendeur'),
+      ),
     ).then((_) => _loadClients());
   }
 

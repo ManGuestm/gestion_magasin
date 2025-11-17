@@ -1540,6 +1540,21 @@ class AppDatabase extends _$AppDatabase {
       await (update(users)..where((u) => u.id.equals(existingAdmin.id)))
           .write(UsersCompanion(motDePasse: Value(hashedPassword)));
     }
+    
+    // Initialiser les modes de paiement par défaut
+    await _initializeDefaultPaymentModes();
+  }
+
+  /// Initialise les modes de paiement par défaut
+  Future<void> _initializeDefaultPaymentModes() async {
+    const defaultModes = ['Espèces', 'A crédit', 'Mobile Money'];
+    
+    for (final mode in defaultModes) {
+      await customStatement(
+        'INSERT OR IGNORE INTO mp (mp) VALUES (?)',
+        [mode]
+      );
+    }
   }
 
   /// Crypte un mot de passe avec SHA-256

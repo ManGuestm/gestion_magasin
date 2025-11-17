@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/menu_data.dart';
+import 'auth_service.dart';
 
 class MenuService {
   static OverlayEntry createSubmenuOverlay(
@@ -9,7 +10,8 @@ class MenuService {
     Function(String, double)? onItemHover,
     VoidCallback? onMouseExit,
   }) {
-    final items = MenuData.subMenus[menuTitle] ?? [];
+    final allItems = MenuData.subMenus[menuTitle] ?? [];
+    final items = _filterMenuItemsByRole(allItems);
     
     return OverlayEntry(
       builder: (context) => Positioned(
@@ -120,5 +122,17 @@ class MenuService {
 
   static double getMenuPosition(String menu) {
     return MenuData.menuPositions[menu] ?? 0;
+  }
+
+  static List<String> _filterMenuItemsByRole(List<String> items) {
+    final authService = AuthService();
+    final userRole = authService.currentUserRole;
+
+    // Si l'utilisateur est vendeur, cacher "Ventes (Tous dépôts)"
+    if (userRole == 'Vendeur') {
+      return items.where((item) => item != 'Ventes (Tous dépôts)').toList();
+    }
+
+    return items;
   }
 }

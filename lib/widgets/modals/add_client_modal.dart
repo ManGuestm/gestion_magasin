@@ -2,14 +2,16 @@ import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../constants/client_categories.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 
 class AddClientModal extends StatefulWidget {
   final CltData? client;
   final String? nomClient;
+  final bool? tousDepots;
 
-  const AddClientModal({super.key, this.client, this.nomClient});
+  const AddClientModal({super.key, this.client, this.nomClient, this.tousDepots});
 
   @override
   State<AddClientModal> createState() => _AddClientModalState();
@@ -43,7 +45,10 @@ class _AddClientModalState extends State<AddClientModal> {
     } else {
       // Pré-remplir avec le nom fourni ou valeur par défaut
       _rsocController.text = widget.nomClient ?? '';
-      _selectedCategorie = 'Catégorie 1';
+      // Pour Administrateur, défaut = Tous Dépôts, pour Vendeur = Magasin
+      _selectedCategorie = (widget.tousDepots != false) 
+        ? ClientCategory.tousDepots.label 
+        : ClientCategory.magasin.label;
     }
   }
 
@@ -373,24 +378,21 @@ class _AddClientModalState extends State<AddClientModal> {
           ),
           child: DropdownButtonFormField<String>(
             initialValue: _selectedCategorie,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               isDense: true,
+              fillColor: Colors.grey[200],
+              filled: true,
             ),
-            style: const TextStyle(fontSize: 11, color: Colors.black),
-            items: const [
-              DropdownMenuItem(value: 'Catégorie 1', child: Text('Catégorie 1')),
-              DropdownMenuItem(value: 'Catégorie 2', child: Text('Catégorie 2')),
-              DropdownMenuItem(value: 'Catégorie 3', child: Text('Catégorie 3')),
-              DropdownMenuItem(value: 'Catégorie 4', child: Text('Catégorie 4')),
-              DropdownMenuItem(value: 'Catégorie 5', child: Text('Catégorie 5')),
-            ],
-            onChanged: (value) {
-              setState(() {
-                _selectedCategorie = value;
-              });
-            },
+            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            items: ClientCategory.values.map((category) => 
+              DropdownMenuItem(
+                value: category.label,
+                child: Text(category.label),
+              )
+            ).toList(),
+            onChanged: null, // Désactivé
           ),
         ),
       ],

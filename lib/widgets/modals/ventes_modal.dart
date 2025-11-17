@@ -3,9 +3,14 @@ import 'package:drift/drift.dart' as drift hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../constants/client_categories.dart';
+import '../../constants/vente_types.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/vente_service.dart';
 import '../../utils/stock_converter.dart';
+import '../../widgets/common/mode_paiement_dropdown.dart';
 import 'add_client_modal.dart';
 import 'bon_livraison_preview.dart';
 import 'facture_preview.dart';
@@ -21,6 +26,7 @@ class VentesModal extends StatefulWidget {
 
 class _VentesModalState extends State<VentesModal> {
   final DatabaseService _databaseService = DatabaseService();
+  final VenteService _venteService = VenteService();
 
   // Controllers
   final TextEditingController _numVentesController = TextEditingController();
@@ -54,11 +60,11 @@ class _VentesModalState extends State<VentesModal> {
   Article? _selectedArticle;
   String? _selectedUnite;
   String? _selectedDepot;
-  String _selectedModePaiement = 'A crédit';
+  String? _selectedModePaiement = 'A crédit';
   String? _selectedClient;
   int? _selectedRowIndex;
   bool _isExistingPurchase = false;
-  List<String> _ventesNumbers = [];
+
   String _searchVentesText = '';
   bool _isModifyingArticle = false;
   Map<String, dynamic>? _originalArticleData;
@@ -74,6 +80,10 @@ class _VentesModalState extends State<VentesModal> {
 
   // Paper format
   String _selectedFormat = 'A5';
+
+  // Workflow validation
+  StatutVente _statutVente = StatutVente.brouillard;
+  StatutVente? _statutVenteActuelle;
 
   // Focus nodes for tab navigation
   final FocusNode _designationFocusNode = FocusNode();
@@ -94,23 +104,92 @@ class _VentesModalState extends State<VentesModal> {
   }
 
   Future<void> _loadVentesNumbers() async {
+    // Method kept for compatibility but no longer uses _ventesNumbers field
+  }
+
+  Future<List<Map<String, dynamic>>> _getVentesAvecStatut() async {
     try {
       final ventes = await (_databaseService.database.select(_databaseService.database.ventes)
-            ..orderBy([(v) => drift.OrderingTerm.asc(v.numventes)]))
+            ..orderBy([(v) => drift.OrderingTerm.desc(v.daty)]))
           .get();
-      setState(() {
-        _ventesNumbers = ventes.map((v) => v.numventes ?? '').where((n) => n.isNotEmpty).toList();
-      });
+
+      return ventes
+          .map((v) => {
+                'numventes': v.numventes ?? '',
+                'verification': v.verification ?? 'JOURNAL',
+                'daty': v.daty,
+              })
+          .where((v) => (v['numventes'] as String).isNotEmpty)
+          .toList();
     } catch (e) {
-      // Ignore errors
+      return [];
     }
   }
 
-  List<String> _getFilteredVentesNumbers() {
-    if (_searchVentesText.isEmpty) {
-      return _ventesNumbers;
+  bool _peutValiderBrouillard() {
+    if (!_isExistingPurchase || _numVentesController.text.isEmpty) return false;
+
+    // Vérifier si la vente actuelle est en brouillard
+    return _isVenteBrouillard();
+  }
+
+  bool _isVenteBrouillard() {
+    // Cette méthode sera mise à jour lors du chargement de la vente
+    return _statutVenteActuelle == StatutVente.brouillard;
+  }
+
+  Future<void> _validerBrouillardVersJournal() async {
+    if (!_isExistingPurchase || _numVentesController.text.isEmpty) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Validation vers Journal'),
+        content: Text('Voulez-vous valider la vente N° ${_numVentesController.text} vers le journal ?\n\n'
+            'Cette action créera les mouvements de stock et mettra à jour les quantités.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Valider'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _venteService.validerVenteBrouillard(_numVentesController.text);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vente validée vers le journal avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Recharger la vente pour afficher le nouveau statut
+        await _chargerVenteExistante(_numVentesController.text);
+
+        // Rafraîchir la liste des ventes
+        await _loadVentesNumbers();
+        setState(() {});
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la validation: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-    return _ventesNumbers.where((numVente) => numVente.toLowerCase().contains(_searchVentesText)).toList();
   }
 
   Future<void> _chargerVenteExistante(String numVentes) async {
@@ -136,6 +215,10 @@ class _VentesModalState extends State<VentesModal> {
             .get();
 
         setState(() {
+          // Déterminer le statut de la vente
+          final verification = vente.verification ?? 'JOURNAL';
+          _statutVenteActuelle = verification == 'BROUILLARD' ? StatutVente.brouillard : StatutVente.journal;
+
           _nFactureController.text = vente.nfact ?? '';
           if (vente.daty != null) {
             _dateController.text =
@@ -187,6 +270,21 @@ class _VentesModalState extends State<VentesModal> {
     }
   }
 
+  List<CltData> _filterClientsByRole(List<CltData> allClients) {
+    final authService = AuthService();
+    final userRole = authService.currentUserRole;
+
+    // Si vendeur et mode magasin uniquement, filtrer les clients
+    if (userRole == 'Vendeur' && !widget.tousDepots) {
+      return allClients
+          .where((client) => client.categorie == null || client.categorie == ClientCategory.magasin.label)
+          .toList();
+    }
+
+    // Pour tous les autres cas, retourner tous les clients
+    return allClients;
+  }
+
   @override
   void dispose() {
     _numVentesController.dispose();
@@ -234,6 +332,26 @@ class _VentesModalState extends State<VentesModal> {
     }
   }
 
+  Future<String> _getNextNumBL() async {
+    try {
+      final prefix = widget.tousDepots ? 'DEP' : 'MAG';
+      final ventes = await _databaseService.database.select(_databaseService.database.ventes).get();
+
+      int maxNum = 0;
+      for (var vente in ventes) {
+        if (vente.nfact != null && vente.nfact!.startsWith(prefix)) {
+          final numStr = vente.nfact!.substring(3);
+          final num = int.tryParse(numStr) ?? 0;
+          if (num > maxNum) maxNum = num;
+        }
+      }
+      return '$prefix${(maxNum + 1).toString().padLeft(4, '0')}';
+    } catch (e) {
+      final prefix = widget.tousDepots ? 'DEP' : 'MAG';
+      return '${prefix}0001';
+    }
+  }
+
   void _initializeForm() async {
     final now = DateTime.now();
     _dateController.text =
@@ -243,7 +361,7 @@ class _VentesModalState extends State<VentesModal> {
 
     final nextNumVentes = await _getNextNumVentes();
     _numVentesController.text = nextNumVentes;
-    _nFactureController.text = nextNumVentes;
+    _nFactureController.text = await _getNextNumBL();
 
     _totalHTController.text = '0';
     _remiseController.text = '0';
@@ -258,13 +376,16 @@ class _VentesModalState extends State<VentesModal> {
   Future<void> _loadData() async {
     try {
       final articles = await _databaseService.database.getAllArticles();
-      final clients = await _databaseService.database.getAllClients();
+      final allClients = await _databaseService.database.getAllClients();
       final depots = await _databaseService.database.getAllDepots();
       await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
 
+      // Filtrer les clients selon le rôle et le mode de vente
+      final filteredClients = _filterClientsByRole(allClients);
+
       setState(() {
         _articles = articles;
-        _clients = clients;
+        _clients = filteredClients;
         _depots = depots;
       });
     } catch (e) {
@@ -407,7 +528,7 @@ class _VentesModalState extends State<VentesModal> {
   Future<void> _verifierStock(Article article) async {
     try {
       String depot = _selectedDepot ?? 'MAG';
-      String unite = _selectedUnite ?? article.u1 ?? 'Pce';
+      String unite = _selectedUnite ?? (article.u1 ?? 'Pce');
 
       // Utiliser exactement la même logique que le modal articles
       final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
@@ -546,11 +667,11 @@ class _VentesModalState extends State<VentesModal> {
 
         if (stockTotalU3 > 0) {
           double stockPourUnite =
-              _calculerStockPourUnite(article, _selectedUnite ?? article.u1!, stockTotalU3);
+              _calculerStockPourUnite(article, _selectedUnite ?? (article.u1 ?? 'Pce'), stockTotalU3);
           autresStocks.add({
             'depot': stock.depots,
             'stockDisponible': stockPourUnite,
-            'unite': _selectedUnite ?? article.u1!,
+            'unite': _selectedUnite ?? (article.u1 ?? 'Pce'),
           });
         }
       }
@@ -638,7 +759,7 @@ class _VentesModalState extends State<VentesModal> {
     if (_selectedArticle == null) return;
 
     double quantite = double.tryParse(value) ?? 0.0;
-    String unite = _selectedUnite ?? _selectedArticle!.u1 ?? 'Pce';
+    String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? '');
 
     if (quantite > _stockDisponible) {
       setState(() {
@@ -698,7 +819,7 @@ class _VentesModalState extends State<VentesModal> {
     double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
     double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
     double montant = quantite * prix;
-    String unite = _selectedUnite ?? _selectedArticle!.u1!;
+    String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? 'Pce');
 
     // Vérifier une dernière fois le stock disponible
     if (quantite > _stockDisponible) {
@@ -931,34 +1052,29 @@ class _VentesModalState extends State<VentesModal> {
       double montantRecu = double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0;
       double monnaieARendre = double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0;
 
-      final venteCompanion = VentesCompanion(
-        numventes: drift.Value(_numVentesController.text),
-        nfact: drift.Value(_nFactureController.text),
-        daty: drift.Value(DateTime.now()),
-        clt: drift.Value(_selectedClient ?? ''),
-        modepai: drift.Value(_selectedModePaiement),
-        totalnt: drift.Value(totalApresRemise),
-        totalttc: drift.Value(totalTTC),
-        tva: drift.Value(tva),
-        avance: drift.Value(avance),
-        commission: drift.Value(commission),
-        remise: drift.Value(remise),
-        heure: drift.Value(_heureController.text),
-        verification: const drift.Value('Non vérifié'),
-        montantRecu: drift.Value(montantRecu),
-        monnaieARendre: drift.Value(monnaieARendre),
-      );
-
-      await _databaseService.database.enregistrerVenteComplete(
-        vente: venteCompanion,
-        lignesVente: _lignesVente,
-      );
+      if (_statutVente == StatutVente.brouillard) {
+        // Mode Brouillard : Enregistrement dans detventes seulement
+        await _enregistrerVenteBrouillard(totalTTC);
+      } else {
+        // Mode Journal : Validation avec mouvement de stock
+        await _enregistrerVenteJournal(
+            totalApresRemise, totalTTC, tva, avance, commission, montantRecu, monnaieARendre);
+      }
 
       await _loadVentesNumbers();
 
       if (mounted) {
+        final message = _statutVente == StatutVente.brouillard
+            ? 'Vente enregistrée en brouillard - Aucun mouvement de stock'
+            : 'Vente validée avec mouvement de stock et mise à jour des quantités';
+        final color = _statutVente == StatutVente.brouillard ? Colors.orange : Colors.green;
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vente enregistrée avec succès'), backgroundColor: Colors.green),
+          SnackBar(
+            content: Text(message),
+            backgroundColor: color,
+            duration: const Duration(seconds: 4),
+          ),
         );
         await _creerNouvelleVente();
       }
@@ -969,6 +1085,65 @@ class _VentesModalState extends State<VentesModal> {
         );
       }
     }
+  }
+
+  Future<void> _enregistrerVenteBrouillard(double totalTTC) async {
+    final venteCompanion = VentesCompanion(
+      numventes: drift.Value(_numVentesController.text),
+      nfact: drift.Value(_nFactureController.text),
+      daty: drift.Value(DateTime.now()),
+      clt: drift.Value(_selectedClient ?? ''),
+      modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
+      totalttc: drift.Value(totalTTC),
+      heure: drift.Value(_heureController.text),
+      verification: drift.Value(StatutVente.brouillard.value),
+    );
+
+    await _databaseService.database.transaction(() async {
+      // Insérer la vente
+      await _databaseService.database.into(_databaseService.database.ventes).insert(venteCompanion);
+
+      // Insérer les détails sans affecter les stocks
+      for (var ligne in _lignesVente) {
+        await _databaseService.database.into(_databaseService.database.detventes).insert(
+              DetventesCompanion.insert(
+                numventes: drift.Value(_numVentesController.text),
+                designation: drift.Value(ligne['designation']),
+                unites: drift.Value(ligne['unites']),
+                depots: drift.Value(ligne['depot']),
+                q: drift.Value(ligne['quantite']),
+                pu: drift.Value(ligne['prixUnitaire']),
+                daty: drift.Value(DateTime.now()),
+              ),
+            );
+      }
+    });
+  }
+
+  Future<void> _enregistrerVenteJournal(double totalApresRemise, double totalTTC, double tva, double avance,
+      double commission, double montantRecu, double monnaieARendre) async {
+    final venteCompanion = VentesCompanion(
+      numventes: drift.Value(_numVentesController.text),
+      nfact: drift.Value(_nFactureController.text),
+      daty: drift.Value(DateTime.now()),
+      clt: drift.Value(_selectedClient ?? ''),
+      modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
+      totalnt: drift.Value(totalApresRemise),
+      totalttc: drift.Value(totalTTC),
+      tva: drift.Value(tva),
+      avance: drift.Value(avance),
+      commission: drift.Value(commission),
+      remise: drift.Value(double.tryParse(_remiseController.text) ?? 0),
+      heure: drift.Value(_heureController.text),
+      verification: drift.Value(StatutVente.journal.value),
+      montantRecu: drift.Value(montantRecu),
+      monnaieARendre: drift.Value(monnaieARendre),
+    );
+
+    await _databaseService.database.enregistrerVenteComplete(
+      vente: venteCompanion,
+      lignesVente: _lignesVente,
+    );
   }
 
   Future<void> _modifierVente() async {
@@ -1001,7 +1176,7 @@ class _VentesModalState extends State<VentesModal> {
           nfact: drift.Value(_nFactureController.text),
           daty: drift.Value(DateTime.now()),
           clt: drift.Value(_selectedClient ?? ''),
-          modepai: drift.Value(_selectedModePaiement),
+          modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
           totalnt: drift.Value(totalApresRemise),
           totalttc: drift.Value(totalTTC),
           tva: drift.Value(tva),
@@ -1050,6 +1225,7 @@ class _VentesModalState extends State<VentesModal> {
       _lignesVente.clear();
       _clientController.clear();
       _selectedClient = null;
+      _statutVenteActuelle = null;
       if (_autocompleteController != null) {
         _autocompleteController!.clear();
       }
@@ -1197,7 +1373,7 @@ class _VentesModalState extends State<VentesModal> {
             totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
             format: _selectedFormat,
             societe: societe,
-            modePaiement: _selectedModePaiement,
+            modePaiement: _selectedModePaiement ?? 'A crédit',
             montantRecu: double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0,
             monnaieARendre: double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0,
           ),
@@ -1287,7 +1463,10 @@ class _VentesModalState extends State<VentesModal> {
         if (mounted) {
           await showDialog(
             context: context,
-            builder: (context) => AddClientModal(nomClient: nomClient),
+            builder: (context) => AddClientModal(
+              nomClient: nomClient,
+              tousDepots: widget.tousDepots,
+            ),
           );
         }
 
@@ -1331,14 +1510,17 @@ class _VentesModalState extends State<VentesModal> {
     return PopScope(
       canPop: false,
       child: Dialog(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height * 0.9,
+          minWidth: MediaQuery.of(context).size.width * 0.7,
+          maxWidth: MediaQuery.of(context).size.width * 0.99,
+        ),
         backgroundColor: Colors.grey[100],
         child: Container(
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.all(Radius.circular(16)),
             color: Colors.grey[100],
           ),
-          width: MediaQuery.of(context).size.width * 0.7,
-          height: MediaQuery.of(context).size.height * 0.9,
           child: Column(
             children: [
               // Title bar
@@ -1350,9 +1532,30 @@ class _VentesModalState extends State<VentesModal> {
                     Expanded(
                       child: Padding(
                         padding: const EdgeInsets.only(left: 16),
-                        child: Text(
-                          'VENTES (${widget.tousDepots ? 'Tous dépôts' : 'Dépôt MAG'})',
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                        child: Row(
+                          children: [
+                            Text(
+                              'VENTES (${widget.tousDepots ? 'Tous dépôts' : 'Dépôt MAG'})',
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                            ),
+                            if (_isExistingPurchase && _statutVenteActuelle != null) ...[
+                              const SizedBox(width: 16),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: _statutVenteActuelle == StatutVente.brouillard
+                                      ? Colors.orange
+                                      : Colors.green,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _statutVenteActuelle == StatutVente.brouillard ? 'BROUILLARD' : 'JOURNALÉ',
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
@@ -1394,23 +1597,68 @@ class _VentesModalState extends State<VentesModal> {
                           ),
                           // Sales list
                           Expanded(
-                            child: ListView.builder(
-                              itemCount: _getFilteredVentesNumbers().length,
-                              itemBuilder: (context, index) {
-                                final numVente = _getFilteredVentesNumbers()[index];
-                                final isSelected = numVente == _numVentesController.text;
-                                return Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                  child: ListTile(
-                                    dense: true,
-                                    title: Text('Vente N° $numVente', style: const TextStyle(fontSize: 11)),
-                                    selected: isSelected,
-                                    selectedTileColor: Colors.blue[100],
-                                    onTap: () {
-                                      _numVentesController.text = numVente;
-                                      _chargerVenteExistante(numVente);
-                                    },
-                                  ),
+                            child: FutureBuilder<List<Map<String, dynamic>>>(
+                              future: _getVentesAvecStatut(),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) {
+                                  return const Center(child: CircularProgressIndicator());
+                                }
+
+                                final ventes = snapshot.data!;
+                                final filteredVentes = _searchVentesText.isEmpty
+                                    ? ventes
+                                    : ventes
+                                        .where(
+                                            (v) => v['numventes'].toLowerCase().contains(_searchVentesText))
+                                        .toList();
+
+                                return ListView.builder(
+                                  itemCount: filteredVentes.length,
+                                  itemBuilder: (context, index) {
+                                    final vente = filteredVentes[index];
+                                    final numVente = vente['numventes'];
+                                    final statut = vente['verification'] ?? 'JOURNAL';
+                                    final isSelected = numVente == _numVentesController.text;
+                                    final isBrouillard = statut == 'BROUILLARD';
+
+                                    return Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      child: ListTile(
+                                        dense: true,
+                                        title: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text('Vente N° $numVente',
+                                                  style: const TextStyle(fontSize: 11)),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                              decoration: BoxDecoration(
+                                                color: isBrouillard ? Colors.orange : Colors.green,
+                                                borderRadius: BorderRadius.circular(3),
+                                              ),
+                                              child: Text(
+                                                isBrouillard ? 'B' : 'J',
+                                                style: const TextStyle(color: Colors.white, fontSize: 9),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        subtitle: isBrouillard
+                                            ? const Text(
+                                                'En attente de validation',
+                                                style: TextStyle(fontSize: 9, color: Colors.orange),
+                                              )
+                                            : null,
+                                        selected: isSelected,
+                                        selectedTileColor: Colors.blue[100],
+                                        onTap: () {
+                                          _numVentesController.text = numVente;
+                                          _chargerVenteExistante(numVente);
+                                        },
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                             ),
@@ -1436,7 +1684,9 @@ class _VentesModalState extends State<VentesModal> {
                                         Container(
                                           width: 120,
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                                          color: Colors.green,
+                                          color: _statutVente == StatutVente.journal
+                                              ? Colors.green
+                                              : Colors.orange,
                                           child: const Text('Enregistrement',
                                               style: TextStyle(color: Colors.white, fontSize: 12)),
                                         ),
@@ -1444,8 +1694,8 @@ class _VentesModalState extends State<VentesModal> {
                                         SizedBox(
                                           width: 120,
                                           height: 25,
-                                          child: DropdownButtonFormField<String>(
-                                            initialValue: "Journal",
+                                          child: DropdownButtonFormField<StatutVente>(
+                                            initialValue: _statutVente,
                                             decoration: const InputDecoration(
                                               border: OutlineInputBorder(),
                                               contentPadding:
@@ -1453,86 +1703,114 @@ class _VentesModalState extends State<VentesModal> {
                                             ),
                                             items: const [
                                               DropdownMenuItem(
-                                                  value: 'Journal',
+                                                  value: StatutVente.brouillard,
+                                                  child: Text('Brouillard', style: TextStyle(fontSize: 12))),
+                                              DropdownMenuItem(
+                                                  value: StatutVente.journal,
                                                   child: Text('Journal', style: TextStyle(fontSize: 12))),
                                             ],
-                                            onChanged: (value) {},
+                                            onChanged: (value) {
+                                              if (value != null) {
+                                                setState(() {
+                                                  _statutVente = value;
+                                                });
+                                              }
+                                            },
                                           ),
                                         ),
                                       ],
                                     ),
                                     const SizedBox(width: 16),
                                     Expanded(
-                                      child: Row(
+                                      child: Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
                                         children: [
-                                          const Text('N° ventes', style: TextStyle(fontSize: 12)),
-                                          const SizedBox(width: 8),
-                                          SizedBox(
-                                            width: 80,
-                                            height: 25,
-                                            child: TextField(
-                                              controller: _numVentesController,
-                                              textAlign: TextAlign.center,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                fillColor: Color(0xFFF5F5F5),
-                                                filled: true,
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('N° ventes', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(width: 4),
+                                              SizedBox(
+                                                width: 80,
+                                                height: 25,
+                                                child: TextField(
+                                                  controller: _numVentesController,
+                                                  textAlign: TextAlign.center,
+                                                  decoration: const InputDecoration(
+                                                    border: OutlineInputBorder(),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    fillColor: Color(0xFFF5F5F5),
+                                                    filled: true,
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
                                               ),
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 16),
-                                          const Text('Date', style: TextStyle(fontSize: 12)),
-                                          const SizedBox(width: 8),
-                                          SizedBox(
-                                            width: 100,
-                                            height: 25,
-                                            child: TextField(
-                                              controller: _dateController,
-                                              textAlign: TextAlign.center,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('Date', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(width: 4),
+                                              SizedBox(
+                                                width: 100,
+                                                height: 25,
+                                                child: TextField(
+                                                  controller: _dateController,
+                                                  textAlign: TextAlign.center,
+                                                  decoration: const InputDecoration(
+                                                    border: OutlineInputBorder(),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
                                               ),
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 16),
-                                          const Text('N° Facture/ BL', style: TextStyle(fontSize: 12)),
-                                          const SizedBox(width: 8),
-                                          SizedBox(
-                                            width: 80,
-                                            height: 25,
-                                            child: TextField(
-                                              controller: _nFactureController,
-                                              textAlign: TextAlign.center,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('N° Facture/ BL', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(width: 4),
+                                              SizedBox(
+                                                width: 80,
+                                                height: 25,
+                                                child: TextField(
+                                                  controller: _nFactureController,
+                                                  textAlign: TextAlign.center,
+                                                  decoration: const InputDecoration(
+                                                    border: OutlineInputBorder(),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
                                               ),
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 16),
-                                          const Text('Heure', style: TextStyle(fontSize: 12)),
-                                          const SizedBox(width: 8),
-                                          SizedBox(
-                                            width: 80,
-                                            height: 25,
-                                            child: TextField(
-                                              controller: _heureController,
-                                              textAlign: TextAlign.center,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Text('Heure', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(width: 4),
+                                              SizedBox(
+                                                width: 80,
+                                                height: 25,
+                                                child: TextField(
+                                                  controller: _heureController,
+                                                  textAlign: TextAlign.center,
+                                                  decoration: const InputDecoration(
+                                                    border: OutlineInputBorder(),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
                                               ),
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
+                                            ],
                                           ),
                                         ],
                                       ),
@@ -1556,7 +1834,7 @@ class _VentesModalState extends State<VentesModal> {
                                             return _clients.where((client) {
                                               return client.rsoc
                                                   .toLowerCase()
-                                                  .contains(textEditingValue.text.toLowerCase());
+                                                  .startsWith(textEditingValue.text.toLowerCase());
                                             }).take(100);
                                           },
                                           displayStringForOption: (client) => client.rsoc,
@@ -1582,17 +1860,17 @@ class _VentesModalState extends State<VentesModal> {
                                                 if (event is KeyDownEvent &&
                                                     event.logicalKey == LogicalKeyboardKey.tab) {
                                                   // Sélectionner le premier client disponible
-                                                  final filteredClients =
-                                                      controller.text.isEmpty || controller.text == ' '
-                                                          ? _clients.take(100).toList()
-                                                          : _clients
-                                                              .where((client) {
-                                                                return client.rsoc
-                                                                    .toLowerCase()
-                                                                    .contains(controller.text.toLowerCase());
-                                                              })
-                                                              .take(100)
-                                                              .toList();
+                                                  final filteredClients = controller.text.isEmpty ||
+                                                          controller.text == ' '
+                                                      ? _clients.take(100).toList()
+                                                      : _clients
+                                                          .where((client) {
+                                                            return client.rsoc
+                                                                .toLowerCase()
+                                                                .startsWith(controller.text.toLowerCase());
+                                                          })
+                                                          .take(100)
+                                                          .toList();
 
                                                   if (filteredClients.isNotEmpty) {
                                                     final firstClient = filteredClients.first;
@@ -1672,7 +1950,7 @@ class _VentesModalState extends State<VentesModal> {
                                             return _articles.where((article) {
                                               return article.designation
                                                   .toLowerCase()
-                                                  .contains(textEditingValue.text.toLowerCase());
+                                                  .startsWith(textEditingValue.text.toLowerCase());
                                             });
                                           },
                                           displayStringForOption: (article) => article.designation,
@@ -1716,7 +1994,7 @@ class _VentesModalState extends State<VentesModal> {
                                                       : _articles.where((article) {
                                                           return article.designation
                                                               .toLowerCase()
-                                                              .contains(controller.text.toLowerCase());
+                                                              .startsWith(controller.text.toLowerCase());
                                                         }).toList();
 
                                                   if (filteredArticles.isNotEmpty) {
@@ -2272,30 +2550,12 @@ class _VentesModalState extends State<VentesModal> {
                                         const SizedBox(height: 8),
                                         SizedBox(
                                           height: 25,
-                                          child: DropdownButtonFormField<String>(
-                                            initialValue: _selectedModePaiement,
-                                            decoration: const InputDecoration(
-                                              border: OutlineInputBorder(),
-                                              contentPadding:
-                                                  EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            ),
-                                            items: const [
-                                              DropdownMenuItem(
-                                                  value: 'A crédit',
-                                                  child: Text('A crédit', style: TextStyle(fontSize: 12))),
-                                              DropdownMenuItem(
-                                                  value: 'Espèces',
-                                                  child: Text('Espèces', style: TextStyle(fontSize: 12))),
-                                              DropdownMenuItem(
-                                                  value: 'Chèque',
-                                                  child: Text('Chèque', style: TextStyle(fontSize: 12))),
-                                              DropdownMenuItem(
-                                                  value: 'Virement',
-                                                  child: Text('Virement', style: TextStyle(fontSize: 12))),
-                                            ],
+                                          width: double.infinity,
+                                          child: ModePaiementDropdown(
+                                            selectedMode: _selectedModePaiement,
                                             onChanged: (value) {
                                               setState(() {
-                                                _selectedModePaiement = value!;
+                                                _selectedModePaiement = value;
                                                 if (value != 'Espèces') {
                                                   _montantRecuController.text = '0';
                                                   _montantARendreController.text = '0';
@@ -2683,18 +2943,22 @@ class _VentesModalState extends State<VentesModal> {
                           // Action buttons
                           Container(
                             padding: const EdgeInsets.all(8),
-                            child: Row(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
                               children: [
                                 ElevatedButton(
                                   onPressed: _lignesVente.isNotEmpty ? _validerVente : null,
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.green,
+                                    backgroundColor:
+                                        _statutVente == StatutVente.brouillard ? Colors.orange : Colors.green,
                                     foregroundColor: Colors.white,
                                     minimumSize: const Size(80, 32),
                                   ),
-                                  child: const Text('Valider', style: TextStyle(fontSize: 12)),
+                                  child: Text(
+                                      _statutVente == StatutVente.brouillard ? 'Brouillard' : 'Valider',
+                                      style: const TextStyle(fontSize: 12)),
                                 ),
-                                const SizedBox(width: 8),
                                 ElevatedButton(
                                   onPressed: _isExistingPurchase ? _contrePasserVente : null,
                                   style: ElevatedButton.styleFrom(
@@ -2704,9 +2968,17 @@ class _VentesModalState extends State<VentesModal> {
                                   ),
                                   child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
                                 ),
-                                const SizedBox(width: 8),
                                 ElevatedButton(
-                                  onPressed: _creerNouvelleVente,
+                                  onPressed: _peutValiderBrouillard() ? _validerBrouillardVersJournal : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.purple,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(120, 32),
+                                  ),
+                                  child: const Text('Valider Brouillard', style: TextStyle(fontSize: 12)),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => _creerNouvelleVente(),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.blue,
                                     foregroundColor: Colors.white,
@@ -2714,7 +2986,6 @@ class _VentesModalState extends State<VentesModal> {
                                   ),
                                   child: const Text('Créer', style: TextStyle(fontSize: 12)),
                                 ),
-                                const SizedBox(width: 8),
                                 ElevatedButton(
                                   onPressed: _lignesVente.isNotEmpty ? _apercuFacture : null,
                                   style: ElevatedButton.styleFrom(
@@ -2724,7 +2995,6 @@ class _VentesModalState extends State<VentesModal> {
                                   ),
                                   child: const Text('Aperçu Facture', style: TextStyle(fontSize: 12)),
                                 ),
-                                const SizedBox(width: 8),
                                 ElevatedButton(
                                   onPressed: _lignesVente.isNotEmpty ? _apercuBL : null,
                                   style: ElevatedButton.styleFrom(
@@ -2734,7 +3004,6 @@ class _VentesModalState extends State<VentesModal> {
                                   ),
                                   child: const Text('Aperçu BL', style: TextStyle(fontSize: 12)),
                                 ),
-                                const SizedBox(width: 8),
                                 PopupMenuButton<String>(
                                   initialValue: _selectedFormat,
                                   onSelected: (String format) {
@@ -2775,7 +3044,6 @@ class _VentesModalState extends State<VentesModal> {
                                     ),
                                   ),
                                 ),
-                                const Spacer(),
                                 ElevatedButton(
                                   onPressed: () => Navigator.of(context).pop(),
                                   style: ElevatedButton.styleFrom(

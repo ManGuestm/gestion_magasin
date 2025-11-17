@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
@@ -17,6 +18,7 @@ class AddFournisseurModal extends StatefulWidget {
 class _AddFournisseurModalState extends State<AddFournisseurModal> {
   final _formKey = GlobalKey<FormState>();
   final _rsocController = TextEditingController();
+  final _rsocFocusNode = FocusNode();
   final _adrController = TextEditingController();
   final _capitalController = TextEditingController();
   final _rcsController = TextEditingController();
@@ -39,6 +41,10 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
     } else if (widget.nomFournisseur != null) {
       _rsocController.text = widget.nomFournisseur!;
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _rsocFocusNode.requestFocus();
+    });
   }
 
   void _loadFournisseurData() {
@@ -61,35 +67,54 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: Dialog(
-        child: Container(
-          width: 700,
-          height: 450,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            border: Border.all(color: Colors.grey[400]!),
-          ),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                _buildHeader(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Column(
-                        children: [
-                          _buildIdentificationSection(),
-                          const SizedBox(height: 8),
-                          _buildCoordonneeSection(),
-                        ],
+      child: KeyboardListener(
+        focusNode: FocusNode(),
+        onKeyEvent: (KeyEvent event) {
+          if (event is KeyDownEvent &&
+              event.logicalKey == LogicalKeyboardKey.enter &&
+              HardwareKeyboard.instance.isControlPressed) {
+            _saveFournisseur();
+          }
+        },
+        child: Dialog(
+          constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height * 0.5,
+              maxHeight: MediaQuery.of(context).size.height * 0.9),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            _buildIdentificationSection(),
+                            const SizedBox(height: 16),
+                            _buildCoordonneeSection(),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                _buildButtons(),
-              ],
+                  _buildButtons(),
+                ],
+              ),
             ),
           ),
         ),
@@ -100,62 +125,103 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue[100],
-        border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+        gradient: LinearGradient(
+          colors: [Colors.blue.shade600, Colors.blue.shade400],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
       ),
-      child: Text(
-        widget.fournisseur == null ? 'NOUVEAU ...' : 'MODIFIER ...',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+      child: Row(
+        children: [
+          Icon(
+            _isEditing ? Icons.edit : Icons.add_business,
+            color: Colors.white,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _isEditing ? 'Modifier Fournisseur' : 'Nouveau Fournisseur',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const Spacer(),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close, color: Colors.white, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildIdentificationSection() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        border: Border.all(color: Colors.grey[400]!),
-      ),
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue[200],
-              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+              color: Colors.blue.shade50,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
             ),
-            child: const Text(
-              'IDENTIFICATION',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            child: Row(
+              children: [
+                Icon(Icons.business, color: Colors.blue.shade700, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Identification',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(16),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Column(
                     children: [
-                      _buildLabeledField('Raison Social', _rsocController, required: true),
-                      const SizedBox(height: 8),
+                      _buildLabeledField('Raison Social', _rsocController,
+                          required: true, focusNode: _rsocFocusNode),
+                      const SizedBox(height: 12),
                       _buildTextAreaField('Siège Social', _adrController),
                     ],
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 24),
                 Expanded(
                   child: Column(
                     children: [
                       _buildLabeledField('Capital', _capitalController),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       _buildLabeledField('RCS', _rcsController),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       _buildLabeledField('N.I.F', _nifController),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 12),
                       _buildLabeledField('STAT', _statController),
                     ],
                   ),
@@ -169,48 +235,59 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
   }
 
   Widget _buildCoordonneeSection() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        border: Border.all(color: Colors.grey[400]!),
-      ),
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue[200],
-              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+              color: Colors.green.shade50,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
             ),
-            child: const Text(
-              'COORDONNEES',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            child: Row(
+              children: [
+                Icon(Icons.contact_phone, color: Colors.green.shade700, size: 18),
+                const SizedBox(width: 8),
+                Text(
+                  'Coordonnées',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green.shade700,
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(16),
             child: Column(
               children: [
                 Row(
                   children: [
-                    Expanded(child: _buildLabeledField('Telephone', _telController)),
+                    Expanded(child: _buildLabeledField('Téléphone', _telController)),
                     const SizedBox(width: 16),
                     Expanded(child: _buildLabeledField('Fax', _faxController)),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: _buildLabeledField('Portables', _portController)),
+                    Expanded(child: _buildLabeledField('Portable', _portController)),
                     const SizedBox(width: 16),
                     Expanded(child: _buildLabeledField('Telex', _telexController)),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _buildLabeledField('Email', _emailController),
-                const SizedBox(height: 8),
+                const SizedBox(height: 12),
                 _buildLabeledField('Site internet', _siteController),
               ],
             ),
@@ -221,74 +298,97 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
   }
 
   Widget _buildLabeledField(String label, TextEditingController controller,
-      {bool required = false, double? width}) {
-    return Row(
+      {bool required = false, FocusNode? focusNode}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 11),
+        RichText(
+          text: TextSpan(
+            text: label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.grey.shade700,
+            ),
+            children: required
+                ? [
+                    const TextSpan(
+                      text: ' *',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                  ]
+                : [],
           ),
         ),
-        const SizedBox(width: 8),
-        Container(
-          width: width ?? 200,
-          height: 20,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.grey[400]!),
-          ),
-          child: TextFormField(
-            controller: controller,
-            style: const TextStyle(fontSize: 11),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              isDense: true,
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          style: const TextStyle(fontSize: 12),
+          focusNode: focusNode,
+          decoration: InputDecoration(
+            constraints: const BoxConstraints(minHeight: 18, maxHeight: 30),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
-            validator: required
-                ? (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Requis';
-                    }
-                    return null;
-                  }
-                : null,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+            filled: true,
+            fillColor: Colors.grey.shade50,
           ),
+          validator: required
+              ? (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Ce champ est requis';
+                  }
+                  return null;
+                }
+              : null,
         ),
       ],
     );
   }
 
   Widget _buildTextAreaField(String label, TextEditingController controller) {
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 11),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: Colors.grey.shade700,
           ),
         ),
-        const SizedBox(width: 8),
-        Container(
-          width: 200,
-          height: 70,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.grey[400]!),
-          ),
-          child: TextFormField(
-            controller: controller,
-            style: const TextStyle(fontSize: 11),
-            maxLines: 3,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              isDense: true,
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          style: const TextStyle(fontSize: 12),
+          maxLines: 3,
+          decoration: InputDecoration(
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
             ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Colors.blue.shade400, width: 2),
+            ),
+            contentPadding: const EdgeInsets.all(12),
+            filled: true,
+            fillColor: Colors.grey.shade50,
           ),
         ),
       ],
@@ -297,53 +397,53 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
 
   Widget _buildButtons() {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[300],
-        border: Border(top: BorderSide(color: Colors.grey[400]!)),
+        color: Colors.grey.shade50,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16),
+        ),
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Container(
-            width: 80,
-            height: 30,
-            decoration: BoxDecoration(
-              color: Colors.orange[200],
-              border: Border.all(color: Colors.grey[600]!),
+          OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              side: BorderSide(color: Colors.grey.shade400),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-            child: TextButton(
-              onPressed: _saveFournisseur,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Valider',
-                style: TextStyle(fontSize: 12, color: Colors.black),
-              ),
+            child: const Text(
+              'Annuler',
+              style: TextStyle(fontSize: 12, color: Colors.black87),
             ),
           ),
-          const SizedBox(width: 16),
-          Container(
-            width: 80,
-            height: 30,
-            decoration: BoxDecoration(
-              color: Colors.orange[200],
-              border: Border.all(color: Colors.grey[600]!),
+          const SizedBox(width: 12),
+          ElevatedButton(
+            onPressed: _saveFournisseur,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              elevation: 2,
             ),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Annuler',
-                style: TextStyle(fontSize: 12, color: Colors.black),
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(_isEditing ? Icons.save : Icons.add, size: 16),
+                const SizedBox(width: 4),
+                Text(
+                  _isEditing ? 'Modifier' : 'Créer',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
           ),
         ],
@@ -390,6 +490,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
 
   @override
   void dispose() {
+    _rsocFocusNode.dispose();
     _rsocController.dispose();
     _adrController.dispose();
     _capitalController.dispose();

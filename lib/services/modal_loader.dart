@@ -59,6 +59,7 @@ import '../widgets/modals/statistiques_fournisseurs_modal.dart';
 import '../widgets/modals/reinitialiser_donnees_modal.dart';
 import '../widgets/modals/users_management_modal.dart';
 import '../widgets/modals/profil_modal.dart';
+import '../widgets/modals/ventes_modal.dart';
 
 class ModalLoader {
   static final Map<String, Widget Function()> _factories = _createFactories();
@@ -127,6 +128,7 @@ class ModalLoader {
       'Réinitialiser les données': () => const ReinitialiserDonneesModal(),
       'Gestion des utilisateurs': () => const UsersManagementModal(),
       'Profil': () => const ProfilModal(),
+      'ventes_tous_depots': () => const VentesModal(tousDepots: true),
     };
   }
 

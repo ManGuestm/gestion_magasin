@@ -192,6 +192,8 @@ class _HomeScreenState extends State<HomeScreen> {
         context: context,
         builder: (context) => const VentesSelectionModal(),
       );
+    } else if (item == 'Ventes (Tous dépôts)') {
+      _showModal('ventes_tous_depots');
     } else if (item == 'Gestion des utilisateurs') {
       // Vérifier les permissions admin
       if (!AuthService().hasRole('Administrateur')) {

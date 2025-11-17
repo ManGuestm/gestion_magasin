@@ -128,8 +128,8 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
                           setState(() {
                             _reinitialiserTout = value ?? false;
                             if (_reinitialiserTout) {
-                              _toutSaufArticles = _articles = _clients = _fournisseurs =
-                                  _achats = _ventes = _stocks = _quantitesStock = _tresorerie = _comptes = false;
+                              _toutSaufArticles = _articles = _clients = _fournisseurs = _achats =
+                                  _ventes = _stocks = _quantitesStock = _tresorerie = _comptes = false;
                             }
                           });
                         },
@@ -156,7 +156,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
                           ),
                         ),
                         subtitle: const Text(
-                          'Garde articles, clients, fournisseurs et dépôts mais remet stocks à zéro et soldes à zéro',
+                          'Remise à zéro intelligente : préserve les données maîtres, remet stocks et soldes à 0, CMUP à 0 pour recalcul',
                           style: TextStyle(fontSize: 11),
                         ),
                         value: _toutSaufArticles,
@@ -164,8 +164,8 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
                           setState(() {
                             _toutSaufArticles = value ?? false;
                             if (_toutSaufArticles) {
-                              _reinitialiserTout = _articles = _clients = _fournisseurs =
-                                  _achats = _ventes = _stocks = _quantitesStock = _tresorerie = _comptes = false;
+                              _reinitialiserTout = _articles = _clients = _fournisseurs = _achats =
+                                  _ventes = _stocks = _quantitesStock = _tresorerie = _comptes = false;
                             }
                           });
                         },
@@ -323,7 +323,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
                       backgroundColor: Colors.red,
                       foregroundColor: Colors.white,
                     ),
-                    child: const Text('Réinitialiser'),
+                    child: const Text('Exécuter la Réinitialisation'),
                   ),
                 ],
               ),
@@ -378,7 +378,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
           ],
         ),
         content: const Text(
-          'Êtes-vous absolument certain de vouloir supprimer ces données ?\n\nCette action est IRRÉVERSIBLE !',
+          'Êtes-vous absolument certain de vouloir procéder à cette réinitialisation ?\n\nCette opération est IRRÉVERSIBLE et affectera définitivement les données sélectionnées !',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
@@ -389,7 +389,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Confirmer', style: TextStyle(color: Colors.white)),
+            child: const Text('Exécuter', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -404,93 +404,20 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
     try {
       final db = _databaseService.database;
 
-      if (_reinitialiserTout) {
-        // Supprimer toutes les données
-        await db.customStatement('DELETE FROM articles');
-        await db.customStatement('DELETE FROM clt');
-        await db.customStatement('DELETE FROM frns');
-        await db.customStatement('DELETE FROM achats');
-        await db.customStatement('DELETE FROM detachats');
-        await db.customStatement('DELETE FROM retachats');
-        await db.customStatement('DELETE FROM retdetachats');
-        await db.customStatement('DELETE FROM ventes');
-        await db.customStatement('DELETE FROM detventes');
-        await db.customStatement('DELETE FROM retventes');
-        await db.customStatement('DELETE FROM retdeventes');
-        await db.customStatement('DELETE FROM stocks');
-        await db.customStatement('DELETE FROM depart');
-        await db.customStatement('DELETE FROM comptefrns');
-        await db.customStatement('DELETE FROM compteclt');
-        await db.customStatement('DELETE FROM caisse');
-        await db.customStatement('DELETE FROM banque');
-        await db.customStatement('DELETE FROM chequier');
-        await db.customStatement('DELETE FROM autrescompte');
-      } else if (_toutSaufArticles) {
-        // Garder articles, clients, fournisseurs et dépôts mais remettre stocks et soldes à zéro
-        await db.customStatement('UPDATE articles SET stocksu1 = 0, stocksu2 = 0, stocksu3 = 0');
-        await db.customStatement('UPDATE depart SET stocksu1 = 0, stocksu2 = 0, stocksu3 = 0');
-        await db.customStatement('DELETE FROM achats');
-        await db.customStatement('DELETE FROM detachats');
-        await db.customStatement('DELETE FROM retachats');
-        await db.customStatement('DELETE FROM retdetachats');
-        await db.customStatement('DELETE FROM ventes');
-        await db.customStatement('DELETE FROM detventes');
-        await db.customStatement('DELETE FROM retventes');
-        await db.customStatement('DELETE FROM retdeventes');
-        await db.customStatement('DELETE FROM stocks');
-        await db.customStatement('DELETE FROM comptefrns');
-        await db.customStatement('DELETE FROM compteclt');
-        await db.customStatement('DELETE FROM caisse');
-        await db.customStatement('DELETE FROM banque');
-        await db.customStatement('DELETE FROM chequier');
-        await db.customStatement('DELETE FROM autrescompte');
-      } else {
-        // Suppression sélective
-        if (_articles) {
-          await db.customStatement('DELETE FROM articles');
-          await db.customStatement('DELETE FROM depart');
+      await db.transaction(() async {
+        if (_reinitialiserTout) {
+          await _reinitialiserToutesLesDonnees(db);
+        } else if (_toutSaufArticles) {
+          await _reinitialiserToutSaufArticles(db);
+        } else {
+          await _reinitialiserSelectif(db);
         }
-        if (_clients) {
-          await db.customStatement('DELETE FROM clt');
-          await db.customStatement('DELETE FROM compteclt');
-        }
-        if (_fournisseurs) {
-          await db.customStatement('DELETE FROM frns');
-          await db.customStatement('DELETE FROM comptefrns');
-        }
-        if (_achats) {
-          await db.customStatement('DELETE FROM achats');
-          await db.customStatement('DELETE FROM detachats');
-          await db.customStatement('DELETE FROM retachats');
-          await db.customStatement('DELETE FROM retdetachats');
-        }
-        if (_ventes) {
-          await db.customStatement('DELETE FROM ventes');
-          await db.customStatement('DELETE FROM detventes');
-          await db.customStatement('DELETE FROM retventes');
-          await db.customStatement('DELETE FROM retdeventes');
-        }
-        if (_stocks) {
-          await db.customStatement('DELETE FROM stocks');
-        }
-        if (_quantitesStock) {
-          await db.customStatement('UPDATE articles SET stocksu1 = 0, stocksu2 = 0, stocksu3 = 0');
-          await db.customStatement('UPDATE depart SET stocksu1 = 0, stocksu2 = 0, stocksu3 = 0');
-        }
-        if (_tresorerie) {
-          await db.customStatement('DELETE FROM caisse');
-          await db.customStatement('DELETE FROM banque');
-          await db.customStatement('DELETE FROM chequier');
-        }
-        if (_comptes) {
-          await db.customStatement('DELETE FROM autrescompte');
-        }
-      }
+      });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Données réinitialisées avec succès'),
+            content: Text('Réinitialisation exécutée avec succès - Base de données mise à jour'),
             backgroundColor: Colors.green,
           ),
         );
@@ -505,6 +432,124 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _reinitialiserToutesLesDonnees(dynamic db) async {
+    const tables = [
+      // Tables transactionnelles
+      'achats', 'detachats', 'retachats', 'retdetachats', 'ventes', 'detventes',
+      'retventes', 'retdeventes', 'stocks', 'prod', 'detprod', 'transf', 'dettransf',
+      // Tables comptables
+      'comptefrns', 'compteclt', 'comptecom', 'caisse', 'banque', 'chequier', 'effets',
+      'autrescompte', 'blclt', 'emblclt', 'fstocks', 'tribanque', 'tricaisse',
+      // Tables production
+      'sintrant', 'sproduit', 'pv',
+      // Tables maîtres
+      'articles', 'clt', 'frns', 'com', 'depart', 'clti', 'emb', 'bq', 'ca', 'mp', 'tblunit'
+    ];
+
+    for (final table in tables) {
+      await db.customStatement('DELETE FROM $table');
+    }
+  }
+
+  Future<void> _reinitialiserToutSaufArticles(dynamic db) async {
+    // Remise à zéro intelligente des stocks et CMUP
+    await db.customStatement('''
+      UPDATE articles SET 
+        stocksu1 = COALESCE(stocksu1, 0) * 0,
+        stocksu2 = COALESCE(stocksu2, 0) * 0,
+        stocksu3 = COALESCE(stocksu3, 0) * 0,
+        cmup = 0
+    ''');
+
+    await db.customStatement('''
+      UPDATE depart SET 
+        stocksu1 = COALESCE(stocksu1, 0) * 0,
+        stocksu2 = COALESCE(stocksu2, 0) * 0,
+        stocksu3 = COALESCE(stocksu3, 0) * 0
+    ''');
+
+    // Remise à zéro des soldes clients/fournisseurs/commerciaux
+    await db.customStatement('UPDATE clt SET soldes = 0, soldesa = 0');
+    await db.customStatement('UPDATE frns SET soldes = 0, soldesa = 0');
+    await db.customStatement('UPDATE com SET soldes = 0, soldesa = 0');
+
+    const tablesToClear = [
+      // Tables transactionnelles (mouvements)
+      'achats', 'detachats', 'retachats', 'retdetachats', 'ventes', 'detventes',
+      'retventes', 'retdeventes', 'stocks', 'prod', 'detprod', 'transf', 'dettransf',
+      // Tables comptables (écritures)
+      'comptefrns', 'compteclt', 'comptecom', 'caisse', 'banque', 'chequier', 'effets',
+      'autrescompte', 'blclt', 'emblclt', 'fstocks', 'tribanque', 'tricaisse',
+      // Tables production et prix
+      'pv', 'sintrant', 'sproduit', 'clti'
+    ];
+
+    for (final table in tablesToClear) {
+      await db.customStatement('DELETE FROM $table');
+    }
+  }
+
+  Future<void> _reinitialiserSelectif(dynamic db) async {
+    if (_articles) {
+      await db.customStatement('DELETE FROM articles');
+      await db.customStatement('DELETE FROM depart');
+      await db.customStatement('DELETE FROM pv');
+    }
+    if (_clients) {
+      await db.customStatement('DELETE FROM clt');
+      await db.customStatement('DELETE FROM compteclt');
+      await db.customStatement('DELETE FROM clti');
+    }
+    if (_fournisseurs) {
+      await db.customStatement('DELETE FROM frns');
+      await db.customStatement('DELETE FROM comptefrns');
+    }
+    if (_achats) {
+      await db.customStatement('DELETE FROM achats');
+      await db.customStatement('DELETE FROM detachats');
+      await db.customStatement('DELETE FROM retachats');
+      await db.customStatement('DELETE FROM retdetachats');
+    }
+    if (_ventes) {
+      await db.customStatement('DELETE FROM ventes');
+      await db.customStatement('DELETE FROM detventes');
+      await db.customStatement('DELETE FROM retventes');
+      await db.customStatement('DELETE FROM retdeventes');
+      await db.customStatement('DELETE FROM blclt');
+    }
+    if (_stocks) {
+      await db.customStatement('DELETE FROM stocks');
+      await db.customStatement('DELETE FROM fstocks');
+    }
+    if (_quantitesStock) {
+      await db.customStatement('''
+        UPDATE articles SET 
+          stocksu1 = COALESCE(stocksu1, 0) * 0,
+          stocksu2 = COALESCE(stocksu2, 0) * 0,
+          stocksu3 = COALESCE(stocksu3, 0) * 0,
+          cmup = 0
+      ''');
+      await db.customStatement('''
+        UPDATE depart SET 
+          stocksu1 = COALESCE(stocksu1, 0) * 0,
+          stocksu2 = COALESCE(stocksu2, 0) * 0,
+          stocksu3 = COALESCE(stocksu3, 0) * 0
+      ''');
+    }
+    if (_tresorerie) {
+      await db.customStatement('DELETE FROM caisse');
+      await db.customStatement('DELETE FROM banque');
+      await db.customStatement('DELETE FROM chequier');
+      await db.customStatement('DELETE FROM effets');
+      await db.customStatement('DELETE FROM tribanque');
+      await db.customStatement('DELETE FROM tricaisse');
+    }
+    if (_comptes) {
+      await db.customStatement('DELETE FROM autrescompte');
+      await db.customStatement('DELETE FROM comptecom');
     }
   }
 }
