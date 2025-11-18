@@ -14470,6 +14470,12 @@ class $DetventesTable extends Detventes
   late final GeneratedColumn<double> qe = GeneratedColumn<double>(
       'qe', aliasedName, true,
       type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _diffPrixMeta =
+      const VerificationMeta('diffPrix');
+  @override
+  late final GeneratedColumn<double> diffPrix = GeneratedColumn<double>(
+      'diff_prix', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         num,
@@ -14482,7 +14488,8 @@ class $DetventesTable extends Detventes
         daty,
         emb,
         transp,
-        qe
+        qe,
+        diffPrix
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -14537,6 +14544,10 @@ class $DetventesTable extends Detventes
     if (data.containsKey('qe')) {
       context.handle(_qeMeta, qe.isAcceptableOrUnknown(data['qe']!, _qeMeta));
     }
+    if (data.containsKey('diff_prix')) {
+      context.handle(_diffPrixMeta,
+          diffPrix.isAcceptableOrUnknown(data['diff_prix']!, _diffPrixMeta));
+    }
     return context;
   }
 
@@ -14568,6 +14579,8 @@ class $DetventesTable extends Detventes
           .read(DriftSqlType.string, data['${effectivePrefix}transp']),
       qe: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}qe']),
+      diffPrix: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}diff_prix']),
     );
   }
 
@@ -14589,6 +14602,7 @@ class Detvente extends DataClass implements Insertable<Detvente> {
   final String? emb;
   final String? transp;
   final double? qe;
+  final double? diffPrix;
   const Detvente(
       {required this.num,
       this.numventes,
@@ -14600,7 +14614,8 @@ class Detvente extends DataClass implements Insertable<Detvente> {
       this.daty,
       this.emb,
       this.transp,
-      this.qe});
+      this.qe,
+      this.diffPrix});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -14635,6 +14650,9 @@ class Detvente extends DataClass implements Insertable<Detvente> {
     if (!nullToAbsent || qe != null) {
       map['qe'] = Variable<double>(qe);
     }
+    if (!nullToAbsent || diffPrix != null) {
+      map['diff_prix'] = Variable<double>(diffPrix);
+    }
     return map;
   }
 
@@ -14658,6 +14676,9 @@ class Detvente extends DataClass implements Insertable<Detvente> {
       transp:
           transp == null && nullToAbsent ? const Value.absent() : Value(transp),
       qe: qe == null && nullToAbsent ? const Value.absent() : Value(qe),
+      diffPrix: diffPrix == null && nullToAbsent
+          ? const Value.absent()
+          : Value(diffPrix),
     );
   }
 
@@ -14676,6 +14697,7 @@ class Detvente extends DataClass implements Insertable<Detvente> {
       emb: serializer.fromJson<String?>(json['emb']),
       transp: serializer.fromJson<String?>(json['transp']),
       qe: serializer.fromJson<double?>(json['qe']),
+      diffPrix: serializer.fromJson<double?>(json['diffPrix']),
     );
   }
   @override
@@ -14693,6 +14715,7 @@ class Detvente extends DataClass implements Insertable<Detvente> {
       'emb': serializer.toJson<String?>(emb),
       'transp': serializer.toJson<String?>(transp),
       'qe': serializer.toJson<double?>(qe),
+      'diffPrix': serializer.toJson<double?>(diffPrix),
     };
   }
 
@@ -14707,7 +14730,8 @@ class Detvente extends DataClass implements Insertable<Detvente> {
           Value<DateTime?> daty = const Value.absent(),
           Value<String?> emb = const Value.absent(),
           Value<String?> transp = const Value.absent(),
-          Value<double?> qe = const Value.absent()}) =>
+          Value<double?> qe = const Value.absent(),
+          Value<double?> diffPrix = const Value.absent()}) =>
       Detvente(
         num: num ?? this.num,
         numventes: numventes.present ? numventes.value : this.numventes,
@@ -14720,6 +14744,7 @@ class Detvente extends DataClass implements Insertable<Detvente> {
         emb: emb.present ? emb.value : this.emb,
         transp: transp.present ? transp.value : this.transp,
         qe: qe.present ? qe.value : this.qe,
+        diffPrix: diffPrix.present ? diffPrix.value : this.diffPrix,
       );
   Detvente copyWithCompanion(DetventesCompanion data) {
     return Detvente(
@@ -14735,6 +14760,7 @@ class Detvente extends DataClass implements Insertable<Detvente> {
       emb: data.emb.present ? data.emb.value : this.emb,
       transp: data.transp.present ? data.transp.value : this.transp,
       qe: data.qe.present ? data.qe.value : this.qe,
+      diffPrix: data.diffPrix.present ? data.diffPrix.value : this.diffPrix,
     );
   }
 
@@ -14751,14 +14777,15 @@ class Detvente extends DataClass implements Insertable<Detvente> {
           ..write('daty: $daty, ')
           ..write('emb: $emb, ')
           ..write('transp: $transp, ')
-          ..write('qe: $qe')
+          ..write('qe: $qe, ')
+          ..write('diffPrix: $diffPrix')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(num, numventes, designation, unites, depots,
-      q, pu, daty, emb, transp, qe);
+      q, pu, daty, emb, transp, qe, diffPrix);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -14773,7 +14800,8 @@ class Detvente extends DataClass implements Insertable<Detvente> {
           other.daty == this.daty &&
           other.emb == this.emb &&
           other.transp == this.transp &&
-          other.qe == this.qe);
+          other.qe == this.qe &&
+          other.diffPrix == this.diffPrix);
 }
 
 class DetventesCompanion extends UpdateCompanion<Detvente> {
@@ -14788,6 +14816,7 @@ class DetventesCompanion extends UpdateCompanion<Detvente> {
   final Value<String?> emb;
   final Value<String?> transp;
   final Value<double?> qe;
+  final Value<double?> diffPrix;
   const DetventesCompanion({
     this.num = const Value.absent(),
     this.numventes = const Value.absent(),
@@ -14800,6 +14829,7 @@ class DetventesCompanion extends UpdateCompanion<Detvente> {
     this.emb = const Value.absent(),
     this.transp = const Value.absent(),
     this.qe = const Value.absent(),
+    this.diffPrix = const Value.absent(),
   });
   DetventesCompanion.insert({
     this.num = const Value.absent(),
@@ -14813,6 +14843,7 @@ class DetventesCompanion extends UpdateCompanion<Detvente> {
     this.emb = const Value.absent(),
     this.transp = const Value.absent(),
     this.qe = const Value.absent(),
+    this.diffPrix = const Value.absent(),
   });
   static Insertable<Detvente> custom({
     Expression<int>? num,
@@ -14826,6 +14857,7 @@ class DetventesCompanion extends UpdateCompanion<Detvente> {
     Expression<String>? emb,
     Expression<String>? transp,
     Expression<double>? qe,
+    Expression<double>? diffPrix,
   }) {
     return RawValuesInsertable({
       if (num != null) 'num': num,
@@ -14839,6 +14871,7 @@ class DetventesCompanion extends UpdateCompanion<Detvente> {
       if (emb != null) 'emb': emb,
       if (transp != null) 'transp': transp,
       if (qe != null) 'qe': qe,
+      if (diffPrix != null) 'diff_prix': diffPrix,
     });
   }
 
@@ -14853,7 +14886,8 @@ class DetventesCompanion extends UpdateCompanion<Detvente> {
       Value<DateTime?>? daty,
       Value<String?>? emb,
       Value<String?>? transp,
-      Value<double?>? qe}) {
+      Value<double?>? qe,
+      Value<double?>? diffPrix}) {
     return DetventesCompanion(
       num: num ?? this.num,
       numventes: numventes ?? this.numventes,
@@ -14866,6 +14900,7 @@ class DetventesCompanion extends UpdateCompanion<Detvente> {
       emb: emb ?? this.emb,
       transp: transp ?? this.transp,
       qe: qe ?? this.qe,
+      diffPrix: diffPrix ?? this.diffPrix,
     );
   }
 
@@ -14905,6 +14940,9 @@ class DetventesCompanion extends UpdateCompanion<Detvente> {
     if (qe.present) {
       map['qe'] = Variable<double>(qe.value);
     }
+    if (diffPrix.present) {
+      map['diff_prix'] = Variable<double>(diffPrix.value);
+    }
     return map;
   }
 
@@ -14921,7 +14959,8 @@ class DetventesCompanion extends UpdateCompanion<Detvente> {
           ..write('daty: $daty, ')
           ..write('emb: $emb, ')
           ..write('transp: $transp, ')
-          ..write('qe: $qe')
+          ..write('qe: $qe, ')
+          ..write('diffPrix: $diffPrix')
           ..write(')'))
         .toString();
   }
@@ -28835,6 +28874,7 @@ typedef $$DetventesTableCreateCompanionBuilder = DetventesCompanion Function({
   Value<String?> emb,
   Value<String?> transp,
   Value<double?> qe,
+  Value<double?> diffPrix,
 });
 typedef $$DetventesTableUpdateCompanionBuilder = DetventesCompanion Function({
   Value<int> num,
@@ -28848,6 +28888,7 @@ typedef $$DetventesTableUpdateCompanionBuilder = DetventesCompanion Function({
   Value<String?> emb,
   Value<String?> transp,
   Value<double?> qe,
+  Value<double?> diffPrix,
 });
 
 class $$DetventesTableFilterComposer
@@ -28891,6 +28932,9 @@ class $$DetventesTableFilterComposer
 
   ColumnFilters<double> get qe => $composableBuilder(
       column: $table.qe, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get diffPrix => $composableBuilder(
+      column: $table.diffPrix, builder: (column) => ColumnFilters(column));
 }
 
 class $$DetventesTableOrderingComposer
@@ -28934,6 +28978,9 @@ class $$DetventesTableOrderingComposer
 
   ColumnOrderings<double> get qe => $composableBuilder(
       column: $table.qe, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get diffPrix => $composableBuilder(
+      column: $table.diffPrix, builder: (column) => ColumnOrderings(column));
 }
 
 class $$DetventesTableAnnotationComposer
@@ -28977,6 +29024,9 @@ class $$DetventesTableAnnotationComposer
 
   GeneratedColumn<double> get qe =>
       $composableBuilder(column: $table.qe, builder: (column) => column);
+
+  GeneratedColumn<double> get diffPrix =>
+      $composableBuilder(column: $table.diffPrix, builder: (column) => column);
 }
 
 class $$DetventesTableTableManager extends RootTableManager<
@@ -29013,6 +29063,7 @@ class $$DetventesTableTableManager extends RootTableManager<
             Value<String?> emb = const Value.absent(),
             Value<String?> transp = const Value.absent(),
             Value<double?> qe = const Value.absent(),
+            Value<double?> diffPrix = const Value.absent(),
           }) =>
               DetventesCompanion(
             num: num,
@@ -29026,6 +29077,7 @@ class $$DetventesTableTableManager extends RootTableManager<
             emb: emb,
             transp: transp,
             qe: qe,
+            diffPrix: diffPrix,
           ),
           createCompanionCallback: ({
             Value<int> num = const Value.absent(),
@@ -29039,6 +29091,7 @@ class $$DetventesTableTableManager extends RootTableManager<
             Value<String?> emb = const Value.absent(),
             Value<String?> transp = const Value.absent(),
             Value<double?> qe = const Value.absent(),
+            Value<double?> diffPrix = const Value.absent(),
           }) =>
               DetventesCompanion.insert(
             num: num,
@@ -29052,6 +29105,7 @@ class $$DetventesTableTableManager extends RootTableManager<
             emb: emb,
             transp: transp,
             qe: qe,
+            diffPrix: diffPrix,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

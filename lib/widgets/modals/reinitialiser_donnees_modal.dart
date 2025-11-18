@@ -455,26 +455,24 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
   }
 
   Future<void> _reinitialiserToutSaufArticles(dynamic db) async {
-    // Remise à zéro intelligente des stocks et CMUP
+    // Remise à zéro intelligente des stocks et CMUP dans articles
     await db.customStatement('''
       UPDATE articles SET 
-        stocksu1 = COALESCE(stocksu1, 0) * 0,
-        stocksu2 = COALESCE(stocksu2, 0) * 0,
-        stocksu3 = COALESCE(stocksu3, 0) * 0,
+        stocksu1 = 0,
+        stocksu2 = 0,
+        stocksu3 = 0,
         cmup = 0
     ''');
 
-    await db.customStatement('''
-      UPDATE depart SET 
-        stocksu1 = COALESCE(stocksu1, 0) * 0,
-        stocksu2 = COALESCE(stocksu2, 0) * 0,
-        stocksu3 = COALESCE(stocksu3, 0) * 0
-    ''');
-
     // Remise à zéro des soldes clients/fournisseurs/commerciaux
-    await db.customStatement('UPDATE clt SET soldes = 0, soldesa = 0');
-    await db.customStatement('UPDATE frns SET soldes = 0, soldesa = 0');
+    await db.customStatement('UPDATE clt SET soldes = 0, soldesa = 0, datedernop = NULL');
+    await db.customStatement('UPDATE frns SET soldes = 0, soldesa = 0, datedernop = NULL');
     await db.customStatement('UPDATE com SET soldes = 0, soldesa = 0');
+    await db.customStatement('UPDATE clti SET soldes = 0, soldes1 = 0, zanaka = 0');
+
+    // Remise à zéro des soldes banques et comptes auxiliaires
+    await db.customStatement('UPDATE bq SET soldes = 0');
+    await db.customStatement('UPDATE ca SET soldes = 0, soldesa = 0');
 
     const tablesToClear = [
       // Tables transactionnelles (mouvements)
@@ -484,7 +482,9 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
       'comptefrns', 'compteclt', 'comptecom', 'caisse', 'banque', 'chequier', 'effets',
       'autrescompte', 'blclt', 'emblclt', 'fstocks', 'tribanque', 'tricaisse',
       // Tables production et prix
-      'pv', 'sintrant', 'sproduit', 'clti'
+      'pv', 'sintrant', 'sproduit',
+      // Table depart (stocks par dépôt) - suppression complète
+      'depart'
     ];
 
     for (final table in tablesToClear) {
@@ -527,16 +527,16 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
     if (_quantitesStock) {
       await db.customStatement('''
         UPDATE articles SET 
-          stocksu1 = COALESCE(stocksu1, 0) * 0,
-          stocksu2 = COALESCE(stocksu2, 0) * 0,
-          stocksu3 = COALESCE(stocksu3, 0) * 0,
+          stocksu1 = 0,
+          stocksu2 = 0,
+          stocksu3 = 0,
           cmup = 0
       ''');
       await db.customStatement('''
         UPDATE depart SET 
-          stocksu1 = COALESCE(stocksu1, 0) * 0,
-          stocksu2 = COALESCE(stocksu2, 0) * 0,
-          stocksu3 = COALESCE(stocksu3, 0) * 0
+          stocksu1 = 0,
+          stocksu2 = 0,
+          stocksu3 = 0
       ''');
     }
     if (_tresorerie) {

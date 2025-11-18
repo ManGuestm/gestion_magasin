@@ -38,10 +38,6 @@ class _AchatsModalState extends State<AchatsModal> {
     debugPrint('Tab navigation: Focus moved to $fieldName');
   }
 
-  void _debugGenericFocus(String elementName) {
-    debugPrint('Tab navigation: Generic focus on $elementName');
-  }
-
   // Controllers
   final TextEditingController _numAchatsController = TextEditingController();
   final TextEditingController _nFactController = TextEditingController();
@@ -64,7 +60,7 @@ class _AchatsModalState extends State<AchatsModal> {
   // Lists
   List<Frn> _fournisseurs = [];
   List<Article> _articles = [];
-
+  List<String> _depots = [];
   List<MpData> _modesPaiement = [];
   final List<Map<String, dynamic>> _lignesAchat = [];
 
@@ -125,6 +121,11 @@ class _AchatsModalState extends State<AchatsModal> {
     // Mode de paiement par défaut "A crédit"
     _selectedModePaiement = 'A crédit';
 
+    // Dépôt par défaut = dernier utilisé
+    final lastDepot = await _getLastUsedDepot();
+    _selectedDepot = lastDepot;
+    _depotController.text = lastDepot;
+
     _tvaController.text = '0';
     _totalHTController.text = '0';
     _totalTTCController.text = '0';
@@ -134,6 +135,52 @@ class _AchatsModalState extends State<AchatsModal> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nFactFocusNode.requestFocus();
     });
+  }
+
+  Future<String> _getLastUsedDepot() async {
+    try {
+      final lastDetail = await (_databaseService.database.select(_databaseService.database.detachats)
+            ..orderBy([(d) => OrderingTerm.desc(d.daty)])
+            ..limit(1))
+          .getSingleOrNull();
+      return lastDetail?.depots ?? 'MAG';
+    } catch (e) {
+      return 'MAG';
+    }
+  }
+
+  Future<void> _ajusterCompteFournisseur() async {
+    if (_selectedFournisseur == null) return;
+
+    try {
+      final totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0;
+      final ref = 'ACH-${_numAchatsController.text}-${DateTime.now().millisecondsSinceEpoch}';
+
+      await _databaseService.database.into(_databaseService.database.comptefrns).insert(
+            ComptefrnsCompanion.insert(
+              ref: ref,
+              daty: Value(DateTime.now()),
+              lib: Value('Achat N° ${_numAchatsController.text}'),
+              numachats: Value(_numAchatsController.text),
+              entres: Value(totalTTC),
+              frns: Value(_selectedFournisseur!),
+              solde: Value(totalTTC),
+            ),
+          );
+
+      // Mettre à jour le solde dans la table frns
+      final fournisseur = await _databaseService.database.getFournisseurByRsoc(_selectedFournisseur!);
+      if (fournisseur != null) {
+        await (_databaseService.database.update(_databaseService.database.frns)
+              ..where((f) => f.rsoc.equals(_selectedFournisseur!)))
+            .write(FrnsCompanion(
+          soldes: Value((fournisseur.soldes ?? 0) + totalTTC),
+          datedernop: Value(DateTime.now()),
+        ));
+      }
+    } catch (e) {
+      // Ignorer les erreurs d'ajustement du compte fournisseur
+    }
   }
 
   Future<String> _getNextNumAchats() async {
@@ -167,7 +214,8 @@ class _AchatsModalState extends State<AchatsModal> {
     try {
       final fournisseurs = await _databaseService.database.getAllFournisseurs();
       final articles = await _databaseService.database.getAllArticles();
-
+      final depots =
+          await _databaseService.database.select(_databaseService.database.depart).map((d) => d.depots).get();
       final modesPaiement = await _databaseService.database.select(_databaseService.database.mp).get();
       final societe =
           await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
@@ -175,7 +223,7 @@ class _AchatsModalState extends State<AchatsModal> {
       setState(() {
         _fournisseurs = fournisseurs;
         _articles = articles;
-
+        _depots = ['MAG', ...depots.toSet().where((d) => d != 'MAG')];
         _modesPaiement = modesPaiement;
         _societe = societe;
       });
@@ -271,27 +319,15 @@ class _AchatsModalState extends State<AchatsModal> {
         _uniteController.text = article.u1 ?? '';
         _depotController.text = article.dep ?? 'MAG';
 
-        // Calcul du prix basé sur le CMUP
-        double prixSuggere = CMUPCalculator.calculerPrixVente(
-          article: article,
-          unite: article.u1 ?? 'Pce',
-          margePercent: 0.0, // Pas de marge pour les achats
-        );
-
-        if (prixSuggere == 0.0) {
-          // Si CMUP = 0, utiliser le prix de vente u1
-          prixSuggere = article.pvu1 ?? 0.0;
-        }
-
-        if (prixSuggere == 0.0) {
+        // Si CMUP = 0, prix suggéré = 0
+        if ((article.cmup ?? 0.0) == 0.0) {
           _prixController.text = '';
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('CMUP et prix de vente non définis, veuillez saisir le prix manuellement')),
-            );
-          }
         } else {
+          double prixSuggere = CMUPCalculator.calculerPrixVente(
+            article: article,
+            unite: article.u1 ?? 'Pce',
+            margePercent: 0.0, // Pas de marge pour les achats
+          );
           _prixController.text = NumberUtils.formatNumber(prixSuggere);
         }
         _quantiteController.text = '';
@@ -344,27 +380,15 @@ class _AchatsModalState extends State<AchatsModal> {
       _selectedUnite = unite;
       _uniteController.text = unite;
 
-      // Calcul du prix basé sur le CMUP pour l'unité sélectionnée
-      double prixSuggere = CMUPCalculator.calculerPrixVente(
-        article: _selectedArticle!,
-        unite: unite,
-        margePercent: 0.0, // Pas de marge pour les achats
-      );
-
-      if (prixSuggere == 0.0) {
-        // Si CMUP = 0, utiliser le prix de vente selon l'unité
-        if (unite == _selectedArticle!.u1) {
-          prixSuggere = _selectedArticle!.pvu1 ?? 0.0;
-        } else if (unite == _selectedArticle!.u2) {
-          prixSuggere = _selectedArticle!.pvu2 ?? 0.0;
-        } else if (unite == _selectedArticle!.u3) {
-          prixSuggere = _selectedArticle!.pvu3 ?? 0.0;
-        }
-      }
-
-      if (prixSuggere == 0.0) {
+      // Si CMUP = 0, prix suggéré = 0
+      if ((_selectedArticle!.cmup ?? 0.0) == 0.0) {
         _prixController.text = '';
       } else {
+        double prixSuggere = CMUPCalculator.calculerPrixVente(
+          article: _selectedArticle!,
+          unite: unite,
+          margePercent: 0.0, // Pas de marge pour les achats
+        );
         _prixController.text = NumberUtils.formatNumber(prixSuggere);
       }
 
@@ -499,18 +523,19 @@ class _AchatsModalState extends State<AchatsModal> {
     _resetArticleForm();
   }
 
-  void _resetArticleForm() {
+  void _resetArticleForm() async {
+    final lastDepot = await _getLastUsedDepot();
     setState(() {
       _selectedArticle = null;
       _selectedUnite = null;
-      _selectedDepot = 'MAG'; // Remettre la valeur par défaut
+      _selectedDepot = lastDepot;
       _isModifyingArticle = false;
       _originalArticleData = null;
       if (_autocompleteController != null) {
         _autocompleteController!.clear();
       }
       _uniteController.clear();
-      _depotController.text = 'MAG'; // Remettre la valeur par défaut
+      _depotController.text = lastDepot;
       _quantiteController.clear();
       _prixController.clear();
     });
@@ -820,6 +845,7 @@ class _AchatsModalState extends State<AchatsModal> {
                   daty: Value(dateForDB),
                   lib: Value('Achat ${_numAchatsController.text} (Modifié)'),
                   numachats: Value(_numAchatsController.text), // MÊME NUMÉRO
+                  nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
                   refart: Value(ligne['designation']),
                   qe: Value(ligne['quantite']),
                   entres: Value(ligne['quantite']),
@@ -827,6 +853,7 @@ class _AchatsModalState extends State<AchatsModal> {
                   depots: Value(ligne['depot']),
                   cmup: Value(nouveauCMUP),
                   frns: Value(_selectedFournisseur!),
+                  verification: Value(_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'),
                 ),
               );
 
@@ -1088,7 +1115,10 @@ class _AchatsModalState extends State<AchatsModal> {
             'Valider l\'achat N° ${_numAchatsController.text} vers le journal ?\n\nCette action créera les mouvements de stock.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Valider')),
+          TextButton(
+              autofocus: true,
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Valider')),
         ],
       ),
     );
@@ -1097,6 +1127,38 @@ class _AchatsModalState extends State<AchatsModal> {
 
     try {
       await _databaseService.database.transaction(() async {
+        // Vérifier si l'achat existe dans la table achats
+        final achatExistant = await (_databaseService.database.select(_databaseService.database.achats)
+              ..where((a) => a.numachats.equals(_numAchatsController.text)))
+            .getSingleOrNull();
+
+        // Si l'achat n'existe pas dans la table achats, le créer
+        if (achatExistant == null) {
+          List<String> dateParts = _dateController.text.split('-');
+          DateTime dateForDB =
+              DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+
+          await _databaseService.database.into(_databaseService.database.achats).insert(
+                AchatsCompanion.insert(
+                  numachats: Value(_numAchatsController.text),
+                  nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
+                  daty: Value(dateForDB),
+                  frns: Value(_selectedFournisseur!),
+                  modepai: Value(_selectedModePaiement),
+                  echeance: Value(_echeanceController.text.isEmpty ? null : dateForDB),
+                  totalnt: Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0),
+                  tva: Value(double.tryParse(_tvaController.text) ?? 0.0),
+                  totalttc: Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
+                  verification: const Value('JOURNAL'),
+                ),
+              );
+        } else {
+          // Mettre à jour le statut vers JOURNAL
+          await (_databaseService.database.update(_databaseService.database.achats)
+                ..where((a) => a.numachats.equals(_numAchatsController.text)))
+              .write(const AchatsCompanion(verification: Value('JOURNAL')));
+        }
+
         final lignesAchat = await (_databaseService.database.select(_databaseService.database.detachats)
               ..where((d) => d.numachats.equals(_numAchatsController.text)))
             .get();
@@ -1122,6 +1184,7 @@ class _AchatsModalState extends State<AchatsModal> {
                   daty: Value(DateTime.now()),
                   lib: Value('Validation achat ${_numAchatsController.text}'),
                   numachats: Value(_numAchatsController.text),
+                  nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
                   refart: Value(ligne.designation ?? ''),
                   qe: Value(ligne.q ?? 0),
                   entres: Value(ligne.q ?? 0),
@@ -1129,6 +1192,7 @@ class _AchatsModalState extends State<AchatsModal> {
                   depots: Value(ligne.depots ?? ''),
                   cmup: Value(nouveauCMUP),
                   frns: Value(_selectedFournisseur ?? ''),
+                  verification: const Value('JOURNAL'),
                 ),
               );
 
@@ -1152,11 +1216,51 @@ class _AchatsModalState extends State<AchatsModal> {
             stocksu2: Value(stocksActuels['u2']!),
             stocksu3: Value(stocksActuels['u3']!),
           ));
+
+          // Mise à jour de la table depart
+          final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
+                ..where(
+                    (d) => d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
+              .getSingleOrNull();
+
+          if (existingDepart != null) {
+            final stocksDepotActuels = StockConverter.convertirStockOptimal(
+              article: article,
+              quantiteU1: (existingDepart.stocksu1 ?? 0) + conversionAchat['u1']!,
+              quantiteU2: (existingDepart.stocksu2 ?? 0) + conversionAchat['u2']!,
+              quantiteU3: (existingDepart.stocksu3 ?? 0) + conversionAchat['u3']!,
+            );
+
+            await (_databaseService.database.update(_databaseService.database.depart)
+                  ..where(
+                      (d) => d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
+                .write(DepartCompanion(
+              stocksu1: Value(stocksDepotActuels['u1']!),
+              stocksu2: Value(stocksDepotActuels['u2']!),
+              stocksu3: Value(stocksDepotActuels['u3']!),
+            ));
+          } else {
+            final stocksDepotInitiaux = StockConverter.convertirStockOptimal(
+              article: article,
+              quantiteU1: conversionAchat['u1']!,
+              quantiteU2: conversionAchat['u2']!,
+              quantiteU3: conversionAchat['u3']!,
+            );
+
+            await _databaseService.database.into(_databaseService.database.depart).insert(
+                  DepartCompanion.insert(
+                    designation: article.designation,
+                    depots: ligne.depots ?? '',
+                    stocksu1: Value(stocksDepotInitiaux['u1']!),
+                    stocksu2: Value(stocksDepotInitiaux['u2']!),
+                    stocksu3: Value(stocksDepotInitiaux['u3']!),
+                  ),
+                );
+          }
         }
 
-        await (_databaseService.database.update(_databaseService.database.achats)
-              ..where((a) => a.numachats.equals(_numAchatsController.text)))
-            .write(const AchatsCompanion(verification: Value('JOURNAL')));
+        // Ajuster le compte fournisseur
+        await _ajusterCompteFournisseur();
       });
 
       setState(() {
@@ -1164,6 +1268,9 @@ class _AchatsModalState extends State<AchatsModal> {
         // Mettre à jour instantanément le statut dans la liste
         _achatsStatuts[_numAchatsController.text] = 'JOURNAL';
       });
+
+      // Recharger les données pour voir les ajustements de stock
+      await _loadData();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1466,6 +1573,7 @@ class _AchatsModalState extends State<AchatsModal> {
                   daty: Value(dateForDB),
                   lib: Value('Achat ${_numAchatsController.text}'),
                   numachats: Value(_numAchatsController.text),
+                  nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
                   refart: Value(ligne['designation']),
                   qe: Value(ligne['quantite']),
                   entres: Value(ligne['quantite']),
@@ -1473,6 +1581,7 @@ class _AchatsModalState extends State<AchatsModal> {
                   depots: Value(ligne['depot']),
                   cmup: Value(nouveauCMUP),
                   frns: Value(_selectedFournisseur!),
+                  verification: const Value('JOURNAL'),
                 ),
               );
 
@@ -1501,7 +1610,9 @@ class _AchatsModalState extends State<AchatsModal> {
                 ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
               .getSingleOrNull();
 
+          // Mise à jour ou création du stock par dépôt dans la table depart
           if (existingDepart != null) {
+            // Mettre à jour l'enregistrement existant
             final stocksDepotActuels = StockConverter.convertirStockOptimal(
               article: article,
               quantiteU1: (existingDepart.stocksu1 ?? 0) + conversionAchat['u1']!,
@@ -1517,6 +1628,7 @@ class _AchatsModalState extends State<AchatsModal> {
               stocksu3: Value(stocksDepotActuels['u3']!),
             ));
           } else {
+            // Créer un nouvel enregistrement
             final stocksDepotInitiaux = StockConverter.convertirStockOptimal(
               article: article,
               quantiteU1: conversionAchat['u1']!,
@@ -1534,8 +1646,14 @@ class _AchatsModalState extends State<AchatsModal> {
                   ),
                 );
           }
+
+          // Ajuster le compte fournisseur pour les achats Journal
+          await _ajusterCompteFournisseur();
         }
       }
+
+      // Recharger la liste des achats pour affichage instantané
+      await _loadAchatsNumbers();
 
       if (mounted) {
         final message = _selectedStatut == 'Journal'
@@ -2237,7 +2355,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                               child: EnhancedAutocomplete<String>(
                                                 controller: _depotController,
                                                 focusNode: _depotFocusNode,
-                                                options: const ['MAG', 'DEPOT1', 'DEPOT2'],
+                                                options: _depots.isNotEmpty ? _depots : ['MAG'],
                                                 displayStringForOption: (depot) => depot,
                                                 onSelected: (depot) {
                                                   if (_statutAchatActuel != 'JOURNAL') {

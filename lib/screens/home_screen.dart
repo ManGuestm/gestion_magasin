@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../constants/app_constants.dart';
 import '../constants/menu_data.dart';
@@ -69,18 +70,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: GestureDetector(
-        onTap: _closeMenu,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            MenuBarWidget(onMenuTap: _showSubmenu),
-            IconBarWidget(onIconTap: _handleIconTap),
-            Expanded(child: Container(color: Colors.grey[200])),
-          ],
+    return KeyboardListener(
+      focusNode: FocusNode()..requestFocus(),
+      onKeyEvent: _handleKeyPress,
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        body: GestureDetector(
+          onTap: _closeMenu,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              MenuBarWidget(onMenuTap: _showSubmenu),
+              IconBarWidget(onIconTap: _handleIconTap),
+              Expanded(child: Container(color: Colors.grey[200])),
+            ],
+          ),
         ),
       ),
     );
@@ -310,6 +315,26 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleThirdLevelSubmenuTap(String item) {
     _closeMenu();
     debugPrint('Third level menu item tapped: $item');
+  }
+
+  void _handleKeyPress(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      final shortcuts = {
+        LogicalKeyboardKey.keyP: 'Articles',
+        LogicalKeyboardKey.keyA: 'Achats',
+        LogicalKeyboardKey.keyV: 'Ventes',
+        LogicalKeyboardKey.keyD: 'Dépôts',
+        LogicalKeyboardKey.keyC: 'Clients',
+        LogicalKeyboardKey.keyF: 'Fournisseurs',
+        LogicalKeyboardKey.keyT: 'Transferts',
+        LogicalKeyboardKey.keyE: 'Encaissements',
+        LogicalKeyboardKey.keyR: 'Relance Clients',
+      };
+
+      if (shortcuts.containsKey(event.logicalKey)) {
+        _handleIconTap(shortcuts[event.logicalKey]!);
+      }
+    }
   }
 
   void _handleIconTap(String iconLabel) {

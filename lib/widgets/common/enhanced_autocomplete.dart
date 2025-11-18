@@ -13,6 +13,7 @@ class EnhancedAutocomplete<T> extends StatefulWidget {
   final void Function(String)? onSubmitted;
   final bool enabled;
   final void Function(String)? onTextChanged;
+  final VoidCallback? onTabPressed;
 
   const EnhancedAutocomplete({
     super.key,
@@ -27,6 +28,7 @@ class EnhancedAutocomplete<T> extends StatefulWidget {
     this.onSubmitted,
     this.enabled = true,
     this.onTextChanged,
+    this.onTabPressed,
   });
 
   @override
@@ -163,11 +165,16 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
     return Focus(
       onKeyEvent: (FocusNode node, KeyEvent event) {
         if (event is KeyDownEvent) {
-          // Tab : laisser passer pour la navigation
+          // Tab : gérer la navigation personnalisée
           if (event.logicalKey == LogicalKeyboardKey.tab) {
             // Si il y a une suggestion, valider d'abord
             if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
               _selectOption(_filteredOptions[_selectedIndex]);
+            }
+            // Appeler le callback de navigation Tab si défini
+            if (widget.onTabPressed != null) {
+              widget.onTabPressed!();
+              return KeyEventResult.handled;
             }
             return KeyEventResult.ignored; // Laisser Tab faire son travail
           }

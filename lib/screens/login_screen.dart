@@ -217,6 +217,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 // Informations par défaut
                 Container(
+                  width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey, width: 1),

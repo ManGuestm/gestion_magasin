@@ -465,6 +465,7 @@ class Detventes extends Table {
   TextColumn get emb => text().withLength(max: 50).nullable()();
   TextColumn get transp => text().withLength(max: 100).nullable()();
   RealColumn get qe => real().nullable()();
+  RealColumn get diffPrix => real().nullable()(); // Différence entre prix de vente standard et prix saisi
 }
 
 // Table Effets de Commerce - utilisée par: Menu Trésorerie - Gestion effets de commerce
@@ -773,7 +774,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
   @override
-  int get schemaVersion => 42;
+  int get schemaVersion => 43;
 
   /// Stratégie de migration de la base de données
   /// Gère la création initiale et les mises à jour de schéma
@@ -904,6 +905,9 @@ class AppDatabase extends _$AppDatabase {
             // Modifier la table Users pour utiliser username au lieu d'email
             await m.deleteTable('users');
             await m.createTable(users);
+          } else if (from == 42) {
+            // Ajouter la colonne diff_prix à la table detventes
+            await m.addColumn(detventes, detventes.diffPrix as GeneratedColumn);
           }
         },
       );
@@ -1193,7 +1197,7 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
-  /// Met à jour les stocks après une vente avec conversion automatique
+  /// Met à jour les stocks après une vente
   Future<void> _mettreAJourStocksVente(
     String designation,
     String depot,
@@ -1201,86 +1205,39 @@ class AppDatabase extends _$AppDatabase {
     double quantite,
     Article article,
   ) async {
-    // Récupérer le stock actuel du dépôt
+    // 1. Mettre à jour le stock par dépôt (table depart)
     final stockDepart = await (select(depart)
           ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
         .getSingleOrNull();
 
-    if (stockDepart == null) return;
+    if (stockDepart != null) {
+      // Convertir la quantité vendue selon l'unité
+      double quantiteU1 = 0, quantiteU2 = 0;
+      
+      if (unite == article.u1) {
+        quantiteU1 = quantite;
+      } else if (unite == article.u2 && article.tu2u1 != null) {
+        quantiteU1 = quantite / article.tu2u1!;
+        quantiteU2 = quantite;
+      } else if (unite == article.u2) {
+        quantiteU2 = quantite;
+      }
 
-    // Calculer le stock total en unité de base
-    double stockTotalU2 = StockConverter.calculerStockTotalU3(
-      article: article,
-      stockU1: stockDepart.stocksu1 ?? 0,
-      stockU2: stockDepart.stocksu2 ?? 0,
-      stockU3: stockDepart.stocksu3 ?? 0,
-    );
-
-    // Convertir la quantité vendue en unité de base (u2 pour Gauffrette = Pqt)
-    double quantiteVenteU2 = 0;
-    if (unite == article.u1 && article.tu2u1 != null) {
-      // Vente en Ctn -> convertir en Pqt
-      quantiteVenteU2 = quantite * article.tu2u1!;
-    } else if (unite == article.u2) {
-      // Vente en Pqt -> direct
-      quantiteVenteU2 = quantite;
+      // Déduire du stock du dépôt
+      await (update(depart)..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+          .write(DepartCompanion(
+        stocksu1: Value((stockDepart.stocksu1 ?? 0) - quantiteU1),
+        stocksu2: Value((stockDepart.stocksu2 ?? 0) - quantiteU2),
+      ));
     }
 
-    // Déduire du stock total
-    double nouveauStockTotalU2 = stockTotalU2 - quantiteVenteU2;
-
-    // Reconvertir en unités optimales avec des entiers pour éviter les problèmes de précision
-    double nouveauU1 = 0, nouveauU2 = 0;
-
-    if (article.tu2u1 != null) {
-      // Article à 2 unités (comme Gauffrette: Ctn/Pqt)
-      int stockTotalInt = nouveauStockTotalU2.round();
-      int facteurInt = article.tu2u1!.round();
-
-      nouveauU1 = (stockTotalInt ~/ facteurInt).toDouble();
-      nouveauU2 = (stockTotalInt % facteurInt).toDouble();
-    } else {
-      // Article à 1 unité
-      nouveauU1 = nouveauStockTotalU2;
-    }
-
-    // Mettre à jour le stock dans la table Depart DIRECTEMENT
-    await (update(depart)..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-        .write(DepartCompanion(
-      stocksu1: Value(nouveauU1),
-      stocksu2: Value(nouveauU2),
-      stocksu3: const Value(0),
-    ));
-
-    // Mettre à jour le stock global dans la table Articles de la même manière
-    double stockGlobalTotalU2 = StockConverter.calculerStockTotalU3(
-      article: article,
-      stockU1: article.stocksu1 ?? 0,
-      stockU2: article.stocksu2 ?? 0,
-      stockU3: article.stocksu3 ?? 0,
-    );
-
-    double nouveauStockGlobalTotalU2 = stockGlobalTotalU2 - quantiteVenteU2;
-
-    double nouveauGlobalU1 = 0, nouveauGlobalU2 = 0;
-
-    if (article.tu2u1 != null) {
-      int stockGlobalTotalInt = nouveauStockGlobalTotalU2.round();
-      int facteurInt = article.tu2u1!.round();
-
-      nouveauGlobalU1 = (stockGlobalTotalInt ~/ facteurInt).toDouble();
-      nouveauGlobalU2 = (stockGlobalTotalInt % facteurInt).toDouble();
-    } else {
-      nouveauGlobalU1 = nouveauStockGlobalTotalU2;
-    }
-
+    // 2. Mettre à jour le stock global (table articles)
     await (update(articles)..where((a) => a.designation.equals(designation))).write(ArticlesCompanion(
-      stocksu1: Value(nouveauGlobalU1),
-      stocksu2: Value(nouveauGlobalU2),
-      stocksu3: const Value(0),
+      stocksu1: Value((article.stocksu1 ?? 0) - (unite == article.u1 ? quantite : quantite / (article.tu2u1 ?? 1))),
+      stocksu2: Value((article.stocksu2 ?? 0) - (unite == article.u2 ? quantite : 0)),
     ));
 
-    // Créer un mouvement de stock
+    // 3. Créer un mouvement de stock dans la table stocks
     await _creerMouvementStock(
       designation: designation,
       depot: depot,
@@ -1329,6 +1286,7 @@ class AppDatabase extends _$AppDatabase {
       depots: Value(depot),
       numventes: numVente != null ? Value(numVente) : const Value.absent(),
       numachats: numAchat != null ? Value(numAchat) : const Value.absent(),
+      verification: Value(type),
     ));
   }
 
@@ -1562,6 +1520,139 @@ class AppDatabase extends _$AppDatabase {
     var bytes = utf8.encode(password);
     var digest = sha256.convert(bytes);
     return digest.toString();
+  }
+
+  // ========== MÉTHODES CONTRE PASSER ==========
+
+  /// Contre passe une vente (annulation avec remise en stock)
+  Future<void> contrePasserVente(String numVentes) async {
+    await transaction(() async {
+      // 1. Récupérer la vente et ses détails
+      final vente = await (select(ventes)..where((v) => v.numventes.equals(numVentes))).getSingleOrNull();
+      if (vente == null) throw Exception('Vente introuvable');
+      
+      if (vente.verification == 'CONTRE_PASSE') {
+        throw Exception('Cette vente est déjà contre passée');
+      }
+
+      final detailsVente = await (select(detventes)..where((d) => d.numventes.equals(numVentes))).get();
+      
+      // 2. Remettre les quantités en stock pour chaque ligne
+      for (var detail in detailsVente) {
+        if (detail.designation != null && detail.depots != null && detail.unites != null && detail.q != null) {
+          final article = await getArticleByDesignation(detail.designation!);
+          if (article != null) {
+            await _remettreStockVente(
+              detail.designation!,
+              detail.depots!,
+              detail.unites!,
+              detail.q!,
+              article,
+              numVentes,
+            );
+          }
+        }
+      }
+
+      // 3. Marquer la vente comme contre passée
+      await (update(ventes)..where((v) => v.numventes.equals(numVentes)))
+          .write(const VentesCompanion(verification: Value('CONTRE_PASSE')));
+
+      // 4. Ajuster le solde client si nécessaire
+      if (vente.clt != null && vente.totalttc != null) {
+        await _ajusterSoldeClientContrePassage(vente.clt!, vente.totalttc!);
+      }
+    });
+  }
+
+  /// Remet en stock les quantités d'une vente contre passée
+  Future<void> _remettreStockVente(
+    String designation,
+    String depot,
+    String unite,
+    double quantite,
+    Article article,
+    String numVentes,
+  ) async {
+    // 1. Remettre le stock par dépôt (table depart)
+    final stockDepart = await (select(depart)
+          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+        .getSingleOrNull();
+
+    if (stockDepart != null) {
+      // Convertir la quantité à remettre selon l'unité
+      double quantiteU1 = 0, quantiteU2 = 0;
+      
+      if (unite == article.u1) {
+        quantiteU1 = quantite;
+      } else if (unite == article.u2 && article.tu2u1 != null) {
+        quantiteU1 = quantite / article.tu2u1!;
+        quantiteU2 = quantite;
+      } else if (unite == article.u2) {
+        quantiteU2 = quantite;
+      }
+
+      // Ajouter au stock du dépôt
+      await (update(depart)..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+          .write(DepartCompanion(
+        stocksu1: Value((stockDepart.stocksu1 ?? 0) + quantiteU1),
+        stocksu2: Value((stockDepart.stocksu2 ?? 0) + quantiteU2),
+      ));
+    }
+
+    // 2. Remettre le stock global (table articles)
+    await (update(articles)..where((a) => a.designation.equals(designation))).write(ArticlesCompanion(
+      stocksu1: Value((article.stocksu1 ?? 0) + (unite == article.u1 ? quantite : quantite / (article.tu2u1 ?? 1))),
+      stocksu2: Value((article.stocksu2 ?? 0) + (unite == article.u2 ? quantite : 0)),
+    ));
+
+    // 3. Créer un mouvement de stock de remise
+    await _creerMouvementStock(
+      designation: designation,
+      depot: depot,
+      unite: unite,
+      quantiteEntree: quantite,
+      type: 'CONTRE_PASSE',
+      numVente: numVentes,
+    );
+  }
+
+  /// Ajuste le solde client lors d'un contre passage
+  Future<void> _ajusterSoldeClientContrePassage(String rsocClient, double montantVente) async {
+    final client = await getClientByRsoc(rsocClient);
+    if (client != null) {
+      await (update(clt)..where((c) => c.rsoc.equals(rsocClient))).write(CltCompanion(
+        soldes: Value((client.soldes ?? 0) - montantVente),
+        datedernop: Value(DateTime.now()),
+      ));
+    }
+  }
+
+  /// Vérifie si une vente peut être contre passée
+  Future<Map<String, dynamic>> peutContrePasserVente(String numVentes) async {
+    final vente = await (select(ventes)..where((v) => v.numventes.equals(numVentes))).getSingleOrNull();
+    
+    if (vente == null) {
+      return {'possible': false, 'raison': 'Vente introuvable'};
+    }
+    
+    if (vente.verification == 'CONTRE_PASSE') {
+      return {'possible': false, 'raison': 'Vente déjà contre passée'};
+    }
+    
+    if (vente.verification != 'Journal') {
+      return {'possible': false, 'raison': 'Seules les ventes validées (Journal) peuvent être contre passées'};
+    }
+    
+    // Vérifier si la vente n'est pas trop ancienne (optionnel)
+    if (vente.daty != null) {
+      final daysDiff = DateTime.now().difference(vente.daty!).inDays;
+      if (daysDiff > 30) {
+        return {'possible': false, 'raison': 'Vente trop ancienne (plus de 30 jours)'};
+      }
+    }
+    
+    return {'possible': true, 'raison': 'Vente peut être contre passée'};
   }
 
   // ========== MÉTHODES RÉGULARISATION ==========

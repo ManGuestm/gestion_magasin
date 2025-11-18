@@ -537,30 +537,54 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin 
   }
 
   Future<String> _getAllStocksText(Article article) async {
-    final db = DatabaseService().database;
-    final stocksDepart =
-        await (db.select(db.depart)..where((d) => d.designation.equals(article.designation))).get();
+    try {
+      final db = DatabaseService().database;
+      final stocksDepart =
+          await (db.select(db.depart)..where((d) => d.designation.equals(article.designation))).get();
 
-    if (stocksDepart.isEmpty) {
-      return 'Aucun stock';
-    }
+      if (stocksDepart.isEmpty) {
+        return 'Aucun stock';
+      }
 
-    List<String> stockTexts = [];
+      List<String> stockTexts = [];
+      double totalU1 = 0, totalU2 = 0, totalU3 = 0;
 
-    for (var stock in stocksDepart) {
-      // Afficher les stocks DIRECTEMENT sans conversion
-      final stockFormate = StockConverter.formaterAffichageStock(
+      for (var stock in stocksDepart) {
+        final u1 = stock.stocksu1 ?? 0.0;
+        final u2 = stock.stocksu2 ?? 0.0;
+        final u3 = stock.stocksu3 ?? 0.0;
+
+        totalU1 += u1;
+        totalU2 += u2;
+        totalU3 += u3;
+
+        // Afficher TOUS les stocks par dépôt (même à 0 pour debug)
+        final stockFormate = StockConverter.formaterAffichageStock(
+          article: article,
+          stockU1: u1,
+          stockU2: u2,
+          stockU3: u3,
+        );
+
+        stockTexts.add('${stock.depots}: $stockFormate');
+      }
+
+      // Toujours afficher le total
+      final totalFormate = StockConverter.formaterAffichageStock(
         article: article,
-        stockU1: stock.stocksu1 ?? 0.0,
-        stockU2: stock.stocksu2 ?? 0.0,
-        stockU3: stock.stocksu3 ?? 0.0,
+        stockU1: totalU1,
+        stockU2: totalU2,
+        stockU3: totalU3,
       );
 
-      // Toujours afficher le stock, même s'il est à 0
-      stockTexts.add('${stock.depots}: $stockFormate');
+      if (stocksDepart.length > 1) {
+        return 'Total: $totalFormate | ${stockTexts.join(' | ')}';
+      } else {
+        return stockTexts.first;
+      }
+    } catch (e) {
+      return 'Erreur: ${e.toString()}';
     }
-
-    return stockTexts.isEmpty ? 'Stock vide' : stockTexts.join(' | ');
   }
 
   void _selectArticle(Article article) {
@@ -586,15 +610,22 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin 
   }
 
   String _getStockTextForDepot(DepartData? depart) {
-    if (_selectedArticle == null) return '0';
+    if (_selectedArticle == null || depart == null) return '0';
 
-    // Afficher les stocks DIRECTEMENT sans conversion
-    return StockConverter.formaterAffichageStock(
+    final u1 = depart.stocksu1 ?? 0.0;
+    final u2 = depart.stocksu2 ?? 0.0;
+    final u3 = depart.stocksu3 ?? 0.0;
+
+    // Afficher les stocks réels avec formatage approprié
+    final stockFormate = StockConverter.formaterAffichageStock(
       article: _selectedArticle!,
-      stockU1: depart?.stocksu1 ?? 0.0,
-      stockU2: depart?.stocksu2 ?? 0.0,
-      stockU3: depart?.stocksu3 ?? 0.0,
+      stockU1: u1,
+      stockU2: u2,
+      stockU3: u3,
     );
+
+    // Retourner 0 si aucun stock, sinon le stock formaté
+    return (u1 == 0 && u2 == 0 && u3 == 0) ? '0' : stockFormate;
   }
 
   Future<void> _loadArticles() async {
@@ -602,7 +633,9 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin 
     setState(() => _isLoading = true);
 
     try {
+      // Recharger les articles avec les stocks les plus récents
       final articles = await DatabaseService().database.getAllArticles();
+
       // Trier par ordre croissant de désignation
       articles.sort((a, b) => a.designation.compareTo(b.designation));
 
@@ -611,6 +644,17 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin 
         _filteredArticles = articles;
         _isLoading = false;
       });
+
+      // Forcer le rafraîchissement de l'affichage si un article est sélectionné
+      if (_selectedArticle != null) {
+        final updatedArticle = articles.firstWhere(
+          (a) => a.designation == _selectedArticle!.designation,
+          orElse: () => _selectedArticle!,
+        );
+        setState(() {
+          _selectedArticle = updatedArticle;
+        });
+      }
     } catch (e) {
       debugPrint('Erreur lors du chargement des articles: $e');
       setState(() {

@@ -10,19 +10,15 @@ class IconBarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 80,
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       color: const Color.fromARGB(255, 230, 229, 229),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: MenuData.iconButtons
-              .map((iconData) => _buildIconButton(iconData.icon, iconData.label))
-              .toList(),
-        ),
+      child: Wrap(
+        alignment: WrapAlignment.start,
+        spacing: 4.0,
+        runSpacing: 4.0,
+        children:
+            MenuData.iconButtons.map((iconData) => _buildIconButton(iconData.icon, iconData.label)).toList(),
       ),
     );
   }
@@ -34,7 +30,6 @@ class IconBarWidget extends StatelessWidget {
         constraints: const BoxConstraints(minWidth: 80, maxWidth: 200),
         color: Colors.white,
         padding: const EdgeInsets.all(4),
-        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

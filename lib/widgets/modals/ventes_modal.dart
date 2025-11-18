@@ -10,6 +10,7 @@ import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/vente_service.dart';
 import '../../utils/stock_converter.dart';
+import '../../widgets/common/enhanced_autocomplete.dart';
 import '../../widgets/common/mode_paiement_dropdown.dart';
 import 'add_client_modal.dart';
 import 'bon_livraison_preview.dart';
@@ -27,6 +28,7 @@ class VentesModal extends StatefulWidget {
 class _VentesModalState extends State<VentesModal> {
   final DatabaseService _databaseService = DatabaseService();
   final VenteService _venteService = VenteService();
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   // Controllers
   final TextEditingController _numVentesController = TextEditingController();
@@ -48,6 +50,7 @@ class _VentesModalState extends State<VentesModal> {
   final TextEditingController _montantRecuController = TextEditingController();
   final TextEditingController _montantARendreController = TextEditingController();
   TextEditingController? _autocompleteController;
+  final TextEditingController _depotController = TextEditingController();
   final TextEditingController _searchVentesController = TextEditingController();
 
   // Lists
@@ -64,6 +67,7 @@ class _VentesModalState extends State<VentesModal> {
   String? _selectedClient;
   int? _selectedRowIndex;
   bool _isExistingPurchase = false;
+  String _defaultDepot = 'MAG';
 
   String _searchVentesText = '';
   bool _isModifyingArticle = false;
@@ -86,20 +90,40 @@ class _VentesModalState extends State<VentesModal> {
   StatutVente? _statutVenteActuelle;
 
   // Focus nodes for tab navigation
+  final FocusNode _clientFocusNode = FocusNode();
   final FocusNode _designationFocusNode = FocusNode();
   final FocusNode _uniteFocusNode = FocusNode();
   final FocusNode _quantiteFocusNode = FocusNode();
   final FocusNode _prixFocusNode = FocusNode();
+  final FocusNode _depotFocusNode = FocusNode();
+  final FocusNode _ajouterFocusNode = FocusNode();
+  final FocusNode _annulerFocusNode = FocusNode();
+  final FocusNode _keyboardFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _loadData();
     _loadVentesNumbers().then((_) => _initializeForm());
+    _loadDefaultDepot();
     _searchVentesController.addListener(() {
       setState(() {
         _searchVentesText = _searchVentesController.text.toLowerCase();
       });
+    });
+
+    // Debug focus nodes
+    _depotFocusNode.addListener(() {
+      debugPrint('Dépôt focus changed: ${_depotFocusNode.hasFocus}');
+    });
+    _prixFocusNode.addListener(() {
+      debugPrint('Prix focus changed: ${_prixFocusNode.hasFocus}');
+    });
+
+    // Position cursor in client field after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _keyboardFocusNode.requestFocus();
+      _clientFocusNode.requestFocus();
     });
   }
 
@@ -141,24 +165,43 @@ class _VentesModalState extends State<VentesModal> {
   Future<void> _validerBrouillardVersJournal() async {
     if (!_isExistingPurchase || _numVentesController.text.isEmpty) return;
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Validation vers Journal'),
-        content: Text('Voulez-vous valider la vente N° ${_numVentesController.text} vers le journal ?\n\n'
-            'Cette action créera les mouvements de stock et mettra à jour les quantités.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
+    // Vérifier s'il y a des articles avec stock insuffisant
+    bool hasStockInsuffisant = await _verifierStockPourValidation();
+
+    if (hasStockInsuffisant) {
+      if (mounted) {
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: SelectableText('Impossible de valider: certains articles ont un stock insuffisant'),
+            backgroundColor: Colors.red,
+            duration: Duration(milliseconds: 5),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Valider'),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+      return;
+    }
+
+    final confirm = mounted
+        ? await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Validation vers Journal'),
+              content:
+                  Text('Voulez-vous valider la vente N° ${_numVentesController.text} vers le journal ?\n\n'
+                      'Cette action créera les mouvements de stock et mettra à jour les quantités.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Annuler'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Valider'),
+                ),
+              ],
+            ),
+          )
+        : null;
 
     if (confirm != true) return;
 
@@ -168,7 +211,7 @@ class _VentesModalState extends State<VentesModal> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Vente validée vers le journal avec succès'),
+            content: SelectableText('Vente validée vers le journal avec succès'),
             backgroundColor: Colors.green,
           ),
         );
@@ -184,7 +227,7 @@ class _VentesModalState extends State<VentesModal> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la validation: $e'),
+            content: SelectableText('Erreur lors de la validation: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -246,6 +289,7 @@ class _VentesModalState extends State<VentesModal> {
               'prixUnitaire': detail.pu ?? 0.0,
               'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
               'depot': detail.depots ?? '',
+              'diffPrix': detail.diffPrix ?? 0.0,
             });
           }
         });
@@ -254,7 +298,7 @@ class _VentesModalState extends State<VentesModal> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Vente N° $numVentes chargée')),
+            SnackBar(content: SelectableText('Vente N° $numVentes chargée')),
           );
         }
       }
@@ -305,12 +349,18 @@ class _VentesModalState extends State<VentesModal> {
     _commissionController.dispose();
     _montantRecuController.dispose();
     _montantARendreController.dispose();
+    _depotController.dispose();
     _searchVentesController.dispose();
     _soldeAnterieurController.dispose();
+    _clientFocusNode.dispose();
     _designationFocusNode.dispose();
     _uniteFocusNode.dispose();
     _quantiteFocusNode.dispose();
     _prixFocusNode.dispose();
+    _depotFocusNode.dispose();
+    _ajouterFocusNode.dispose();
+    _annulerFocusNode.dispose();
+    _keyboardFocusNode.dispose();
     super.dispose();
   }
 
@@ -402,9 +452,7 @@ class _VentesModalState extends State<VentesModal> {
       _selectedArticle = article;
       if (article != null) {
         _selectedUnite = article.u1;
-        if (!widget.tousDepots) {
-          _selectedDepot = 'MAG';
-        }
+        _selectedDepot = _defaultDepot;
         _quantiteController.text = '';
         _montantController.text = '';
         _stockAffichage = ''; // Reset stock display
@@ -412,6 +460,12 @@ class _VentesModalState extends State<VentesModal> {
     });
 
     if (article != null) {
+      // Charger le prix de vente standard
+      final prixStandard = await _getPrixVenteStandard(article, article.u1 ?? 'Pce');
+      setState(() {
+        _prixController.text = prixStandard > 0 ? _formatNumber(prixStandard) : '';
+      });
+
       await _verifierStockEtBasculer(article);
     }
   }
@@ -514,6 +568,14 @@ class _VentesModalState extends State<VentesModal> {
 
       if (_stockInsuffisant) {
         await _gererStockInsuffisant(article, depot);
+      } else {
+        // Réinitialiser le mode si le stock redevient suffisant
+        if (_statutVente == StatutVente.brouillard &&
+            !_lignesVente.any((l) => l['stockInsuffisant'] == true)) {
+          setState(() {
+            _statutVente = StatutVente.journal;
+          });
+        }
       }
     } catch (e) {
       setState(() {
@@ -571,40 +633,10 @@ class _VentesModalState extends State<VentesModal> {
   }
 
   void _calculerPrixPourUnite(Article article, String unite) async {
-    try {
-      // Utiliser la nouvelle méthode de calcul de prix
-      final prix = await _databaseService.database.getPrixVenteArticle(article.designation);
-
-      double prixUnitaire = 0;
-      if (unite == article.u1) {
-        prixUnitaire = prix['u1'] ?? 0;
-      } else if (unite == article.u2) {
-        prixUnitaire = prix['u2'] ?? 0;
-      } else if (unite == article.u3) {
-        prixUnitaire = prix['u3'] ?? 0;
-      }
-
-      _prixController.text = prixUnitaire > 0 ? _formatNumber(prixUnitaire) : '';
-    } catch (e) {
-      // Fallback sur l'ancien calcul
-      double cmup = article.cmup ?? 0.0;
-      if (cmup == 0.0) {
-        _prixController.text = '';
-      } else {
-        double prixUnitaire = cmup * 1.2;
-
-        if (unite == article.u1) {
-          double facteur = (article.tu2u1 ?? 1.0) * (article.tu3u2 ?? 1.0);
-          prixUnitaire = cmup * facteur * 1.2;
-        } else if (unite == article.u2) {
-          prixUnitaire = cmup * (article.tu3u2 ?? 1.0) * 1.2;
-        } else if (unite == article.u3) {
-          prixUnitaire = cmup * 1.2;
-        }
-
-        _prixController.text = _formatNumber(prixUnitaire);
-      }
-    }
+    final prixStandard = await _getPrixVenteStandard(article, unite);
+    setState(() {
+      _prixController.text = prixStandard > 0 ? _formatNumber(prixStandard) : '';
+    });
   }
 
   // Calcule le stock total en unité de base (u3) - utilise StockConverter
@@ -636,13 +668,8 @@ class _VentesModalState extends State<VentesModal> {
     // Vérifier les stocks dans les autres dépôts
     final autresStocks = await _verifierStocksAutresDepots(article, depotActuel);
 
-    if (widget.tousDepots && autresStocks.isNotEmpty) {
-      // Mode tous dépôts: basculer automatiquement vers un dépôt disponible
-      await _basculerVersDepotDisponible(article, depotActuel, autresStocks);
-    } else {
-      // Mode dépôt MAG ou aucun stock disponible: afficher modal d'information
-      _afficherModalStockInsuffisant(article, depotActuel, autresStocks);
-    }
+    // Toujours afficher le modal d'information sans basculement automatique
+    _afficherModalStockInsuffisant(article, depotActuel, autresStocks);
   }
 
   Future<List<Map<String, dynamic>>> _verifierStocksAutresDepots(Article article, String depotActuel) async {
@@ -682,53 +709,16 @@ class _VentesModalState extends State<VentesModal> {
     return autresStocks;
   }
 
-  Future<void> _basculerVersDepotDisponible(
-      Article article, String depotEpuise, List<Map<String, dynamic>> autresStocks) async {
-    final depotDisponible = autresStocks.first;
-
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Stock épuisé - Basculement automatique'),
-        content: Text(
-            'Stock épuisé dans le dépôt "$depotEpuise" pour l\'article "${article.designation}".\n\n'
-            'Basculement automatique vers le dépôt "${depotDisponible['depot']}" '
-            '(Stock disponible: ${depotDisponible['stockDisponible'].toStringAsFixed(0)} ${depotDisponible['unite']}).\n\n'
-            'Continuer avec ce dépôt?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Continuer'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      setState(() {
-        _selectedDepot = depotDisponible['depot'];
-        _stockDisponible = depotDisponible['stockDisponible'];
-        _stockInsuffisant = false;
-      });
-      // Actualiser l'affichage du stock pour le nouveau dépôt
-      await _verifierStockEtBasculer(article);
-    }
-  }
-
   void _afficherModalStockInsuffisant(
       Article article, String depotActuel, List<Map<String, dynamic>> autresStocks) {
     String message;
 
     if (widget.tousDepots) {
       message =
-          'Stock épuisé dans tous les dépôts pour l\'article "${article.designation}".\nVente impossible.';
+          'Stock épuisé dans tous les dépôts pour l\'article "${article.designation}".\n\nVoulez-vous continuer quand même ?\n\nNote: La vente sera enregistrée en brouillard uniquement.';
     } else {
       message =
-          'Stock épuisé dans le dépôt "$depotActuel" pour l\'article "${article.designation}".\nVente impossible.';
+          'Stock épuisé dans le dépôt "$depotActuel" pour l\'article "${article.designation}".\n\nVoulez-vous continuer quand même ?\n\nNote: La vente sera enregistrée en brouillard uniquement.';
 
       if (autresStocks.isNotEmpty) {
         message += '\n\nStock disponible dans d\'autres dépôts:';
@@ -740,19 +730,137 @@ class _VentesModalState extends State<VentesModal> {
       }
     }
 
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Stock insuffisant'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+    // Fermer tous les focus et overlays existants
+    FocusScope.of(context).unfocus();
+
+    // Attendre un peu pour que les overlays se ferment
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (!mounted) return;
+      showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext dialogContext) {
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning, color: Colors.orange, size: 24),
+                SizedBox(width: 8),
+                Text('Stock insuffisant'),
+              ],
+            ),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                autofocus: true,
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(true);
+                  _continuerMalgreStockInsuffisant(article);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Continuer quand même'),
+              ),
+            ],
+          );
+        },
+      );
+    });
+  }
+
+  void _continuerMalgreStockInsuffisant(Article article) {
+    setState(() {
+      _stockInsuffisant = false; // Permettre la saisie
+      _quantiteController.text = '1'; // Quantité par défaut
+      // Forcer le mode brouillard pour cette vente
+      _statutVente = StatutVente.brouillard;
+    });
+
+    // Focus sur le champ unités
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _uniteFocusNode.requestFocus();
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vente autorisée en mode brouillard uniquement'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _loadDefaultDepot() async {
+    try {
+      final derniereVente = await (_databaseService.database.select(_databaseService.database.detventes)
+            ..orderBy([(d) => drift.OrderingTerm.desc(d.daty)])
+            ..limit(1))
+          .getSingleOrNull();
+
+      setState(() {
+        _defaultDepot = derniereVente?.depots ?? 'MAG';
+        _selectedDepot = _defaultDepot;
+        _depotController.text = _defaultDepot;
+      });
+    } catch (e) {
+      setState(() {
+        _defaultDepot = 'MAG';
+        _selectedDepot = 'MAG';
+        _depotController.text = 'MAG';
+      });
+    }
+  }
+
+  Future<bool> _verifierStockPourValidation() async {
+    if (!_isExistingPurchase || _numVentesController.text.isEmpty) return false;
+
+    try {
+      final details = await (_databaseService.database.select(_databaseService.database.detventes)
+            ..where((d) => d.numventes.equals(_numVentesController.text)))
+          .get();
+
+      for (var detail in details) {
+        if (detail.designation != null && detail.depots != null && detail.q != null) {
+          // Trouver l'article correspondant
+          final article = _articles.where((a) => a.designation == detail.designation).firstOrNull;
+          if (article == null) continue;
+
+          // Vérifier le stock actuel
+          final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
+                ..where((d) => d.designation.equals(detail.designation!) & d.depots.equals(detail.depots!)))
+              .getSingleOrNull();
+
+          if (stockDepart != null) {
+            // Calculer le stock total disponible
+            double stockTotalU3 = StockConverter.calculerStockTotalU3(
+              article: article,
+              stockU1: stockDepart.stocksu1 ?? 0.0,
+              stockU2: stockDepart.stocksu2 ?? 0.0,
+              stockU3: stockDepart.stocksu3 ?? 0.0,
+            );
+
+            // Calculer le stock pour l'unité de vente
+            double stockPourUnite = _calculerStockPourUnite(article, detail.unites ?? 'Pce', stockTotalU3);
+
+            // Si la quantité vendue dépasse le stock disponible
+            if (detail.q! > stockPourUnite) {
+              return true; // Stock insuffisant détecté
+            }
+          }
+        }
+      }
+
+      return false; // Tous les stocks sont suffisants
+    } catch (e) {
+      return true; // En cas d'erreur, considérer comme stock insuffisant
+    }
   }
 
   void _validerQuantite(String value) {
@@ -761,7 +869,19 @@ class _VentesModalState extends State<VentesModal> {
     double quantite = double.tryParse(value) ?? 0.0;
     String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? '');
 
-    if (quantite > _stockDisponible) {
+    // Si stock insuffisant et quantité > stock disponible, forcer le mode brouillard
+    if (quantite > _stockDisponible && _stockDisponible <= 0) {
+      setState(() {
+        _statutVente = StatutVente.brouillard;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Stock insuffisant - Vente possible en brouillard uniquement'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    } else if (quantite > _stockDisponible && _stockDisponible > 0) {
       setState(() {
         _quantiteController.text = _stockDisponible.toStringAsFixed(0);
       });
@@ -813,24 +933,109 @@ class _VentesModalState extends State<VentesModal> {
     _montantController.text = _formatNumber(montant);
   }
 
-  void _ajouterLigne() {
+  void _ajouterLigne() async {
     if (_selectedArticle == null) return;
 
     double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
     double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
     double montant = quantite * prix;
     String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? 'Pce');
+    String depot = _selectedDepot ?? _defaultDepot;
 
-    // Vérifier une dernière fois le stock disponible
-    if (quantite > _stockDisponible) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Stock insuffisant. Disponible: ${_stockDisponible.toStringAsFixed(0)} $unite'),
-          backgroundColor: Colors.red,
+    // Vérifier si c'est un cadeau (prix = 0)
+    if (prix == 0) {
+      final confirmerCadeau = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Article gratuit'),
+          content: const Text('Le prix est à zéro.\n\nVoulez-vous offrir cet article comme cadeau ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Oui, cadeau'),
+            ),
+          ],
         ),
       );
+
+      if (confirmerCadeau != true) return;
+    }
+
+    // Vérifier le prix par rapport au prix d'achat
+    if (prix > 0) {
+      final prixAchat = _selectedArticle!.cmup ?? 0.0;
+      if (mounted && prix < prixAchat) {
+        final confirmerPertePrix = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning, color: Colors.red, size: 24),
+                SizedBox(width: 8),
+                Text('Prix inférieur au coût'),
+              ],
+            ),
+            content: Text(
+                'Le prix de vente (${_formatNumber(prix)}) est inférieur au prix d\'achat (${_formatNumber(prixAchat)}).\n\n'
+                'Perte: ${_formatNumber(prixAchat - prix)} par unité\n\n'
+                'Voulez-vous continuer quand même ?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Continuer quand même'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirmerPertePrix != true) return;
+      }
+    }
+
+    // Si stock insuffisant, forcer le mode brouillard
+    if (quantite > _stockDisponible && _stockDisponible <= 0) {
+      setState(() {
+        _statutVente = StatutVente.brouillard;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Article ajouté - Vente en mode brouillard (stock insuffisant)'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } else if (quantite > _stockDisponible && _stockDisponible > 0) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Stock insuffisant. Disponible: ${_stockDisponible.toStringAsFixed(0)} $unite'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return;
     }
+
+    // Calculer la différence de prix
+    final prixVenteStandard = await _getPrixVenteStandard(_selectedArticle!, unite);
+    final diffPrix = prix - prixVenteStandard;
+
+    // Sauvegarder le dépôt utilisé comme nouveau défaut
+    _defaultDepot = depot;
 
     setState(() {
       _lignesVente.add({
@@ -839,8 +1044,10 @@ class _VentesModalState extends State<VentesModal> {
         'quantite': quantite,
         'prixUnitaire': prix,
         'montant': montant,
-        'depot': _selectedDepot ?? 'MAG',
+        'depot': depot,
         'article': _selectedArticle, // Garder référence pour conversions
+        'stockInsuffisant': quantite > _stockDisponible, // Marquer si stock insuffisant
+        'diffPrix': diffPrix, // Différence de prix
       });
     });
 
@@ -848,14 +1055,28 @@ class _VentesModalState extends State<VentesModal> {
     _resetArticleForm();
   }
 
-  void _validerAjout() {
-    if (_isModifyingArticle && _originalArticleData != null) {
-      // En mode modification : simplement ajouter la ligne modifiée
-      _ajouterLigne();
-    } else {
-      // Mode normal : ajouter nouvelle ligne
-      _ajouterLigne();
+  String _getPrixUnitInfo() {
+    if (_selectedArticle == null || _selectedUnite == null) return '';
+
+    if (_selectedUnite == _selectedArticle!.u1) {
+      return 'PVU1: ${_formatNumber(_selectedArticle!.pvu1 ?? 0)}';
+    } else if (_selectedUnite == _selectedArticle!.u2) {
+      return 'PVU2: ${_formatNumber(_selectedArticle!.pvu2 ?? 0)}';
+    } else if (_selectedUnite == _selectedArticle!.u3) {
+      return 'PVU3: ${_formatNumber(_selectedArticle!.pvu3 ?? 0)}';
     }
+    return '';
+  }
+
+  Future<double> _getPrixVenteStandard(Article article, String unite) async {
+    if (unite == article.u1) {
+      return article.pvu1 ?? 0;
+    } else if (unite == article.u2) {
+      return article.pvu2 ?? 0;
+    } else if (unite == article.u3) {
+      return article.pvu3 ?? 0;
+    }
+    return 0.0;
   }
 
   void _annulerAjout() {
@@ -900,6 +1121,11 @@ class _VentesModalState extends State<VentesModal> {
       }
       _quantiteController.text = ligne['quantite'].toString();
       _prixController.text = _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
+    });
+
+    // Focus sur le champ quantité pour modification rapide
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _quantiteFocusNode.requestFocus();
     });
 
     // Supprimer la ligne de la table pour éviter les doublons
@@ -948,8 +1174,13 @@ class _VentesModalState extends State<VentesModal> {
 
   void _calculerTotaux() {
     double totalHT = 0;
+    double totalDiff = 0;
     for (var ligne in _lignesVente) {
       totalHT += ligne['montant'] ?? 0;
+      // Calculer Total_Diff = Somme[Quantité x Diff_prix]
+      double quantite = ligne['quantite'] ?? 0.0;
+      double diffPrix = ligne['diffPrix'] ?? 0.0;
+      totalDiff += quantite * diffPrix;
     }
 
     double remise = double.tryParse(_remiseController.text) ?? 0;
@@ -974,6 +1205,11 @@ class _VentesModalState extends State<VentesModal> {
       _resteController.text = _formatNumber(reste);
       _nouveauSoldeController.text = _formatNumber(nouveauSolde);
     });
+
+    // Afficher le total des différences si différent de zéro
+    if (totalDiff != 0 && mounted) {
+      debugPrint('Total différence prix: ${_formatNumber(totalDiff)}');
+    }
   }
 
   void _calculerMonnaie() {
@@ -987,11 +1223,7 @@ class _VentesModalState extends State<VentesModal> {
     setState(() {
       _selectedArticle = null;
       _selectedUnite = null;
-      if (widget.tousDepots) {
-        _selectedDepot = null;
-      } else {
-        _selectedDepot = 'MAG';
-      }
+      _selectedDepot = _defaultDepot;
       _isModifyingArticle = false;
       _originalArticleData = null;
       if (_autocompleteController != null) {
@@ -1000,9 +1232,15 @@ class _VentesModalState extends State<VentesModal> {
       _quantiteController.clear();
       _prixController.clear();
       _montantController.clear();
+      _depotController.text = _defaultDepot;
       _stockDisponible = 0.0;
       _stockInsuffisant = false;
       _stockAffichage = '';
+    });
+
+    // Retourner le focus au champ désignation pour une nouvelle saisie
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _designationFocusNode.requestFocus();
     });
   }
 
@@ -1015,7 +1253,6 @@ class _VentesModalState extends State<VentesModal> {
 
   bool _isArticleFormValid() {
     return _selectedArticle != null &&
-        !_stockInsuffisant &&
         _quantiteController.text.isNotEmpty &&
         double.tryParse(_quantiteController.text) != null &&
         double.tryParse(_quantiteController.text)! > 0;
@@ -1037,6 +1274,24 @@ class _VentesModalState extends State<VentesModal> {
 
   Future<void> _creerNouvelleVenteDB() async {
     try {
+      // Vérifier s'il y a des articles avec stock insuffisant
+      bool hasStockInsuffisant = _lignesVente.any((ligne) => ligne['stockInsuffisant'] == true);
+
+      // Si mode Journal et stock insuffisant, empêcher la validation
+      if (_statutVente == StatutVente.journal && hasStockInsuffisant) {
+        if (mounted) {
+          _scaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(
+              content: SelectableText(
+                  'Impossible de valider en Journal: certains articles ont un stock insuffisant.\nUtilisez le mode Brouillard.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
       double totalHT = 0;
       for (var ligne in _lignesVente) {
         totalHT += ligne['montant'] ?? 0;
@@ -1069,9 +1324,9 @@ class _VentesModalState extends State<VentesModal> {
             : 'Vente validée avec mouvement de stock et mise à jour des quantités';
         final color = _statutVente == StatutVente.brouillard ? Colors.orange : Colors.green;
 
-        ScaffoldMessenger.of(context).showSnackBar(
+        _scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
-            content: Text(message),
+            content: SelectableText(message),
             backgroundColor: color,
             duration: const Duration(seconds: 4),
           ),
@@ -1080,8 +1335,12 @@ class _VentesModalState extends State<VentesModal> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de l\'enregistrement: $e'), backgroundColor: Colors.red),
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            content: SelectableText('Erreur lors de l\'enregistrement: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 20),
+          ),
         );
       }
     }
@@ -1114,6 +1373,7 @@ class _VentesModalState extends State<VentesModal> {
                 q: drift.Value(ligne['quantite']),
                 pu: drift.Value(ligne['prixUnitaire']),
                 daty: drift.Value(DateTime.now()),
+                diffPrix: drift.Value(ligne['diffPrix'] ?? 0.0),
               ),
             );
       }
@@ -1199,6 +1459,7 @@ class _VentesModalState extends State<VentesModal> {
                   q: drift.Value(ligne['quantite']),
                   pu: drift.Value(ligne['prixUnitaire']),
                   daty: drift.Value(DateTime.now()),
+                  diffPrix: drift.Value(ligne['diffPrix'] ?? 0.0),
                 ),
               );
         }
@@ -1505,1553 +1766,1563 @@ class _VentesModalState extends State<VentesModal> {
     }
   }
 
+  void _handleKeyboardShortcut(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      final isCtrl = HardwareKeyboard.instance.isControlPressed;
+
+      // Ctrl+S : Valider vente
+      if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyS) {
+        if (_lignesVente.isNotEmpty) {
+          _validerVente();
+        }
+      }
+      // Ctrl+N : Créer nouvelle vente
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyN) {
+        _creerNouvelleVente();
+      }
+      // Ctrl+P : Aperçu facture
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyP) {
+        if (_lignesVente.isNotEmpty) {
+          _apercuFacture();
+        }
+      }
+      // Ctrl+B : Aperçu BL
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyB) {
+        if (_lignesVente.isNotEmpty) {
+          _apercuBL();
+        }
+      }
+      // Ctrl+D : Contre-passer
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyD) {
+        if (_isExistingPurchase) {
+          _contrePasserVente();
+        }
+      }
+      // F3 : Valider brouillard
+      else if (event.logicalKey == LogicalKeyboardKey.f3) {
+        if (_peutValiderBrouillard()) {
+          _validerBrouillardVersJournal();
+        }
+      }
+      // Escape : Fermer
+      else if (event.logicalKey == LogicalKeyboardKey.escape) {
+        Navigator.of(context).pop();
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: Dialog(
-        constraints: BoxConstraints(
-          minHeight: MediaQuery.of(context).size.height * 0.9,
-          minWidth: MediaQuery.of(context).size.width * 0.7,
-          maxWidth: MediaQuery.of(context).size.width * 0.99,
-        ),
-        backgroundColor: Colors.grey[100],
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.all(Radius.circular(16)),
-            color: Colors.grey[100],
+      child: KeyboardListener(
+        focusNode: _keyboardFocusNode,
+        onKeyEvent: _handleKeyboardShortcut,
+        child: Dialog(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(context).size.height * 0.7,
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+            minWidth: MediaQuery.of(context).size.width * 0.7,
+            maxWidth: MediaQuery.of(context).size.width * 0.99,
           ),
-          child: Column(
-            children: [
-              // Title bar
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                height: 35,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 16),
-                        child: Row(
-                          children: [
-                            Text(
-                              'VENTES (${widget.tousDepots ? 'Tous dépôts' : 'Dépôt MAG'})',
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                            ),
-                            if (_isExistingPurchase && _statutVenteActuelle != null) ...[
-                              const SizedBox(width: 16),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: _statutVenteActuelle == StatutVente.brouillard
-                                      ? Colors.orange
-                                      : Colors.green,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  _statutVenteActuelle == StatutVente.brouillard ? 'BROUILLARD' : 'JOURNALÉ',
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, size: 20),
-                      padding: EdgeInsets.zero,
-                    ),
-                  ],
+          backgroundColor: Colors.grey[100],
+          child: ScaffoldMessenger(
+            key: _scaffoldMessengerKey,
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              body: Container(
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.all(Radius.circular(16)),
+                  color: Colors.grey[100],
                 ),
-              ),
-
-              // Main content with sidebar
-              Expanded(
-                child: Row(
+                child: Column(
                   children: [
-                    // Left sidebar - Sales list
+                    // Title bar
                     Container(
-                      width: 250,
-                      decoration: const BoxDecoration(
-                        border: Border(right: BorderSide(color: Colors.grey, width: 1)),
-                        color: Colors.white,
-                      ),
-                      child: Column(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      height: 35,
+                      child: Row(
                         children: [
-                          // Search field
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            child: TextField(
-                              controller: _searchVentesController,
-                              decoration: const InputDecoration(
-                                hintText: 'Rechercher vente...',
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                prefixIcon: Icon(Icons.search, size: 16),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(left: 16),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    'VENTES (${widget.tousDepots ? 'Tous dépôts' : 'Dépôt MAG'})',
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                  ),
+                                  if (_isExistingPurchase && _statutVenteActuelle != null) ...[
+                                    const SizedBox(width: 16),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _statutVenteActuelle == StatutVente.brouillard
+                                            ? Colors.orange
+                                            : Colors.green,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        _statutVenteActuelle == StatutVente.brouillard
+                                            ? 'BROUILLARD'
+                                            : 'JOURNALÉ',
+                                        style: const TextStyle(
+                                            color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ],
+                                ],
                               ),
-                              style: const TextStyle(fontSize: 12),
                             ),
                           ),
-                          // Sales list
-                          Expanded(
-                            child: FutureBuilder<List<Map<String, dynamic>>>(
-                              future: _getVentesAvecStatut(),
-                              builder: (context, snapshot) {
-                                if (!snapshot.hasData) {
-                                  return const Center(child: CircularProgressIndicator());
-                                }
-
-                                final ventes = snapshot.data!;
-                                final filteredVentes = _searchVentesText.isEmpty
-                                    ? ventes
-                                    : ventes
-                                        .where(
-                                            (v) => v['numventes'].toLowerCase().contains(_searchVentesText))
-                                        .toList();
-
-                                return ListView.builder(
-                                  itemCount: filteredVentes.length,
-                                  itemBuilder: (context, index) {
-                                    final vente = filteredVentes[index];
-                                    final numVente = vente['numventes'];
-                                    final statut = vente['verification'] ?? 'JOURNAL';
-                                    final isSelected = numVente == _numVentesController.text;
-                                    final isBrouillard = statut == 'BROUILLARD';
-
-                                    return Container(
-                                      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      child: ListTile(
-                                        dense: true,
-                                        title: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text('Vente N° $numVente',
-                                                  style: const TextStyle(fontSize: 11)),
-                                            ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                              decoration: BoxDecoration(
-                                                color: isBrouillard ? Colors.orange : Colors.green,
-                                                borderRadius: BorderRadius.circular(3),
-                                              ),
-                                              child: Text(
-                                                isBrouillard ? 'B' : 'J',
-                                                style: const TextStyle(color: Colors.white, fontSize: 9),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        subtitle: isBrouillard
-                                            ? const Text(
-                                                'En attente de validation',
-                                                style: TextStyle(fontSize: 9, color: Colors.orange),
-                                              )
-                                            : null,
-                                        selected: isSelected,
-                                        selectedTileColor: Colors.blue[100],
-                                        onTap: () {
-                                          _numVentesController.text = numVente;
-                                          _chargerVenteExistante(numVente);
-                                        },
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                            ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close, size: 20),
+                            padding: EdgeInsets.zero,
                           ),
                         ],
                       ),
                     ),
 
-                    // Right side - Main form
+                    // Main content with sidebar
                     Expanded(
-                      child: Column(
+                      child: Row(
                         children: [
-                          // Top section
+                          // Left sidebar - Sales list
                           Container(
-                            color: const Color(0xFFE6E6FA),
-                            padding: const EdgeInsets.all(8),
+                            width: 250,
+                            decoration: const BoxDecoration(
+                              border: Border(right: BorderSide(color: Colors.grey, width: 1)),
+                              color: Colors.white,
+                            ),
                             child: Column(
                               children: [
-                                Row(
-                                  children: [
-                                    Column(
-                                      children: [
-                                        Container(
-                                          width: 120,
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                                          color: _statutVente == StatutVente.journal
-                                              ? Colors.green
-                                              : Colors.orange,
-                                          child: const Text('Enregistrement',
-                                              style: TextStyle(color: Colors.white, fontSize: 12)),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        SizedBox(
-                                          width: 120,
-                                          height: 25,
-                                          child: DropdownButtonFormField<StatutVente>(
-                                            initialValue: _statutVente,
-                                            decoration: const InputDecoration(
-                                              border: OutlineInputBorder(),
-                                              contentPadding:
-                                                  EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                            ),
-                                            items: const [
-                                              DropdownMenuItem(
-                                                  value: StatutVente.brouillard,
-                                                  child: Text('Brouillard', style: TextStyle(fontSize: 12))),
-                                              DropdownMenuItem(
-                                                  value: StatutVente.journal,
-                                                  child: Text('Journal', style: TextStyle(fontSize: 12))),
-                                            ],
-                                            onChanged: (value) {
-                                              if (value != null) {
-                                                setState(() {
-                                                  _statutVente = value;
-                                                });
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                      ],
+                                // Search field
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  child: TextField(
+                                    controller: _searchVentesController,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Rechercher vente...',
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      prefixIcon: Icon(Icons.search, size: 16),
                                     ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Wrap(
-                                        spacing: 8,
-                                        runSpacing: 4,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                // Sales list
+                                Expanded(
+                                  child: FutureBuilder<List<Map<String, dynamic>>>(
+                                    future: _getVentesAvecStatut(),
+                                    builder: (context, snapshot) {
+                                      if (!snapshot.hasData) {
+                                        return const Center(child: CircularProgressIndicator());
+                                      }
+
+                                      final ventes = snapshot.data!;
+                                      final filteredVentes = _searchVentesText.isEmpty
+                                          ? ventes
+                                          : ventes
+                                              .where((v) =>
+                                                  v['numventes'].toLowerCase().contains(_searchVentesText))
+                                              .toList();
+
+                                      return ListView.builder(
+                                        itemCount: filteredVentes.length,
+                                        itemBuilder: (context, index) {
+                                          final vente = filteredVentes[index];
+                                          final numVente = vente['numventes'];
+                                          final statut = vente['verification'] ?? 'JOURNAL';
+                                          final isSelected = numVente == _numVentesController.text;
+                                          final isBrouillard = statut == 'BROUILLARD';
+
+                                          return Container(
+                                            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                            child: ListTile(
+                                              dense: true,
+                                              title: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Text('Vente N° $numVente',
+                                                        style: const TextStyle(fontSize: 11)),
+                                                  ),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 4, vertical: 1),
+                                                    decoration: BoxDecoration(
+                                                      color: isBrouillard ? Colors.orange : Colors.green,
+                                                      borderRadius: BorderRadius.circular(3),
+                                                    ),
+                                                    child: Text(
+                                                      isBrouillard ? 'B' : 'J',
+                                                      style:
+                                                          const TextStyle(color: Colors.white, fontSize: 9),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              subtitle: isBrouillard
+                                                  ? const Text(
+                                                      'En attente de validation',
+                                                      style: TextStyle(fontSize: 9, color: Colors.orange),
+                                                    )
+                                                  : null,
+                                              selected: isSelected,
+                                              selectedTileColor: Colors.blue[100],
+                                              onTap: () {
+                                                _numVentesController.text = numVente;
+                                                _chargerVenteExistante(numVente);
+                                              },
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Right side - Main form
+                          Expanded(
+                            child: Column(
+                              children: [
+                                // Top section
+                                Container(
+                                  color: const Color(0xFFE6E6FA),
+                                  padding: const EdgeInsets.all(8),
+                                  child: Column(
+                                    children: [
+                                      Row(
                                         children: [
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
+                                          Column(
                                             children: [
-                                              const Text('N° ventes', style: TextStyle(fontSize: 12)),
-                                              const SizedBox(width: 4),
+                                              Container(
+                                                width: 120,
+                                                padding:
+                                                    const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                                                color: _statutVente == StatutVente.journal
+                                                    ? Colors.green
+                                                    : Colors.orange,
+                                                child: const Text('Enregistrement',
+                                                    style: TextStyle(color: Colors.white, fontSize: 12)),
+                                              ),
+                                              const SizedBox(height: 2),
                                               SizedBox(
-                                                width: 80,
+                                                width: 120,
                                                 height: 25,
-                                                child: TextField(
-                                                  controller: _numVentesController,
-                                                  textAlign: TextAlign.center,
+                                                child: DropdownButtonFormField<StatutVente>(
+                                                  initialValue: _statutVente,
                                                   decoration: const InputDecoration(
                                                     border: OutlineInputBorder(),
                                                     contentPadding:
                                                         EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                    fillColor: Color(0xFFF5F5F5),
-                                                    filled: true,
                                                   ),
-                                                  style: const TextStyle(fontSize: 12),
+                                                  items: const [
+                                                    DropdownMenuItem(
+                                                        value: StatutVente.brouillard,
+                                                        child: Text('Brouillard',
+                                                            style: TextStyle(fontSize: 12))),
+                                                    DropdownMenuItem(
+                                                        value: StatutVente.journal,
+                                                        child:
+                                                            Text('Journal', style: TextStyle(fontSize: 12))),
+                                                  ],
+                                                  onChanged: (value) {
+                                                    if (value != null) {
+                                                      setState(() {
+                                                        _statutVente = value;
+                                                      });
+                                                    }
+                                                  },
                                                 ),
                                               ),
                                             ],
                                           ),
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text('Date', style: TextStyle(fontSize: 12)),
-                                              const SizedBox(width: 4),
-                                              SizedBox(
-                                                width: 100,
-                                                height: 25,
-                                                child: TextField(
-                                                  controller: _dateController,
-                                                  textAlign: TextAlign.center,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  ),
-                                                  style: const TextStyle(fontSize: 12),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: Wrap(
+                                              spacing: 8,
+                                              runSpacing: 4,
+                                              children: [
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Text('N° ventes', style: TextStyle(fontSize: 12)),
+                                                    const SizedBox(width: 4),
+                                                    SizedBox(
+                                                      width: 80,
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _numVentesController,
+                                                        textAlign: TextAlign.center,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 4, vertical: 2),
+                                                          fillColor: Color(0xFFF5F5F5),
+                                                          filled: true,
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text('N° Facture/ BL', style: TextStyle(fontSize: 12)),
-                                              const SizedBox(width: 4),
-                                              SizedBox(
-                                                width: 80,
-                                                height: 25,
-                                                child: TextField(
-                                                  controller: _nFactureController,
-                                                  textAlign: TextAlign.center,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  ),
-                                                  style: const TextStyle(fontSize: 12),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Text('Date', style: TextStyle(fontSize: 12)),
+                                                    const SizedBox(width: 4),
+                                                    SizedBox(
+                                                      width: 100,
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _dateController,
+                                                        textAlign: TextAlign.center,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 4, vertical: 2),
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ),
-                                            ],
-                                          ),
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text('Heure', style: TextStyle(fontSize: 12)),
-                                              const SizedBox(width: 4),
-                                              SizedBox(
-                                                width: 80,
-                                                height: 25,
-                                                child: TextField(
-                                                  controller: _heureController,
-                                                  textAlign: TextAlign.center,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  ),
-                                                  style: const TextStyle(fontSize: 12),
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Text('N° Facture/ BL',
+                                                        style: TextStyle(fontSize: 12)),
+                                                    const SizedBox(width: 4),
+                                                    SizedBox(
+                                                      width: 80,
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _nFactureController,
+                                                        textAlign: TextAlign.center,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 4, vertical: 2),
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
-                                              ),
-                                            ],
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Text('Heure', style: TextStyle(fontSize: 12)),
+                                                    const SizedBox(width: 4),
+                                                    SizedBox(
+                                                      width: 80,
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _heureController,
+                                                        textAlign: TextAlign.center,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 4, vertical: 2),
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    const Text('Clients', style: TextStyle(fontSize: 12)),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: 25,
-                                        child: Autocomplete<CltData>(
-                                          optionsBuilder: (textEditingValue) {
-                                            if (textEditingValue.text.isEmpty ||
-                                                textEditingValue.text == ' ') {
-                                              return _clients.take(100);
-                                            }
-                                            return _clients.where((client) {
-                                              return client.rsoc
-                                                  .toLowerCase()
-                                                  .startsWith(textEditingValue.text.toLowerCase());
-                                            }).take(100);
-                                          },
-                                          displayStringForOption: (client) => client.rsoc,
-                                          onSelected: (client) {
-                                            setState(() {
-                                              _selectedClient = client.rsoc;
-                                              _clientController.text = client.rsoc;
-                                            });
-                                            _chargerSoldeClient(client.rsoc);
-                                          },
-                                          fieldViewBuilder:
-                                              (context, controller, focusNode, onEditingComplete) {
-                                            if (_selectedClient != null &&
-                                                controller.text != _selectedClient) {
-                                              controller.text = _selectedClient!;
-                                            }
-                                            if (_selectedClient == null) {
-                                              controller.clear();
-                                            }
-                                            return KeyboardListener(
-                                              focusNode: FocusNode(),
-                                              onKeyEvent: (KeyEvent event) {
-                                                if (event is KeyDownEvent &&
-                                                    event.logicalKey == LogicalKeyboardKey.tab) {
-                                                  // Sélectionner le premier client disponible
-                                                  final filteredClients = controller.text.isEmpty ||
-                                                          controller.text == ' '
-                                                      ? _clients.take(100).toList()
-                                                      : _clients
-                                                          .where((client) {
-                                                            return client.rsoc
-                                                                .toLowerCase()
-                                                                .startsWith(controller.text.toLowerCase());
-                                                          })
-                                                          .take(100)
-                                                          .toList();
-
-                                                  if (filteredClients.isNotEmpty) {
-                                                    final firstClient = filteredClients.first;
-                                                    setState(() {
-                                                      _selectedClient = firstClient.rsoc;
-                                                      _clientController.text = firstClient.rsoc;
-                                                    });
-                                                    controller.text = firstClient.rsoc;
-                                                    _chargerSoldeClient(firstClient.rsoc);
-                                                    focusNode.unfocus(); // Fermer l'autocomplétion
-                                                  }
-                                                }
-                                              },
-                                              child: TextField(
-                                                controller: controller,
-                                                focusNode: focusNode,
-                                                onTap: () {
-                                                  // Afficher automatiquement la liste quand on clique
-                                                  if (controller.text.isEmpty) {
-                                                    controller.text =
-                                                        ' '; // Espace pour déclencher les options
-                                                    controller.selection = TextSelection.fromPosition(
-                                                      const TextPosition(offset: 0),
-                                                    );
-                                                    Future.delayed(const Duration(milliseconds: 50), () {
-                                                      controller.clear();
-                                                    });
-                                                  }
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Text('Clients', style: TextStyle(fontSize: 12)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: SizedBox(
+                                              height: 25,
+                                              child: EnhancedAutocomplete<CltData>(
+                                                options: _clients,
+                                                displayStringForOption: (client) => client.rsoc,
+                                                onSelected: (client) {
+                                                  setState(() {
+                                                    _selectedClient = client.rsoc;
+                                                    _clientController.text = client.rsoc;
+                                                  });
+                                                  _chargerSoldeClient(client.rsoc);
+                                                  // Naviguer automatiquement vers le champ suivant
+                                                  _designationFocusNode.requestFocus();
                                                 },
-                                                onEditingComplete: () async {
-                                                  await _verifierEtCreerClient(controller.text);
-                                                  onEditingComplete();
-                                                },
+                                                controller: _clientController,
+                                                focusNode: _clientFocusNode,
+                                                hintText: 'Rechercher un client...',
+                                                decoration: const InputDecoration(
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                ),
+                                                style: const TextStyle(fontSize: 12),
                                                 onSubmitted: (value) async {
                                                   await _verifierEtCreerClient(value);
                                                 },
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  hintText:
-                                                      'Cliquer pour voir les clients... (Tab pour sélectionner)',
-                                                ),
-                                                style: const TextStyle(fontSize: 12),
+                                                onTabPressed: () {
+                                                  _designationFocusNode.requestFocus();
+                                                },
                                               ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Article selection section
-                          Container(
-                            color: const Color(0xFFE6E6FA),
-                            padding: const EdgeInsets.all(8),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Désignation Articles', style: TextStyle(fontSize: 12)),
-                                      const SizedBox(height: 4),
-                                      SizedBox(
-                                        height: 25,
-                                        child: Autocomplete<Article>(
-                                          optionsBuilder: (textEditingValue) {
-                                            if (textEditingValue.text.isEmpty) {
-                                              return _articles;
-                                            }
-                                            return _articles.where((article) {
-                                              return article.designation
-                                                  .toLowerCase()
-                                                  .startsWith(textEditingValue.text.toLowerCase());
-                                            });
-                                          },
-                                          displayStringForOption: (article) => article.designation,
-                                          onSelected: _onArticleSelected,
-                                          optionsViewBuilder: (context, onSelected, options) {
-                                            return Align(
-                                              alignment: Alignment.topLeft,
-                                              child: Material(
-                                                elevation: 4.0,
-                                                child: Container(
-                                                  constraints:
-                                                      const BoxConstraints(maxHeight: 200, maxWidth: 300),
-                                                  child: ListView.builder(
-                                                    padding: EdgeInsets.zero,
-                                                    itemCount: options.length,
-                                                    itemBuilder: (context, index) {
-                                                      final article = options.elementAt(index);
-                                                      return ListTile(
-                                                        dense: true,
-                                                        title: Text(article.designation,
-                                                            style: const TextStyle(fontSize: 11)),
-                                                        onTap: () => onSelected(article),
-                                                      );
-                                                    },
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                          fieldViewBuilder:
-                                              (context, controller, focusNode, onEditingComplete) {
-                                            _autocompleteController = controller;
-                                            return KeyboardListener(
-                                              focusNode: FocusNode(),
-                                              onKeyEvent: (KeyEvent event) {
-                                                if (event is KeyDownEvent &&
-                                                    event.logicalKey == LogicalKeyboardKey.tab) {
-                                                  // Sélectionner le premier article disponible
-                                                  final filteredArticles = controller.text.isEmpty
-                                                      ? _articles.toList()
-                                                      : _articles.where((article) {
-                                                          return article.designation
-                                                              .toLowerCase()
-                                                              .startsWith(controller.text.toLowerCase());
-                                                        }).toList();
-
-                                                  if (filteredArticles.isNotEmpty) {
-                                                    final firstArticle = filteredArticles.first;
-                                                    controller.text = firstArticle.designation;
-                                                    _onArticleSelected(firstArticle);
-                                                    focusNode.unfocus(); // Fermer l'autocomplétion
-                                                    // Naviguer vers le champ Unité
-                                                    Future.delayed(const Duration(milliseconds: 100), () {
-                                                      _uniteFocusNode.requestFocus();
-                                                    });
-                                                  }
-                                                }
-                                              },
-                                              child: TextField(
-                                                controller: controller,
-                                                focusNode: focusNode,
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  hintText:
-                                                      'Rechercher un article... (Tab pour sélectionner)',
-                                                ),
-                                                style: const TextStyle(fontSize: 12),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 1,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Unités', style: TextStyle(fontSize: 12)),
-                                      const SizedBox(height: 4),
-                                      SizedBox(
-                                        height: 25,
-                                        child: Focus(
-                                          focusNode: _uniteFocusNode,
-                                          onKeyEvent: (node, event) {
-                                            if (event is KeyDownEvent &&
-                                                event.logicalKey == LogicalKeyboardKey.tab) {
-                                              // Naviguer vers le champ Quantité
-                                              Future.delayed(const Duration(milliseconds: 100), () {
-                                                _quantiteFocusNode.requestFocus();
-                                              });
-                                              return KeyEventResult.handled;
-                                            }
-                                            return KeyEventResult.ignored;
-                                          },
-                                          child: DropdownButtonFormField<String>(
-                                            initialValue: _selectedUnite,
-                                            decoration: const InputDecoration(
-                                              border: OutlineInputBorder(),
-                                              contentPadding:
-                                                  EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                             ),
-                                            items: _getUnitsForSelectedArticle(),
-                                            onChanged: (value) {
-                                              _onUniteChanged(value);
-                                              // Naviguer automatiquement vers le champ Quantité après sélection
-                                              Future.delayed(const Duration(milliseconds: 100), () {
-                                                _quantiteFocusNode.requestFocus();
-                                              });
-                                            },
                                           ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 1,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text('Quantités', style: TextStyle(fontSize: 12)),
-                                          if (_selectedArticle != null && _stockAffichage.isNotEmpty)
-                                            Text(
-                                              'Stock: $_stockAffichage',
-                                              style: const TextStyle(fontSize: 9, color: Colors.green),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
                                         ],
                                       ),
-                                      const SizedBox(height: 4),
-                                      SizedBox(
-                                        height: 25,
-                                        child: TextField(
-                                          controller: _quantiteController,
-                                          focusNode: _quantiteFocusNode,
-                                          enabled: !_stockInsuffisant,
-                                          decoration: InputDecoration(
-                                            border: const OutlineInputBorder(),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                            fillColor: _stockInsuffisant ? Colors.grey[300] : null,
-                                            filled: _stockInsuffisant,
-                                          ),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: _stockInsuffisant ? Colors.grey[600] : null,
-                                          ),
-                                          onChanged: _validerQuantite,
-                                          onSubmitted: (value) {
-                                            // Naviguer vers le champ Prix après validation
-                                            _prixFocusNode.requestFocus();
-                                          },
-                                        ),
-                                      ),
                                     ],
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 1,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+
+                                // Article selection section
+                                Container(
+                                  color: const Color(0xFFE6E6FA),
+                                  padding: const EdgeInsets.all(8),
+                                  child: Row(
                                     children: [
-                                      const Text('P.U HT', style: TextStyle(fontSize: 12)),
-                                      const SizedBox(height: 4),
-                                      SizedBox(
-                                        height: 25,
-                                        child: TextField(
-                                          controller: _prixController,
-                                          focusNode: _prixFocusNode,
-                                          decoration: const InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          ),
-                                          style: const TextStyle(fontSize: 12),
-                                          onChanged: (value) => _calculerMontant(),
-                                          onSubmitted: (value) {
-                                            // Ajouter la ligne après validation du prix
-                                            if (_isArticleFormValid()) {
-                                              _ajouterLigne();
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  flex: 1,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Montant', style: TextStyle(fontSize: 12)),
-                                      const SizedBox(height: 4),
-                                      SizedBox(
-                                        height: 25,
-                                        child: TextField(
-                                          controller: _montantController,
-                                          decoration: const InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          ),
-                                          style: const TextStyle(fontSize: 12),
-                                          readOnly: true,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (widget.tousDepots) ...[
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    flex: 1,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('Dépôts', style: TextStyle(fontSize: 12)),
-                                        const SizedBox(height: 4),
-                                        SizedBox(
-                                          height: 25,
-                                          child: DropdownButtonFormField<String>(
-                                            initialValue: _selectedDepot,
-                                            decoration: const InputDecoration(
-                                              border: OutlineInputBorder(),
-                                              contentPadding:
-                                                  EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                            ),
-                                            items: _depots.map((depot) {
-                                              return DropdownMenuItem<String>(
-                                                value: depot.depots,
-                                                child:
-                                                    Text(depot.depots, style: const TextStyle(fontSize: 12)),
-                                              );
-                                            }).toList(),
-                                            onChanged: _onDepotChanged,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                                if (_shouldShowAddButton()) ...[
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    children: [
-                                      const SizedBox(height: 16),
-                                      if (_isModifyingArticle) ...[
-                                        Row(
+                                      Expanded(
+                                        flex: 2,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            ElevatedButton(
-                                              onPressed: _isArticleFormValid() ? _validerAjout : null,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    _isArticleFormValid() ? Colors.green : Colors.grey,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(50, 25),
+                                            const Text('Désignation Articles',
+                                                style: TextStyle(fontSize: 12)),
+                                            const SizedBox(height: 4),
+                                            SizedBox(
+                                              height: 25,
+                                              child: EnhancedAutocomplete<Article>(
+                                                options: _articles,
+                                                displayStringForOption: (article) => article.designation,
+                                                onSelected: (article) {
+                                                  _onArticleSelected(article);
+                                                  // Naviguer automatiquement vers le champ suivant
+                                                  _uniteFocusNode.requestFocus();
+                                                },
+                                                focusNode: _designationFocusNode,
+                                                hintText: 'Rechercher un article...',
+                                                decoration: const InputDecoration(
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                ),
+                                                style: const TextStyle(fontSize: 12),
+                                                onTabPressed: () {
+                                                  _uniteFocusNode.requestFocus();
+                                                },
                                               ),
-                                              child: const Text('OK', style: TextStyle(fontSize: 12)),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            ElevatedButton(
-                                              onPressed: _annulerAjout,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(50, 25),
-                                              ),
-                                              child: const Text('X', style: TextStyle(fontSize: 12)),
                                             ),
                                           ],
                                         ),
-                                      ] else ...[
-                                        ElevatedButton(
-                                          onPressed: _isArticleFormValid() ? _validerAjout : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
-                                                _isArticleFormValid() ? Colors.green : Colors.grey,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(60, 25),
-                                          ),
-                                          child: const Text('Ajouter', style: TextStyle(fontSize: 12)),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text('Unités', style: TextStyle(fontSize: 12)),
+                                            const SizedBox(height: 4),
+                                            SizedBox(
+                                              height: 25,
+                                              child: EnhancedAutocomplete<String>(
+                                                options: _getUnitsForSelectedArticle()
+                                                    .map((item) => item.value!)
+                                                    .toList(),
+                                                displayStringForOption: (unit) => unit,
+                                                onSelected: (unit) {
+                                                  _onUniteChanged(unit);
+                                                  _quantiteFocusNode.requestFocus();
+                                                },
+                                                focusNode: _uniteFocusNode,
+                                                hintText: 'Unité...',
+                                                decoration: const InputDecoration(
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                ),
+                                                style: const TextStyle(fontSize: 12),
+                                                onTabPressed: () {
+                                                  _quantiteFocusNode.requestFocus();
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                const Text('Quantités', style: TextStyle(fontSize: 12)),
+                                                if (_selectedArticle != null && _stockAffichage.isNotEmpty)
+                                                  Text(
+                                                    'Stock: $_stockAffichage',
+                                                    style: const TextStyle(fontSize: 9, color: Colors.green),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            SizedBox(
+                                              height: 25,
+                                              child: TextField(
+                                                controller: _quantiteController,
+                                                focusNode: _quantiteFocusNode,
+                                                decoration: InputDecoration(
+                                                  border: const OutlineInputBorder(),
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  fillColor: _stockInsuffisant ? Colors.orange[100] : null,
+                                                  filled: _stockInsuffisant,
+                                                ),
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: _stockInsuffisant ? Colors.orange[800] : null,
+                                                ),
+                                                onChanged: _validerQuantite,
+                                                onSubmitted: (value) {
+                                                  _prixFocusNode.requestFocus();
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                const Text('P.U HT', style: TextStyle(fontSize: 12)),
+                                                if (_selectedArticle != null && _selectedUnite != null)
+                                                  Text(
+                                                    _getPrixUnitInfo(),
+                                                    style: const TextStyle(fontSize: 9, color: Colors.blue),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            SizedBox(
+                                              height: 25,
+                                              child: TextField(
+                                                controller: _prixController,
+                                                focusNode: _prixFocusNode,
+                                                decoration: const InputDecoration(
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                ),
+                                                style: const TextStyle(fontSize: 12),
+                                                onChanged: (value) => _calculerMontant(),
+                                                onSubmitted: (value) {
+                                                  _depotFocusNode.requestFocus();
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text('Dépôts', style: TextStyle(fontSize: 12)),
+                                            const SizedBox(height: 4),
+                                            SizedBox(
+                                              height: 25,
+                                              child: EnhancedAutocomplete<String>(
+                                                options: _depots.map((depot) => depot.depots).toList(),
+                                                displayStringForOption: (depot) => depot,
+                                                controller: _depotController,
+                                                onSelected: (depot) {
+                                                  _onDepotChanged(depot);
+                                                },
+                                                focusNode: _depotFocusNode,
+                                                onTabPressed: () {
+                                                  _ajouterFocusNode.requestFocus();
+                                                },
+                                                hintText: 'Dépôt...',
+                                                decoration: const InputDecoration(
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding:
+                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                ),
+                                                style: const TextStyle(fontSize: 11),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (_shouldShowAddButton()) ...[
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          children: [
+                                            const SizedBox(height: 16),
+                                            if (_isModifyingArticle) ...[
+                                              Row(
+                                                children: [
+                                                  ElevatedButton(
+                                                    onPressed: _isArticleFormValid()
+                                                        ? () {
+                                                            _ajouterLigne();
+                                                          }
+                                                        : null,
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor:
+                                                          _isArticleFormValid() ? Colors.green : Colors.grey,
+                                                      foregroundColor: Colors.white,
+                                                      minimumSize: const Size(50, 25),
+                                                    ),
+                                                    child: const Text('OK', style: TextStyle(fontSize: 12)),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  ElevatedButton(
+                                                    onPressed: _annulerAjout,
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: Colors.red,
+                                                      foregroundColor: Colors.white,
+                                                      minimumSize: const Size(50, 25),
+                                                    ),
+                                                    child: const Text('X', style: TextStyle(fontSize: 12)),
+                                                  ),
+                                                ],
+                                              ),
+                                            ] else ...[
+                                              Row(
+                                                children: [
+                                                  Focus(
+                                                    focusNode: _ajouterFocusNode,
+                                                    onKeyEvent: (node, event) {
+                                                      if (event is KeyDownEvent &&
+                                                          event.logicalKey == LogicalKeyboardKey.tab) {
+                                                        _annulerFocusNode.requestFocus();
+                                                        return KeyEventResult.handled;
+                                                      }
+                                                      return KeyEventResult.ignored;
+                                                    },
+                                                    child: ElevatedButton(
+                                                      onPressed: _isArticleFormValid()
+                                                          ? () {
+                                                              _ajouterLigne();
+                                                            }
+                                                          : null,
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: _isArticleFormValid()
+                                                            ? Colors.green
+                                                            : Colors.grey,
+                                                        foregroundColor: Colors.white,
+                                                        minimumSize: const Size(60, 25),
+                                                      ),
+                                                      child: const Text('Ajouter',
+                                                          style: TextStyle(fontSize: 12)),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Focus(
+                                                    focusNode: _annulerFocusNode,
+                                                    onKeyEvent: (node, event) {
+                                                      if (event is KeyDownEvent &&
+                                                          event.logicalKey == LogicalKeyboardKey.tab) {
+                                                        _clientFocusNode.requestFocus();
+                                                        return KeyEventResult.handled;
+                                                      }
+                                                      return KeyEventResult.ignored;
+                                                    },
+                                                    child: ElevatedButton(
+                                                      onPressed: _resetArticleForm,
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.orange,
+                                                        foregroundColor: Colors.white,
+                                                        minimumSize: const Size(60, 25),
+                                                      ),
+                                                      child: const Text('Annuler',
+                                                          style: TextStyle(fontSize: 12)),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ],
                                     ],
                                   ),
-                                ],
-                              ],
-                            ),
-                          ),
+                                ),
 
-                          // Articles table
-                          Expanded(
-                            child: Container(
-                              margin: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey, width: 1),
-                                color: Colors.white,
-                              ),
-                              child: Column(
-                                children: [
-                                  Container(
-                                    height: 25,
-                                    decoration: BoxDecoration(color: Colors.orange[300]),
-                                    child: Row(
+                                // Articles table
+                                Expanded(
+                                  child: Container(
+                                    margin: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.grey, width: 1),
+                                      color: Colors.white,
+                                    ),
+                                    child: Column(
                                       children: [
                                         Container(
-                                          width: 30,
-                                          alignment: Alignment.center,
-                                          decoration: const BoxDecoration(
-                                            border: Border(
-                                              right: BorderSide(color: Colors.grey, width: 1),
-                                              bottom: BorderSide(color: Colors.grey, width: 1),
-                                            ),
+                                          height: 25,
+                                          decoration: BoxDecoration(color: Colors.orange[300]),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                width: 30,
+                                                alignment: Alignment.center,
+                                                decoration: const BoxDecoration(
+                                                  border: Border(
+                                                    right: BorderSide(color: Colors.grey, width: 1),
+                                                    bottom: BorderSide(color: Colors.grey, width: 1),
+                                                  ),
+                                                ),
+                                                child: const Icon(Icons.delete, size: 12),
+                                              ),
+                                              Expanded(
+                                                flex: 3,
+                                                child: Container(
+                                                  alignment: Alignment.center,
+                                                  decoration: const BoxDecoration(
+                                                    border: Border(
+                                                      right: BorderSide(color: Colors.grey, width: 1),
+                                                      bottom: BorderSide(color: Colors.grey, width: 1),
+                                                    ),
+                                                  ),
+                                                  child: const Text('DESIGNATION',
+                                                      style: TextStyle(
+                                                          fontSize: 11, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 1,
+                                                child: Container(
+                                                  alignment: Alignment.center,
+                                                  decoration: const BoxDecoration(
+                                                    border: Border(
+                                                      right: BorderSide(color: Colors.grey, width: 1),
+                                                      bottom: BorderSide(color: Colors.grey, width: 1),
+                                                    ),
+                                                  ),
+                                                  child: const Text('UNITES',
+                                                      style: TextStyle(
+                                                          fontSize: 11, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 1,
+                                                child: Container(
+                                                  alignment: Alignment.center,
+                                                  decoration: const BoxDecoration(
+                                                    border: Border(
+                                                      right: BorderSide(color: Colors.grey, width: 1),
+                                                      bottom: BorderSide(color: Colors.grey, width: 1),
+                                                    ),
+                                                  ),
+                                                  child: const Text('QUANTITES',
+                                                      style: TextStyle(
+                                                          fontSize: 11, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Container(
+                                                  alignment: Alignment.center,
+                                                  decoration: const BoxDecoration(
+                                                    border: Border(
+                                                      right: BorderSide(color: Colors.grey, width: 1),
+                                                      bottom: BorderSide(color: Colors.grey, width: 1),
+                                                    ),
+                                                  ),
+                                                  child: const Text('PRIX UNITAIRE (HT)',
+                                                      style: TextStyle(
+                                                          fontSize: 11, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Container(
+                                                  alignment: Alignment.center,
+                                                  decoration: const BoxDecoration(
+                                                    border: Border(
+                                                      right: BorderSide(color: Colors.grey, width: 1),
+                                                      bottom: BorderSide(color: Colors.grey, width: 1),
+                                                    ),
+                                                  ),
+                                                  child: const Text('MONTANT',
+                                                      style: TextStyle(
+                                                          fontSize: 11, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ),
+                                              if (widget.tousDepots)
+                                                Expanded(
+                                                  flex: 1,
+                                                  child: Container(
+                                                    alignment: Alignment.center,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                          bottom: BorderSide(color: Colors.grey, width: 1)),
+                                                    ),
+                                                    child: const Text('DEPOTS',
+                                                        style: TextStyle(
+                                                            fontSize: 11, fontWeight: FontWeight.bold)),
+                                                  ),
+                                                ),
+                                            ],
                                           ),
-                                          child: const Icon(Icons.delete, size: 12),
                                         ),
                                         Expanded(
-                                          flex: 3,
-                                          child: Container(
-                                            alignment: Alignment.center,
-                                            decoration: const BoxDecoration(
-                                              border: Border(
-                                                right: BorderSide(color: Colors.grey, width: 1),
-                                                bottom: BorderSide(color: Colors.grey, width: 1),
-                                              ),
-                                            ),
-                                            child: const Text('DESIGNATION',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                          ),
+                                          child: _lignesVente.isEmpty
+                                              ? const Center(
+                                                  child: Text('Aucun article ajouté',
+                                                      style: TextStyle(
+                                                          fontSize: 14,
+                                                          color: Colors.grey,
+                                                          fontStyle: FontStyle.italic)),
+                                                )
+                                              : ListView.builder(
+                                                  itemCount: _lignesVente.length,
+                                                  itemExtent: 18,
+                                                  itemBuilder: (context, index) {
+                                                    final ligne = _lignesVente[index];
+                                                    return GestureDetector(
+                                                      onTap: () => _chargerLigneArticle(index),
+                                                      child: Container(
+                                                        height: 18,
+                                                        decoration: BoxDecoration(
+                                                          color: _selectedRowIndex == index
+                                                              ? Colors.blue[200]
+                                                              : (index % 2 == 0
+                                                                  ? Colors.white
+                                                                  : Colors.grey[50]),
+                                                        ),
+                                                        child: Row(
+                                                          children: [
+                                                            Container(
+                                                              width: 30,
+                                                              alignment: Alignment.center,
+                                                              decoration: const BoxDecoration(
+                                                                border: Border(
+                                                                  right: BorderSide(
+                                                                      color: Colors.grey, width: 1),
+                                                                  bottom: BorderSide(
+                                                                      color: Colors.grey, width: 1),
+                                                                ),
+                                                              ),
+                                                              child: IconButton(
+                                                                icon: const Icon(Icons.close, size: 12),
+                                                                onPressed: () => _supprimerLigne(index),
+                                                                padding: EdgeInsets.zero,
+                                                                constraints: const BoxConstraints(),
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              flex: 3,
+                                                              child: Container(
+                                                                padding: const EdgeInsets.only(left: 4),
+                                                                alignment: Alignment.centerLeft,
+                                                                decoration: const BoxDecoration(
+                                                                  border: Border(
+                                                                    right: BorderSide(
+                                                                        color: Colors.grey, width: 1),
+                                                                    bottom: BorderSide(
+                                                                        color: Colors.grey, width: 1),
+                                                                  ),
+                                                                ),
+                                                                child: Text(ligne['designation'] ?? '',
+                                                                    style: const TextStyle(fontSize: 11),
+                                                                    overflow: TextOverflow.ellipsis),
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              flex: 1,
+                                                              child: Container(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(horizontal: 4),
+                                                                alignment: Alignment.center,
+                                                                decoration: const BoxDecoration(
+                                                                  border: Border(
+                                                                    right: BorderSide(
+                                                                        color: Colors.grey, width: 1),
+                                                                    bottom: BorderSide(
+                                                                        color: Colors.grey, width: 1),
+                                                                  ),
+                                                                ),
+                                                                child: Text(ligne['unites'] ?? '',
+                                                                    style: const TextStyle(fontSize: 11)),
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              flex: 1,
+                                                              child: Container(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(horizontal: 4),
+                                                                alignment: Alignment.center,
+                                                                decoration: const BoxDecoration(
+                                                                  border: Border(
+                                                                    right: BorderSide(
+                                                                        color: Colors.grey, width: 1),
+                                                                    bottom: BorderSide(
+                                                                        color: Colors.grey, width: 1),
+                                                                  ),
+                                                                ),
+                                                                child: Text(
+                                                                    (ligne['quantite'] as double?)
+                                                                            ?.round()
+                                                                            .toString() ??
+                                                                        '0',
+                                                                    style: const TextStyle(fontSize: 11)),
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              flex: 2,
+                                                              child: Container(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(horizontal: 4),
+                                                                alignment: Alignment.center,
+                                                                decoration: const BoxDecoration(
+                                                                  border: Border(
+                                                                    right: BorderSide(
+                                                                        color: Colors.grey, width: 1),
+                                                                    bottom: BorderSide(
+                                                                        color: Colors.grey, width: 1),
+                                                                  ),
+                                                                ),
+                                                                child: Text(
+                                                                    _formatNumber(
+                                                                        ligne['prixUnitaire']?.toDouble() ??
+                                                                            0),
+                                                                    style: const TextStyle(fontSize: 11)),
+                                                              ),
+                                                            ),
+                                                            Expanded(
+                                                              flex: 2,
+                                                              child: Container(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(horizontal: 4),
+                                                                alignment: Alignment.center,
+                                                                decoration: BoxDecoration(
+                                                                  border: Border(
+                                                                    right: widget.tousDepots
+                                                                        ? const BorderSide(
+                                                                            color: Colors.grey, width: 1)
+                                                                        : BorderSide.none,
+                                                                    bottom: const BorderSide(
+                                                                        color: Colors.grey, width: 1),
+                                                                  ),
+                                                                ),
+                                                                child: Text(
+                                                                    _formatNumber(
+                                                                        ligne['montant']?.toDouble() ?? 0),
+                                                                    style: const TextStyle(fontSize: 11)),
+                                                              ),
+                                                            ),
+                                                            if (widget.tousDepots)
+                                                              Expanded(
+                                                                flex: 1,
+                                                                child: Container(
+                                                                  padding: const EdgeInsets.symmetric(
+                                                                      horizontal: 4),
+                                                                  alignment: Alignment.center,
+                                                                  decoration: const BoxDecoration(
+                                                                    border: Border(
+                                                                        bottom: BorderSide(
+                                                                            color: Colors.grey, width: 1)),
+                                                                  ),
+                                                                  child: Text(ligne['depot'] ?? '',
+                                                                      style: const TextStyle(fontSize: 11)),
+                                                                ),
+                                                              ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
                                         ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Container(
-                                            alignment: Alignment.center,
-                                            decoration: const BoxDecoration(
-                                              border: Border(
-                                                right: BorderSide(color: Colors.grey, width: 1),
-                                                bottom: BorderSide(color: Colors.grey, width: 1),
-                                              ),
-                                            ),
-                                            child: const Text('UNITES',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+
+                                // Bottom section - Invoice-style totals and payment
+                                Container(
+                                  color: Colors.white,
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Left side - Payment details
+                                      Expanded(
+                                        flex: 2,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: Colors.grey.shade300),
+                                            borderRadius: BorderRadius.circular(4),
                                           ),
-                                        ),
-                                        Expanded(
-                                          flex: 1,
-                                          child: Container(
-                                            alignment: Alignment.center,
-                                            decoration: const BoxDecoration(
-                                              border: Border(
-                                                right: BorderSide(color: Colors.grey, width: 1),
-                                                bottom: BorderSide(color: Colors.grey, width: 1),
-                                              ),
-                                            ),
-                                            child: const Text('QUANTITES',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Container(
-                                            alignment: Alignment.center,
-                                            decoration: const BoxDecoration(
-                                              border: Border(
-                                                right: BorderSide(color: Colors.grey, width: 1),
-                                                bottom: BorderSide(color: Colors.grey, width: 1),
-                                              ),
-                                            ),
-                                            child: const Text('PRIX UNITAIRE (HT)',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Container(
-                                            alignment: Alignment.center,
-                                            decoration: const BoxDecoration(
-                                              border: Border(
-                                                right: BorderSide(color: Colors.grey, width: 1),
-                                                bottom: BorderSide(color: Colors.grey, width: 1),
-                                              ),
-                                            ),
-                                            child: const Text('MONTANT',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                          ),
-                                        ),
-                                        if (widget.tousDepots)
-                                          Expanded(
-                                            flex: 1,
-                                            child: Container(
-                                              alignment: Alignment.center,
-                                              decoration: const BoxDecoration(
-                                                border:
-                                                    Border(bottom: BorderSide(color: Colors.grey, width: 1)),
-                                              ),
-                                              child: const Text('DEPOTS',
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text('MODE DE PAIEMENT',
                                                   style:
                                                       TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: _lignesVente.isEmpty
-                                        ? const Center(
-                                            child: Text('Aucun article ajouté',
-                                                style: TextStyle(
-                                                    fontSize: 14,
-                                                    color: Colors.grey,
-                                                    fontStyle: FontStyle.italic)),
-                                          )
-                                        : ListView.builder(
-                                            itemCount: _lignesVente.length,
-                                            itemExtent: 18,
-                                            itemBuilder: (context, index) {
-                                              final ligne = _lignesVente[index];
-                                              return GestureDetector(
-                                                onTap: () => _chargerLigneArticle(index),
-                                                child: Container(
-                                                  height: 18,
-                                                  decoration: BoxDecoration(
-                                                    color: _selectedRowIndex == index
-                                                        ? Colors.blue[200]
-                                                        : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
+                                              const SizedBox(height: 8),
+                                              SizedBox(
+                                                height: 25,
+                                                width: double.infinity,
+                                                child: ModePaiementDropdown(
+                                                  selectedMode: _selectedModePaiement,
+                                                  onChanged: (value) {
+                                                    setState(() {
+                                                      _selectedModePaiement = value;
+                                                      if (value != 'Espèces') {
+                                                        _montantRecuController.text = '0';
+                                                        _montantARendreController.text = '0';
+                                                      }
+                                                    });
+                                                    _calculerTotaux();
+                                                  },
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Row(
+                                                children: [
+                                                  const Text('Avance:', style: TextStyle(fontSize: 12)),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: SizedBox(
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _avanceController,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 8, vertical: 4),
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                        onChanged: (value) => _calculerTotaux(),
+                                                      ),
+                                                    ),
                                                   ),
-                                                  child: Row(
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  const Text('Commission:', style: TextStyle(fontSize: 12)),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: SizedBox(
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _commissionController,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 8, vertical: 4),
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Row(
+                                                children: [
+                                                  const Text('Solde antérieur:',
+                                                      style: TextStyle(fontSize: 12)),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: SizedBox(
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _soldeAnterieurController,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 8, vertical: 4),
+                                                          fillColor: Color(0xFFF5F5F5),
+                                                          filled: true,
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                        textAlign: TextAlign.right,
+                                                        readOnly: true,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    _selectedModePaiement == 'A crédit'
+                                                        ? 'Solde dû client:'
+                                                        : 'Nouveau solde:',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: _selectedModePaiement == 'A crédit'
+                                                          ? Colors.red
+                                                          : Colors.black,
+                                                      fontWeight: _selectedModePaiement == 'A crédit'
+                                                          ? FontWeight.w500
+                                                          : FontWeight.normal,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: SizedBox(
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _nouveauSoldeController,
+                                                        decoration: InputDecoration(
+                                                          border: const OutlineInputBorder(),
+                                                          contentPadding: const EdgeInsets.symmetric(
+                                                              horizontal: 8, vertical: 4),
+                                                          fillColor: _selectedModePaiement == 'A crédit'
+                                                              ? Colors.red.shade50
+                                                              : const Color(0xFFF5F5F5),
+                                                          filled: true,
+                                                        ),
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: _selectedModePaiement == 'A crédit'
+                                                              ? Colors.red
+                                                              : Colors.black,
+                                                          fontWeight: _selectedModePaiement == 'A crédit'
+                                                              ? FontWeight.w500
+                                                              : FontWeight.normal,
+                                                        ),
+                                                        readOnly: true,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      // Right side - Invoice totals
+                                      Expanded(
+                                        flex: 2,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: Colors.grey.shade300),
+                                            borderRadius: BorderRadius.circular(4),
+                                            color: Colors.grey.shade50,
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              const Text('RÉCAPITULATIF FACTURE',
+                                                  style:
+                                                      TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                              const SizedBox(height: 12),
+                                              // Total HT
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  const Text('Total HT:', style: TextStyle(fontSize: 12)),
+                                                  SizedBox(
+                                                    width: 100,
+                                                    height: 25,
+                                                    child: TextField(
+                                                      controller: _totalHTController,
+                                                      decoration: const InputDecoration(
+                                                        border: OutlineInputBorder(),
+                                                        contentPadding:
+                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                        fillColor: Colors.white,
+                                                        filled: true,
+                                                      ),
+                                                      style: const TextStyle(
+                                                          fontSize: 12, fontWeight: FontWeight.w500),
+                                                      textAlign: TextAlign.right,
+                                                      readOnly: true,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              // Remise
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Row(
                                                     children: [
-                                                      Container(
-                                                        width: 30,
-                                                        alignment: Alignment.center,
-                                                        decoration: const BoxDecoration(
-                                                          border: Border(
-                                                            right: BorderSide(color: Colors.grey, width: 1),
-                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      const Text('Remise:', style: TextStyle(fontSize: 12)),
+                                                      const SizedBox(width: 4),
+                                                      SizedBox(
+                                                        width: 50,
+                                                        height: 25,
+                                                        child: TextField(
+                                                          controller: _remiseController,
+                                                          decoration: const InputDecoration(
+                                                            border: OutlineInputBorder(),
+                                                            contentPadding: EdgeInsets.symmetric(
+                                                                horizontal: 4, vertical: 2),
+                                                            suffixText: '%',
                                                           ),
-                                                        ),
-                                                        child: IconButton(
-                                                          icon: const Icon(Icons.close, size: 12),
-                                                          onPressed: () => _supprimerLigne(index),
-                                                          padding: EdgeInsets.zero,
-                                                          constraints: const BoxConstraints(),
+                                                          style: const TextStyle(fontSize: 12),
+                                                          textAlign: TextAlign.center,
+                                                          onChanged: (value) => _calculerTotaux(),
                                                         ),
                                                       ),
-                                                      Expanded(
-                                                        flex: 3,
-                                                        child: Container(
-                                                          padding: const EdgeInsets.only(left: 4),
-                                                          alignment: Alignment.centerLeft,
-                                                          decoration: const BoxDecoration(
-                                                            border: Border(
-                                                              right: BorderSide(color: Colors.grey, width: 1),
-                                                              bottom:
-                                                                  BorderSide(color: Colors.grey, width: 1),
-                                                            ),
-                                                          ),
-                                                          child: Text(ligne['designation'] ?? '',
-                                                              style: const TextStyle(fontSize: 11),
-                                                              overflow: TextOverflow.ellipsis),
-                                                        ),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 1,
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                          alignment: Alignment.center,
-                                                          decoration: const BoxDecoration(
-                                                            border: Border(
-                                                              right: BorderSide(color: Colors.grey, width: 1),
-                                                              bottom:
-                                                                  BorderSide(color: Colors.grey, width: 1),
-                                                            ),
-                                                          ),
-                                                          child: Text(ligne['unites'] ?? '',
-                                                              style: const TextStyle(fontSize: 11)),
-                                                        ),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 1,
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                          alignment: Alignment.center,
-                                                          decoration: const BoxDecoration(
-                                                            border: Border(
-                                                              right: BorderSide(color: Colors.grey, width: 1),
-                                                              bottom:
-                                                                  BorderSide(color: Colors.grey, width: 1),
-                                                            ),
-                                                          ),
-                                                          child: Text(
-                                                              (ligne['quantite'] as double?)
-                                                                      ?.round()
-                                                                      .toString() ??
-                                                                  '0',
-                                                              style: const TextStyle(fontSize: 11)),
-                                                        ),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                          alignment: Alignment.center,
-                                                          decoration: const BoxDecoration(
-                                                            border: Border(
-                                                              right: BorderSide(color: Colors.grey, width: 1),
-                                                              bottom:
-                                                                  BorderSide(color: Colors.grey, width: 1),
-                                                            ),
-                                                          ),
-                                                          child: Text(
-                                                              _formatNumber(
-                                                                  ligne['prixUnitaire']?.toDouble() ?? 0),
-                                                              style: const TextStyle(fontSize: 11)),
-                                                        ),
-                                                      ),
-                                                      Expanded(
-                                                        flex: 2,
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                          alignment: Alignment.center,
-                                                          decoration: BoxDecoration(
-                                                            border: Border(
-                                                              right: widget.tousDepots
-                                                                  ? const BorderSide(
-                                                                      color: Colors.grey, width: 1)
-                                                                  : BorderSide.none,
-                                                              bottom: const BorderSide(
-                                                                  color: Colors.grey, width: 1),
-                                                            ),
-                                                          ),
-                                                          child: Text(
-                                                              _formatNumber(
-                                                                  ligne['montant']?.toDouble() ?? 0),
-                                                              style: const TextStyle(fontSize: 11)),
-                                                        ),
-                                                      ),
-                                                      if (widget.tousDepots)
-                                                        Expanded(
-                                                          flex: 1,
-                                                          child: Container(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(horizontal: 4),
-                                                            alignment: Alignment.center,
-                                                            decoration: const BoxDecoration(
-                                                              border: Border(
-                                                                  bottom: BorderSide(
-                                                                      color: Colors.grey, width: 1)),
-                                                            ),
-                                                            child: Text(ligne['depot'] ?? '',
-                                                                style: const TextStyle(fontSize: 11)),
-                                                          ),
-                                                        ),
                                                     ],
                                                   ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          // Bottom section - Invoice-style totals and payment
-                          Container(
-                            color: Colors.white,
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Left side - Payment details
-                                Expanded(
-                                  flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('MODE DE PAIEMENT',
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 8),
-                                        SizedBox(
-                                          height: 25,
-                                          width: double.infinity,
-                                          child: ModePaiementDropdown(
-                                            selectedMode: _selectedModePaiement,
-                                            onChanged: (value) {
-                                              setState(() {
-                                                _selectedModePaiement = value;
-                                                if (value != 'Espèces') {
-                                                  _montantRecuController.text = '0';
-                                                  _montantARendreController.text = '0';
-                                                }
-                                              });
-                                              _calculerTotaux();
-                                            },
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          children: [
-                                            const Text('Avance:', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 25,
-                                                child: TextField(
-                                                  controller: _avanceController,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  ),
-                                                  style: const TextStyle(fontSize: 12),
-                                                  onChanged: (value) => _calculerTotaux(),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            const Text('Commission:', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 25,
-                                                child: TextField(
-                                                  controller: _commissionController,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  ),
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Row(
-                                          children: [
-                                            const Text('Solde antérieur:', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 25,
-                                                child: TextField(
-                                                  controller: _soldeAnterieurController,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                    fillColor: Color(0xFFF5F5F5),
-                                                    filled: true,
-                                                  ),
-                                                  style: const TextStyle(fontSize: 12),
-                                                  textAlign: TextAlign.right,
-                                                  readOnly: true,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            Text(
-                                              _selectedModePaiement == 'A crédit'
-                                                  ? 'Solde dû client:'
-                                                  : 'Nouveau solde:',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: _selectedModePaiement == 'A crédit'
-                                                    ? Colors.red
-                                                    : Colors.black,
-                                                fontWeight: _selectedModePaiement == 'A crédit'
-                                                    ? FontWeight.w500
-                                                    : FontWeight.normal,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 25,
-                                                child: TextField(
-                                                  controller: _nouveauSoldeController,
-                                                  decoration: InputDecoration(
-                                                    border: const OutlineInputBorder(),
-                                                    contentPadding: const EdgeInsets.symmetric(
-                                                        horizontal: 8, vertical: 4),
-                                                    fillColor: _selectedModePaiement == 'A crédit'
-                                                        ? Colors.red.shade50
-                                                        : const Color(0xFFF5F5F5),
-                                                    filled: true,
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: _selectedModePaiement == 'A crédit'
-                                                        ? Colors.red
-                                                        : Colors.black,
-                                                    fontWeight: _selectedModePaiement == 'A crédit'
-                                                        ? FontWeight.w500
-                                                        : FontWeight.normal,
-                                                  ),
-                                                  readOnly: true,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                // Right side - Invoice totals
-                                Expanded(
-                                  flex: 2,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey.shade300),
-                                      borderRadius: BorderRadius.circular(4),
-                                      color: Colors.grey.shade50,
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        const Text('RÉCAPITULATIF FACTURE',
-                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 12),
-                                        // Total HT
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            const Text('Total HT:', style: TextStyle(fontSize: 12)),
-                                            SizedBox(
-                                              width: 100,
-                                              height: 25,
-                                              child: TextField(
-                                                controller: _totalHTController,
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: Colors.white,
-                                                  filled: true,
-                                                ),
-                                                style: const TextStyle(
-                                                    fontSize: 12, fontWeight: FontWeight.w500),
-                                                textAlign: TextAlign.right,
-                                                readOnly: true,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // Remise
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                const Text('Remise:', style: TextStyle(fontSize: 12)),
-                                                const SizedBox(width: 4),
-                                                SizedBox(
-                                                  width: 50,
-                                                  height: 25,
-                                                  child: TextField(
-                                                    controller: _remiseController,
-                                                    decoration: const InputDecoration(
-                                                      border: OutlineInputBorder(),
-                                                      contentPadding:
-                                                          EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                      suffixText: '%',
+                                                  SizedBox(
+                                                    width: 100,
+                                                    height: 25,
+                                                    child: TextField(
+                                                      controller: TextEditingController(
+                                                        text: _calculateRemiseAmount(),
+                                                      ),
+                                                      decoration: const InputDecoration(
+                                                        border: OutlineInputBorder(),
+                                                        contentPadding:
+                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                        fillColor: Colors.white,
+                                                        filled: true,
+                                                      ),
+                                                      style: const TextStyle(fontSize: 12),
+                                                      textAlign: TextAlign.right,
+                                                      readOnly: true,
                                                     ),
-                                                    style: const TextStyle(fontSize: 12),
-                                                    textAlign: TextAlign.center,
-                                                    onChanged: (value) => _calculerTotaux(),
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                            SizedBox(
-                                              width: 100,
-                                              height: 25,
-                                              child: TextField(
-                                                controller: TextEditingController(
-                                                  text: _calculateRemiseAmount(),
-                                                ),
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: Colors.white,
-                                                  filled: true,
-                                                ),
-                                                style: const TextStyle(fontSize: 12),
-                                                textAlign: TextAlign.right,
-                                                readOnly: true,
+                                                ],
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // TVA
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                const Text('TVA:', style: TextStyle(fontSize: 12)),
-                                                const SizedBox(width: 4),
-                                                SizedBox(
-                                                  width: 70,
-                                                  height: 25,
-                                                  child: TextField(
-                                                    controller: _tvaController,
-                                                    decoration: const InputDecoration(
-                                                      border: OutlineInputBorder(),
-                                                      contentPadding:
-                                                          EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                      suffixText: '%',
+                                              const SizedBox(height: 8),
+                                              // TVA
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Row(
+                                                    children: [
+                                                      const Text('TVA:', style: TextStyle(fontSize: 12)),
+                                                      const SizedBox(width: 4),
+                                                      SizedBox(
+                                                        width: 70,
+                                                        height: 25,
+                                                        child: TextField(
+                                                          controller: _tvaController,
+                                                          decoration: const InputDecoration(
+                                                            border: OutlineInputBorder(),
+                                                            contentPadding: EdgeInsets.symmetric(
+                                                                horizontal: 4, vertical: 2),
+                                                            suffixText: '%',
+                                                          ),
+                                                          style: const TextStyle(fontSize: 12),
+                                                          textAlign: TextAlign.center,
+                                                          onChanged: (value) => _calculerTotaux(),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  SizedBox(
+                                                    width: 100,
+                                                    height: 25,
+                                                    child: TextField(
+                                                      controller: TextEditingController(
+                                                        text: _calculateTvaAmount(),
+                                                      ),
+                                                      decoration: const InputDecoration(
+                                                        border: OutlineInputBorder(),
+                                                        contentPadding:
+                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                        fillColor: Colors.white,
+                                                        filled: true,
+                                                      ),
+                                                      style: const TextStyle(fontSize: 12),
+                                                      textAlign: TextAlign.right,
+                                                      readOnly: true,
                                                     ),
-                                                    style: const TextStyle(fontSize: 12),
-                                                    textAlign: TextAlign.center,
-                                                    onChanged: (value) => _calculerTotaux(),
                                                   ),
-                                                ),
-                                              ],
-                                            ),
-                                            SizedBox(
-                                              width: 100,
-                                              height: 25,
-                                              child: TextField(
-                                                controller: TextEditingController(
-                                                  text: _calculateTvaAmount(),
-                                                ),
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: Colors.white,
-                                                  filled: true,
-                                                ),
-                                                style: const TextStyle(fontSize: 12),
-                                                textAlign: TextAlign.right,
-                                                readOnly: true,
+                                                ],
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                        const Divider(height: 16),
-                                        // Total TTC
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            const Text('TOTAL TTC:',
-                                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                            SizedBox(
-                                              width: 100,
-                                              height: 30,
-                                              child: TextField(
-                                                controller: _totalTTCController,
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                ),
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.blue,
-                                                ),
-                                                textAlign: TextAlign.right,
-                                                readOnly: true,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // Reste à payer
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            const Text('Reste à payer:',
-                                                style: TextStyle(fontSize: 12, color: Colors.red)),
-                                            SizedBox(
-                                              width: 100,
-                                              height: 25,
-                                              child: TextField(
-                                                controller: _resteController,
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: Colors.white,
-                                                  filled: true,
-                                                ),
-                                                style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.red,
-                                                    fontWeight: FontWeight.w500),
-                                                textAlign: TextAlign.right,
-                                                readOnly: true,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        if (_selectedModePaiement == 'Espèces') ...[
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              const Text('Montant reçu:', style: TextStyle(fontSize: 12)),
-                                              SizedBox(
-                                                width: 100,
-                                                height: 25,
-                                                child: TextField(
-                                                  controller: _montantRecuController,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                    fillColor: Colors.white,
-                                                    filled: true,
+                                              const Divider(height: 16),
+                                              // Total TTC
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  const Text('TOTAL TTC:',
+                                                      style: TextStyle(
+                                                          fontSize: 13, fontWeight: FontWeight.bold)),
+                                                  SizedBox(
+                                                    width: 100,
+                                                    height: 30,
+                                                    child: TextField(
+                                                      controller: _totalTTCController,
+                                                      decoration: const InputDecoration(
+                                                        border: OutlineInputBorder(),
+                                                        contentPadding:
+                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                      ),
+                                                      style: const TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.blue,
+                                                      ),
+                                                      textAlign: TextAlign.right,
+                                                      readOnly: true,
+                                                    ),
                                                   ),
-                                                  style: const TextStyle(fontSize: 12),
-                                                  textAlign: TextAlign.right,
-                                                  onChanged: (value) => _calculerMonnaie(),
-                                                ),
+                                                ],
                                               ),
+                                              const SizedBox(height: 8),
+                                              // Reste à payer
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  const Text('Reste à payer:',
+                                                      style: TextStyle(fontSize: 12, color: Colors.red)),
+                                                  SizedBox(
+                                                    width: 100,
+                                                    height: 25,
+                                                    child: TextField(
+                                                      controller: _resteController,
+                                                      decoration: const InputDecoration(
+                                                        border: OutlineInputBorder(),
+                                                        contentPadding:
+                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                        fillColor: Colors.white,
+                                                        filled: true,
+                                                      ),
+                                                      style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: Colors.red,
+                                                          fontWeight: FontWeight.w500),
+                                                      textAlign: TextAlign.right,
+                                                      readOnly: true,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              if (_selectedModePaiement == 'Espèces') ...[
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    const Text('Montant reçu:',
+                                                        style: TextStyle(fontSize: 12)),
+                                                    SizedBox(
+                                                      width: 100,
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _montantRecuController,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 4, vertical: 2),
+                                                          fillColor: Colors.white,
+                                                          filled: true,
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                        textAlign: TextAlign.right,
+                                                        onChanged: (value) => _calculerMonnaie(),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    const Text('Monnaie à rendre:',
+                                                        style: TextStyle(fontSize: 12, color: Colors.green)),
+                                                    SizedBox(
+                                                      width: 100,
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _montantARendreController,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 4, vertical: 2),
+                                                          fillColor: Color(0xFFF0F8FF),
+                                                          filled: true,
+                                                        ),
+                                                        style: const TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.green,
+                                                            fontWeight: FontWeight.w500),
+                                                        textAlign: TextAlign.right,
+                                                        readOnly: true,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ]
                                             ],
                                           ),
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // Action buttons
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      Tooltip(
+                                        message: 'Valider vente (Ctrl+S)',
+                                        child: ElevatedButton(
+                                          onPressed: _lignesVente.isNotEmpty ? _validerVente : null,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _statutVente == StatutVente.brouillard
+                                                ? Colors.orange
+                                                : Colors.green,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(80, 32),
+                                          ),
+                                          child: Text(
+                                              _statutVente == StatutVente.brouillard
+                                                  ? 'Brouillard'
+                                                  : 'Valider',
+                                              style: const TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+                                      Tooltip(
+                                        message: 'Contre-passer (Ctrl+D)',
+                                        child: ElevatedButton(
+                                          onPressed: _isExistingPurchase ? _contrePasserVente : null,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(100, 32),
+                                          ),
+                                          child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+                                      Tooltip(
+                                        message: 'Valider brouillard (F3)',
+                                        child: ElevatedButton(
+                                          onPressed:
+                                              _peutValiderBrouillard() ? _validerBrouillardVersJournal : null,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.purple,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(120, 32),
+                                          ),
+                                          child: const Text('Valider Brouillard',
+                                              style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+                                      Tooltip(
+                                        message: 'Créer nouvelle vente (Ctrl+N)',
+                                        child: ElevatedButton(
+                                          onPressed: () => _creerNouvelleVente(),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.blue,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(80, 32),
+                                          ),
+                                          child: const Text('Créer', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+                                      Tooltip(
+                                        message: 'Aperçu facture (Ctrl+P)',
+                                        child: ElevatedButton(
+                                          onPressed: _lignesVente.isNotEmpty ? _apercuFacture : null,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.orange,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(100, 32),
+                                          ),
+                                          child: const Text('Aperçu Facture', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+                                      Tooltip(
+                                        message: 'Aperçu BL (Ctrl+B)',
+                                        child: ElevatedButton(
+                                          onPressed: _lignesVente.isNotEmpty ? _apercuBL : null,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.teal,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(80, 32),
+                                          ),
+                                          child: const Text('Aperçu BL', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+                                      PopupMenuButton<String>(
+                                        initialValue: _selectedFormat,
+                                        onSelected: (String format) {
+                                          setState(() {
+                                            _selectedFormat = format;
+                                          });
+                                        },
+                                        itemBuilder: (BuildContext context) => [
+                                          const PopupMenuItem(
+                                            value: 'A4',
+                                            child: Text('Format A4', style: TextStyle(fontSize: 12)),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'A5',
+                                            child: Text('Format A5', style: TextStyle(fontSize: 12)),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'A6',
+                                            child: Text('Format A6', style: TextStyle(fontSize: 12)),
+                                          ),
+                                        ],
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.brown,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
-                                              const Text('Monnaie à rendre:',
-                                                  style: TextStyle(fontSize: 12, color: Colors.green)),
-                                              SizedBox(
-                                                width: 100,
-                                                height: 25,
-                                                child: TextField(
-                                                  controller: _montantARendreController,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                    fillColor: Color(0xFFF0F8FF),
-                                                    filled: true,
-                                                  ),
-                                                  style: const TextStyle(
-                                                      fontSize: 12,
-                                                      color: Colors.green,
-                                                      fontWeight: FontWeight.w500),
-                                                  textAlign: TextAlign.right,
-                                                  readOnly: true,
-                                                ),
-                                              ),
+                                              const Icon(Icons.format_size, color: Colors.white, size: 16),
+                                              const SizedBox(width: 4),
+                                              Text(_selectedFormat,
+                                                  style: const TextStyle(color: Colors.white, fontSize: 12)),
+                                              const SizedBox(width: 4),
+                                              const Icon(Icons.arrow_drop_down,
+                                                  color: Colors.white, size: 16),
                                             ],
                                           ),
-                                        ]
-                                      ],
-                                    ),
+                                        ),
+                                      ),
+                                      Tooltip(
+                                        message: 'Fermer (Escape)',
+                                        child: ElevatedButton(
+                                          onPressed: () => Navigator.of(context).pop(),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.grey,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(80, 32),
+                                          ),
+                                          child: const Text('Fermer', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-
-                          // Action buttons
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                ElevatedButton(
-                                  onPressed: _lignesVente.isNotEmpty ? _validerVente : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        _statutVente == StatutVente.brouillard ? Colors.orange : Colors.green,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(80, 32),
-                                  ),
-                                  child: Text(
-                                      _statutVente == StatutVente.brouillard ? 'Brouillard' : 'Valider',
-                                      style: const TextStyle(fontSize: 12)),
-                                ),
-                                ElevatedButton(
-                                  onPressed: _isExistingPurchase ? _contrePasserVente : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.red,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(100, 32),
-                                  ),
-                                  child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
-                                ),
-                                ElevatedButton(
-                                  onPressed: _peutValiderBrouillard() ? _validerBrouillardVersJournal : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.purple,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(120, 32),
-                                  ),
-                                  child: const Text('Valider Brouillard', style: TextStyle(fontSize: 12)),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => _creerNouvelleVente(),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(80, 32),
-                                  ),
-                                  child: const Text('Créer', style: TextStyle(fontSize: 12)),
-                                ),
-                                ElevatedButton(
-                                  onPressed: _lignesVente.isNotEmpty ? _apercuFacture : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.orange,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(100, 32),
-                                  ),
-                                  child: const Text('Aperçu Facture', style: TextStyle(fontSize: 12)),
-                                ),
-                                ElevatedButton(
-                                  onPressed: _lignesVente.isNotEmpty ? _apercuBL : null,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.teal,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(80, 32),
-                                  ),
-                                  child: const Text('Aperçu BL', style: TextStyle(fontSize: 12)),
-                                ),
-                                PopupMenuButton<String>(
-                                  initialValue: _selectedFormat,
-                                  onSelected: (String format) {
-                                    setState(() {
-                                      _selectedFormat = format;
-                                    });
-                                  },
-                                  itemBuilder: (BuildContext context) => [
-                                    const PopupMenuItem(
-                                      value: 'A4',
-                                      child: Text('Format A4', style: TextStyle(fontSize: 12)),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'A5',
-                                      child: Text('Format A5', style: TextStyle(fontSize: 12)),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'A6',
-                                      child: Text('Format A6', style: TextStyle(fontSize: 12)),
-                                    ),
-                                  ],
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.brown,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.format_size, color: Colors.white, size: 16),
-                                        const SizedBox(width: 4),
-                                        Text(_selectedFormat,
-                                            style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                        const SizedBox(width: 4),
-                                        const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                ElevatedButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(80, 32),
-                                  ),
-                                  child: const Text('Fermer', style: TextStyle(fontSize: 12)),
                                 ),
                               ],
                             ),
@@ -3062,7 +3333,7 @@ class _VentesModalState extends State<VentesModal> {
                   ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),

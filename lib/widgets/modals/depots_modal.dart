@@ -29,22 +29,26 @@ class _DepotsModalState extends State<DepotsModal> {
     return PopScope(
       canPop: false,
       child: Dialog(
-        backgroundColor: Colors.grey[100],
+        backgroundColor: Colors.transparent,
         child: GestureDetector(
           onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[400]!),
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha:0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
-            width: 500,
-            height: 400,
+            width: 600,
+            height: 500,
             child: Column(
               children: [
                 _buildHeader(),
-                _buildTitle(),
                 _buildContent(),
                 _buildButtons(),
               ],
@@ -57,114 +61,237 @@ class _DepotsModalState extends State<DepotsModal> {
 
   Widget _buildHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade600,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
       ),
       child: Row(
         children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha:0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(
+              Icons.home_work,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
           const Text(
-            'DEPOTS',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            'Gestion des Dépôts',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
           ),
           const Spacer(),
           IconButton(
             onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
+            icon: const Icon(Icons.close, color: Colors.white),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha:0.2),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTitle() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.orange[300],
-        border: Border.all(color: Colors.grey[600]!),
-      ),
-      child: const Text(
-        'DEPOTS',
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
+
 
   Widget _buildContent() {
     return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[400]!),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Section d'ajout
             Container(
-              height: 25,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.grey[200],
-                border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade200),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(
-                    width: 20,
-                    child: Icon(Icons.arrow_right, size: 16),
-                  ),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _controller,
-                      style: const TextStyle(fontSize: 11),
-                      decoration: const InputDecoration(
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                        isDense: true,
+                  Row(
+                    children: [
+                      Icon(Icons.add_circle_outline, 
+                           color: Colors.blue.shade600, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Ajouter un nouveau dépôt',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                      onFieldSubmitted: (_) => _addDepot(),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      hintText: 'Nom du dépôt',
+                      prefixIcon: const Icon(Icons.home_work, size: 20),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.blue.shade600),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     ),
+                    onFieldSubmitted: (_) => _addDepot(),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 20),
+            // Liste des dépôts
+            Row(
+              children: [
+                Icon(Icons.list, color: Colors.grey.shade600, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Liste des dépôts',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  '${_filteredDepots.length} dépôt(s)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             Expanded(
-              child: ListView.builder(
-                itemCount: _filteredDepots.length,
-                itemBuilder: (context, index) {
-                  final depot = _filteredDepots[index];
-                  final isSelected = _selectedDepot?.depots == depot.depots;
-                  return GestureDetector(
-                    onTap: () => _selectDepot(depot),
-                    child: Container(
-                      height: 20,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: isSelected ? Colors.blue[600] : Colors.white,
-                        border: Border(bottom: BorderSide(color: Colors.grey[300]!, width: 0.5)),
-                      ),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            child: isSelected
-                                ? const Icon(Icons.arrow_right, size: 16, color: Colors.white)
-                                : null,
-                          ),
-                          Expanded(
-                            child: Text(
-                              depot.depots,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: _filteredDepots.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.home_work_outlined,
+                              size: 48,
+                              color: Colors.grey.shade400,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Aucun dépôt trouvé',
                               style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected ? Colors.white : Colors.black,
+                                fontSize: 14,
+                                color: Colors.grey.shade600,
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _filteredDepots.length,
+                        itemBuilder: (context, index) {
+                          final depot = _filteredDepots[index];
+                          final isSelected = _selectedDepot?.depots == depot.depots;
+                          return Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _selectDepot(depot),
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isSelected 
+                                        ? Colors.blue.shade50 
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: isSelected 
+                                        ? Border.all(color: Colors.blue.shade200)
+                                        : null,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: isSelected 
+                                              ? Colors.blue.shade600
+                                              : Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Icon(
+                                          Icons.home_work,
+                                          size: 16,
+                                          color: isSelected 
+                                              ? Colors.white
+                                              : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          depot.depots,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: isSelected 
+                                                ? FontWeight.w500 
+                                                : FontWeight.normal,
+                                            color: isSelected 
+                                                ? Colors.blue.shade700
+                                                : Colors.grey.shade800,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        Icon(
+                                          Icons.check_circle,
+                                          color: Colors.blue.shade600,
+                                          size: 20,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    ),
-                  );
-                },
               ),
             ),
           ],
@@ -175,94 +302,102 @@ class _DepotsModalState extends State<DepotsModal> {
 
   Widget _buildButtons() {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16),
+        ),
+      ),
       child: Row(
         children: [
-          _buildNavButton(Icons.first_page, _goToFirst),
-          _buildNavButton(Icons.chevron_left, _goToPrevious),
-          _buildNavButton(Icons.chevron_right, _goToNext),
-          _buildNavButton(Icons.last_page, _goToLast),
-          const SizedBox(width: 8),
+          // Navigation buttons
+          Row(
+            children: [
+              _buildNavButton(Icons.first_page, _goToFirst, 'Premier'),
+              const SizedBox(width: 4),
+              _buildNavButton(Icons.chevron_left, _goToPrevious, 'Précédent'),
+              const SizedBox(width: 4),
+              _buildNavButton(Icons.chevron_right, _goToNext, 'Suivant'),
+              const SizedBox(width: 4),
+              _buildNavButton(Icons.last_page, _goToLast, 'Dernier'),
+            ],
+          ),
+          const SizedBox(width: 16),
+          // Search field
           Expanded(
-            child: Container(
-              height: 20,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[400]!),
-                color: Colors.white,
-              ),
-              child: TextFormField(
-                controller: _searchController,
-                style: const TextStyle(fontSize: 11),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  isDense: true,
+            child: TextFormField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Rechercher un dépôt...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 20),
+                        onPressed: () {
+                          _searchController.clear();
+                          _searchDepots();
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
                 ),
-                onChanged: _filterDepots,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.blue.shade600),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 12),
+              ),
+              onChanged: _filterDepots,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Action buttons
+          ElevatedButton.icon(
+            onPressed: _addDepot,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Ajouter'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade600,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
             ),
           ),
-          const SizedBox(width: 4),
-          Container(
-            height: 20,
-            // width: 60,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[600]!),
-            ),
-            child: TextButton(
-              onPressed: _searchDepots,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Afficher tous',
-                style: TextStyle(fontSize: 12, color: Colors.black),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Container(
-          //   height: 24,
-          //   padding: const EdgeInsets.symmetric(horizontal: 12),
-          //   decoration: BoxDecoration(
-          //     color: Colors.grey[300],
-          //     border: Border.all(color: Colors.grey[600]!),
-          //   ),
-          //   child: TextButton(
-          //     onPressed: () => Navigator.of(context).pop(),
-          //     style: TextButton.styleFrom(
-          //       padding: EdgeInsets.zero,
-          //       minimumSize: Size.zero,
-          //       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          //     ),
-          //     child: const Text(
-          //       'Fermer',
-          //       style: TextStyle(fontSize: 12, color: Colors.black),
-          //     ),
-          //   ),
-          // ),
         ],
       ),
     );
   }
 
-  Widget _buildNavButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      width: 20,
-      height: 20,
-      margin: const EdgeInsets.only(right: 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
-        color: Colors.grey[200],
-      ),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 12),
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(),
+  Widget _buildNavButton(IconData icon, VoidCallback onPressed, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(6),
+          color: Colors.white,
+        ),
+        child: IconButton(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 16, color: Colors.grey.shade600),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
       ),
     );
   }
