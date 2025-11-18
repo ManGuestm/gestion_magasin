@@ -54,7 +54,7 @@ class StockManagementService {
       final stocksCompanion = StocksCompanion.insert(
         ref: ref,
         daty: Value(DateTime.now()),
-        lib: Value(mouvement.libelle),
+        lib: Value(mouvement.libelle ?? '${_getLibelleType(mouvement.type)} - ${mouvement.refArticle}'),
         refart: Value(mouvement.refArticle),
         depots: Value(mouvement.depot),
         cmup: Value(cmup),
@@ -64,19 +64,19 @@ class StockManagementService {
         us: Value(mouvement.uniteSortie),
         numachats: Value(mouvement.type == TypeMouvement.entree ? mouvement.numeroDocument : null),
         numventes: Value(mouvement.type == TypeMouvement.sortie ? mouvement.numeroDocument : null),
-        nfact: Value(mouvement.numeroDocument),
-        qe: Value(mouvement.type == TypeMouvement.entree ? mouvement.quantite : null),
-        entres: Value(mouvement.type == TypeMouvement.entree ? mouvement.quantite : null),
-        qs: Value(mouvement.type == TypeMouvement.sortie ? mouvement.quantite : null),
-        sortie: Value(mouvement.type == TypeMouvement.sortie ? mouvement.quantite : null),
+        qe: Value(mouvement.type == TypeMouvement.entree ? mouvement.quantite : 0),
+        entres: Value(mouvement.type == TypeMouvement.entree ? mouvement.quantite : 0),
+        qs: Value(mouvement.type == TypeMouvement.sortie ? mouvement.quantite : 0),
+        sortie: Value(mouvement.type == TypeMouvement.sortie ? mouvement.quantite : 0),
         pus: Value(mouvement.prixUnitaire),
-        verification: const Value('AUTO'),
+        verification: Value(_getVerificationType(mouvement.type)),
       );
       
-      await database.into(database.stocks).insert(stocksCompanion);
+      await database.insertStock(stocksCompanion);
       
-      // Mettre à jour les stocks dans depart
+      // Mettre à jour les stocks dans depart et articles
       await _mettreAJourStockDepart(mouvement);
+      await _mettreAJourStockArticle(mouvement);
     });
   }
 
@@ -133,30 +133,60 @@ class StockManagementService {
   Future<void> _mettreAJourStockDepart(StockMovement mouvement) async {
     final database = _db.database;
     
-    // Récupérer le stock actuel
-    final stockActuel = await (database.select(database.depart)
-      ..where((d) => d.designation.equals(mouvement.refArticle) & d.depots.equals(mouvement.depot)))
-      .getSingleOrNull();
+    // Récupérer le stock actuel par dépôt
+    final stockActuel = await database.customSelect(
+      'SELECT * FROM depart WHERE designation = ? AND depots = ?',
+      variables: [Variable(mouvement.refArticle), Variable(mouvement.depot)]
+    ).getSingleOrNull();
+    
+    final nouveauStock = _calculerNouveauStock(
+      stockActuel?.read<double?>('stocksu1') ?? 0, 
+      mouvement
+    );
     
     if (stockActuel == null) {
-      // Créer nouveau stock
-      await database.into(database.depart).insert(DepartCompanion.insert(
-        designation: mouvement.refArticle,
-        depots: mouvement.depot,
-        stocksu1: Value(_calculerNouveauStock(0, mouvement)),
-        stocksu2: const Value(0),
-        stocksu3: const Value(0),
-      ));
+      // Créer nouveau stock par dépôt
+      await database.customStatement(
+        'INSERT INTO depart (designation, depots, stocksu1, stocksu2, stocksu3) VALUES (?, ?, ?, 0, 0)',
+        [mouvement.refArticle, mouvement.depot, nouveauStock]
+      );
     } else {
       // Mettre à jour stock existant
-      final nouveauStock = _calculerNouveauStock(stockActuel.stocksu1 ?? 0, mouvement);
-      
-      await (database.update(database.depart)
-        ..where((d) => d.designation.equals(mouvement.refArticle) & d.depots.equals(mouvement.depot)))
-        .write(DepartCompanion(
-          stocksu1: Value(nouveauStock),
-        ));
+      await database.customStatement(
+        'UPDATE depart SET stocksu1 = ? WHERE designation = ? AND depots = ?',
+        [nouveauStock, mouvement.refArticle, mouvement.depot]
+      );
     }
+  }
+
+  Future<void> _mettreAJourStockArticle(StockMovement mouvement) async {
+    final database = _db.database;
+    
+    // Récupérer l'article
+    final article = await database.getArticleByDesignation(mouvement.refArticle);
+    if (article == null) return;
+    
+    // Calculer le nouveau stock global
+    final stockActuel = article.stocksu1 ?? 0;
+    final nouveauStock = _calculerNouveauStock(stockActuel, mouvement);
+    
+    // Calculer le nouveau CMUP si c'est une entrée
+    double? nouveauCmup;
+    if (mouvement.type == TypeMouvement.entree) {
+      final ancienneValeur = stockActuel * (article.cmup ?? 0);
+      final nouvelleValeur = mouvement.quantite * mouvement.prixUnitaire;
+      final quantiteTotale = stockActuel + mouvement.quantite;
+      
+      if (quantiteTotale > 0) {
+        nouveauCmup = (ancienneValeur + nouvelleValeur) / quantiteTotale;
+      }
+    }
+    
+    // Mettre à jour l'article
+    await database.customStatement(
+      'UPDATE articles SET stocksu1 = ?, cmup = ? WHERE designation = ?',
+      [nouveauStock, nouveauCmup ?? article.cmup, mouvement.refArticle]
+    );
   }
 
   double _calculerNouveauStock(double stockActuel, StockMovement mouvement) {
@@ -189,28 +219,56 @@ class StockManagementService {
   Future<Map<String, double>> getStockParDepot(String refArticle) async {
     final database = _db.database;
     
-    final stocks = await (database.select(database.depart)
-      ..where((d) => d.designation.equals(refArticle)))
-      .get();
+    final result = await database.customSelect(
+      'SELECT depots, stocksu1 FROM depart WHERE designation = ?',
+      variables: [Variable(refArticle)]
+    ).get();
     
     return {
-      for (final stock in stocks)
-        stock.depots: stock.stocksu1 ?? 0
+      for (final row in result)
+        row.read<String>('depots'): row.read<double?>('stocksu1') ?? 0
     };
   }
 
   Future<double> getStockDisponible(String refArticle, String depot) async {
     final database = _db.database;
     
-    final stock = await (database.select(database.depart)
-      ..where((d) => d.designation.equals(refArticle) & d.depots.equals(depot)))
-      .getSingleOrNull();
+    final result = await database.customSelect(
+      'SELECT stocksu1 FROM depart WHERE designation = ? AND depots = ?',
+      variables: [Variable(refArticle), Variable(depot)]
+    ).getSingleOrNull();
     
-    return stock?.stocksu1 ?? 0;
+    return result?.read<double?>('stocksu1') ?? 0;
   }
 
   Future<bool> verifierStockSuffisant(String refArticle, String depot, double quantiteDemandee) async {
     final stockDisponible = await getStockDisponible(refArticle, depot);
     return stockDisponible >= quantiteDemandee;
+  }
+
+  String _getLibelleType(TypeMouvement type) {
+    switch (type) {
+      case TypeMouvement.entree:
+        return 'Entrée';
+      case TypeMouvement.sortie:
+        return 'Sortie';
+      case TypeMouvement.transfert:
+        return 'Transfert';
+      case TypeMouvement.inventaire:
+        return 'Inventaire';
+    }
+  }
+
+  String _getVerificationType(TypeMouvement type) {
+    switch (type) {
+      case TypeMouvement.entree:
+        return 'ENTREE';
+      case TypeMouvement.sortie:
+        return 'SORTIE';
+      case TypeMouvement.transfert:
+        return 'TRANSFERT';
+      case TypeMouvement.inventaire:
+        return 'INVENTAIRE';
+    }
   }
 }

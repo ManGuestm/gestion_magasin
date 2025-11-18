@@ -1182,6 +1182,7 @@ class AppDatabase extends _$AppDatabase {
           ligne['unites'],
           ligne['quantite'],
           ligne['article'],
+          vente.numventes.value ?? '',
         );
       }
 
@@ -1202,39 +1203,45 @@ class AppDatabase extends _$AppDatabase {
     String unite,
     double quantite,
     Article article,
+    String numVente,
   ) async {
     // 1. Mettre à jour le stock par dépôt (table depart)
-    final stockDepart = await (select(depart)
-          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-        .getSingleOrNull();
+    final stockDepart = await customSelect(
+      'SELECT * FROM depart WHERE designation = ? AND depots = ?',
+      variables: [Variable(designation), Variable(depot)]
+    ).getSingleOrNull();
+
+    // Convertir la quantité vendue selon l'unité
+    double quantiteU1 = 0, quantiteU2 = 0;
+
+    if (unite == article.u1) {
+      quantiteU1 = quantite;
+    } else if (unite == article.u2 && article.tu2u1 != null) {
+      quantiteU1 = quantite / article.tu2u1!;
+      quantiteU2 = quantite;
+    } else if (unite == article.u2) {
+      quantiteU2 = quantite;
+    }
 
     if (stockDepart != null) {
-      // Convertir la quantité vendue selon l'unité
-      double quantiteU1 = 0, quantiteU2 = 0;
-
-      if (unite == article.u1) {
-        quantiteU1 = quantite;
-      } else if (unite == article.u2 && article.tu2u1 != null) {
-        quantiteU1 = quantite / article.tu2u1!;
-        quantiteU2 = quantite;
-      } else if (unite == article.u2) {
-        quantiteU2 = quantite;
-      }
-
       // Déduire du stock du dépôt
-      await (update(depart)..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-          .write(DepartCompanion(
-        stocksu1: Value((stockDepart.stocksu1 ?? 0) - quantiteU1),
-        stocksu2: Value((stockDepart.stocksu2 ?? 0) - quantiteU2),
-      ));
+      final stockU1Actuel = stockDepart.read<double?>('stocksu1') ?? 0;
+      final stockU2Actuel = stockDepart.read<double?>('stocksu2') ?? 0;
+      
+      await customStatement(
+        'UPDATE depart SET stocksu1 = ?, stocksu2 = ? WHERE designation = ? AND depots = ?',
+        [stockU1Actuel - quantiteU1, stockU2Actuel - quantiteU2, designation, depot]
+      );
     }
 
     // 2. Mettre à jour le stock global (table articles)
-    await (update(articles)..where((a) => a.designation.equals(designation))).write(ArticlesCompanion(
-      stocksu1:
-          Value((article.stocksu1 ?? 0) - (unite == article.u1 ? quantite : quantite / (article.tu2u1 ?? 1))),
-      stocksu2: Value((article.stocksu2 ?? 0) - (unite == article.u2 ? quantite : 0)),
-    ));
+    final stockGlobalU1 = (article.stocksu1 ?? 0) - quantiteU1;
+    final stockGlobalU2 = (article.stocksu2 ?? 0) - quantiteU2;
+    
+    await customStatement(
+      'UPDATE articles SET stocksu1 = ?, stocksu2 = ? WHERE designation = ?',
+      [stockGlobalU1, stockGlobalU2, designation]
+    );
 
     // 3. Créer un mouvement de stock dans la table stocks
     await _creerMouvementStock(
@@ -1243,7 +1250,7 @@ class AppDatabase extends _$AppDatabase {
       unite: unite,
       quantiteSortie: quantite,
       type: 'VENTE',
-      numVente: '',
+      numVente: numVente,
     );
   }
 
@@ -1251,10 +1258,27 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _mettreAJourSoldeClient(String rsocClient, double montant) async {
     final client = await getClientByRsoc(rsocClient);
     if (client != null) {
-      await (update(clt)..where((c) => c.rsoc.equals(rsocClient))).write(CltCompanion(
-        soldes: Value((client.soldes ?? 0) + montant),
-        datedernop: Value(DateTime.now()),
-      ));
+      final nouveauSolde = (client.soldes ?? 0) + montant;
+      await customStatement(
+        'UPDATE clt SET soldes = ?, datedernop = ? WHERE rsoc = ?',
+        [nouveauSolde, DateTime.now().toIso8601String(), rsocClient]
+      );
+      
+      // Créer un mouvement dans compteclt
+      final ref = 'CLT${DateTime.now().millisecondsSinceEpoch}';
+      await customStatement(
+        '''INSERT INTO compteclt (ref, daty, lib, entres, sorties, solde, clt)
+           VALUES (?, ?, ?, ?, ?, ?, ?)''',
+        [
+          ref,
+          DateTime.now().toIso8601String(),
+          'Vente à crédit',
+          montant > 0 ? montant : 0,
+          montant < 0 ? -montant : 0,
+          nouveauSolde,
+          rsocClient
+        ]
+      );
     }
   }
 
@@ -1271,22 +1295,26 @@ class AppDatabase extends _$AppDatabase {
   }) async {
     final ref = 'MVT${DateTime.now().millisecondsSinceEpoch}';
 
-    await into(stocks).insert(StocksCompanion(
-      ref: Value(ref),
-      daty: Value(DateTime.now()),
-      lib: Value('$type - $designation'),
-      refart: Value(designation),
-      qe: Value(quantiteEntree ?? 0),
-      qs: Value(quantiteSortie ?? 0),
-      entres: Value(quantiteEntree ?? 0),
-      sortie: Value(quantiteSortie ?? 0),
-      ue: Value(unite),
-      us: Value(unite),
-      depots: Value(depot),
-      numventes: numVente != null ? Value(numVente) : const Value.absent(),
-      numachats: numAchat != null ? Value(numAchat) : const Value.absent(),
-      verification: Value(type),
-    ));
+    await customStatement(
+      '''INSERT INTO stocks (ref, daty, lib, refart, qe, qs, entres, sortie, ue, us, depots, numventes, numachats, verification)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+      [
+        ref,
+        DateTime.now().toIso8601String(),
+        '$type - $designation',
+        designation,
+        quantiteEntree ?? 0,
+        quantiteSortie ?? 0,
+        quantiteEntree ?? 0,
+        quantiteSortie ?? 0,
+        unite,
+        unite,
+        depot,
+        numVente,
+        numAchat,
+        type
+      ]
+    );
   }
 
   // ========== MÉTHODES SPÉCIALISÉES STOCKS ==========

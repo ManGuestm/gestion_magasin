@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' as drift;
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
@@ -55,6 +55,125 @@ class _MouvementStockModalState extends State<MouvementStockModal> with FormNavi
     WidgetsBinding.instance.addPostFrameCallback((_) {
       focusFirstField();
     });
+  }
+
+  Future<void> _chargerDepots() async {
+    try {
+      final depots = await _databaseService.database.getAllDepots();
+      setState(() {
+        _depotsDisponibles = depots.map((d) => d.depots).toList();
+      });
+    } catch (e) {
+      debugPrint('Erreur chargement dépôts: $e');
+    }
+  }
+
+  Future<void> _chargerUnitesArticle() async {
+    if (_refArticleController.text.isEmpty) return;
+
+    try {
+      final article = await _databaseService.database.getArticleByDesignation(_refArticleController.text);
+      if (article != null) {
+        final unites = <String>[];
+        if (article.u1?.isNotEmpty == true) unites.add(article.u1!);
+        if (article.u2?.isNotEmpty == true) unites.add(article.u2!);
+        if (article.u3?.isNotEmpty == true) unites.add(article.u3!);
+
+        setState(() {
+          _unitesDisponibles = unites;
+          if (unites.isNotEmpty) {
+            _uniteEntree = unites.first;
+            _uniteSortie = unites.first;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Erreur chargement unités: $e');
+    }
+  }
+
+  Future<void> _enregistrerMouvement() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedDepot == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez sélectionner un dépôt')),
+      );
+      return;
+    }
+
+    try {
+      final ref = 'MVT${DateTime.now().millisecondsSinceEpoch}';
+      final quantite = double.parse(_quantiteController.text);
+      final prix = double.parse(_prixController.text);
+
+      // Créer le mouvement de stock
+      final stockCompanion = StocksCompanion.insert(
+        ref: ref,
+        daty: Value(DateTime.now()),
+        lib: Value(_libelleController.text.isEmpty
+            ? '${_typeMouvement == TypeMouvement.entree ? "Entrée" : "Sortie"} - ${_refArticleController.text}'
+            : _libelleController.text),
+        refart: Value(_refArticleController.text),
+        depots: Value(_selectedDepot!),
+        qe: Value(_typeMouvement == TypeMouvement.entree ? quantite : 0),
+        entres: Value(_typeMouvement == TypeMouvement.entree ? quantite : 0),
+        qs: Value(_typeMouvement == TypeMouvement.sortie ? quantite : 0),
+        sortie: Value(_typeMouvement == TypeMouvement.sortie ? quantite : 0),
+        pus: Value(prix),
+        ue: Value(_uniteEntree ?? _unitesDisponibles.first),
+        us: Value(_uniteSortie ?? _unitesDisponibles.first),
+        numachats: Value(_numeroDocController.text.isEmpty ? null : _numeroDocController.text),
+        numventes: Value(_numeroDocController.text.isEmpty ? null : _numeroDocController.text),
+        clt: Value(_clientController.text.isEmpty ? null : _clientController.text),
+        frns: Value(_fournisseurController.text.isEmpty ? null : _fournisseurController.text),
+        verification: Value(_typeMouvement == TypeMouvement.entree ? 'ENTREE' : 'SORTIE'),
+      );
+
+      await _databaseService.database.insertStock(stockCompanion);
+
+      // Mettre à jour le stock par dépôt
+      await _mettreAJourStockDepart();
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Mouvement enregistré avec succès')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _mettreAJourStockDepart() async {
+    final designation = _refArticleController.text;
+    final depot = _selectedDepot!;
+    final quantite = double.parse(_quantiteController.text);
+
+    // Récupérer le stock actuel
+    final stockActuel = await _databaseService.database.customSelect(
+        'SELECT * FROM depart WHERE designation = ? AND depots = ?',
+        variables: [Variable(designation), Variable(depot)]).getSingleOrNull();
+
+    if (stockActuel == null) {
+      // Créer nouveau stock
+      await _databaseService.database.customStatement(
+          'INSERT INTO depart (designation, depots, stocksu1, stocksu2, stocksu3) VALUES (?, ?, ?, 0, 0)',
+          [designation, depot, _typeMouvement == TypeMouvement.entree ? quantite : -quantite]);
+    } else {
+      // Mettre à jour stock existant
+      final stockU1Actuel = stockActuel.read<double?>('stocksu1') ?? 0;
+      final nouveauStock =
+          _typeMouvement == TypeMouvement.entree ? stockU1Actuel + quantite : stockU1Actuel - quantite;
+
+      await _databaseService.database.customStatement(
+          'UPDATE depart SET stocksu1 = ? WHERE designation = ? AND depots = ?',
+          [nouveauStock, designation, depot]);
+    }
   }
 
   @override
@@ -128,7 +247,6 @@ class _MouvementStockModalState extends State<MouvementStockModal> with FormNavi
                 label: 'N° Document',
               ),
               const SizedBox(height: 16),
-
               buildFormField(
                 controller: _libelleController,
                 label: 'Libellé',
@@ -251,229 +369,6 @@ class _MouvementStockModalState extends State<MouvementStockModal> with FormNavi
         return 'Sortie Stock';
       default:
         return 'Mouvement';
-    }
-  }
-
-  Future<void> _enregistrerMouvement() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    try {
-      final designation = _refArticleController.text;
-      final depot = _selectedDepot ?? '';
-      final quantite = double.parse(_quantiteController.text);
-      final prix = double.parse(_prixController.text);
-      final unite = _uniteEntree ?? '';
-      final libelle = _libelleController.text.isEmpty
-          ? 'Mouvement ${_getTypeLabel(_typeMouvement)}'
-          : _libelleController.text;
-
-      await _databaseService.database.transaction(() async {
-        // 1. Enregistrer dans la table stocks (historique)
-        await _enregistrerDansStocks(designation, depot, quantite, prix, unite, libelle);
-
-        // 2. Mettre à jour la table fstocks (fiche stock)
-        await _mettreAJourFstocks(designation, quantite, unite);
-
-        // 3. Mettre à jour la table articles (stock global)
-        await _mettreAJourArticles(designation, quantite, unite);
-
-        // 4. Mettre à jour la table depart (stock par dépôt)
-        await _mettreAJourDepart(designation, depot, quantite, unite);
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mouvement enregistré avec succès'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        Navigator.of(context).pop(true);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _chargerDepots() async {
-    try {
-      final depots = await _databaseService.database.getAllDepots();
-      setState(() {
-        _depotsDisponibles = depots.map((d) => d.depots).toList();
-        _selectedDepot = _depotsDisponibles.isNotEmpty ? _depotsDisponibles.first : null;
-      });
-    } catch (e) {
-      setState(() {
-        _depotsDisponibles = [];
-        _selectedDepot = null;
-      });
-    }
-  }
-
-  Future<void> _chargerUnitesArticle() async {
-    if (_refArticleController.text.isEmpty) {
-      setState(() {
-        _unitesDisponibles = [];
-        _uniteEntree = null;
-        _uniteSortie = null;
-      });
-      return;
-    }
-
-    try {
-      final article = await _databaseService.database.getArticleByDesignation(_refArticleController.text);
-
-      if (article != null) {
-        final unites = <String>[];
-        if (article.u1?.isNotEmpty == true) unites.add(article.u1!);
-        if (article.u2?.isNotEmpty == true) unites.add(article.u2!);
-        if (article.u3?.isNotEmpty == true) unites.add(article.u3!);
-
-        setState(() {
-          _unitesDisponibles = unites;
-          _uniteEntree = unites.isNotEmpty ? unites.first : null;
-          _uniteSortie = unites.isNotEmpty ? unites.first : null;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _unitesDisponibles = [];
-        _uniteEntree = null;
-        _uniteSortie = null;
-      });
-    }
-  }
-
-  Future<void> _enregistrerDansStocks(
-      String designation, String depot, double quantite, double prix, String unite, String libelle) async {
-    final ref = 'MVT${DateTime.now().millisecondsSinceEpoch}';
-    final isEntree = _typeMouvement == TypeMouvement.entree;
-
-    await _databaseService.database.into(_databaseService.database.stocks).insert(
-          StocksCompanion(
-            ref: drift.Value(ref),
-            daty: drift.Value(DateTime.now()),
-            lib: drift.Value(libelle),
-            refart: drift.Value(designation),
-            qe: drift.Value(isEntree ? quantite : 0),
-            entres: drift.Value(isEntree ? quantite : 0),
-            qs: drift.Value(!isEntree ? quantite : 0),
-            sortie: drift.Value(!isEntree ? quantite : 0),
-            pus: drift.Value(prix),
-            ue: drift.Value(unite),
-            us: drift.Value(unite),
-            depots: drift.Value(depot),
-
-            verification: drift.Value(_getTypeLabel(_typeMouvement)),
-          ),
-        );
-  }
-
-  Future<void> _mettreAJourFstocks(String designation, double quantite, String unite) async {
-    final ref = 'FS_${designation}_${DateTime.now().millisecondsSinceEpoch}';
-    final isEntree = _typeMouvement == TypeMouvement.entree;
-
-    // Vérifier si une fiche existe déjà
-    final ficheExistante = await (_databaseService.database.select(_databaseService.database.fstocks)
-          ..where((f) => f.art.equals(designation)))
-        .getSingleOrNull();
-
-    if (ficheExistante != null) {
-      // Mettre à jour la fiche existante
-      final nouvelleQe = (ficheExistante.qe ?? 0) + (isEntree ? quantite : 0);
-      final nouvelleQs = (ficheExistante.qs ?? 0) + (!isEntree ? quantite : 0);
-      final nouveauQst = nouvelleQe - nouvelleQs;
-
-      await (_databaseService.database.update(_databaseService.database.fstocks)
-            ..where((f) => f.ref.equals(ficheExistante.ref)))
-          .write(FstocksCompanion(
-        qe: drift.Value(nouvelleQe),
-        qs: drift.Value(nouvelleQs),
-        qst: drift.Value(nouveauQst),
-      ));
-    } else {
-      // Créer une nouvelle fiche
-      await _databaseService.database.into(_databaseService.database.fstocks).insert(
-            FstocksCompanion(
-              ref: drift.Value(ref),
-              art: drift.Value(designation),
-              qe: drift.Value(isEntree ? quantite : 0),
-              qs: drift.Value(!isEntree ? quantite : 0),
-              qst: drift.Value(isEntree ? quantite : -quantite),
-              ue: drift.Value(unite),
-            ),
-          );
-    }
-  }
-
-  Future<void> _mettreAJourArticles(String designation, double quantite, String unite) async {
-    final article = await _databaseService.database.getArticleByDesignation(designation);
-    if (article == null) return;
-
-    final isEntree = _typeMouvement == TypeMouvement.entree;
-    final facteur = isEntree ? 1 : -1;
-
-    double deltaU1 = 0, deltaU2 = 0;
-
-    if (unite == article.u1) {
-      deltaU1 = quantite * facteur;
-    } else if (unite == article.u2) {
-      deltaU2 = quantite * facteur;
-    }
-
-    await (_databaseService.database.update(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(designation)))
-        .write(ArticlesCompanion(
-      stocksu1: drift.Value((article.stocksu1 ?? 0) + deltaU1),
-      stocksu2: drift.Value((article.stocksu2 ?? 0) + deltaU2),
-    ));
-  }
-
-  Future<void> _mettreAJourDepart(String designation, String depot, double quantite, String unite) async {
-    final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
-          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-        .getSingleOrNull();
-
-    final article = await _databaseService.database.getArticleByDesignation(designation);
-    if (article == null) return;
-
-    final isEntree = _typeMouvement == TypeMouvement.entree;
-    final facteur = isEntree ? 1 : -1;
-
-    double deltaU1 = 0, deltaU2 = 0;
-
-    if (unite == article.u1) {
-      deltaU1 = quantite * facteur;
-    } else if (unite == article.u2) {
-      deltaU2 = quantite * facteur;
-    }
-
-    if (stockDepart != null) {
-      // Mettre à jour le stock existant
-      await (_databaseService.database.update(_databaseService.database.depart)
-            ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-          .write(DepartCompanion(
-        stocksu1: drift.Value((stockDepart.stocksu1 ?? 0) + deltaU1),
-        stocksu2: drift.Value((stockDepart.stocksu2 ?? 0) + deltaU2),
-      ));
-    } else {
-      // Créer une nouvelle entrée
-      await _databaseService.database.into(_databaseService.database.depart).insert(
-            DepartCompanion(
-              designation: drift.Value(designation),
-              depots: drift.Value(depot),
-              stocksu1: drift.Value(deltaU1),
-              stocksu2: drift.Value(deltaU2),
-              stocksu3: const drift.Value(0),
-            ),
-          );
     }
   }
 

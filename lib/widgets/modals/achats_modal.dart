@@ -33,6 +33,8 @@ class _AchatsModalState extends State<AchatsModal> {
   final FocusNode _validerFocusNode = FocusNode();
   final FocusNode _annulerFocusNode = FocusNode();
   final FocusNode _keyboardFocusNode = FocusNode();
+  final FocusNode _searchAchatsFocusNode = FocusNode();
+  final FocusNode _echeanceJoursFocusNode = FocusNode();
 
   void _debugFocusChange(String fieldName) {
     debugPrint('Tab navigation: Focus moved to $fieldName');
@@ -56,6 +58,7 @@ class _AchatsModalState extends State<AchatsModal> {
   final TextEditingController _quantiteController = TextEditingController();
   final TextEditingController _prixController = TextEditingController();
   final TextEditingController _searchAchatsController = TextEditingController();
+  final TextEditingController _echeanceJoursController = TextEditingController();
 
   // Lists
   List<Frn> _fournisseurs = [];
@@ -72,7 +75,7 @@ class _AchatsModalState extends State<AchatsModal> {
   String? _selectedDepot = 'MAG';
   bool _isExistingPurchase = false;
   int? _selectedRowIndex;
-  String _selectedFormat = 'A5';
+  String _selectedFormat = 'A6';
   SocData? _societe;
   bool _isModifyingArticle = false;
   Map<String, dynamic>? _originalArticleData;
@@ -82,6 +85,22 @@ class _AchatsModalState extends State<AchatsModal> {
   String _searchAchatsText = '';
   String _selectedStatut = 'Brouillard';
   String? _statutAchatActuel;
+
+  List<String> _getBrouillardAchats() {
+    return _achatsNumbers.where((numAchat) {
+      final statut = _achatsStatuts[numAchat] ?? 'BROUILLARD';
+      final matchesSearch = _searchAchatsText.isEmpty || numAchat.toLowerCase().contains(_searchAchatsText);
+      return statut != 'JOURNAL' && matchesSearch;
+    }).toList();
+  }
+
+  List<String> _getJournalAchats() {
+    return _achatsNumbers.where((numAchat) {
+      final statut = _achatsStatuts[numAchat] ?? 'BROUILLARD';
+      final matchesSearch = _searchAchatsText.isEmpty || numAchat.toLowerCase().contains(_searchAchatsText);
+      return statut == 'JOURNAL' && matchesSearch;
+    }).toList();
+  }
 
   @override
   void initState() {
@@ -147,6 +166,37 @@ class _AchatsModalState extends State<AchatsModal> {
     } catch (e) {
       return 'MAG';
     }
+  }
+
+  Future<void> _loadAchatsNumbers() async {
+    try {
+      final achats = await _databaseService.database.select(_databaseService.database.achats).get();
+
+      setState(() {
+        _achatsNumbers =
+            achats.map((a) => a.numachats ?? '').where((numAchat) => numAchat.isNotEmpty).toList();
+        _achatsNumbers.sort((a, b) => b.compareTo(a)); // Tri décroissant
+
+        // Charger les statuts
+        _achatsStatuts.clear();
+        for (var achat in achats) {
+          if (achat.numachats != null) {
+            _achatsStatuts[achat.numachats!] = achat.verification ?? 'BROUILLARD';
+          }
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _achatsNumbers = [];
+        _achatsStatuts.clear();
+      });
+    }
+  }
+
+  List<String> _getFilteredAchatsNumbers() {
+    return _achatsNumbers.where((numAchat) {
+      return _searchAchatsText.isEmpty || numAchat.toLowerCase().contains(_searchAchatsText);
+    }).toList();
   }
 
   Future<void> _ajusterCompteFournisseur() async {
@@ -1380,26 +1430,6 @@ class _AchatsModalState extends State<AchatsModal> {
     }
   }
 
-  Future<void> _loadAchatsNumbers() async {
-    try {
-      final achats = await (_databaseService.database.select(_databaseService.database.achats)
-            ..orderBy([(a) => OrderingTerm.asc(a.numachats)]))
-          .get();
-      setState(() {
-        _achatsNumbers = achats.map((a) => a.numachats ?? '').where((n) => n.isNotEmpty).toList();
-        // Charger aussi les statuts
-        _achatsStatuts.clear();
-        for (var achat in achats) {
-          if (achat.numachats != null && achat.numachats!.isNotEmpty) {
-            _achatsStatuts[achat.numachats!] = achat.verification ?? 'BROUILLARD';
-          }
-        }
-      });
-    } catch (e) {
-      // Ignore errors
-    }
-  }
-
   void _naviguerAchat(bool suivant) {
     final filteredNumbers = _getFilteredAchatsNumbers();
     if (filteredNumbers.isEmpty) return;
@@ -1712,6 +1742,14 @@ class _AchatsModalState extends State<AchatsModal> {
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyD) {
         _contrePasserAchat();
       }
+      // Ctrl+F : Focus sur recherche
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyF) {
+        _searchAchatsFocusNode.requestFocus();
+      }
+      // Ctrl+J : Focus sur Echéance (Jours)
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyJ) {
+        _echeanceJoursFocusNode.requestFocus();
+      }
       // F1 : Achat précédent
       else if (event.logicalKey == LogicalKeyboardKey.f1) {
         if (_achatsNumbers.isNotEmpty) _naviguerAchat(false);
@@ -1750,116 +1788,166 @@ class _AchatsModalState extends State<AchatsModal> {
             child: Row(
               children: [
                 // Liste des achats à gauche
-                ExcludeFocus(
-                  child: Container(
-                    width: 250,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border(right: BorderSide(color: Colors.grey.shade300)),
-                    ),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                          ),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.list, size: 16),
-                              SizedBox(width: 8),
-                              Text('Liste des achats',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            ],
-                          ),
+                Container(
+                  width: 250,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    border: Border(right: BorderSide(color: Colors.grey.shade300)),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                          ),
-                          child: TextField(
-                            controller: _searchAchatsController,
-                            decoration: const InputDecoration(
-                              hintText: 'Rechercher...',
-                              prefixIcon: Icon(Icons.search, size: 16),
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            ),
-                            style: const TextStyle(fontSize: 11),
-                            onChanged: (value) {
-                              setState(() {
-                                _searchAchatsText = value.toLowerCase();
-                              });
-                            },
-                          ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.list, size: 16),
+                            SizedBox(width: 8),
+                            Text('Liste des achats',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ],
                         ),
-                        Expanded(
-                          child: _achatsNumbers.isEmpty
-                              ? const Center(child: Text('Aucun achat', style: TextStyle(fontSize: 11)))
-                              : ListView.builder(
-                                  itemCount: _getFilteredAchatsNumbers().length,
-                                  itemBuilder: (context, index) {
-                                    final numAchat = _getFilteredAchatsNumbers()[index];
-                                    return Container(
-                                      decoration: BoxDecoration(
-                                        color: _numAchatsController.text == numAchat
-                                            ? Colors.blue.shade100
-                                            : null,
-                                        border: Border(
-                                            bottom: BorderSide(color: Colors.grey.shade200, width: 0.5)),
-                                      ),
-                                      child: ListTile(
-                                        dense: true,
-                                        title: Row(
-                                          children: [
-                                            Expanded(
-                                              child:
-                                                  Text('N° $numAchat', style: const TextStyle(fontSize: 11)),
-                                            ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                              decoration: BoxDecoration(
-                                                color: _achatsStatuts[numAchat] == 'JOURNAL'
-                                                    ? Colors.green
-                                                    : Colors.orange,
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(_achatsStatuts[numAchat] == 'JOURNAL' ? 'J' : 'B',
-                                                  style: const TextStyle(
-                                                      fontSize: 9,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: Colors.white)),
-                                            ),
-                                          ],
-                                        ),
-                                        onTap: () => _chargerAchatExistant(numAchat),
-                                      ),
-                                    );
-                                  },
-                                ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            border: Border(top: BorderSide(color: Colors.grey.shade300)),
+                        child: TextField(
+                          controller: _searchAchatsController,
+                          focusNode: _searchAchatsFocusNode,
+                          decoration: const InputDecoration(
+                            hintText: 'Rechercher... (Ctrl+F)',
+                            prefixIcon: Icon(Icons.search, size: 16),
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           ),
-                          child: SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _creerNouvelAchat,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(vertical: 8),
+                          style: const TextStyle(fontSize: 11),
+                          onChanged: (value) {
+                            setState(() {
+                              _searchAchatsText = value.toLowerCase();
+                            });
+                          },
+                        ),
+                      ),
+                      Expanded(
+                        child: _achatsNumbers.isEmpty
+                            ? const Center(child: Text('Aucun achat', style: TextStyle(fontSize: 11)))
+                            : Column(
+                                children: [
+                                  // Section Brouillard
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade50,
+                                      border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit_note, size: 14, color: Colors.orange.shade700),
+                                        const SizedBox(width: 4),
+                                        Text('Brouillard',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.orange.shade700)),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 1,
+                                    child: ListView.builder(
+                                      itemCount: _getBrouillardAchats().length,
+                                      itemBuilder: (context, index) {
+                                        final numAchat = _getBrouillardAchats()[index];
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            color: _numAchatsController.text == numAchat
+                                                ? Colors.orange.shade100
+                                                : null,
+                                            border: Border(
+                                                bottom: BorderSide(color: Colors.grey.shade200, width: 0.5)),
+                                          ),
+                                          child: ListTile(
+                                            dense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                            title: Text('N° $numAchat', style: const TextStyle(fontSize: 11)),
+                                            onTap: () => _chargerAchatExistant(numAchat),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  // Section Journal
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade50,
+                                      border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.check_circle, size: 14, color: Colors.green.shade700),
+                                        const SizedBox(width: 4),
+                                        Text('Journal',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.green.shade700)),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 1,
+                                    child: ListView.builder(
+                                      itemCount: _getJournalAchats().length,
+                                      itemBuilder: (context, index) {
+                                        final numAchat = _getJournalAchats()[index];
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            color: _numAchatsController.text == numAchat
+                                                ? Colors.green.shade100
+                                                : null,
+                                            border: Border(
+                                                bottom: BorderSide(color: Colors.grey.shade200, width: 0.5)),
+                                          ),
+                                          child: ListTile(
+                                            dense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                            title: Text('N° $numAchat', style: const TextStyle(fontSize: 11)),
+                                            onTap: () => _chargerAchatExistant(numAchat),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
-                              child: const Text('Nouveau', style: TextStyle(fontSize: 11)),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border(top: BorderSide(color: Colors.grey.shade300)),
+                        ),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _creerNouvelAchat,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
                             ),
+                            child: const Text('Nouveau', style: TextStyle(fontSize: 11)),
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
                 // Formulaire principal à droite
@@ -2809,6 +2897,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                           width: 137,
                                           height: 25,
                                           child: TextField(
+                                            cursorHeight: 16,
                                             controller: _echeanceController,
                                             textAlign: TextAlign.center,
                                             readOnly: true,
@@ -2835,19 +2924,26 @@ class _AchatsModalState extends State<AchatsModal> {
                                       ],
                                     ),
                                     const SizedBox(height: 4),
-                                    const Row(
+                                    Row(
                                       children: [
-                                        Text('Echéance (Jours)', style: TextStyle(fontSize: 12)),
-                                        SizedBox(width: 8),
+                                        const Text('Echéance (Jours)', style: TextStyle(fontSize: 12)),
+                                        const SizedBox(width: 8),
                                         SizedBox(
                                           width: 135,
                                           height: 25,
                                           child: TextField(
+                                            style: const TextStyle(fontSize: 14),
+                                            cursorHeight: 14,
+                                            controller: _echeanceJoursController,
+                                            focusNode: _echeanceJoursFocusNode,
                                             textAlign: TextAlign.center,
-                                            decoration: InputDecoration(
+                                            decoration: const InputDecoration(
                                               border: OutlineInputBorder(),
                                               contentPadding:
                                                   EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                              hintText: 'Ctrl+J',
+                                              hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
+                                              suffixIcon: Icon(Icons.access_time_rounded, size: 16),
                                             ),
                                           ),
                                         ),
@@ -2952,156 +3048,165 @@ class _AchatsModalState extends State<AchatsModal> {
 
                         // Action buttons
                         Container(
+                          width: double.infinity,
                           decoration: const BoxDecoration(
                             borderRadius: BorderRadius.only(
                                 bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
                             color: Color(0xFFFFB6C1),
                           ),
                           padding: const EdgeInsets.all(8),
-                          child: Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: [
-                              Tooltip(
-                                message: 'Achat précédent (F1)',
-                                child: SizedBox(
-                                  width: 30,
-                                  height: 30,
-                                  child: ElevatedButton(
-                                    onPressed: _achatsNumbers.isNotEmpty ? () => _naviguerAchat(false) : null,
-                                    style: ElevatedButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      minimumSize: const Size(30, 30),
-                                    ),
-                                    child: const Icon(
-                                      Icons.arrow_back_ios,
-                                      size: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              Tooltip(
-                                message: 'Achat suivant (F2)',
-                                child: SizedBox(
-                                  width: 30,
-                                  height: 30,
-                                  child: ElevatedButton(
-                                    onPressed: _achatsNumbers.isNotEmpty ? () => _naviguerAchat(true) : null,
-                                    style: ElevatedButton.styleFrom(
-                                      padding: EdgeInsets.zero,
-                                      minimumSize: const Size(30, 30),
-                                    ),
-                                    child: const Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: 14,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              if (_isExistingPurchase) ...[
+                          child: SingleChildScrollView(
+                            child: Row(
+                              spacing: 4,
+                              children: [
                                 Tooltip(
-                                  message: 'Créer nouveau (Ctrl+N)',
-                                  child: ElevatedButton(
-                                    onPressed: _creerNouvelAchat,
-                                    style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                    child: const Text('Créer', style: TextStyle(fontSize: 12)),
+                                  message: 'Achat précédent (F1)',
+                                  child: SizedBox(
+                                    width: 30,
+                                    height: 30,
+                                    child: ElevatedButton(
+                                      onPressed:
+                                          _achatsNumbers.isNotEmpty ? () => _naviguerAchat(false) : null,
+                                      style: ElevatedButton.styleFrom(
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: const Size(30, 30),
+                                      ),
+                                      child: const Icon(
+                                        Icons.arrow_back_ios,
+                                        size: 14,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                                if (_statutAchatActuel == 'BROUILLARD') ...[
-                                  Tooltip(
-                                    message: 'Valider brouillard (F3)',
+                                Tooltip(
+                                  message: 'Achat suivant (F2)',
+                                  child: SizedBox(
+                                    width: 30,
+                                    height: 30,
                                     child: ElevatedButton(
-                                      onPressed: _validerAchatBrouillard,
+                                      onPressed:
+                                          _achatsNumbers.isNotEmpty ? () => _naviguerAchat(true) : null,
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(80, 30),
+                                        padding: EdgeInsets.zero,
+                                        minimumSize: const Size(30, 30),
                                       ),
-                                      child: const Text('Valider Brouillard', style: TextStyle(fontSize: 12)),
+                                      child: const Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (_isExistingPurchase) ...[
+                                  Tooltip(
+                                    message: 'Créer nouveau (Ctrl+N)',
+                                    child: ElevatedButton(
+                                      onPressed: _creerNouvelAchat,
+                                      style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
+                                      child: const Text('Créer', style: TextStyle(fontSize: 12)),
+                                    ),
+                                  ),
+                                  if (_statutAchatActuel == 'BROUILLARD') ...[
+                                    Tooltip(
+                                      message: 'Valider brouillard (F3)',
+                                      child: ElevatedButton(
+                                        onPressed: _validerAchatBrouillard,
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                          foregroundColor: Colors.white,
+                                          minimumSize: const Size(80, 30),
+                                        ),
+                                        child:
+                                            const Text('Valider Brouillard', style: TextStyle(fontSize: 12)),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                                if (_isExistingPurchase) ...[
+                                  Tooltip(
+                                    message: 'Contre-passer (Ctrl+D)',
+                                    child: ElevatedButton(
+                                      onPressed: _contrePasserAchat,
+                                      style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
+                                      child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
                                     ),
                                   ),
                                 ],
+                                Tooltip(
+                                  message: _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
+                                  child: ElevatedButton(
+                                    onPressed: _isExistingPurchase && _statutAchatActuel == 'JOURNAL'
+                                        ? null
+                                        : (_isExistingPurchase ? _modifierAchat : _validerAchat),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: _isExistingPurchase ? Colors.blue : Colors.green,
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size(60, 30),
+                                    ),
+                                    child: Text(_isExistingPurchase ? 'Modifier' : 'Valider',
+                                        style: const TextStyle(fontSize: 12)),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Tooltip(
+                                  message: 'Aperçu BR (Ctrl+P)',
+                                  child: ElevatedButton(
+                                    onPressed: _lignesAchat.isNotEmpty ? _ouvrirApercuBR : null,
+                                    style: ElevatedButton.styleFrom(minimumSize: const Size(70, 30)),
+                                    child: const Text('Aperçu BR', style: TextStyle(fontSize: 12)),
+                                  ),
+                                ),
+                                PopupMenuButton<String>(
+                                  initialValue: _selectedFormat,
+                                  onSelected: (String format) {
+                                    setState(() {
+                                      _selectedFormat = format;
+                                    });
+                                  },
+                                  itemBuilder: (BuildContext context) => [
+                                    const PopupMenuItem(
+                                      value: 'A4',
+                                      child: Text('Format A4', style: TextStyle(fontSize: 12)),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'A5',
+                                      child: Text('Format A5', style: TextStyle(fontSize: 12)),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'A6',
+                                      child: Text('Format A6', style: TextStyle(fontSize: 12)),
+                                    ),
+                                  ],
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.brown,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.format_size, color: Colors.white, size: 16),
+                                        const SizedBox(width: 4),
+                                        Text(_selectedFormat,
+                                            style: const TextStyle(color: Colors.white, fontSize: 12)),
+                                        const SizedBox(width: 4),
+                                        const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                Tooltip(
+                                  message: 'Fermer (Escape)',
+                                  child: ElevatedButton(
+                                    onPressed: () => Navigator.of(context).pop(),
+                                    style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
+                                    child: const Text('Fermer', style: TextStyle(fontSize: 12)),
+                                  ),
+                                ),
                               ],
-                              Tooltip(
-                                message: 'Contre-passer (Ctrl+D)',
-                                child: ElevatedButton(
-                                  onPressed: _contrePasserAchat,
-                                  style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
-                                  child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
-                                ),
-                              ),
-                              Tooltip(
-                                message: _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
-                                child: ElevatedButton(
-                                  onPressed: _isExistingPurchase && _statutAchatActuel == 'JOURNAL'
-                                      ? null
-                                      : (_isExistingPurchase ? _modifierAchat : _validerAchat),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _isExistingPurchase ? Colors.blue : Colors.green,
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(60, 30),
-                                  ),
-                                  child: Text(_isExistingPurchase ? 'Modifier' : 'Valider',
-                                      style: const TextStyle(fontSize: 12)),
-                                ),
-                              ),
-                              Tooltip(
-                                message: 'Aperçu BR (Ctrl+P)',
-                                child: ElevatedButton(
-                                  onPressed: _ouvrirApercuBR,
-                                  style: ElevatedButton.styleFrom(minimumSize: const Size(70, 30)),
-                                  child: const Text('Aperçu BR', style: TextStyle(fontSize: 12)),
-                                ),
-                              ),
-                              Tooltip(
-                                message: 'Fermer (Escape)',
-                                child: ElevatedButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                  child: const Text('Fermer', style: TextStyle(fontSize: 12)),
-                                ),
-                              ),
-                              PopupMenuButton<String>(
-                                initialValue: _selectedFormat,
-                                onSelected: (String format) {
-                                  setState(() {
-                                    _selectedFormat = format;
-                                  });
-                                },
-                                itemBuilder: (BuildContext context) => [
-                                  const PopupMenuItem(
-                                    value: 'A4',
-                                    child: Text('Format A4', style: TextStyle(fontSize: 12)),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'A5',
-                                    child: Text('Format A5', style: TextStyle(fontSize: 12)),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: 'A6',
-                                    child: Text('Format A6', style: TextStyle(fontSize: 12)),
-                                  ),
-                                ],
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.brown,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.format_size, color: Colors.white, size: 16),
-                                      const SizedBox(width: 4),
-                                      Text(_selectedFormat,
-                                          style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                      const SizedBox(width: 4),
-                                      const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ],
@@ -3144,13 +3249,9 @@ class _AchatsModalState extends State<AchatsModal> {
     _prixController.dispose();
     _totalFMGController.dispose();
     _searchAchatsController.dispose();
+    _searchAchatsFocusNode.dispose();
+    _echeanceJoursController.dispose();
+    _echeanceJoursFocusNode.dispose();
     super.dispose();
-  }
-
-  List<String> _getFilteredAchatsNumbers() {
-    if (_searchAchatsText.isEmpty) {
-      return _achatsNumbers;
-    }
-    return _achatsNumbers.where((numAchat) => numAchat.toLowerCase().contains(_searchAchatsText)).toList();
   }
 }

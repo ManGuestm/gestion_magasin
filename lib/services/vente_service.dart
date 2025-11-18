@@ -147,29 +147,30 @@ class VenteService {
     required String unite,
     required String numVente,
   }) async {
-    final ref = 'MVT${DateTime.now().millisecondsSinceEpoch}';
+    final ref = 'VTE${DateTime.now().millisecondsSinceEpoch}';
     
-    await _db.database.into(_db.database.stocks).insert(
-      StocksCompanion.insert(
-        ref: ref,
-        daty: Value(DateTime.now()),
-        lib: Value('VENTE - $designation'),
-        numventes: Value(numVente),
-        refart: Value(designation),
-        qs: Value(quantite),
-        sortie: Value(quantite),
-        depots: Value(depot),
-      ),
+    await _db.database.customStatement(
+      '''INSERT INTO stocks (ref, daty, lib, numventes, refart, qs, sortie, depots, us, verification)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+      [
+        ref,
+        DateTime.now().toIso8601String(),
+        'VENTE - $designation',
+        numVente,
+        designation,
+        quantite,
+        quantite,
+        depot,
+        unite,
+        'VENTE'
+      ]
     );
   }
 
   /// Met à jour les stocks après validation
   Future<void> _mettreAJourStocks(String designation, String depot, double quantite, String unite) async {
     // Récupérer l'article pour les conversions d'unités
-    final article = await (_db.database.select(_db.database.articles)
-          ..where((a) => a.designation.equals(designation)))
-        .getSingleOrNull();
-    
+    final article = await _db.database.getArticleByDesignation(designation);
     if (article == null) return;
 
     // Convertir la quantité vendue vers les unités de stock
@@ -180,23 +181,37 @@ class VenteService {
     );
 
     // Mettre à jour stock dépôt
-    final stockDepart = await (_db.database.select(_db.database.depart)
-          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-        .getSingleOrNull();
+    final stockDepart = await _db.database.customSelect(
+      'SELECT * FROM depart WHERE designation = ? AND depots = ?',
+      variables: [Variable(designation), Variable(depot)]
+    ).getSingleOrNull();
     
     if (stockDepart != null) {
-      final nouveauStockU1 = (stockDepart.stocksu1 ?? 0) - conversionStock['u1']!;
-      final nouveauStockU2 = (stockDepart.stocksu2 ?? 0) - conversionStock['u2']!;
-      final nouveauStockU3 = (stockDepart.stocksu3 ?? 0) - conversionStock['u3']!;
+      final stockU1Actuel = stockDepart.read<double?>('stocksu1') ?? 0;
+      final stockU2Actuel = stockDepart.read<double?>('stocksu2') ?? 0;
+      final stockU3Actuel = stockDepart.read<double?>('stocksu3') ?? 0;
       
-      await (_db.database.update(_db.database.depart)
-            ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-          .write(DepartCompanion(
-        stocksu1: Value(nouveauStockU1),
-        stocksu2: Value(nouveauStockU2),
-        stocksu3: Value(nouveauStockU3),
-      ));
+      await _db.database.customStatement(
+        'UPDATE depart SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ? AND depots = ?',
+        [
+          stockU1Actuel - conversionStock['u1']!,
+          stockU2Actuel - conversionStock['u2']!,
+          stockU3Actuel - conversionStock['u3']!,
+          designation,
+          depot
+        ]
+      );
     }
+    
+    // Mettre à jour stock global article
+    final stockGlobalU1 = (article.stocksu1 ?? 0) - conversionStock['u1']!;
+    final stockGlobalU2 = (article.stocksu2 ?? 0) - conversionStock['u2']!;
+    final stockGlobalU3 = (article.stocksu3 ?? 0) - conversionStock['u3']!;
+    
+    await _db.database.customStatement(
+      'UPDATE articles SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ?',
+      [stockGlobalU1, stockGlobalU2, stockGlobalU3, designation]
+    );
   }
 
   /// Convertit une quantité de vente vers les unités de stock
