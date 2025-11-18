@@ -1,5 +1,7 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 
+import '../../database/database.dart';
 import '../../database/database_service.dart';
 
 class ReinitialiserDonneesModal extends StatefulWidget {
@@ -525,19 +527,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
       await db.customStatement('DELETE FROM fstocks');
     }
     if (_quantitesStock) {
-      await db.customStatement('''
-        UPDATE articles SET 
-          stocksu1 = 0,
-          stocksu2 = 0,
-          stocksu3 = 0,
-          cmup = 0
-      ''');
-      await db.customStatement('''
-        UPDATE depart SET 
-          stocksu1 = 0,
-          stocksu2 = 0,
-          stocksu3 = 0
-      ''');
+      await _reinitialiserQuantitesStock(db);
     }
     if (_tresorerie) {
       await db.customStatement('DELETE FROM caisse');
@@ -550,6 +540,39 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> {
     if (_comptes) {
       await db.customStatement('DELETE FROM autrescompte');
       await db.customStatement('DELETE FROM comptecom');
+    }
+  }
+
+  Future<void> _reinitialiserQuantitesStock(dynamic db) async {
+    // 1. Remettre à zéro les stocks dans la table articles
+    await db.customStatement('''
+      UPDATE articles SET 
+        stocksu1 = 0,
+        stocksu2 = 0,
+        stocksu3 = 0,
+        cmup = 0
+    ''');
+
+    // 2. Supprimer toutes les entrées existantes dans depart
+    await db.customStatement('DELETE FROM depart');
+
+    // 3. Récupérer tous les articles et tous les dépôts
+    final articles = await db.select(db.articles).get();
+    final depots = await db.select(db.depots).get();
+
+    // 4. Créer une entrée dans depart pour chaque combinaison article/dépôt
+    for (final article in articles) {
+      for (final depot in depots) {
+        await db.into(db.depart).insert(
+              DepartCompanion(
+                designation: drift.Value(article.designation),
+                depots: drift.Value(depot.depots),
+                stocksu1: const drift.Value(0.0),
+                stocksu2: const drift.Value(0.0),
+                stocksu3: const drift.Value(0.0),
+              ),
+            );
+      }
     }
   }
 }

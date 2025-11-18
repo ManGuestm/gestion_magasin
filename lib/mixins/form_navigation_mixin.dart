@@ -40,31 +40,37 @@ mixin FormNavigationMixin<T extends StatefulWidget> on State<T> {
     bool enabled = true,
     bool autofocus = false,
     String? Function(String?)? validator,
+    void Function(String)? onChanged,
   }) {
     final node = focusNode ?? createFocusNode();
-    
-    return TextFormField(
-      controller: controller,
-      focusNode: node,
-      enabled: enabled,
-      autofocus: autofocus,
-      keyboardType: keyboardType,
-      validator: validator,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+
+    return SizedBox(
+      height: 30,
+      child: TextFormField(
+        cursorHeight: 15,
+        controller: controller,
+        focusNode: node,
+        enabled: enabled,
+        autofocus: autofocus,
+        keyboardType: keyboardType,
+        validator: validator,
+        onChanged: onChanged,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        ),
+        onFieldSubmitted: (_) {
+          if (onSubmitted != null) {
+            onSubmitted();
+          } else {
+            nextField();
+          }
+        },
+        onTap: () {
+          _currentFocusIndex = _focusNodes.indexOf(node);
+        },
       ),
-      onFieldSubmitted: (_) {
-        if (onSubmitted != null) {
-          onSubmitted();
-        } else {
-          nextField();
-        }
-      },
-      onTap: () {
-        _currentFocusIndex = _focusNodes.indexOf(node);
-      },
     );
   }
 

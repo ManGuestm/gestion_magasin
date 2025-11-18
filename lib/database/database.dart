@@ -7,8 +7,6 @@ import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
-import '../utils/stock_converter.dart';
-
 part 'database.g.dart';
 
 // Table Société - utilisée par: Menu Paramètres - Configuration société
@@ -1213,7 +1211,7 @@ class AppDatabase extends _$AppDatabase {
     if (stockDepart != null) {
       // Convertir la quantité vendue selon l'unité
       double quantiteU1 = 0, quantiteU2 = 0;
-      
+
       if (unite == article.u1) {
         quantiteU1 = quantite;
       } else if (unite == article.u2 && article.tu2u1 != null) {
@@ -1233,7 +1231,8 @@ class AppDatabase extends _$AppDatabase {
 
     // 2. Mettre à jour le stock global (table articles)
     await (update(articles)..where((a) => a.designation.equals(designation))).write(ArticlesCompanion(
-      stocksu1: Value((article.stocksu1 ?? 0) - (unite == article.u1 ? quantite : quantite / (article.tu2u1 ?? 1))),
+      stocksu1:
+          Value((article.stocksu1 ?? 0) - (unite == article.u1 ? quantite : quantite / (article.tu2u1 ?? 1))),
       stocksu2: Value((article.stocksu2 ?? 0) - (unite == article.u2 ? quantite : 0)),
     ));
 
@@ -1498,7 +1497,7 @@ class AppDatabase extends _$AppDatabase {
       await (update(users)..where((u) => u.id.equals(existingAdmin.id)))
           .write(UsersCompanion(motDePasse: Value(hashedPassword)));
     }
-    
+
     // Initialiser les modes de paiement par défaut
     await _initializeDefaultPaymentModes();
   }
@@ -1506,12 +1505,9 @@ class AppDatabase extends _$AppDatabase {
   /// Initialise les modes de paiement par défaut
   Future<void> _initializeDefaultPaymentModes() async {
     const defaultModes = ['Espèces', 'A crédit', 'Mobile Money'];
-    
+
     for (final mode in defaultModes) {
-      await customStatement(
-        'INSERT OR IGNORE INTO mp (mp) VALUES (?)',
-        [mode]
-      );
+      await customStatement('INSERT OR IGNORE INTO mp (mp) VALUES (?)', [mode]);
     }
   }
 
@@ -1530,16 +1526,19 @@ class AppDatabase extends _$AppDatabase {
       // 1. Récupérer la vente et ses détails
       final vente = await (select(ventes)..where((v) => v.numventes.equals(numVentes))).getSingleOrNull();
       if (vente == null) throw Exception('Vente introuvable');
-      
+
       if (vente.verification == 'CONTRE_PASSE') {
         throw Exception('Cette vente est déjà contre passée');
       }
 
       final detailsVente = await (select(detventes)..where((d) => d.numventes.equals(numVentes))).get();
-      
+
       // 2. Remettre les quantités en stock pour chaque ligne
       for (var detail in detailsVente) {
-        if (detail.designation != null && detail.depots != null && detail.unites != null && detail.q != null) {
+        if (detail.designation != null &&
+            detail.depots != null &&
+            detail.unites != null &&
+            detail.q != null) {
           final article = await getArticleByDesignation(detail.designation!);
           if (article != null) {
             await _remettreStockVente(
@@ -1582,7 +1581,7 @@ class AppDatabase extends _$AppDatabase {
     if (stockDepart != null) {
       // Convertir la quantité à remettre selon l'unité
       double quantiteU1 = 0, quantiteU2 = 0;
-      
+
       if (unite == article.u1) {
         quantiteU1 = quantite;
       } else if (unite == article.u2 && article.tu2u1 != null) {
@@ -1602,7 +1601,8 @@ class AppDatabase extends _$AppDatabase {
 
     // 2. Remettre le stock global (table articles)
     await (update(articles)..where((a) => a.designation.equals(designation))).write(ArticlesCompanion(
-      stocksu1: Value((article.stocksu1 ?? 0) + (unite == article.u1 ? quantite : quantite / (article.tu2u1 ?? 1))),
+      stocksu1:
+          Value((article.stocksu1 ?? 0) + (unite == article.u1 ? quantite : quantite / (article.tu2u1 ?? 1))),
       stocksu2: Value((article.stocksu2 ?? 0) + (unite == article.u2 ? quantite : 0)),
     ));
 
@@ -1631,19 +1631,22 @@ class AppDatabase extends _$AppDatabase {
   /// Vérifie si une vente peut être contre passée
   Future<Map<String, dynamic>> peutContrePasserVente(String numVentes) async {
     final vente = await (select(ventes)..where((v) => v.numventes.equals(numVentes))).getSingleOrNull();
-    
+
     if (vente == null) {
       return {'possible': false, 'raison': 'Vente introuvable'};
     }
-    
+
     if (vente.verification == 'CONTRE_PASSE') {
       return {'possible': false, 'raison': 'Vente déjà contre passée'};
     }
-    
+
     if (vente.verification != 'Journal') {
-      return {'possible': false, 'raison': 'Seules les ventes validées (Journal) peuvent être contre passées'};
+      return {
+        'possible': false,
+        'raison': 'Seules les ventes validées (Journal) peuvent être contre passées'
+      };
     }
-    
+
     // Vérifier si la vente n'est pas trop ancienne (optionnel)
     if (vente.daty != null) {
       final daysDiff = DateTime.now().difference(vente.daty!).inDays;
@@ -1651,7 +1654,7 @@ class AppDatabase extends _$AppDatabase {
         return {'possible': false, 'raison': 'Vente trop ancienne (plus de 30 jours)'};
       }
     }
-    
+
     return {'possible': true, 'raison': 'Vente peut être contre passée'};
   }
 

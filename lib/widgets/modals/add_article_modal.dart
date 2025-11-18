@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../mixins/form_navigation_mixin.dart';
 
 class AddArticleModal extends StatefulWidget {
   final Article? article;
@@ -13,10 +14,13 @@ class AddArticleModal extends StatefulWidget {
   State<AddArticleModal> createState() => _AddArticleModalState();
 }
 
-class _AddArticleModalState extends State<AddArticleModal> {
+class _AddArticleModalState extends State<AddArticleModal> with FormNavigationMixin {
+  final _formKey = GlobalKey<FormState>();
   final Map<String, TextEditingController> _controllers = {};
   List<Depot> _depots = [];
   String? _selectedDepot;
+  String? _selectedUniteSection;
+  List<String> _unitesDisponibles = [];
 
   @override
   void initState() {
@@ -29,270 +33,370 @@ class _AddArticleModalState extends State<AddArticleModal> {
   Widget build(BuildContext context) {
     final bool isEdit = widget.article != null;
 
-    return PopScope(
-      canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.grey[100],
-        child: Container(
-          width: 450,
-          height: 500,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[400]!),
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.white),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(isEdit),
-              const SizedBox(height: 16),
-              Expanded(
+    return Dialog(
+      child: Container(
+        width: 800,
+        height: MediaQuery.of(context).size.height * 0.9,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: Colors.white,
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade600,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  topRight: Radius.circular(8),
+                ),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.inventory_2, color: Colors.white, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    isEdit ? 'Modifier Article' : 'Nouvel Article',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  ),
+                ],
+              ),
+            ),
+            // Content
+            Expanded(
+              child: Form(
+                key: _formKey,
                 child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
                       _buildDesignationField(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildUnitsSection(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildPricesSection(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildCategorySection(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       _buildStockSection(),
                     ],
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
-              _buildButtons(isEdit),
-            ],
-          ),
+            ),
+            // Buttons
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                border: Border(top: BorderSide(color: Colors.grey.shade300)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Bouton Annuler
+                  Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(6),
+                      color: Colors.white,
+                    ),
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.cancel_outlined, size: 16, color: Colors.grey.shade600),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Annuler',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Bouton Valider/Créer
+                  Container(
+                    height: 36,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.blue.shade500, Colors.blue.shade600],
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withValues(alpha: 0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TextButton(
+                      onPressed: _saveArticle,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isEdit ? Icons.check_circle_outline : Icons.add_circle_outline,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isEdit ? 'Valider' : 'Créer',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(bool isEdit) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.blue[100],
-        border: Border.all(color: Colors.grey[400]!),
-      ),
-      child: Text(
-        isEdit ? 'MODIFIER ...' : 'CREER ...',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-        textAlign: TextAlign.center,
       ),
     );
   }
 
   Widget _buildDesignationField() {
-    return _buildField('designation', 'Désignation', required: true);
+    return buildFormField(
+      controller: _controllers['designation']!,
+      label: 'Désignation *',
+      autofocus: true,
+      validator: (value) => value?.isEmpty == true ? 'Requis' : null,
+    );
   }
 
   Widget _buildUnitsSection() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        border: Border.all(color: Colors.grey[400]!),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: _buildField('u1', 'Unité 1')),
-              const SizedBox(width: 8),
-              Expanded(child: _buildField('tu2u1', 'Taux Unité 2 / Unité 1')),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: _buildField('u2', 'Unité 2')),
-              const SizedBox(width: 8),
-              Expanded(child: _buildField('tu3u2', 'Taux Unité 3 / Unité 2')),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(child: _buildField('u3', 'Unité 3')),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Dépôts', style: TextStyle(fontSize: 11, color: Colors.red)),
-                    Container(
-                      height: 22,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[600]!),
-                        color: Colors.white,
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedDepot,
-                          isExpanded: true,
-                          style: const TextStyle(fontSize: 11, color: Colors.black),
-                          items: _depots.map((depot) {
-                            return DropdownMenuItem<String>(
-                              value: depot.depots,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(depot.depots),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedDepot = value;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
+    return _buildSection(
+      title: 'Unités et conversions',
+      icon: Icons.straighten,
+      children: [
+        Row(
+          children: [
+            Expanded(
+                child: buildFormField(
+                    controller: _controllers['u1']!,
+                    label: 'Unité 1',
+                    onChanged: (value) => _updateUnitesDisponibles())),
+            const SizedBox(width: 16),
+            Expanded(
+                child: buildFormField(
+                    controller: _controllers['tu2u1']!,
+                    label: 'Taux U2/U1',
+                    keyboardType: TextInputType.number)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+                child: buildFormField(
+                    controller: _controllers['u2']!,
+                    label: 'Unité 2',
+                    onChanged: (value) => _updateUnitesDisponibles())),
+            const SizedBox(width: 16),
+            Expanded(
+                child: buildFormField(
+                    controller: _controllers['tu3u2']!,
+                    label: 'Taux U3/U2',
+                    keyboardType: TextInputType.number)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+                child: buildFormField(
+                    controller: _controllers['u3']!,
+                    label: 'Unité 3',
+                    onChanged: (value) => _updateUnitesDisponibles())),
+            const SizedBox(width: 16),
+            Expanded(
+              child: SizedBox(
+                height: 40,
+                child: DropdownButtonFormField<String>(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  initialValue: _selectedDepot,
+                  decoration: const InputDecoration(
+                    labelText: 'Dépôt par défaut',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: _depots.map((depot) {
+                    return DropdownMenuItem(
+                        value: depot.depots,
+                        child: Text(
+                          depot.depots,
+                          style: const TextStyle(fontSize: 12.0),
+                        ));
+                  }).toList(),
+                  onChanged: (value) => setState(() => _selectedDepot = value),
                 ),
               ),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildPricesSection() {
-    return Row(
+    return _buildSection(
+      title: 'Prix de vente',
+      icon: Icons.attach_money,
       children: [
-        Expanded(child: _buildField('pvu1', 'Prix de vente pour Unité 1')),
-        const SizedBox(width: 8),
-        Expanded(child: _buildField('pvu2', 'Prix de vente pour Unité 2')),
-        const SizedBox(width: 8),
-        Expanded(child: _buildField('pvu3', 'Prix de vente pour Unité 3')),
+        Row(
+          children: [
+            Expanded(
+                child: buildFormField(
+                    controller: _controllers['pvu1']!,
+                    label: 'Prix Vente U1',
+                    keyboardType: TextInputType.number)),
+            const SizedBox(width: 16),
+            Expanded(
+                child: buildFormField(
+                    controller: _controllers['pvu2']!,
+                    label: 'Prix Vente U2',
+                    keyboardType: TextInputType.number)),
+            const SizedBox(width: 16),
+            Expanded(
+                child: buildFormField(
+                    controller: _controllers['pvu3']!,
+                    label: 'Prix Vente U3',
+                    keyboardType: TextInputType.number)),
+          ],
+        ),
       ],
     );
   }
 
   Widget _buildCategorySection() {
-    return Row(
+    return _buildSection(
+      title: 'Catégorie et classification',
+      icon: Icons.category,
       children: [
-        Expanded(child: _buildField('categorie', 'Catégorie', defaultValue: 'Catégorie articles')),
-        const SizedBox(width: 8),
-        Expanded(child: _buildField('classification', 'Classification', defaultValue: 'Marchandises')),
-        const SizedBox(width: 8),
-        Expanded(child: _buildField('emb', 'Emballage')),
+        Row(
+          children: [
+            Expanded(child: buildFormField(controller: _controllers['categorie']!, label: 'Catégorie')),
+            const SizedBox(width: 16),
+            Expanded(
+                child: buildFormField(controller: _controllers['classification']!, label: 'Classification')),
+            const SizedBox(width: 16),
+            Expanded(child: buildFormField(controller: _controllers['emb']!, label: 'Emballage')),
+          ],
+        ),
       ],
     );
   }
 
   Widget _buildStockSection() {
-    return Row(
+    return _buildSection(
+      title: 'Stocks de sécurité',
+      icon: Icons.inventory,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Stocks de sécurité', style: TextStyle(fontSize: 11, color: Colors.red)),
-              _buildField('sec', '', showLabel: false),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Unité', style: TextStyle(fontSize: 11)),
-              _buildField('usec', '', showLabel: false),
-            ],
-          ),
+        Row(
+          children: [
+            Expanded(child: buildFormField(controller: _controllers['sec']!, label: 'Section')),
+            const SizedBox(width: 16),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _selectedUniteSection,
+                decoration: const InputDecoration(
+                  labelText: 'Unité Section',
+                  border: OutlineInputBorder(),
+                ),
+                items: _unitesDisponibles.map((unite) {
+                  return DropdownMenuItem(value: unite, child: Text(unite));
+                }).toList(),
+                onChanged: (value) => setState(() => _selectedUniteSection = value),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildField(String key, String label,
-      {bool required = false, String? defaultValue, bool showLabel = true}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (showLabel)
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: required ? Colors.red : Colors.black,
+  Widget _buildSection({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(7),
+                topRight: Radius.circular(7),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: Colors.blue.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade700,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
           ),
-        Container(
-          height: 22,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[600]!),
-            color: Colors.white,
-          ),
-          child: TextFormField(
-            controller: _controllers[key],
-            style: const TextStyle(fontSize: 11),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              isDense: true,
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: children,
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildButtons(bool isEdit) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Container(
-          height: 24,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            border: Border.all(color: Colors.grey[600]!),
-          ),
-          child: TextButton(
-            onPressed: _saveArticle,
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              isEdit ? 'Valider' : 'Valider',
-              style: const TextStyle(fontSize: 12, color: Colors.black),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          height: 24,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            border: Border.all(color: Colors.grey[600]!),
-          ),
-          child: TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: const Text(
-              'Annuler',
-              style: TextStyle(fontSize: 12, color: Colors.black),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -311,9 +415,9 @@ class _AddArticleModalState extends State<AddArticleModal> {
     _controllers['classification'] = TextEditingController(text: article?.classification ?? 'Marchandises');
     _controllers['emb'] = TextEditingController(text: article?.emb ?? '');
     _controllers['sec'] = TextEditingController(text: article?.sec ?? '');
-    _controllers['usec'] = TextEditingController(text: article?.usec?.toString() ?? '');
 
     _selectedDepot = article?.dep;
+    _updateUnitesDisponibles();
   }
 
   Future<void> _loadDepots() async {
@@ -327,9 +431,7 @@ class _AddArticleModalState extends State<AddArticleModal> {
   }
 
   Future<void> _saveArticle() async {
-    if (_controllers['designation']?.text.trim().isEmpty ?? true) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     try {
       // Calculer le CMUP selon la priorité : pvu3 > pvu2 > pvu1
@@ -357,7 +459,7 @@ class _AddArticleModalState extends State<AddArticleModal> {
         pvu2: drift.Value(pvu2),
         pvu3: drift.Value(pvu3),
         sec: drift.Value(_controllers['sec']?.text.trim()),
-        usec: drift.Value(double.tryParse(_controllers['usec']?.text ?? '')),
+        usec: drift.Value(_selectedUniteSection != null ? 1.0 : null),
         cmup: drift.Value(cmup),
         dep: drift.Value(_selectedDepot),
         action: const drift.Value('A'),
@@ -372,10 +474,49 @@ class _AddArticleModalState extends State<AddArticleModal> {
         await DatabaseService().database.updateArticle(companion);
       }
 
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Article enregistré avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      }
     } catch (e) {
-      debugPrint('Erreur lors de la sauvegarde: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+
+  void _updateUnitesDisponibles() {
+    final unites = <String>[];
+
+    final u1 = _controllers['u1']?.text.trim();
+    final u2 = _controllers['u2']?.text.trim();
+    final u3 = _controllers['u3']?.text.trim();
+
+    if (u1?.isNotEmpty == true) unites.add(u1!);
+    if (u2?.isNotEmpty == true) unites.add(u2!);
+    if (u3?.isNotEmpty == true) unites.add(u3!);
+
+    setState(() {
+      _unitesDisponibles = unites;
+      // Par défaut, sélectionner l'unité 1 si disponible
+      if (unites.isNotEmpty && (widget.article == null || _selectedUniteSection == null)) {
+        _selectedUniteSection = unites.first;
+      }
+      // Vérifier si l'unité sélectionnée est encore valide
+      if (_selectedUniteSection != null && !unites.contains(_selectedUniteSection)) {
+        _selectedUniteSection = unites.isNotEmpty ? unites.first : null;
+      }
+    });
   }
 
   @override
