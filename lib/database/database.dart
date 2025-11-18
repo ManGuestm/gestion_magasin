@@ -1206,10 +1206,8 @@ class AppDatabase extends _$AppDatabase {
     String numVente,
   ) async {
     // 1. Mettre à jour le stock par dépôt (table depart)
-    final stockDepart = await customSelect(
-      'SELECT * FROM depart WHERE designation = ? AND depots = ?',
-      variables: [Variable(designation), Variable(depot)]
-    ).getSingleOrNull();
+    final stockDepart = await customSelect('SELECT * FROM depart WHERE designation = ? AND depots = ?',
+        variables: [Variable(designation), Variable(depot)]).getSingleOrNull();
 
     // Convertir la quantité vendue selon l'unité
     double quantiteU1 = 0, quantiteU2 = 0;
@@ -1227,21 +1225,18 @@ class AppDatabase extends _$AppDatabase {
       // Déduire du stock du dépôt
       final stockU1Actuel = stockDepart.read<double?>('stocksu1') ?? 0;
       final stockU2Actuel = stockDepart.read<double?>('stocksu2') ?? 0;
-      
+
       await customStatement(
-        'UPDATE depart SET stocksu1 = ?, stocksu2 = ? WHERE designation = ? AND depots = ?',
-        [stockU1Actuel - quantiteU1, stockU2Actuel - quantiteU2, designation, depot]
-      );
+          'UPDATE depart SET stocksu1 = ?, stocksu2 = ? WHERE designation = ? AND depots = ?',
+          [stockU1Actuel - quantiteU1, stockU2Actuel - quantiteU2, designation, depot]);
     }
 
     // 2. Mettre à jour le stock global (table articles)
     final stockGlobalU1 = (article.stocksu1 ?? 0) - quantiteU1;
     final stockGlobalU2 = (article.stocksu2 ?? 0) - quantiteU2;
-    
-    await customStatement(
-      'UPDATE articles SET stocksu1 = ?, stocksu2 = ? WHERE designation = ?',
-      [stockGlobalU1, stockGlobalU2, designation]
-    );
+
+    await customStatement('UPDATE articles SET stocksu1 = ?, stocksu2 = ? WHERE designation = ?',
+        [stockGlobalU1, stockGlobalU2, designation]);
 
     // 3. Créer un mouvement de stock dans la table stocks
     await _creerMouvementStock(
@@ -1259,26 +1254,21 @@ class AppDatabase extends _$AppDatabase {
     final client = await getClientByRsoc(rsocClient);
     if (client != null) {
       final nouveauSolde = (client.soldes ?? 0) + montant;
-      await customStatement(
-        'UPDATE clt SET soldes = ?, datedernop = ? WHERE rsoc = ?',
-        [nouveauSolde, DateTime.now().toIso8601String(), rsocClient]
-      );
-      
+      await customStatement('UPDATE clt SET soldes = ?, datedernop = ? WHERE rsoc = ?',
+          [nouveauSolde, DateTime.now().toIso8601String(), rsocClient]);
+
       // Créer un mouvement dans compteclt
       final ref = 'CLT${DateTime.now().millisecondsSinceEpoch}';
-      await customStatement(
-        '''INSERT INTO compteclt (ref, daty, lib, entres, sorties, solde, clt)
-           VALUES (?, ?, ?, ?, ?, ?, ?)''',
-        [
-          ref,
-          DateTime.now().toIso8601String(),
-          'Vente à crédit',
-          montant > 0 ? montant : 0,
-          montant < 0 ? -montant : 0,
-          nouveauSolde,
-          rsocClient
-        ]
-      );
+      await customStatement('''INSERT INTO compteclt (ref, daty, lib, entres, sorties, solde, clt)
+           VALUES (?, ?, ?, ?, ?, ?, ?)''', [
+        ref,
+        DateTime.now().toIso8601String(),
+        'Vente à crédit',
+        montant > 0 ? montant : 0,
+        montant < 0 ? -montant : 0,
+        nouveauSolde,
+        rsocClient
+      ]);
     }
   }
 
@@ -1296,25 +1286,24 @@ class AppDatabase extends _$AppDatabase {
     final ref = 'MVT${DateTime.now().millisecondsSinceEpoch}';
 
     await customStatement(
-      '''INSERT INTO stocks (ref, daty, lib, refart, qe, qs, entres, sortie, ue, us, depots, numventes, numachats, verification)
+        '''INSERT INTO stocks (ref, daty, lib, refart, qe, qs, entres, sortie, ue, us, depots, numventes, numachats, verification)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-      [
-        ref,
-        DateTime.now().toIso8601String(),
-        '$type - $designation',
-        designation,
-        quantiteEntree ?? 0,
-        quantiteSortie ?? 0,
-        quantiteEntree ?? 0,
-        quantiteSortie ?? 0,
-        unite,
-        unite,
-        depot,
-        numVente,
-        numAchat,
-        type
-      ]
-    );
+        [
+          ref,
+          DateTime.now().toIso8601String(),
+          '$type - $designation',
+          designation,
+          quantiteEntree ?? 0,
+          quantiteSortie ?? 0,
+          quantiteEntree ?? 0,
+          quantiteSortie ?? 0,
+          unite,
+          unite,
+          depot,
+          numVente,
+          numAchat,
+          type
+        ]);
   }
 
   // ========== MÉTHODES SPÉCIALISÉES STOCKS ==========
@@ -1505,29 +1494,36 @@ class AppDatabase extends _$AppDatabase {
 
   /// Crée l'utilisateur administrateur par défaut avec mot de passe crypté
   Future<void> createDefaultAdmin() async {
-    final existingAdmin =
-        await (select(users)..where((u) => u.role.equals('Administrateur'))).getSingleOrNull();
+    try {
+      final existingAdmins = await (select(users)..where((u) => u.role.equals('Administrateur'))).get();
 
-    final hashedPassword = _hashPassword('admin123');
+      final hashedPassword = _hashPassword('admin123');
 
-    if (existingAdmin == null) {
-      await into(users).insert(UsersCompanion(
-        id: const Value('admin'),
-        nom: const Value('Administrateur'),
-        username: const Value('admin'),
-        motDePasse: Value(hashedPassword),
-        role: const Value('Administrateur'),
-        actif: const Value(true),
-        dateCreation: Value(DateTime.now()),
-      ));
-    } else if (existingAdmin.motDePasse == 'admin123') {
-      // Mettre à jour l'admin existant avec mot de passe crypté
-      await (update(users)..where((u) => u.id.equals(existingAdmin.id)))
-          .write(UsersCompanion(motDePasse: Value(hashedPassword)));
+      if (existingAdmins.isEmpty) {
+        await into(users).insert(UsersCompanion(
+          id: const Value('admin'),
+          nom: const Value('Administrateur'),
+          username: const Value('admin'),
+          motDePasse: Value(hashedPassword),
+          role: const Value('Administrateur'),
+          actif: const Value(true),
+          dateCreation: Value(DateTime.now()),
+        ));
+      } else {
+        // Prendre le premier admin et mettre à jour si nécessaire
+        final existingAdmin = existingAdmins.first;
+        if (existingAdmin.motDePasse == 'admin123') {
+          await (update(users)..where((u) => u.id.equals(existingAdmin.id)))
+              .write(UsersCompanion(motDePasse: Value(hashedPassword)));
+        }
+      }
+
+      // Initialiser les modes de paiement par défaut
+      await _initializeDefaultPaymentModes();
+    } catch (e) {
+      print('Erreur lors de la création de l\'admin par défaut: $e');
+      // Ne pas faire échouer l'initialisation pour cette erreur
     }
-
-    // Initialiser les modes de paiement par défaut
-    await _initializeDefaultPaymentModes();
   }
 
   /// Initialise les modes de paiement par défaut

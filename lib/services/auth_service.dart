@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:crypto/crypto.dart';
 
 import '../database/database.dart';
@@ -10,7 +11,7 @@ class AuthService {
   AuthService._internal();
 
   User? _currentUser;
-  
+
   User? get currentUser => _currentUser;
   bool get isLoggedIn => _currentUser != null;
   String get currentUserRole => _currentUser?.role ?? '';
@@ -22,7 +23,7 @@ class AuthService {
       // Crypter le mot de passe pour la comparaison
       final hashedPassword = _hashPassword(password);
       final user = await db.authenticateUser(username, hashedPassword);
-      
+
       if (user != null) {
         _currentUser = user;
         return true;
@@ -53,17 +54,17 @@ class AuthService {
   /// Vérifie si l'utilisateur a le rôle requis
   bool hasRole(String requiredRole) {
     if (_currentUser == null) return false;
-    
+
     // L'administrateur a accès à tout
     if (_currentUser!.role == 'Administrateur') return true;
-    
+
     return _currentUser!.role == requiredRole;
   }
 
   /// Vérifie si l'utilisateur peut accéder à une fonctionnalité
   bool canAccess(String feature) {
     if (_currentUser == null) return false;
-    
+
     switch (_currentUser!.role) {
       case 'Administrateur':
         return true; // Accès total
@@ -89,7 +90,7 @@ class AuthService {
   /// Permissions pour le rôle Vendeur
   static const List<String> _vendeurPermissions = [
     'ventes',
-    'clients_view',
+    'clients',
     'articles_view',
     'stocks_view',
   ];

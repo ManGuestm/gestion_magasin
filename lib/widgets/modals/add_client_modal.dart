@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../constants/client_categories.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../services/auth_service.dart';
 
 class AddClientModal extends StatefulWidget {
   final CltData? client;
@@ -27,6 +28,7 @@ class _AddClientModalState extends State<AddClientModal> {
   final _rcsController = TextEditingController();
   final _soldesController = TextEditingController();
   final _categorieController = TextEditingController();
+  final _rsocFocusNode = FocusNode();
   String? _selectedCategorie;
 
   @override
@@ -45,11 +47,15 @@ class _AddClientModalState extends State<AddClientModal> {
     } else {
       // Pré-remplir avec le nom fourni ou valeur par défaut
       _rsocController.text = widget.nomClient ?? '';
-      // Pour Administrateur, défaut = Tous Dépôts, pour Vendeur = Magasin
-      _selectedCategorie = (widget.tousDepots != false) 
-        ? ClientCategory.tousDepots.label 
-        : ClientCategory.magasin.label;
+      // Pour Vendeur, toujours Magasin, sinon Tous Dépôts par défaut
+      _selectedCategorie =
+          AuthService().hasRole('Vendeur') ? ClientCategory.magasin.label : ClientCategory.tousDepots.label;
     }
+    
+    // Focus automatique sur le champ Raison Social
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _rsocFocusNode.requestFocus();
+    });
   }
 
   @override
@@ -72,12 +78,24 @@ class _AddClientModalState extends State<AddClientModal> {
           return KeyEventResult.ignored;
         },
         child: Dialog(
+          backgroundColor: Colors.transparent,
           child: Container(
-            width: 700,
-            height: MediaQuery.of(context).size.height * 0.6,
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height * 0.4,
+              maxHeight: MediaQuery.of(context).size.height * 0.8,
+              minWidth: MediaQuery.of(context).size.width * 0.5,
+              maxWidth: MediaQuery.of(context).size.width * 0.6,
+            ),
             decoration: BoxDecoration(
-              color: Colors.grey[200],
-              border: Border.all(color: Colors.grey[400]!),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Form(
               key: _formKey,
@@ -113,14 +131,33 @@ class _AddClientModalState extends State<AddClientModal> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.blue[100],
-        border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+        gradient: LinearGradient(
+          colors: [Colors.blue[600]!, Colors.blue[700]!],
+        ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
       ),
-      child: Text(
-        widget.client == null ? 'NOUVEAU ...' : 'MODIFIER ...',
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+      child: Row(
+        children: [
+          Icon(
+            widget.client == null ? Icons.person_add : Icons.edit,
+            color: Colors.white,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            widget.client == null ? 'NOUVEAU CLIENT' : 'MODIFIER CLIENT',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -128,22 +165,45 @@ class _AddClientModalState extends State<AddClientModal> {
   Widget _buildIdentificationSection() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.blue[50],
-        border: Border.all(color: Colors.grey[400]!),
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[300]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue[200],
-              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+              gradient: LinearGradient(
+                colors: [Colors.blue[100]!, Colors.blue[200]!],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(8),
+              ),
             ),
-            child: const Text(
-              'IDENTIFICATION',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            child: Row(
+              children: [
+                Icon(Icons.badge, size: 16, color: Colors.blue[700]),
+                const SizedBox(width: 8),
+                const Text(
+                  'IDENTIFICATION',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(
@@ -184,22 +244,45 @@ class _AddClientModalState extends State<AddClientModal> {
   Widget _buildCoordonneeSection() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.blue[50],
-        border: Border.all(color: Colors.grey[400]!),
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[300]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue[200],
-              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+              gradient: LinearGradient(
+                colors: [Colors.green[100]!, Colors.green[200]!],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(8),
+              ),
             ),
-            child: const Text(
-              'COORDONNEES',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            child: Row(
+              children: [
+                Icon(Icons.contact_phone, size: 16, color: Colors.green[700]),
+                const SizedBox(width: 8),
+                const Text(
+                  'COORDONNEES',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(
@@ -236,22 +319,45 @@ class _AddClientModalState extends State<AddClientModal> {
   Widget _buildComptesSection() {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.blue[50],
-        border: Border.all(color: Colors.grey[400]!),
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[300]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue[200],
-              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+              gradient: LinearGradient(
+                colors: [Colors.orange[100]!, Colors.orange[200]!],
+              ),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(8),
+              ),
             ),
-            child: const Text(
-              'COMPTES',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            child: Row(
+              children: [
+                Icon(Icons.account_balance, size: 16, color: Colors.orange[700]),
+                const SizedBox(width: 8),
+                const Text(
+                  'COMPTES',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ],
             ),
           ),
           Padding(
@@ -297,14 +403,23 @@ class _AddClientModalState extends State<AddClientModal> {
         const SizedBox(width: 8),
         Container(
           width: width ?? 200,
-          height: 20,
+          height: 24,
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: Colors.grey[400]!),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[300]!),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withValues(alpha: 0.1),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
           child: TextFormField(
             controller: controller,
-            style: const TextStyle(fontSize: 11),
+            focusNode: controller == _rsocController ? _rsocFocusNode : null,
+            style: const TextStyle(fontSize: 12),
             decoration: const InputDecoration(
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
@@ -341,11 +456,19 @@ class _AddClientModalState extends State<AddClientModal> {
           height: 70,
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: Colors.grey[400]!),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[300]!),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withValues(alpha: 0.1),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
           child: TextFormField(
             controller: controller,
-            style: const TextStyle(fontSize: 11),
+            style: const TextStyle(fontSize: 12),
             maxLines: 3,
             decoration: const InputDecoration(
               border: InputBorder.none,
@@ -359,6 +482,8 @@ class _AddClientModalState extends State<AddClientModal> {
   }
 
   Widget _buildCategorieDropdown() {
+    final isVendeur = AuthService().hasRole('Vendeur');
+
     return Row(
       children: [
         const SizedBox(
@@ -371,10 +496,18 @@ class _AddClientModalState extends State<AddClientModal> {
         const SizedBox(width: 8),
         Container(
           width: 120,
-          height: 20,
+          height: 24,
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.grey[400]!),
+            color: isVendeur ? Colors.grey[200] : Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: Colors.grey[300]!),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withValues(alpha: 0.1),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
           child: DropdownButtonFormField<String>(
             initialValue: _selectedCategorie,
@@ -382,17 +515,23 @@ class _AddClientModalState extends State<AddClientModal> {
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               isDense: true,
-              fillColor: Colors.grey[200],
+              fillColor: isVendeur ? Colors.grey[200] : Colors.white,
               filled: true,
             ),
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-            items: ClientCategory.values.map((category) => 
-              DropdownMenuItem(
-                value: category.label,
-                child: Text(category.label),
-              )
-            ).toList(),
-            onChanged: null, // Désactivé
+            style: TextStyle(fontSize: 12, color: isVendeur ? Colors.grey[600] : Colors.black),
+            items: ClientCategory.values
+                .map((category) => DropdownMenuItem(
+                      value: category.label,
+                      child: Text(category.label),
+                    ))
+                .toList(),
+            onChanged: isVendeur
+                ? null
+                : (value) {
+                    setState(() {
+                      _selectedCategorie = value;
+                    });
+                  },
           ),
         ),
       ],
@@ -401,55 +540,44 @@ class _AddClientModalState extends State<AddClientModal> {
 
   Widget _buildButtons() {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[300],
-        border: Border(top: BorderSide(color: Colors.grey[400]!)),
+        color: Colors.grey[100],
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(12),
+          bottomRight: Radius.circular(12),
+        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            // width: 80,
-            height: 30,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: Colors.orange[200],
-              border: Border.all(color: Colors.grey[600]!),
-            ),
-            child: TextButton(
-              onPressed: _saveClient,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ElevatedButton.icon(
+            onPressed: _saveClient,
+            icon: const Icon(Icons.check, size: 16),
+            label: const Text('Valider (Entrée)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[600],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
               ),
-              child: const Text(
-                'Valider (Entrée)',
-                style: TextStyle(fontSize: 12, color: Colors.black),
-              ),
+              elevation: 2,
             ),
           ),
           const SizedBox(width: 16),
-          Container(
-            // width: 80,
-            height: 30,
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: Colors.orange[200],
-              border: Border.all(color: Colors.grey[600]!),
-            ),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ElevatedButton.icon(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close, size: 16),
+            label: const Text('Annuler (Échap)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[600],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(6),
               ),
-              child: const Text(
-                'Annuler (Échap)',
-                style: TextStyle(fontSize: 12, color: Colors.black),
-              ),
+              elevation: 2,
             ),
           ),
         ],
@@ -500,6 +628,7 @@ class _AddClientModalState extends State<AddClientModal> {
     _rcsController.dispose();
     _soldesController.dispose();
     _categorieController.dispose();
+    _rsocFocusNode.dispose();
     super.dispose();
   }
 }

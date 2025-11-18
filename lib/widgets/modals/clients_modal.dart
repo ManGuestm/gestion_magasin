@@ -1,8 +1,10 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../constants/app_constants.dart';
+import '../../constants/client_categories.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../mixins/form_navigation_mixin.dart';
@@ -22,37 +24,54 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
   List<CltData> _filteredClients = [];
   final TextEditingController _searchController = TextEditingController();
   late final FocusNode _searchFocus;
+  final FocusNode _keyboardFocusNode = FocusNode();
   CltData? _selectedClient;
   List<ComptecltData> _historiqueClient = [];
   final int _pageSize = 100;
   bool _isLoading = false;
   final NumberFormat _numberFormat = NumberFormat('#,##0', 'fr_FR');
+  String? _selectedCategoryFilter;
 
   @override
   void initState() {
     super.initState();
     _searchFocus = createFocusNode();
+
+
+
     _loadClients();
+
+    // Focus automatique sur le KeyboardListener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _keyboardFocusNode.requestFocus();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return BaseModal(
-      title: 'Clients',
-      width: AppConstants.defaultModalWidth,
-      height: AppConstants.defaultModalHeight,
-      onNew: () => _showAddClientModal(),
-      onDelete: () => _selectedClient != null ? _deleteClient(_selectedClient!) : null,
-      onSearch: () => _searchFocus.requestFocus(),
-      onRefresh: _loadClients,
-      content: GestureDetector(
-        onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-        child: Column(
-          children: [
-            _buildContent(),
-            _buildHistoriqueSection(),
-            _buildButtons(),
-          ],
+    return KeyboardListener(
+      focusNode: _keyboardFocusNode,
+      autofocus: true,
+      onKeyEvent: _handleKeyboardShortcut,
+      child: BaseModal(
+        title: 'Clients',
+        width: AppConstants.defaultModalWidth,
+        height: AppConstants.defaultModalHeight,
+        onNew: () => _showAddClientModal(),
+        onDelete: () => _selectedClient != null ? _deleteClient(_selectedClient!) : null,
+        onSearch: () => _searchFocus.requestFocus(),
+        onRefresh: _loadClients,
+        content: GestureDetector(
+          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+          child: Column(
+            children: [
+              if (AuthService().currentUser?.role == 'Administrateur' || AuthService().currentUser?.role == 'Caisse')
+                _buildFilterSection(),
+              _buildContent(),
+              _buildHistoriqueSection(),
+              _buildButtons(),
+            ],
+          ),
         ),
       ),
     );
@@ -363,9 +382,9 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
     final clients = await DatabaseService().database.getAllClients();
     setState(() {
       _clients = clients;
-      _filteredClients = clients.take(_pageSize).toList();
       _isLoading = false;
     });
+    _applyFilter();
   }
 
   Future<void> _verifierEtCreerClient(String nomClient) async {
@@ -403,7 +422,7 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
             context: context,
             builder: (context) => AddClientModal(
               nomClient: nomClient,
-              tousDepots: !AuthService().hasRole('Vendeur'),
+              tousDepots: AuthService().currentUser?.role != 'Vendeur',
             ),
           );
         }
@@ -431,8 +450,86 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
 
   void _showAllClients() {
     setState(() {
-      _filteredClients = _clients.take(_pageSize).toList();
+      final userRole = AuthService().currentUser?.role ?? '';
+      if (userRole == 'Administrateur' || userRole == 'Caisse') {
+        _selectedCategoryFilter = null;
+      }
       _searchController.clear();
+    });
+    _applyFilter();
+  }
+
+  Widget _buildFilterSection() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Row(
+        children: [
+          const Text(
+            'Filtrer par catégorie:',
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 150,
+            height: 24,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: DropdownButtonFormField<String>(
+              initialValue: _selectedCategoryFilter,
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                isDense: true,
+              ),
+              style: const TextStyle(fontSize: 11, color: Colors.black),
+              hint: const Text('Toutes', style: TextStyle(fontSize: 11)),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('Toutes'),
+                ),
+                ...ClientCategory.values.map((category) => DropdownMenuItem(
+                      value: category.label,
+                      child: Text(category.label),
+                    )),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedCategoryFilter = value;
+                  _applyFilter();
+                });
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyFilter() {
+    List<CltData> filtered = _clients;
+    
+    final userRole = AuthService().currentUser?.role ?? '';
+    
+    if (userRole == 'Vendeur') {
+      // Vendeur ne voit que les clients Magasin
+      filtered = filtered.where((client) => client.categorie == ClientCategory.magasin.label).toList();
+    } else if (userRole == 'Administrateur' || userRole == 'Caisse') {
+      // Admin/Caisse peuvent filtrer par catégorie
+      if (_selectedCategoryFilter != null) {
+        filtered = filtered.where((client) => client.categorie == _selectedCategoryFilter).toList();
+      }
+    }
+    
+    setState(() {
+      _filteredClients = filtered.take(_pageSize).toList();
     });
   }
 
@@ -519,7 +616,7 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
       context: context,
       builder: (context) => AddClientModal(
         client: client,
-        tousDepots: !AuthService().hasRole('Vendeur'),
+        tousDepots: AuthService().currentUser?.role != 'Vendeur',
       ),
     ).then((_) => _loadClients());
   }
@@ -761,9 +858,33 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
     return _numberFormat.format(montant.round());
   }
 
+  void _handleKeyboardShortcut(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      final isCtrl = HardwareKeyboard.instance.isControlPressed;
+
+      // Ctrl+N : Créer nouveau client
+      if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyN) {
+        _showAddClientModal();
+      }
+      // Ctrl+M : Modifier client sélectionné
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyM) {
+        if (_selectedClient != null) {
+          _showAddClientModal(client: _selectedClient);
+        }
+      }
+      // Suppr : Supprimer client sélectionné
+      else if (event.logicalKey == LogicalKeyboardKey.delete) {
+        if (_selectedClient != null) {
+          _deleteClient(_selectedClient!);
+        }
+      }
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
+    _keyboardFocusNode.dispose();
     super.dispose();
   }
 }

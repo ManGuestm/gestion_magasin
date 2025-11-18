@@ -193,10 +193,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleSubmenuTap(String item) {
     _closeMenu();
     if (item == 'Ventes') {
-      showDialog(
-        context: context,
-        builder: (context) => const VentesSelectionModal(),
-      );
+      final userRole = AuthService().currentUser?.role ?? '';
+      if (userRole == 'Vendeur') {
+        // Vendeur va directement au modal vente magasin
+        _showModal('ventes_magasin');
+      } else {
+        // Admin/Caisse passent par le modal de sélection
+        showDialog(
+          context: context,
+          builder: (context) => const VentesSelectionModal(),
+        );
+      }
     } else if (item == 'Ventes (Tous dépôts)') {
       _showModal('ventes_tous_depots');
     } else if (item == 'Gestion des utilisateurs') {
@@ -339,10 +346,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _handleIconTap(String iconLabel) {
     if (iconLabel == 'Ventes') {
-      showDialog(
-        context: context,
-        builder: (context) => const VentesSelectionModal(),
-      );
+      final userRole = AuthService().currentUser?.role ?? '';
+      if (userRole == 'Vendeur') {
+        _showModal('ventes_magasin');
+      } else {
+        showDialog(
+          context: context,
+          builder: (context) => const VentesSelectionModal(),
+        );
+      }
     } else {
       _showModal(iconLabel);
     }

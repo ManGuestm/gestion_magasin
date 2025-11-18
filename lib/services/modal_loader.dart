@@ -129,11 +129,11 @@ class ModalLoader {
       'Gestion des utilisateurs': () => const UsersManagementModal(),
       'Profil': () => const ProfilModal(),
       'ventes_tous_depots': () => const VentesModal(tousDepots: true),
+      'ventes_magasin': () => const VentesModal(tousDepots: false),
     };
   }
 
   static Future<Widget?> loadModal(String item) async {
-    
     // Vérifier le cache d'abord
     if (_cache.containsKey(item)) {
       return _cache[item];

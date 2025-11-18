@@ -578,7 +578,8 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin 
       );
 
       if (stocksDepart.length > 1) {
-        return 'Total: $totalFormate | ${stockTexts.join(' | ')}';
+        return totalFormate;
+        // return 'Total: $totalFormate | ${stockTexts.join(' | ')}';
       } else {
         return stockTexts.first;
       }

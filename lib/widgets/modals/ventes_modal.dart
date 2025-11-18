@@ -83,7 +83,7 @@ class _VentesModalState extends State<VentesModal> {
   final TextEditingController _soldeAnterieurController = TextEditingController();
 
   // Paper format
-  String _selectedFormat = 'A5';
+  String _selectedFormat = 'A6';
 
   // Workflow validation
   StatutVente _statutVente = StatutVente.brouillard;
