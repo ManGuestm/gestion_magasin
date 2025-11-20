@@ -275,7 +275,7 @@ class _AchatsModalState extends State<AchatsModal> {
       final fournisseurs = await _databaseService.database.getAllFournisseurs();
       final articles = await _databaseService.database.getAllArticles();
       final depots =
-          await _databaseService.database.select(_databaseService.database.depart).map((d) => d.depots).get();
+          await _databaseService.database.select(_databaseService.database.depots).map((d) => d.depots).get();
       final modesPaiement = await _databaseService.database.select(_databaseService.database.mp).get();
       final societe =
           await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
@@ -283,7 +283,7 @@ class _AchatsModalState extends State<AchatsModal> {
       setState(() {
         _fournisseurs = fournisseurs;
         _articles = articles;
-        _depots = ['MAG', ...depots.toSet().where((d) => d != 'MAG')];
+        _depots = depots.isNotEmpty ? depots.toSet().toList() : ['MAG'];
         _modesPaiement = modesPaiement;
         _societe = societe;
       });
@@ -567,19 +567,6 @@ class _AchatsModalState extends State<AchatsModal> {
       await _mettreAJourStocksModification();
     }
     _ajouterLigne();
-    _resetArticleForm();
-  }
-
-  void _annulerAjout() async {
-    if (_isModifyingArticle && _originalArticleData != null) {
-      // En cas de modification : remettre l'article dans la table
-      setState(() {
-        _lignesAchat.add(_originalArticleData!);
-        _originalArticleData = null;
-        _isModifyingArticle = false;
-      });
-      _calculerTotaux();
-    }
     _resetArticleForm();
   }
 
@@ -2145,7 +2132,7 @@ class _AchatsModalState extends State<AchatsModal> {
                               Expanded(
                                 child: Column(
                                   children: [
-                                    // First row
+                                    // First row: N°Achats, Date et N° Facture
                                     Row(
                                       children: [
                                         const ExcludeFocus(
@@ -2209,22 +2196,20 @@ class _AchatsModalState extends State<AchatsModal> {
                                           child: SizedBox(
                                             width: 120,
                                             height: 25,
-                                            child: FocusTraversalOrder(
-                                              order: const NumericFocusOrder(1),
-                                              child: TextField(
-                                                textAlign: TextAlign.center,
-                                                controller: _nFactController,
-                                                focusNode: _nFactFocusNode,
-                                                enabled: _statutAchatActuel != 'JOURNAL',
-                                                decoration: InputDecoration(
-                                                  border: const OutlineInputBorder(),
-                                                  contentPadding:
-                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: _statutAchatActuel == 'JOURNAL'
-                                                      ? Colors.grey.shade200
-                                                      : null,
-                                                  filled: _statutAchatActuel == 'JOURNAL',
-                                                ),
+                                            child: TextField(
+                                              textAlign: TextAlign.center,
+                                              controller: _nFactController,
+                                              focusNode: _nFactFocusNode,
+                                              enabled: _statutAchatActuel != 'JOURNAL',
+                                              onSubmitted: (_) => _fournisseurFocusNode.requestFocus(),
+                                              decoration: InputDecoration(
+                                                border: const OutlineInputBorder(),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                fillColor: _statutAchatActuel == 'JOURNAL'
+                                                    ? Colors.grey.shade200
+                                                    : null,
+                                                filled: _statutAchatActuel == 'JOURNAL',
                                               ),
                                             ),
                                           ),
@@ -2232,7 +2217,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                       ],
                                     ),
                                     const SizedBox(height: 8),
-                                    // Second row
+                                    // Second row: Label et champ Formulaire
                                     Row(
                                       children: [
                                         const ExcludeFocus(
@@ -2252,33 +2237,33 @@ class _AchatsModalState extends State<AchatsModal> {
                                                             _fournisseurController.text);
                                                       }
                                                     },
-                                                    child: FocusTraversalOrder(
-                                                      order: const NumericFocusOrder(2),
-                                                      child: EnhancedAutocomplete<Frn>(
-                                                        controller: _fournisseurController,
-                                                        focusNode: _fournisseurFocusNode,
-                                                        options: _fournisseurs,
-                                                        displayStringForOption: (frn) => frn.rsoc,
-                                                        onSelected: (frn) {
-                                                          if (_statutAchatActuel != 'JOURNAL') {
-                                                            setState(() {
-                                                              _selectedFournisseur = frn.rsoc;
-                                                            });
-                                                          }
-                                                        },
-                                                        hintText:
-                                                            'Rechercher fournisseur... (← → pour naviguer)',
-                                                        decoration: InputDecoration(
-                                                          border: const OutlineInputBorder(),
-                                                          contentPadding: const EdgeInsets.symmetric(
-                                                              horizontal: 4, vertical: 2),
-                                                          fillColor: _statutAchatActuel == 'JOURNAL'
-                                                              ? Colors.grey.shade200
-                                                              : null,
-                                                          filled: _statutAchatActuel == 'JOURNAL',
-                                                        ),
-                                                        style: const TextStyle(fontSize: 12),
+                                                    child: EnhancedAutocomplete<Frn>(
+                                                      controller: _fournisseurController,
+                                                      focusNode: _fournisseurFocusNode,
+                                                      options: _fournisseurs,
+                                                      displayStringForOption: (frn) => frn.rsoc,
+                                                      onSelected: (frn) {
+                                                        if (_statutAchatActuel != 'JOURNAL') {
+                                                          setState(() {
+                                                            _selectedFournisseur = frn.rsoc;
+                                                          });
+                                                          _articleFocusNode.requestFocus();
+                                                        }
+                                                      },
+                                                      onFieldSubmitted: (_) =>
+                                                          _articleFocusNode.requestFocus(),
+                                                      hintText:
+                                                          'Rechercher fournisseur... (← → pour naviguer)',
+                                                      decoration: InputDecoration(
+                                                        border: const OutlineInputBorder(),
+                                                        contentPadding: const EdgeInsets.symmetric(
+                                                            horizontal: 4, vertical: 2),
+                                                        fillColor: _statutAchatActuel == 'JOURNAL'
+                                                            ? Colors.grey.shade200
+                                                            : null,
+                                                        filled: _statutAchatActuel == 'JOURNAL',
                                                       ),
+                                                      style: const TextStyle(fontSize: 12),
                                                     ),
                                                   ),
                                                 ),
@@ -2314,36 +2299,35 @@ class _AchatsModalState extends State<AchatsModal> {
                                       child: Row(
                                         children: [
                                           Expanded(
-                                            child: FocusTraversalOrder(
-                                              order: const NumericFocusOrder(3),
-                                              child: EnhancedAutocomplete<Article>(
-                                                focusNode: _articleFocusNode,
-                                                options: _articles,
-                                                displayStringForOption: (article) => article.designation,
-                                                onSelected: (article) {
-                                                  if (_statutAchatActuel != 'JOURNAL') {
-                                                    _onArticleSelected(article);
-                                                  }
-                                                },
-                                                onTextChanged: (text) {
-                                                  if (text.isEmpty) {
-                                                    setState(() {
-                                                      _selectedArticle = null;
-                                                    });
-                                                  }
-                                                },
-                                                hintText: 'Rechercher article... (← → pour naviguer)',
-                                                decoration: InputDecoration(
-                                                  border: const OutlineInputBorder(),
-                                                  contentPadding:
-                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: _statutAchatActuel == 'JOURNAL'
-                                                      ? Colors.grey.shade200
-                                                      : null,
-                                                  filled: _statutAchatActuel == 'JOURNAL',
-                                                ),
-                                                style: const TextStyle(fontSize: 12),
+                                            child: EnhancedAutocomplete<Article>(
+                                              focusNode: _articleFocusNode,
+                                              options: _articles,
+                                              displayStringForOption: (article) => article.designation,
+                                              onSelected: (article) {
+                                                if (_statutAchatActuel != 'JOURNAL') {
+                                                  _onArticleSelected(article);
+                                                  _uniteFocusNode.requestFocus();
+                                                }
+                                              },
+                                              onFieldSubmitted: (_) => _uniteFocusNode.requestFocus(),
+                                              onTextChanged: (text) {
+                                                if (text.isEmpty) {
+                                                  setState(() {
+                                                    _selectedArticle = null;
+                                                  });
+                                                }
+                                              },
+                                              hintText: 'Rechercher article... (← → pour naviguer)',
+                                              decoration: InputDecoration(
+                                                border: const OutlineInputBorder(),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                fillColor: _statutAchatActuel == 'JOURNAL'
+                                                    ? Colors.grey.shade200
+                                                    : null,
+                                                filled: _statutAchatActuel == 'JOURNAL',
                                               ),
+                                              style: const TextStyle(fontSize: 12),
                                             ),
                                           ),
                                         ],
@@ -2375,43 +2359,36 @@ class _AchatsModalState extends State<AchatsModal> {
                                                   _verifierUniteArticle(_uniteController.text);
                                                 }
                                               },
-                                              child: FocusTraversalOrder(
-                                                order: const NumericFocusOrder(4),
-                                                child: EnhancedAutocomplete<String>(
-                                                  controller: _uniteController,
-                                                  focusNode: _uniteFocusNode,
-                                                  enabled: _selectedArticle != null &&
-                                                      _statutAchatActuel != 'JOURNAL',
-                                                  options: _getUnitsForSelectedArticle()
-                                                      .map((item) => item.value!)
-                                                      .toList(),
-                                                  displayStringForOption: (unite) => unite,
-                                                  onSelected: (unite) {
-                                                    if (_selectedArticle != null &&
-                                                        _statutAchatActuel != 'JOURNAL') {
-                                                      _verifierUniteArticle(unite);
-                                                    }
-                                                  },
-                                                  onSubmitted: (unite) {
-                                                    if (_selectedArticle != null &&
-                                                        _statutAchatActuel != 'JOURNAL') {
-                                                      _verifierUniteArticle(unite);
-                                                    }
-                                                  },
-                                                  hintText: 'Unité...',
-                                                  decoration: InputDecoration(
-                                                    border: const OutlineInputBorder(),
-                                                    contentPadding: const EdgeInsets.symmetric(
-                                                        horizontal: 4, vertical: 2),
-                                                    fillColor: _selectedArticle == null ||
-                                                            _statutAchatActuel == 'JOURNAL'
-                                                        ? Colors.grey.shade200
-                                                        : null,
-                                                    filled: _selectedArticle == null ||
-                                                        _statutAchatActuel == 'JOURNAL',
-                                                  ),
-                                                  style: const TextStyle(fontSize: 12),
+                                              child: EnhancedAutocomplete<String>(
+                                                controller: _uniteController,
+                                                focusNode: _uniteFocusNode,
+                                                enabled: _selectedArticle != null &&
+                                                    _statutAchatActuel != 'JOURNAL',
+                                                options: _getUnitsForSelectedArticle()
+                                                    .map((item) => item.value!)
+                                                    .toList(),
+                                                displayStringForOption: (unite) => unite,
+                                                onSelected: (unite) {
+                                                  if (_selectedArticle != null &&
+                                                      _statutAchatActuel != 'JOURNAL') {
+                                                    _verifierUniteArticle(unite);
+                                                    _quantiteFocusNode.requestFocus();
+                                                  }
+                                                },
+                                                onFieldSubmitted: (_) => _quantiteFocusNode.requestFocus(),
+                                                hintText: 'Unité...',
+                                                decoration: InputDecoration(
+                                                  border: const OutlineInputBorder(),
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  fillColor: _selectedArticle == null ||
+                                                          _statutAchatActuel == 'JOURNAL'
+                                                      ? Colors.grey.shade200
+                                                      : null,
+                                                  filled: _selectedArticle == null ||
+                                                      _statutAchatActuel == 'JOURNAL',
                                                 ),
+                                                style: const TextStyle(fontSize: 12),
                                               ),
                                             ),
                                           ),
@@ -2432,29 +2409,25 @@ class _AchatsModalState extends State<AchatsModal> {
                                     const SizedBox(height: 4),
                                     SizedBox(
                                       height: 25,
-                                      child: FocusTraversalOrder(
-                                        order: const NumericFocusOrder(5),
-                                        child: TextField(
-                                          controller: _quantiteController,
-                                          focusNode: _quantiteFocusNode,
-                                          readOnly:
-                                              _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
-                                          decoration: InputDecoration(
-                                            border: const OutlineInputBorder(),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                            fillColor:
-                                                _selectedArticle == null || _statutAchatActuel == 'JOURNAL'
-                                                    ? Colors.grey.shade200
-                                                    : null,
-                                            filled:
-                                                _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
-                                          ),
-                                          style: const TextStyle(fontSize: 12),
-                                          onChanged: (value) {
-                                            setState(() {});
-                                          },
+                                      child: TextField(
+                                        controller: _quantiteController,
+                                        focusNode: _quantiteFocusNode,
+                                        readOnly: _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
+                                        onSubmitted: (_) => _prixFocusNode.requestFocus(),
+                                        decoration: InputDecoration(
+                                          border: const OutlineInputBorder(),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          fillColor:
+                                              _selectedArticle == null || _statutAchatActuel == 'JOURNAL'
+                                                  ? Colors.grey.shade200
+                                                  : null,
+                                          filled: _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
                                         ),
+                                        style: const TextStyle(fontSize: 12),
+                                        onChanged: (value) {
+                                          setState(() {});
+                                        },
                                       ),
                                     ),
                                   ],
@@ -2471,26 +2444,22 @@ class _AchatsModalState extends State<AchatsModal> {
                                     const SizedBox(height: 4),
                                     SizedBox(
                                       height: 25,
-                                      child: FocusTraversalOrder(
-                                        order: const NumericFocusOrder(6),
-                                        child: TextField(
-                                          controller: _prixController,
-                                          focusNode: _prixFocusNode,
-                                          readOnly:
-                                              _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
-                                          decoration: InputDecoration(
-                                            border: const OutlineInputBorder(),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                            fillColor:
-                                                _selectedArticle == null || _statutAchatActuel == 'JOURNAL'
-                                                    ? Colors.grey.shade200
-                                                    : null,
-                                            filled:
-                                                _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
-                                          ),
-                                          style: const TextStyle(fontSize: 12),
+                                      child: TextField(
+                                        controller: _prixController,
+                                        focusNode: _prixFocusNode,
+                                        readOnly: _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
+                                        onSubmitted: (_) => _depotFocusNode.requestFocus(),
+                                        decoration: InputDecoration(
+                                          border: const OutlineInputBorder(),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          fillColor:
+                                              _selectedArticle == null || _statutAchatActuel == 'JOURNAL'
+                                                  ? Colors.grey.shade200
+                                                  : null,
+                                          filled: _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
                                         ),
+                                        style: const TextStyle(fontSize: 12),
                                       ),
                                     ),
                                   ],
@@ -2510,32 +2479,31 @@ class _AchatsModalState extends State<AchatsModal> {
                                       child: Row(
                                         children: [
                                           Expanded(
-                                            child: FocusTraversalOrder(
-                                              order: const NumericFocusOrder(7),
-                                              child: EnhancedAutocomplete<String>(
-                                                controller: _depotController,
-                                                focusNode: _depotFocusNode,
-                                                options: _depots.isNotEmpty ? _depots : ['MAG'],
-                                                displayStringForOption: (depot) => depot,
-                                                onSelected: (depot) {
-                                                  if (_statutAchatActuel != 'JOURNAL') {
-                                                    setState(() {
-                                                      _selectedDepot = depot;
-                                                    });
-                                                  }
-                                                },
-                                                hintText: 'Dépôt...',
-                                                decoration: InputDecoration(
-                                                  border: const OutlineInputBorder(),
-                                                  contentPadding:
-                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: _statutAchatActuel == 'JOURNAL'
-                                                      ? Colors.grey.shade200
-                                                      : null,
-                                                  filled: _statutAchatActuel == 'JOURNAL',
-                                                ),
-                                                style: const TextStyle(fontSize: 12),
+                                            child: EnhancedAutocomplete<String>(
+                                              controller: _depotController,
+                                              focusNode: _depotFocusNode,
+                                              options: _depots,
+                                              displayStringForOption: (depot) => depot,
+                                              onSelected: (depot) {
+                                                if (_statutAchatActuel != 'JOURNAL') {
+                                                  setState(() {
+                                                    _selectedDepot = depot;
+                                                  });
+                                                  _validerFocusNode.requestFocus();
+                                                }
+                                              },
+                                              onSubmitted: (_) => _validerFocusNode.requestFocus(),
+                                              hintText: 'Dépôt...',
+                                              decoration: InputDecoration(
+                                                border: const OutlineInputBorder(),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                fillColor: _statutAchatActuel == 'JOURNAL'
+                                                    ? Colors.grey.shade200
+                                                    : null,
+                                                filled: _statutAchatActuel == 'JOURNAL',
                                               ),
+                                              style: const TextStyle(fontSize: 12),
                                             ),
                                           ),
                                         ],
@@ -2551,8 +2519,16 @@ class _AchatsModalState extends State<AchatsModal> {
                                     const SizedBox(height: 16),
                                     Row(
                                       children: [
-                                        FocusTraversalOrder(
-                                          order: const NumericFocusOrder(8),
+                                        Focus(
+                                          focusNode: _validerFocusNode,
+                                          onKeyEvent: (node, event) {
+                                            if (event is KeyDownEvent &&
+                                                event.logicalKey == LogicalKeyboardKey.tab) {
+                                              _annulerFocusNode.requestFocus();
+                                              return KeyEventResult.handled;
+                                            }
+                                            return KeyEventResult.ignored;
+                                          },
                                           child: ElevatedButton(
                                             focusNode: _validerFocusNode,
                                             onPressed: _validerAjout,
@@ -2565,17 +2541,63 @@ class _AchatsModalState extends State<AchatsModal> {
                                           ),
                                         ),
                                         const SizedBox(width: 4),
-                                        FocusTraversalOrder(
-                                          order: const NumericFocusOrder(9),
-                                          child: ElevatedButton(
-                                            focusNode: _annulerFocusNode,
-                                            onPressed: _annulerAjout,
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.red,
-                                              foregroundColor: Colors.white,
-                                              minimumSize: const Size(60, 25),
+                                        // ANNULER BUTTON - with Focus wrapper and CRITICAL tab handling
+                                        Focus(
+                                          focusNode: _annulerFocusNode,
+                                          onKeyEvent: (node, event) {
+                                            if (event is KeyDownEvent) {
+                                              if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                // CRITICAL FIX: TAB from Annuler goes back to Clients
+                                                // This completes the tab cycle
+                                                _articleFocusNode.requestFocus();
+                                                return KeyEventResult.handled;
+                                              } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                                // ENTER on Annuler resets the form ONLY when focused
+                                                if (_annulerFocusNode.hasFocus) {
+                                                  _resetArticleForm();
+                                                }
+                                                return KeyEventResult.handled;
+                                              }
+                                            }
+                                            return KeyEventResult.ignored;
+                                          },
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              border: _annulerFocusNode.hasFocus
+                                                  ? Border.all(color: Colors.blue, width: 3)
+                                                  : null,
+                                              borderRadius: BorderRadius.circular(4),
+                                              boxShadow: _annulerFocusNode.hasFocus
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: Colors.blue.withValues(alpha: 0.3),
+                                                        blurRadius: 4,
+                                                        spreadRadius: 1,
+                                                      )
+                                                    ]
+                                                  : null,
                                             ),
-                                            child: const Text('Annuler', style: TextStyle(fontSize: 12)),
+                                            child: ElevatedButton(
+                                              focusNode: _annulerFocusNode,
+                                              onPressed: _resetArticleForm,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: _annulerFocusNode.hasFocus
+                                                    ? Colors.orange[600]
+                                                    : Colors.orange,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(60, 35),
+                                                elevation: _annulerFocusNode.hasFocus ? 4 : 2,
+                                              ),
+                                              child: Text(
+                                                _annulerFocusNode.hasFocus ? 'Annuler ↵' : 'Annuler',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: _annulerFocusNode.hasFocus
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],

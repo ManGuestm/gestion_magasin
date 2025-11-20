@@ -11,6 +11,7 @@ class EnhancedAutocomplete<T> extends StatefulWidget {
   final InputDecoration? decoration;
   final TextStyle? style;
   final void Function(String)? onSubmitted;
+  final void Function(String)? onFieldSubmitted;
   final bool enabled;
   final void Function(String)? onTextChanged;
   final VoidCallback? onTabPressed;
@@ -26,6 +27,7 @@ class EnhancedAutocomplete<T> extends StatefulWidget {
     this.decoration,
     this.style,
     this.onSubmitted,
+    this.onFieldSubmitted,
     this.enabled = true,
     this.onTextChanged,
     this.onTabPressed,
@@ -245,6 +247,8 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
         onSubmitted: (value) {
           if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
             _selectOption(_filteredOptions[_selectedIndex]);
+          } else if (widget.onFieldSubmitted != null) {
+            widget.onFieldSubmitted!(value);
           } else if (widget.onSubmitted != null) {
             widget.onSubmitted!(value);
           }

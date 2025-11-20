@@ -72,8 +72,6 @@ class _VentesModalState extends State<VentesModal> {
   bool _showCreditMode = true;
 
   String _searchVentesText = '';
-  bool _isModifyingArticle = false;
-  Map<String, dynamic>? _originalArticleData;
 
   // Right sidebar state
   bool _isRightSidebarCollapsed = false;
@@ -123,6 +121,10 @@ class _VentesModalState extends State<VentesModal> {
       _onSearchArticleChanged(_searchArticleController.text);
     });
 
+    _quantiteController.addListener(() {
+      debugPrint('Quantité changée vers: ${_quantiteController.text}');
+    });
+
     // Add focus listeners for debugging
     _clientFocusNode.addListener(() {
       if (_clientFocusNode.hasFocus) debugPrint('Focus: Client field activated');
@@ -151,7 +153,10 @@ class _VentesModalState extends State<VentesModal> {
       }
     });
     _ajouterFocusNode.addListener(() {
-      if (_ajouterFocusNode.hasFocus) debugPrint('Focus: Ajouter button activated');
+      if (_ajouterFocusNode.hasFocus) {
+        debugPrint('Focus: Ajouter button activated - Quantité avant: ${_quantiteController.text}');
+      }
+      setState(() {}); // Rebuild to update elevation
     });
     _annulerFocusNode.addListener(() {
       if (_annulerFocusNode.hasFocus) debugPrint('Focus: Annuler button activated');
@@ -360,6 +365,11 @@ class _VentesModalState extends State<VentesModal> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: SelectableText('Vente N° $numVentes chargée')),
           );
+
+          // Positionner le curseur dans le champ Désignation Articles
+          Future.delayed(const Duration(milliseconds: 100), () {
+            _designationFocusNode.requestFocus();
+          });
         }
       }
     } catch (e) {
@@ -528,8 +538,6 @@ class _VentesModalState extends State<VentesModal> {
     setState(() {
       _selectedArticle = article;
       if (article != null) {
-        _selectedUnite = article.u1;
-        _selectedDepot = _defaultDepot;
         _quantiteController.text = '';
         _montantController.text = '';
         _stockAffichage = ''; // Reset stock display
@@ -537,12 +545,6 @@ class _VentesModalState extends State<VentesModal> {
     });
 
     if (article != null) {
-      // Charger le prix de vente standard
-      final prixStandard = await _getPrixVenteStandard(article, article.u1 ?? 'Pce');
-      setState(() {
-        _prixController.text = prixStandard > 0 ? _formatNumber(prixStandard) : '';
-      });
-
       await _verifierStockEtBasculer(article);
     }
   }
@@ -620,7 +622,6 @@ class _VentesModalState extends State<VentesModal> {
 
     setState(() {
       _selectedDepot = depot;
-      _quantiteController.text = '';
     });
 
     await _verifierStockEtBasculer(_selectedArticle!);
@@ -657,10 +658,6 @@ class _VentesModalState extends State<VentesModal> {
           stockU3: stockDepart?.stocksu3 ?? 0.0,
         );
 
-        if (_stockInsuffisant) {
-          _quantiteController.text = '0';
-        }
-
         // Recalculer le prix pour l'unité sélectionnée
         _calculerPrixPourUnite(article, _selectedUnite ?? article.u1!);
       });
@@ -680,7 +677,6 @@ class _VentesModalState extends State<VentesModal> {
       setState(() {
         _stockDisponible = 0.0;
         _stockInsuffisant = true;
-        _quantiteController.text = '0';
         _stockAffichage = '0 Ctn / 0 Pqt';
       });
     }
@@ -716,16 +712,11 @@ class _VentesModalState extends State<VentesModal> {
           stockU2: stockDepart?.stocksu2 ?? 0.0,
           stockU3: stockDepart?.stocksu3 ?? 0.0,
         );
-
-        if (_stockInsuffisant) {
-          _quantiteController.text = '0';
-        }
       });
     } catch (e) {
       setState(() {
         _stockDisponible = 0.0;
         _stockInsuffisant = true;
-        _quantiteController.text = '0';
         _stockAffichage = '0 Ctn / 0 Pqt';
       });
     }
@@ -765,13 +756,10 @@ class _VentesModalState extends State<VentesModal> {
 
   Future<void> _gererStockInsuffisant(Article article, String depotActuel) async {
     // Vérifier les stocks dans les autres dépôts
-    final autresStocks = await _verifierStocksAutresDepots(article, depotActuel);
+    await _verifierStocksAutresDepots(article, depotActuel);
 
-    // N'afficher le modal que si on n'est pas en train de naviguer par tabulation
-    // Vérifier si le focus est sur les boutons Ajouter ou Annuler (navigation)
-    if (!_ajouterFocusNode.hasFocus && !_annulerFocusNode.hasFocus) {
-      _afficherModalStockInsuffisant(article, depotActuel, autresStocks);
-    }
+    // Ne plus afficher le modal automatiquement pour ne pas perturber la navigation
+    // L'utilisateur peut maintenant ajouter directement l'article même avec stock insuffisant
   }
 
   Future<List<Map<String, dynamic>>> _verifierStocksAutresDepots(Article article, String depotActuel) async {
@@ -809,94 +797,6 @@ class _VentesModalState extends State<VentesModal> {
     }
 
     return autresStocks;
-  }
-
-  void _afficherModalStockInsuffisant(
-      Article article, String depotActuel, List<Map<String, dynamic>> autresStocks) {
-    String message;
-
-    if (widget.tousDepots) {
-      message =
-          'Stock épuisé dans tous les dépôts pour l\'article "${article.designation}".\n\nVoulez-vous continuer quand même ?\n\nNote: La vente sera enregistrée en brouillard uniquement.';
-    } else {
-      message =
-          'Stock épuisé dans le dépôt "$depotActuel" pour l\'article "${article.designation}".\n\nVoulez-vous continuer quand même ?\n\nNote: La vente sera enregistrée en brouillard uniquement.';
-
-      if (autresStocks.isNotEmpty) {
-        message += '\n\nStock disponible dans d\'autres dépôts:';
-        for (var stock in autresStocks) {
-          message +=
-              '\n• ${stock['depot']}: ${stock['stockDisponible'].toStringAsFixed(0)} ${stock['unite']}';
-        }
-        message += '\n\nUtilisez le mode "Tous dépôts" pour accéder à ces stocks.';
-      }
-    }
-
-    // Fermer tous les focus et overlays existants
-    FocusScope.of(context).unfocus();
-
-    // Attendre un peu pour que les overlays se ferment
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (!mounted) return;
-      showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext dialogContext) {
-          return AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.warning, color: Colors.orange, size: 24),
-                SizedBox(width: 8),
-                Text('Stock insuffisant'),
-              ],
-            ),
-            content: Text(message),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Annuler'),
-              ),
-              ElevatedButton(
-                autofocus: true,
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(true);
-                  _continuerMalgreStockInsuffisant(article);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Continuer quand même'),
-              ),
-            ],
-          );
-        },
-      );
-    });
-  }
-
-  void _continuerMalgreStockInsuffisant(Article article) {
-    setState(() {
-      _stockInsuffisant = false; // Permettre la saisie
-      _quantiteController.text = '1'; // Quantité par défaut
-      // Forcer le mode brouillard pour cette vente
-      _statutVente = StatutVente.brouillard;
-    });
-
-    // Focus sur le champ unités
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _uniteFocusNode.requestFocus();
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vente autorisée en mode brouillard uniquement'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
   }
 
   Future<void> _loadDefaultDepot() async {
@@ -1044,92 +944,11 @@ class _VentesModalState extends State<VentesModal> {
     String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? 'Pce');
     String depot = _selectedDepot ?? _defaultDepot;
 
-    // Vérifier si c'est un cadeau (prix = 0)
-    if (prix == 0) {
-      final confirmerCadeau = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Article gratuit'),
-          content: const Text('Le prix est à zéro.\n\nVoulez-vous offrir cet article comme cadeau ?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Annuler'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Oui, cadeau'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmerCadeau != true) return;
-    }
-
-    // Vérifier le prix par rapport au prix d'achat
-    if (prix > 0) {
-      final prixAchat = _selectedArticle!.cmup ?? 0.0;
-      if (mounted && prix < prixAchat) {
-        final confirmerPertePrix = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Row(
-              children: [
-                Icon(Icons.warning, color: Colors.red, size: 24),
-                SizedBox(width: 8),
-                Text('Prix inférieur au coût'),
-              ],
-            ),
-            content: Text(
-                'Le prix de vente (${_formatNumber(prix)}) est inférieur au prix d\'achat (${_formatNumber(prixAchat)}).\n\n'
-                'Perte: ${_formatNumber(prixAchat - prix)} par unité\n\n'
-                'Voulez-vous continuer quand même ?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Annuler'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Continuer quand même'),
-              ),
-            ],
-          ),
-        );
-
-        if (confirmerPertePrix != true) return;
-      }
-    }
-
     // Si stock insuffisant, forcer le mode brouillard
-    if (quantite > _stockDisponible && _stockDisponible <= 0) {
+    if (quantite > _stockDisponible) {
       setState(() {
         _statutVente = StatutVente.brouillard;
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Article ajouté - Vente en mode brouillard (stock insuffisant)'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-    } else if (quantite > _stockDisponible && _stockDisponible > 0) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Stock insuffisant. Disponible: ${_stockDisponible.toStringAsFixed(0)} $unite'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
     }
 
     // Calculer la différence de prix
@@ -1147,9 +966,9 @@ class _VentesModalState extends State<VentesModal> {
         'prixUnitaire': prix,
         'montant': montant,
         'depot': depot,
-        'article': _selectedArticle, // Garder référence pour conversions
-        'stockInsuffisant': quantite > _stockDisponible, // Marquer si stock insuffisant
-        'diffPrix': diffPrix, // Différence de prix
+        'article': _selectedArticle,
+        'stockInsuffisant': quantite > _stockDisponible,
+        'diffPrix': diffPrix,
       });
     });
 
@@ -1166,19 +985,6 @@ class _VentesModalState extends State<VentesModal> {
       return article.pvu3 ?? 0;
     }
     return 0.0;
-  }
-
-  void _annulerAjout() {
-    if (_isModifyingArticle && _originalArticleData != null) {
-      // En cas de modification : remettre l'article dans la table
-      setState(() {
-        _lignesVente.add(_originalArticleData!);
-        _originalArticleData = null;
-        _isModifyingArticle = false;
-      });
-      _calculerTotaux();
-    }
-    _resetArticleForm();
   }
 
   void _chargerLigneArticle(int index) {
@@ -1202,8 +1008,6 @@ class _VentesModalState extends State<VentesModal> {
       _selectedArticle = article;
       _selectedUnite = ligne['unites'];
       _selectedDepot = ligne['depot'];
-      _isModifyingArticle = true;
-      _originalArticleData = Map<String, dynamic>.from(ligne);
 
       if (_autocompleteController != null) {
         _autocompleteController!.text = ligne['designation'];
@@ -1312,16 +1116,14 @@ class _VentesModalState extends State<VentesModal> {
     setState(() {
       _selectedArticle = null;
       _selectedUnite = null;
-      _selectedDepot = _defaultDepot;
-      _isModifyingArticle = false;
-      _originalArticleData = null;
+      _selectedDepot = _defaultDepot; // Conserver le dernier dépôt utilisé
       if (_autocompleteController != null) {
         _autocompleteController!.clear();
       }
       _quantiteController.clear();
       _prixController.clear();
       _montantController.clear();
-      _depotController.text = _defaultDepot;
+      _depotController.text = _defaultDepot; // Remplir avec le dernier dépôt utilisé
       _stockDisponible = 0.0;
       _stockInsuffisant = false;
       _stockAffichage = '';
@@ -1338,13 +1140,6 @@ class _VentesModalState extends State<VentesModal> {
       _lignesVente.removeAt(index);
     });
     _calculerTotaux();
-  }
-
-  bool _isArticleFormValid() {
-    return _selectedArticle != null &&
-        _quantiteController.text.isNotEmpty &&
-        double.tryParse(_quantiteController.text) != null &&
-        double.tryParse(_quantiteController.text)! > 0;
   }
 
   bool _shouldShowAddButton() {
@@ -2569,12 +2364,16 @@ class _VentesModalState extends State<VentesModal> {
                                             SizedBox(
                                               height: 25,
                                               child: EnhancedAutocomplete<String>(
-                                                options: _getUnitsForSelectedArticle()
-                                                    .map((item) => item.value!)
-                                                    .toList(),
+                                                options: _selectedArticle != null
+                                                    ? _getUnitsForSelectedArticle()
+                                                        .map((item) => item.value!)
+                                                        .toList()
+                                                    : ['Pce'],
                                                 displayStringForOption: (unit) => unit,
                                                 onSelected: (unit) {
-                                                  _onUniteChanged(unit);
+                                                  if (_selectedArticle != null) {
+                                                    _onUniteChanged(unit);
+                                                  }
                                                   _quantiteFocusNode.requestFocus();
                                                 },
                                                 focusNode: _uniteFocusNode,
@@ -2585,8 +2384,7 @@ class _VentesModalState extends State<VentesModal> {
                                                       EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                                 ),
                                                 style: const TextStyle(fontSize: 12),
-                                                // TAB pressed in Unités field goes to Quantités
-                                                onTabPressed: () => _quantiteFocusNode.requestFocus(),
+                                                onSubmitted: (_) => _quantiteFocusNode.requestFocus(),
                                               ),
                                             ),
                                             if (_selectedArticle != null)
@@ -2713,9 +2511,9 @@ class _VentesModalState extends State<VentesModal> {
                                                 focusNode: _depotFocusNode,
                                                 onSelected: (depot) {
                                                   _onDepotChanged(depot);
+                                                  _ajouterFocusNode.requestFocus();
                                                 },
-                                                // TAB pressed in Dépôts field goes to Ajouter button
-                                                onTabPressed: () => _ajouterFocusNode.requestFocus(),
+                                                onSubmitted: (_) => _ajouterFocusNode.requestFocus(),
                                                 hintText: 'Dépôt...',
                                                 decoration: const InputDecoration(
                                                   border: OutlineInputBorder(),
@@ -2740,187 +2538,45 @@ class _VentesModalState extends State<VentesModal> {
                                         Column(
                                           children: [
                                             const SizedBox(height: 16),
-                                            if (_isModifyingArticle) ...[
-                                              // MODIFICATION MODE: Valider and Annuler buttons
-                                              Column(
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      ElevatedButton(
-                                                        onPressed: _isArticleFormValid()
-                                                            ? () {
-                                                                _ajouterLigne();
-                                                              }
-                                                            : null,
-                                                        style: ElevatedButton.styleFrom(
-                                                          backgroundColor: _isArticleFormValid()
-                                                              ? Colors.green
-                                                              : Colors.grey,
-                                                          foregroundColor: Colors.white,
-                                                          minimumSize: const Size(50, 35),
-                                                        ),
-                                                        child: const Text('Valider',
-                                                            style: TextStyle(fontSize: 12)),
+                                            Column(
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    // AJOUTER BUTTON
+                                                    ElevatedButton(
+                                                      focusNode: _ajouterFocusNode,
+                                                      onPressed: _ajouterLigne,
+                                                      style: ElevatedButton.styleFrom(
+                                                        elevation: _ajouterFocusNode.hasFocus ? 1 : 0,
+                                                        backgroundColor: Colors.green,
+                                                        foregroundColor: Colors.white,
+                                                        minimumSize: const Size(60, 35),
                                                       ),
-                                                      const SizedBox(width: 4),
-                                                      ElevatedButton(
-                                                        onPressed: _annulerAjout,
-                                                        style: ElevatedButton.styleFrom(
-                                                          backgroundColor: Colors.red,
-                                                          foregroundColor: Colors.white,
-                                                          minimumSize: const Size(50, 35),
-                                                        ),
-                                                        child: const Text('Annuler',
-                                                            style: TextStyle(fontSize: 12)),
+                                                      child: const Text(
+                                                        'Ajouter',
+                                                        style: TextStyle(fontSize: 12),
                                                       ),
-                                                    ],
-                                                  ),
-                                                  if (_selectedArticle != null) const SizedBox(height: 16),
-                                                ],
-                                              ),
-                                            ] else ...[
-                                              // NORMAL MODE: Ajouter and Annuler buttons with proper focus handling
-                                              Column(
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      // AJOUTER BUTTON - with Focus wrapper
-                                                      Focus(
-                                                        focusNode: _ajouterFocusNode,
-                                                        onKeyEvent: (node, event) {
-                                                          if (event is KeyDownEvent) {
-                                                            if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                              // TAB from Ajouter goes to Annuler
-                                                              _annulerFocusNode.requestFocus();
-                                                              return KeyEventResult.handled;
-                                                            } else if (event.logicalKey ==
-                                                                LogicalKeyboardKey.enter) {
-                                                              // ENTER on Ajouter executes the add action ONLY when focused
-                                                              if (_ajouterFocusNode.hasFocus &&
-                                                                  _isArticleFormValid()) {
-                                                                _ajouterLigne();
-                                                              }
-                                                              return KeyEventResult.handled;
-                                                            }
-                                                          }
-                                                          return KeyEventResult.ignored;
-                                                        },
-                                                        child: Container(
-                                                          decoration: BoxDecoration(
-                                                            border: _ajouterFocusNode.hasFocus
-                                                                ? Border.all(color: Colors.blue, width: 3)
-                                                                : null,
-                                                            borderRadius: BorderRadius.circular(4),
-                                                            boxShadow: _ajouterFocusNode.hasFocus
-                                                                ? [
-                                                                    BoxShadow(
-                                                                      color:
-                                                                          Colors.blue.withValues(alpha: 0.3),
-                                                                      blurRadius: 4,
-                                                                      spreadRadius: 1,
-                                                                    )
-                                                                  ]
-                                                                : null,
-                                                          ),
-                                                          child: ElevatedButton(
-                                                            onPressed: _isArticleFormValid()
-                                                                ? () {
-                                                                    _ajouterLigne();
-                                                                  }
-                                                                : null,
-                                                            style: ElevatedButton.styleFrom(
-                                                              backgroundColor: _isArticleFormValid()
-                                                                  ? (_ajouterFocusNode.hasFocus
-                                                                      ? Colors.green[600]
-                                                                      : Colors.green)
-                                                                  : Colors.grey,
-                                                              foregroundColor: Colors.white,
-                                                              minimumSize: const Size(60, 35),
-                                                              elevation: _ajouterFocusNode.hasFocus ? 4 : 2,
-                                                            ),
-                                                            child: Text(
-                                                              _ajouterFocusNode.hasFocus
-                                                                  ? 'Ajouter ↵'
-                                                                  : 'Ajouter',
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                fontWeight: _ajouterFocusNode.hasFocus
-                                                                    ? FontWeight.bold
-                                                                    : FontWeight.normal,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    // ANNULER BUTTON
+                                                    ElevatedButton(
+                                                      focusNode: _annulerFocusNode,
+                                                      onPressed: _resetArticleForm,
+                                                      style: ElevatedButton.styleFrom(
+                                                        backgroundColor: Colors.orange,
+                                                        foregroundColor: Colors.white,
+                                                        minimumSize: const Size(60, 35),
                                                       ),
-                                                      const SizedBox(width: 4),
-                                                      // ANNULER BUTTON - with Focus wrapper and CRITICAL tab handling
-                                                      Focus(
-                                                        focusNode: _annulerFocusNode,
-                                                        onKeyEvent: (node, event) {
-                                                          if (event is KeyDownEvent) {
-                                                            if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                              // CRITICAL FIX: TAB from Annuler goes back to Clients
-                                                              // This completes the tab cycle
-                                                              _clientFocusNode.requestFocus();
-                                                              return KeyEventResult.handled;
-                                                            } else if (event.logicalKey ==
-                                                                LogicalKeyboardKey.enter) {
-                                                              // ENTER on Annuler resets the form ONLY when focused
-                                                              if (_annulerFocusNode.hasFocus) {
-                                                                _resetArticleForm();
-                                                              }
-                                                              return KeyEventResult.handled;
-                                                            }
-                                                          }
-                                                          return KeyEventResult.ignored;
-                                                        },
-                                                        child: Container(
-                                                          decoration: BoxDecoration(
-                                                            border: _annulerFocusNode.hasFocus
-                                                                ? Border.all(color: Colors.blue, width: 3)
-                                                                : null,
-                                                            borderRadius: BorderRadius.circular(4),
-                                                            boxShadow: _annulerFocusNode.hasFocus
-                                                                ? [
-                                                                    BoxShadow(
-                                                                      color:
-                                                                          Colors.blue.withValues(alpha: 0.3),
-                                                                      blurRadius: 4,
-                                                                      spreadRadius: 1,
-                                                                    )
-                                                                  ]
-                                                                : null,
-                                                          ),
-                                                          child: ElevatedButton(
-                                                            onPressed: _resetArticleForm,
-                                                            style: ElevatedButton.styleFrom(
-                                                              backgroundColor: _annulerFocusNode.hasFocus
-                                                                  ? Colors.orange[600]
-                                                                  : Colors.orange,
-                                                              foregroundColor: Colors.white,
-                                                              minimumSize: const Size(60, 35),
-                                                              elevation: _annulerFocusNode.hasFocus ? 4 : 2,
-                                                            ),
-                                                            child: Text(
-                                                              _annulerFocusNode.hasFocus
-                                                                  ? 'Annuler ↵'
-                                                                  : 'Annuler',
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                fontWeight: _annulerFocusNode.hasFocus
-                                                                    ? FontWeight.bold
-                                                                    : FontWeight.normal,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
+                                                      child: const Text(
+                                                        'Annuler',
+                                                        style: TextStyle(fontSize: 12),
                                                       ),
-                                                    ],
-                                                  ),
-                                                  if (_selectedArticle != null) const SizedBox(height: 16),
-                                                ],
-                                              ),
-                                            ],
+                                                    ),
+                                                  ],
+                                                ),
+                                                if (_selectedArticle != null) const SizedBox(height: 16),
+                                              ],
+                                            ),
                                           ],
                                         ),
                                       ],
@@ -3653,8 +3309,6 @@ class _VentesModalState extends State<VentesModal> {
                                 Container(
                                   width: double.infinity,
                                   decoration: const BoxDecoration(
-                                    borderRadius: BorderRadius.only(
-                                        bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
                                     color: Color(0xFFFFB6C1),
                                   ),
                                   padding: const EdgeInsets.all(8),
