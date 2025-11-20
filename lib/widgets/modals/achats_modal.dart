@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../services/achat_service.dart';
 import '../../utils/cmup_calculator.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
@@ -21,6 +22,7 @@ class AchatsModal extends StatefulWidget {
 
 class _AchatsModalState extends State<AchatsModal> {
   final DatabaseService _databaseService = DatabaseService();
+  final AchatService _achatService = AchatService();
 
   // Focus nodes
   final FocusNode _nFactFocusNode = FocusNode();
@@ -35,10 +37,6 @@ class _AchatsModalState extends State<AchatsModal> {
   final FocusNode _keyboardFocusNode = FocusNode();
   final FocusNode _searchAchatsFocusNode = FocusNode();
   final FocusNode _echeanceJoursFocusNode = FocusNode();
-
-  void _debugFocusChange(String fieldName) {
-    debugPrint('Tab navigation: Focus moved to $fieldName');
-  }
 
   // Controllers
   final TextEditingController _numAchatsController = TextEditingController();
@@ -105,21 +103,17 @@ class _AchatsModalState extends State<AchatsModal> {
   @override
   void initState() {
     super.initState();
+    _autocompleteController = TextEditingController();
     _loadData();
     _loadAchatsNumbers().then((_) => _initializeForm());
 
-    // Add listeners for debug
-    _nFactFocusNode.addListener(() => _nFactFocusNode.hasFocus ? _debugFocusChange('N° Facture/BL') : null);
-    _fournisseurFocusNode
-        .addListener(() => _fournisseurFocusNode.hasFocus ? _debugFocusChange('Fournisseur') : null);
-    _articleFocusNode
-        .addListener(() => _articleFocusNode.hasFocus ? _debugFocusChange('Désignation Articles') : null);
-    _uniteFocusNode.addListener(() => _uniteFocusNode.hasFocus ? _debugFocusChange('Unités') : null);
-    _quantiteFocusNode.addListener(() => _quantiteFocusNode.hasFocus ? _debugFocusChange('Quantités') : null);
-    _prixFocusNode.addListener(() => _prixFocusNode.hasFocus ? _debugFocusChange('P.U HT') : null);
-    _depotFocusNode.addListener(() => _depotFocusNode.hasFocus ? _debugFocusChange('Dépôts') : null);
-    _validerFocusNode.addListener(() => _validerFocusNode.hasFocus ? _debugFocusChange('Valider') : null);
-    _annulerFocusNode.addListener(() => _annulerFocusNode.hasFocus ? _debugFocusChange('Annuler') : null);
+    // Ajouter des listeners pour les focus nodes
+    _validerFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _annulerFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
 
     // Focus automatique sur le KeyboardListener pour capturer les raccourcis
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -197,50 +191,6 @@ class _AchatsModalState extends State<AchatsModal> {
     return _achatsNumbers.where((numAchat) {
       return _searchAchatsText.isEmpty || numAchat.toLowerCase().contains(_searchAchatsText);
     }).toList();
-  }
-
-  Future<void> _ajusterCompteFournisseur() async {
-    if (_selectedFournisseur == null) return;
-
-    // Vérifier si l'achat est contre-passé
-    final achatActuel = await (_databaseService.database.select(_databaseService.database.achats)
-          ..where((a) => a.numachats.equals(_numAchatsController.text)))
-        .getSingleOrNull();
-
-    // Ne pas comptabiliser si contre-passé
-    if (achatActuel?.contre == '1') {
-      return;
-    }
-
-    try {
-      final totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0;
-      final ref = 'ACH-${_numAchatsController.text}-${DateTime.now().millisecondsSinceEpoch}';
-
-      await _databaseService.database.into(_databaseService.database.comptefrns).insert(
-            ComptefrnsCompanion.insert(
-              ref: ref,
-              daty: Value(DateTime.now()),
-              lib: Value('Achat N° ${_numAchatsController.text}'),
-              numachats: Value(_numAchatsController.text),
-              entres: Value(totalTTC),
-              frns: Value(_selectedFournisseur!),
-              solde: Value(totalTTC),
-            ),
-          );
-
-      // Mettre à jour le solde dans la table frns
-      final fournisseur = await _databaseService.database.getFournisseurByRsoc(_selectedFournisseur!);
-      if (fournisseur != null) {
-        await (_databaseService.database.update(_databaseService.database.frns)
-              ..where((f) => f.rsoc.equals(_selectedFournisseur!)))
-            .write(FrnsCompanion(
-          soldes: Value((fournisseur.soldes ?? 0) + totalTTC),
-          datedernop: Value(DateTime.now()),
-        ));
-      }
-    } catch (e) {
-      // Ignorer les erreurs d'ajustement du compte fournisseur
-    }
   }
 
   Future<String> _getNextNumAchats() async {
@@ -367,31 +317,34 @@ class _AchatsModalState extends State<AchatsModal> {
     }
   }
 
-  void _onArticleSelected(Article? article) {
+  void _onArticleSelected(Article? article) async {
+    if (article == null) return;
+    
+    final lastDepot = await _getLastUsedDepot();
+    
     setState(() {
       _selectedArticle = article;
-      if (article != null) {
-        // Sélection par défaut de l'unité u1 et du dépôt de l'article
-        _selectedUnite = article.u1;
-        _selectedDepot = article.dep ?? 'MAG';
+      // Unité u1 par défaut
+      _selectedUnite = article.u1;
+      // Dernier dépôt utilisé
+      _selectedDepot = lastDepot;
 
-        // Remplir automatiquement les champs EnhancedAutocomplete
-        _uniteController.text = article.u1 ?? '';
-        _depotController.text = article.dep ?? 'MAG';
+      // Remplir automatiquement les champs
+      _uniteController.text = article.u1 ?? '';
+      _depotController.text = lastDepot;
 
-        // Si CMUP = 0, prix suggéré = 0
-        if ((article.cmup ?? 0.0) == 0.0) {
-          _prixController.text = '';
-        } else {
-          double prixSuggere = CMUPCalculator.calculerPrixVente(
-            article: article,
-            unite: article.u1 ?? 'Pce',
-            margePercent: 0.0, // Pas de marge pour les achats
-          );
-          _prixController.text = NumberUtils.formatNumber(prixSuggere);
-        }
-        _quantiteController.text = '';
+      // Prix selon CMUP (0 si CMUP = 0)
+      if ((article.cmup ?? 0.0) == 0.0) {
+        _prixController.text = '';
+      } else {
+        _prixController.text = NumberUtils.formatNumber(article.cmup!);
       }
+      _quantiteController.text = '';
+
+      // Focus automatique sur le champ unité après sélection
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _uniteFocusNode.requestFocus();
+      });
     });
   }
 
@@ -440,16 +393,11 @@ class _AchatsModalState extends State<AchatsModal> {
       _selectedUnite = unite;
       _uniteController.text = unite;
 
-      // Si CMUP = 0, prix suggéré = 0
+      // Prix selon CMUP (0 si CMUP = 0)
       if ((_selectedArticle!.cmup ?? 0.0) == 0.0) {
         _prixController.text = '';
       } else {
-        double prixSuggere = CMUPCalculator.calculerPrixVente(
-          article: _selectedArticle!,
-          unite: unite,
-          margePercent: 0.0, // Pas de marge pour les achats
-        );
-        _prixController.text = NumberUtils.formatNumber(prixSuggere);
+        _prixController.text = NumberUtils.formatNumber(_selectedArticle!.cmup!);
       }
 
       // Réinitialisation de la quantité pour forcer une nouvelle saisie
@@ -1061,118 +1009,12 @@ class _AchatsModalState extends State<AchatsModal> {
           contre: Value('1'),
         ));
 
-        // Si l'achat est journalisé, ajuster le compte fournisseur
+        // Utiliser le service pour contre-passer l'achat
         if (isJournalise) {
-          final totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0;
-          final ref = 'CP-${_numAchatsController.text}-${DateTime.now().millisecondsSinceEpoch}';
-
-          // Ajouter une sortie dans le compte fournisseur
-          await _databaseService.database.into(_databaseService.database.comptefrns).insert(
-                ComptefrnsCompanion.insert(
-                  ref: ref,
-                  daty: Value(DateTime.now()),
-                  lib: Value('Contre-passement achat N° ${_numAchatsController.text}'),
-                  numachats: Value(_numAchatsController.text),
-                  sortie: Value(totalTTC),
-                  frns: Value(_selectedFournisseur!),
-                  solde: Value(-totalTTC),
-                ),
-              );
-
-          // Mettre à jour le solde dans la table frns
-          final fournisseur = await _databaseService.database.getFournisseurByRsoc(_selectedFournisseur!);
-          if (fournisseur != null) {
-            await (_databaseService.database.update(_databaseService.database.frns)
-                  ..where((f) => f.rsoc.equals(_selectedFournisseur!)))
-                .write(FrnsCompanion(
-              soldes: Value((fournisseur.soldes ?? 0) - totalTTC),
-              datedernop: Value(DateTime.now()),
-            ));
-          }
-        }
-
-        // Si l'achat n'est PAS journalisé, ajuster les stocks
-        if (!isJournalise) {
-          // Récupérer les lignes de l'achat à contre-passer
-          final lignesAchat = await (_databaseService.database.select(_databaseService.database.detachats)
-                ..where((d) => d.numachats.equals(_numAchatsController.text)))
-              .get();
-
-          // Recharger les articles pour avoir les stocks actuels
-          _articles = await _databaseService.database.getAllArticles();
-
-          // Annuler l'impact sur les stocks avec conversion automatique
-          for (var ligne in lignesAchat) {
-            Article? article = _articles.firstWhere(
-              (a) => a.designation == ligne.designation,
-              orElse: () => throw Exception('Article ${ligne.designation} non trouvé'),
-            );
-
-            // Ajouter entrée de sortie dans variation des stocks
-            await _databaseService.database.into(_databaseService.database.stocks).insert(
-                  StocksCompanion.insert(
-                    ref:
-                        'CP-${_numAchatsController.text}-${ligne.designation}-${DateTime.now().millisecondsSinceEpoch}',
-                    daty: Value(DateTime.now()),
-                    lib: Value('Contre-passement achat ${_numAchatsController.text}'),
-                    refart: Value(ligne.designation ?? ''),
-                    sortie: Value(ligne.q ?? 0),
-                    ue: Value(ligne.unites ?? ''),
-                    depots: Value(ligne.depots ?? ''),
-                    cmup: Value(article.cmup ?? 0),
-                  ),
-                );
-
-            // Convertir la quantité à annuler en unités optimales
-            final conversionAnnulation = StockConverter.convertirQuantiteAchat(
-              article: article,
-              uniteAchat: ligne.unites ?? article.u3!,
-              quantiteAchat: ligne.q ?? 0,
-            );
-
-            // Annuler les stocks articles avec conversion automatique
-            final stocksActuelsArticle = StockConverter.convertirStockOptimal(
-              article: article,
-              quantiteU1: (article.stocksu1 ?? 0) - conversionAnnulation['u1']!,
-              quantiteU2: (article.stocksu2 ?? 0) - conversionAnnulation['u2']!,
-              quantiteU3: (article.stocksu3 ?? 0) - conversionAnnulation['u3']!,
-            );
-
-            await (_databaseService.database.update(_databaseService.database.articles)
-                  ..where((a) => a.designation.equals(article.designation)))
-                .write(ArticlesCompanion(
-              stocksu1: Value(stocksActuelsArticle['u1']! >= 0 ? stocksActuelsArticle['u1']! : 0),
-              stocksu2: Value(stocksActuelsArticle['u2']! >= 0 ? stocksActuelsArticle['u2']! : 0),
-              stocksu3: Value(stocksActuelsArticle['u3']! >= 0 ? stocksActuelsArticle['u3']! : 0),
-            ));
-
-            // Annuler les stocks par dépôt avec conversion automatique
-            final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
-                  ..where(
-                      (d) => d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
-                .getSingleOrNull();
-
-            if (existingDepart != null) {
-              final stocksActuelsDepot = StockConverter.convertirStockOptimal(
-                article: article,
-                quantiteU1: (existingDepart.stocksu1 ?? 0) - conversionAnnulation['u1']!,
-                quantiteU2: (existingDepart.stocksu2 ?? 0) - conversionAnnulation['u2']!,
-                quantiteU3: (existingDepart.stocksu3 ?? 0) - conversionAnnulation['u3']!,
-              );
-
-              await (_databaseService.database.update(_databaseService.database.depart)
-                    ..where((d) =>
-                        d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
-                  .write(DepartCompanion(
-                stocksu1: Value(stocksActuelsDepot['u1']! >= 0 ? stocksActuelsDepot['u1']! : 0),
-                stocksu2: Value(stocksActuelsDepot['u2']! >= 0 ? stocksActuelsDepot['u2']! : 0),
-                stocksu3: Value(stocksActuelsDepot['u3']! >= 0 ? stocksActuelsDepot['u3']! : 0),
-              ));
-            }
-
-            // Recalculer le CMUP après suppression
-            await _recalculerCMUPApresAnnulation(article, ligne.q ?? 0, ligne.pu ?? 0);
-          }
+          await _achatService.contrePasserAchatJournal(_numAchatsController.text);
+        } else {
+          // Pour les achats brouillard, marquer simplement comme contre-passé
+          // (pas de mouvements financiers à annuler)
         }
       });
 
@@ -1229,150 +1071,13 @@ class _AchatsModalState extends State<AchatsModal> {
     if (confirm != true) return;
 
     try {
-      await _databaseService.database.transaction(() async {
-        // Vérifier si l'achat existe dans la table achats
-        final achatExistant = await (_databaseService.database.select(_databaseService.database.achats)
-              ..where((a) => a.numachats.equals(_numAchatsController.text)))
-            .getSingleOrNull();
-
-        // Si l'achat n'existe pas dans la table achats, le créer
-        if (achatExistant == null) {
-          List<String> dateParts = _dateController.text.split('-');
-          DateTime dateForDB =
-              DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
-
-          await _databaseService.database.into(_databaseService.database.achats).insert(
-                AchatsCompanion.insert(
-                  numachats: Value(_numAchatsController.text),
-                  nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
-                  daty: Value(dateForDB),
-                  frns: Value(_selectedFournisseur!),
-                  modepai: Value(_selectedModePaiement),
-                  echeance: Value(_echeanceController.text.isEmpty ? null : dateForDB),
-                  totalnt: Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0),
-                  tva: Value(double.tryParse(_tvaController.text) ?? 0.0),
-                  totalttc: Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
-                  verification: const Value('JOURNAL'),
-                ),
-              );
-        } else {
-          // Mettre à jour le statut vers JOURNAL
-          await (_databaseService.database.update(_databaseService.database.achats)
-                ..where((a) => a.numachats.equals(_numAchatsController.text)))
-              .write(const AchatsCompanion(verification: Value('JOURNAL')));
-        }
-
-        final lignesAchat = await (_databaseService.database.select(_databaseService.database.detachats)
-              ..where((d) => d.numachats.equals(_numAchatsController.text)))
-            .get();
-
-        for (var ligne in lignesAchat) {
-          Article? article = _articles.firstWhere(
-            (a) => a.designation == ligne.designation,
-            orElse: () => throw Exception('Article ${ligne.designation} non trouvé'),
-          );
-
-          double nouveauCMUP = await CMUPCalculator.calculerEtMettreAJourCMUP(
-            designation: ligne.designation ?? '',
-            uniteAchat: ligne.unites ?? '',
-            quantiteAchat: ligne.q ?? 0,
-            prixUnitaireAchat: ligne.pu ?? 0,
-            article: article,
-          );
-
-          await _databaseService.database.into(_databaseService.database.stocks).insert(
-                StocksCompanion.insert(
-                  ref:
-                      'VAL-${_numAchatsController.text}-${ligne.designation}-${DateTime.now().millisecondsSinceEpoch}',
-                  daty: Value(DateTime.now()),
-                  lib: Value('Validation achat ${_numAchatsController.text}'),
-                  numachats: Value(_numAchatsController.text),
-                  nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
-                  refart: Value(ligne.designation ?? ''),
-                  qe: Value(ligne.q ?? 0),
-                  entres: Value(ligne.q ?? 0),
-                  ue: Value(ligne.unites ?? ''),
-                  depots: Value(ligne.depots ?? ''),
-                  cmup: Value(nouveauCMUP),
-                  frns: Value(_selectedFournisseur ?? ''),
-                  verification: const Value('JOURNAL'),
-                ),
-              );
-
-          final conversionAchat = StockConverter.convertirQuantiteAchat(
-            article: article,
-            uniteAchat: ligne.unites ?? '',
-            quantiteAchat: ligne.q ?? 0,
-          );
-
-          final stocksActuels = StockConverter.convertirStockOptimal(
-            article: article,
-            quantiteU1: (article.stocksu1 ?? 0) + conversionAchat['u1']!,
-            quantiteU2: (article.stocksu2 ?? 0) + conversionAchat['u2']!,
-            quantiteU3: (article.stocksu3 ?? 0) + conversionAchat['u3']!,
-          );
-
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu1: Value(stocksActuels['u1']!),
-            stocksu2: Value(stocksActuels['u2']!),
-            stocksu3: Value(stocksActuels['u3']!),
-          ));
-
-          // Mise à jour de la table depart
-          final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
-                ..where(
-                    (d) => d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
-              .getSingleOrNull();
-
-          if (existingDepart != null) {
-            final stocksDepotActuels = StockConverter.convertirStockOptimal(
-              article: article,
-              quantiteU1: (existingDepart.stocksu1 ?? 0) + conversionAchat['u1']!,
-              quantiteU2: (existingDepart.stocksu2 ?? 0) + conversionAchat['u2']!,
-              quantiteU3: (existingDepart.stocksu3 ?? 0) + conversionAchat['u3']!,
-            );
-
-            await (_databaseService.database.update(_databaseService.database.depart)
-                  ..where(
-                      (d) => d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
-                .write(DepartCompanion(
-              stocksu1: Value(stocksDepotActuels['u1']!),
-              stocksu2: Value(stocksDepotActuels['u2']!),
-              stocksu3: Value(stocksDepotActuels['u3']!),
-            ));
-          } else {
-            final stocksDepotInitiaux = StockConverter.convertirStockOptimal(
-              article: article,
-              quantiteU1: conversionAchat['u1']!,
-              quantiteU2: conversionAchat['u2']!,
-              quantiteU3: conversionAchat['u3']!,
-            );
-
-            await _databaseService.database.into(_databaseService.database.depart).insert(
-                  DepartCompanion.insert(
-                    designation: article.designation,
-                    depots: ligne.depots ?? '',
-                    stocksu1: Value(stocksDepotInitiaux['u1']!),
-                    stocksu2: Value(stocksDepotInitiaux['u2']!),
-                    stocksu3: Value(stocksDepotInitiaux['u3']!),
-                  ),
-                );
-          }
-        }
-
-        // Ajuster le compte fournisseur
-        await _ajusterCompteFournisseur();
-      });
+      await _achatService.validerAchatBrouillard(_numAchatsController.text);
 
       setState(() {
         _statutAchatActuel = 'JOURNAL';
-        // Mettre à jour instantanément le statut dans la liste
         _achatsStatuts[_numAchatsController.text] = 'JOURNAL';
       });
 
-      // Recharger les données pour voir les ajustements de stock
       await _loadData();
 
       if (mounted) {
@@ -1597,145 +1302,56 @@ class _AchatsModalState extends State<AchatsModal> {
         return;
       }
 
-      // Convertir la date au format DateTime pour la base de données
+      // Convertir la date au format DateTime
       List<String> dateParts = _dateController.text.split('-');
       DateTime dateForDB =
           DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+      DateTime? echeanceForDB = _echeanceController.text.isEmpty ? null : dateForDB;
 
-      // Insérer l'achat principal
-      await _databaseService.database.into(_databaseService.database.achats).insert(
-            AchatsCompanion.insert(
-              numachats: Value(_numAchatsController.text),
-              nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
-              daty: Value(dateForDB),
-              frns: Value(_selectedFournisseur!),
-              modepai: Value(_selectedModePaiement),
-              echeance: Value(_echeanceController.text.isEmpty
-                  ? null
-                  : DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]))),
-              totalnt: Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0),
-              tva: Value(double.tryParse(_tvaController.text) ?? 0.0),
-              totalttc: Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
-              verification: Value(_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'),
-            ),
-          );
+      double totalHT = double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0;
+      double tva = double.tryParse(_tvaController.text) ?? 0.0;
+      double totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0;
 
-      // Insérer les lignes d'achat et mettre à jour les stocks si Journal
-      for (var ligne in _lignesAchat) {
-        await _databaseService.database.into(_databaseService.database.detachats).insert(
-              DetachatsCompanion.insert(
-                numachats: Value(_numAchatsController.text),
-                designation: Value(ligne['designation']),
-                unites: Value(ligne['unites']),
-                depots: Value(ligne['depot']),
-                q: Value(ligne['quantite']),
-                pu: Value(ligne['prixUnitaire']),
-                daty: Value(dateForDB),
-              ),
-            );
+      // Préparer les données de l'achat
+      final lignesAchatData = _lignesAchat
+          .map((ligne) => {
+                'designation': ligne['designation'],
+                'unite': ligne['unites'],
+                'depot': ligne['depot'],
+                'quantite': ligne['quantite'],
+                'prixUnitaire': ligne['prixUnitaire'],
+              })
+          .toList();
 
-        // Mettre à jour les stocks seulement si mode Journal
-        if (_selectedStatut == 'Journal') {
-          Article? article = _articles.firstWhere(
-            (a) => a.designation == ligne['designation'],
-            orElse: () => throw Exception('Article non trouvé'),
-          );
-
-          double nouveauCMUP = await CMUPCalculator.calculerEtMettreAJourCMUP(
-            designation: ligne['designation'],
-            uniteAchat: ligne['unites'],
-            quantiteAchat: ligne['quantite'],
-            prixUnitaireAchat: ligne['prixUnitaire'],
-            article: article,
-          );
-
-          await _databaseService.database.into(_databaseService.database.stocks).insert(
-                StocksCompanion.insert(
-                  ref:
-                      'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}',
-                  daty: Value(dateForDB),
-                  lib: Value('Achat ${_numAchatsController.text}'),
-                  numachats: Value(_numAchatsController.text),
-                  nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
-                  refart: Value(ligne['designation']),
-                  qe: Value(ligne['quantite']),
-                  entres: Value(ligne['quantite']),
-                  ue: Value(ligne['unites']),
-                  depots: Value(ligne['depot']),
-                  cmup: Value(nouveauCMUP),
-                  frns: Value(_selectedFournisseur!),
-                  verification: const Value('JOURNAL'),
-                ),
-              );
-
-          final conversionAchat = StockConverter.convertirQuantiteAchat(
-            article: article,
-            uniteAchat: ligne['unites'],
-            quantiteAchat: ligne['quantite'],
-          );
-
-          final stocksActuels = StockConverter.convertirStockOptimal(
-            article: article,
-            quantiteU1: (article.stocksu1 ?? 0) + conversionAchat['u1']!,
-            quantiteU2: (article.stocksu2 ?? 0) + conversionAchat['u2']!,
-            quantiteU3: (article.stocksu3 ?? 0) + conversionAchat['u3']!,
-          );
-
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu1: Value(stocksActuels['u1']!),
-            stocksu2: Value(stocksActuels['u2']!),
-            stocksu3: Value(stocksActuels['u3']!),
-          ));
-
-          final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
-                ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
-              .getSingleOrNull();
-
-          // Mise à jour ou création du stock par dépôt dans la table depart
-          if (existingDepart != null) {
-            // Mettre à jour l'enregistrement existant
-            final stocksDepotActuels = StockConverter.convertirStockOptimal(
-              article: article,
-              quantiteU1: (existingDepart.stocksu1 ?? 0) + conversionAchat['u1']!,
-              quantiteU2: (existingDepart.stocksu2 ?? 0) + conversionAchat['u2']!,
-              quantiteU3: (existingDepart.stocksu3 ?? 0) + conversionAchat['u3']!,
-            );
-
-            await (_databaseService.database.update(_databaseService.database.depart)
-                  ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
-                .write(DepartCompanion(
-              stocksu1: Value(stocksDepotActuels['u1']!),
-              stocksu2: Value(stocksDepotActuels['u2']!),
-              stocksu3: Value(stocksDepotActuels['u3']!),
-            ));
-          } else {
-            // Créer un nouvel enregistrement
-            final stocksDepotInitiaux = StockConverter.convertirStockOptimal(
-              article: article,
-              quantiteU1: conversionAchat['u1']!,
-              quantiteU2: conversionAchat['u2']!,
-              quantiteU3: conversionAchat['u3']!,
-            );
-
-            await _databaseService.database.into(_databaseService.database.depart).insert(
-                  DepartCompanion.insert(
-                    designation: article.designation,
-                    depots: ligne['depot'],
-                    stocksu1: Value(stocksDepotInitiaux['u1']!),
-                    stocksu2: Value(stocksDepotInitiaux['u2']!),
-                    stocksu3: Value(stocksDepotInitiaux['u3']!),
-                  ),
-                );
-          }
-
-          // Ajuster le compte fournisseur pour les achats Journal
-          await _ajusterCompteFournisseur();
-        }
+      // Utiliser AchatService selon le mode
+      if (_selectedStatut == 'Journal') {
+        await _achatService.traiterAchatJournal(
+          numAchats: _numAchatsController.text,
+          nFacture: _nFactController.text.isEmpty ? null : _nFactController.text,
+          date: dateForDB,
+          fournisseur: _selectedFournisseur,
+          modePaiement: _selectedModePaiement,
+          echeance: echeanceForDB,
+          totalHT: totalHT,
+          totalTTC: totalTTC,
+          tva: tva,
+          lignesAchat: lignesAchatData,
+        );
+      } else {
+        await _achatService.traiterAchatBrouillard(
+          numAchats: _numAchatsController.text,
+          nFacture: _nFactController.text.isEmpty ? null : _nFactController.text,
+          date: dateForDB,
+          fournisseur: _selectedFournisseur,
+          modePaiement: _selectedModePaiement,
+          totalHT: totalHT,
+          totalTTC: totalTTC,
+          tva: tva,
+          lignesAchat: lignesAchatData,
+        );
       }
 
-      // Recharger la liste des achats pour affichage instantané
+      // Recharger la liste des achats
       await _loadAchatsNumbers();
 
       if (mounted) {
@@ -1748,7 +1364,6 @@ class _AchatsModalState extends State<AchatsModal> {
         if (_selectedStatut == 'Journal') {
           Navigator.of(context).pop();
         } else {
-          // Rester sur le modal pour les brouillards
           await _creerNouvelAchat();
         }
       }
@@ -2196,20 +1811,30 @@ class _AchatsModalState extends State<AchatsModal> {
                                           child: SizedBox(
                                             width: 120,
                                             height: 25,
-                                            child: TextField(
-                                              textAlign: TextAlign.center,
-                                              controller: _nFactController,
-                                              focusNode: _nFactFocusNode,
-                                              enabled: _statutAchatActuel != 'JOURNAL',
-                                              onSubmitted: (_) => _fournisseurFocusNode.requestFocus(),
-                                              decoration: InputDecoration(
-                                                border: const OutlineInputBorder(),
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                fillColor: _statutAchatActuel == 'JOURNAL'
-                                                    ? Colors.grey.shade200
-                                                    : null,
-                                                filled: _statutAchatActuel == 'JOURNAL',
+                                            child: Focus(
+                                              onKeyEvent: (node, event) {
+                                                if (event is KeyDownEvent &&
+                                                    event.logicalKey == LogicalKeyboardKey.tab) {
+                                                  _fournisseurFocusNode.requestFocus();
+                                                  return KeyEventResult.handled;
+                                                }
+                                                return KeyEventResult.ignored;
+                                              },
+                                              child: TextField(
+                                                textAlign: TextAlign.center,
+                                                controller: _nFactController,
+                                                focusNode: _nFactFocusNode,
+                                                enabled: _statutAchatActuel != 'JOURNAL',
+                                                onSubmitted: (_) => _fournisseurFocusNode.requestFocus(),
+                                                decoration: InputDecoration(
+                                                  border: const OutlineInputBorder(),
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  fillColor: _statutAchatActuel == 'JOURNAL'
+                                                      ? Colors.grey.shade200
+                                                      : null,
+                                                  filled: _statutAchatActuel == 'JOURNAL',
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -2236,6 +1861,14 @@ class _AchatsModalState extends State<AchatsModal> {
                                                         _verifierEtCreerFournisseur(
                                                             _fournisseurController.text);
                                                       }
+                                                    },
+                                                    onKeyEvent: (node, event) {
+                                                      if (event is KeyDownEvent &&
+                                                          event.logicalKey == LogicalKeyboardKey.tab) {
+                                                        _articleFocusNode.requestFocus();
+                                                        return KeyEventResult.handled;
+                                                      }
+                                                      return KeyEventResult.ignored;
                                                     },
                                                     child: EnhancedAutocomplete<Frn>(
                                                       controller: _fournisseurController,
@@ -2299,35 +1932,45 @@ class _AchatsModalState extends State<AchatsModal> {
                                       child: Row(
                                         children: [
                                           Expanded(
-                                            child: EnhancedAutocomplete<Article>(
-                                              focusNode: _articleFocusNode,
-                                              options: _articles,
-                                              displayStringForOption: (article) => article.designation,
-                                              onSelected: (article) {
-                                                if (_statutAchatActuel != 'JOURNAL') {
-                                                  _onArticleSelected(article);
+                                            child: Focus(
+                                              onKeyEvent: (node, event) {
+                                                if (event is KeyDownEvent &&
+                                                    event.logicalKey == LogicalKeyboardKey.tab) {
                                                   _uniteFocusNode.requestFocus();
+                                                  return KeyEventResult.handled;
                                                 }
+                                                return KeyEventResult.ignored;
                                               },
-                                              onFieldSubmitted: (_) => _uniteFocusNode.requestFocus(),
-                                              onTextChanged: (text) {
-                                                if (text.isEmpty) {
-                                                  setState(() {
-                                                    _selectedArticle = null;
-                                                  });
-                                                }
-                                              },
-                                              hintText: 'Rechercher article... (← → pour naviguer)',
-                                              decoration: InputDecoration(
-                                                border: const OutlineInputBorder(),
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                fillColor: _statutAchatActuel == 'JOURNAL'
-                                                    ? Colors.grey.shade200
-                                                    : null,
-                                                filled: _statutAchatActuel == 'JOURNAL',
+                                              child: EnhancedAutocomplete<Article>(
+                                                controller: _autocompleteController,
+                                                focusNode: _articleFocusNode,
+                                                options: _articles,
+                                                displayStringForOption: (article) => article.designation,
+                                                onSelected: (article) {
+                                                  if (_statutAchatActuel != 'JOURNAL') {
+                                                    _onArticleSelected(article);
+                                                  }
+                                                },
+                                                onFieldSubmitted: (_) => _uniteFocusNode.requestFocus(),
+                                                onTextChanged: (text) {
+                                                  if (text.isEmpty) {
+                                                    setState(() {
+                                                      _selectedArticle = null;
+                                                    });
+                                                  }
+                                                },
+                                                hintText: 'Rechercher article... (← → pour naviguer)',
+                                                decoration: InputDecoration(
+                                                  border: const OutlineInputBorder(),
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  fillColor: _statutAchatActuel == 'JOURNAL'
+                                                      ? Colors.grey.shade200
+                                                      : null,
+                                                  filled: _statutAchatActuel == 'JOURNAL',
+                                                ),
+                                                style: const TextStyle(fontSize: 12),
                                               ),
-                                              style: const TextStyle(fontSize: 12),
                                             ),
                                           ),
                                         ],
@@ -2358,6 +2001,14 @@ class _AchatsModalState extends State<AchatsModal> {
                                                     _statutAchatActuel != 'JOURNAL') {
                                                   _verifierUniteArticle(_uniteController.text);
                                                 }
+                                              },
+                                              onKeyEvent: (node, event) {
+                                                if (event is KeyDownEvent &&
+                                                    event.logicalKey == LogicalKeyboardKey.tab) {
+                                                  _quantiteFocusNode.requestFocus();
+                                                  return KeyEventResult.handled;
+                                                }
+                                                return KeyEventResult.ignored;
                                               },
                                               child: EnhancedAutocomplete<String>(
                                                 controller: _uniteController,
@@ -2409,25 +2060,37 @@ class _AchatsModalState extends State<AchatsModal> {
                                     const SizedBox(height: 4),
                                     SizedBox(
                                       height: 25,
-                                      child: TextField(
-                                        controller: _quantiteController,
-                                        focusNode: _quantiteFocusNode,
-                                        readOnly: _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
-                                        onSubmitted: (_) => _prixFocusNode.requestFocus(),
-                                        decoration: InputDecoration(
-                                          border: const OutlineInputBorder(),
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          fillColor:
-                                              _selectedArticle == null || _statutAchatActuel == 'JOURNAL'
-                                                  ? Colors.grey.shade200
-                                                  : null,
-                                          filled: _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
-                                        ),
-                                        style: const TextStyle(fontSize: 12),
-                                        onChanged: (value) {
-                                          setState(() {});
+                                      child: Focus(
+                                        onKeyEvent: (node, event) {
+                                          if (event is KeyDownEvent &&
+                                              event.logicalKey == LogicalKeyboardKey.tab) {
+                                            _prixFocusNode.requestFocus();
+                                            return KeyEventResult.handled;
+                                          }
+                                          return KeyEventResult.ignored;
                                         },
+                                        child: TextField(
+                                          controller: _quantiteController,
+                                          focusNode: _quantiteFocusNode,
+                                          readOnly:
+                                              _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
+                                          onSubmitted: (_) => _prixFocusNode.requestFocus(),
+                                          decoration: InputDecoration(
+                                            border: const OutlineInputBorder(),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            fillColor:
+                                                _selectedArticle == null || _statutAchatActuel == 'JOURNAL'
+                                                    ? Colors.grey.shade200
+                                                    : null,
+                                            filled:
+                                                _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
+                                          ),
+                                          style: const TextStyle(fontSize: 12),
+                                          onChanged: (value) {
+                                            setState(() {});
+                                          },
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -2444,22 +2107,34 @@ class _AchatsModalState extends State<AchatsModal> {
                                     const SizedBox(height: 4),
                                     SizedBox(
                                       height: 25,
-                                      child: TextField(
-                                        controller: _prixController,
-                                        focusNode: _prixFocusNode,
-                                        readOnly: _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
-                                        onSubmitted: (_) => _depotFocusNode.requestFocus(),
-                                        decoration: InputDecoration(
-                                          border: const OutlineInputBorder(),
-                                          contentPadding:
-                                              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          fillColor:
-                                              _selectedArticle == null || _statutAchatActuel == 'JOURNAL'
-                                                  ? Colors.grey.shade200
-                                                  : null,
-                                          filled: _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
+                                      child: Focus(
+                                        onKeyEvent: (node, event) {
+                                          if (event is KeyDownEvent &&
+                                              event.logicalKey == LogicalKeyboardKey.tab) {
+                                            _depotFocusNode.requestFocus();
+                                            return KeyEventResult.handled;
+                                          }
+                                          return KeyEventResult.ignored;
+                                        },
+                                        child: TextField(
+                                          controller: _prixController,
+                                          focusNode: _prixFocusNode,
+                                          readOnly:
+                                              _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
+                                          onSubmitted: (_) => _depotFocusNode.requestFocus(),
+                                          decoration: InputDecoration(
+                                            border: const OutlineInputBorder(),
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                            fillColor:
+                                                _selectedArticle == null || _statutAchatActuel == 'JOURNAL'
+                                                    ? Colors.grey.shade200
+                                                    : null,
+                                            filled:
+                                                _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
+                                          ),
+                                          style: const TextStyle(fontSize: 12),
                                         ),
-                                        style: const TextStyle(fontSize: 12),
                                       ),
                                     ),
                                   ],
@@ -2479,31 +2154,57 @@ class _AchatsModalState extends State<AchatsModal> {
                                       child: Row(
                                         children: [
                                           Expanded(
-                                            child: EnhancedAutocomplete<String>(
-                                              controller: _depotController,
-                                              focusNode: _depotFocusNode,
-                                              options: _depots,
-                                              displayStringForOption: (depot) => depot,
-                                              onSelected: (depot) {
-                                                if (_statutAchatActuel != 'JOURNAL') {
-                                                  setState(() {
-                                                    _selectedDepot = depot;
-                                                  });
-                                                  _validerFocusNode.requestFocus();
+                                            child: Focus(
+                                              onKeyEvent: (node, event) {
+                                                if (event is KeyDownEvent &&
+                                                    event.logicalKey == LogicalKeyboardKey.tab) {
+                                                  if (_isArticleFormValid() &&
+                                                      _statutAchatActuel != 'JOURNAL') {
+                                                    _validerFocusNode.requestFocus();
+                                                  } else {
+                                                    _nFactFocusNode.requestFocus();
+                                                  }
+                                                  return KeyEventResult.handled;
                                                 }
+                                                return KeyEventResult.ignored;
                                               },
-                                              onSubmitted: (_) => _validerFocusNode.requestFocus(),
-                                              hintText: 'Dépôt...',
-                                              decoration: InputDecoration(
-                                                border: const OutlineInputBorder(),
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                fillColor: _statutAchatActuel == 'JOURNAL'
-                                                    ? Colors.grey.shade200
-                                                    : null,
-                                                filled: _statutAchatActuel == 'JOURNAL',
+                                              child: EnhancedAutocomplete<String>(
+                                                controller: _depotController,
+                                                focusNode: _depotFocusNode,
+                                                options: _depots,
+                                                displayStringForOption: (depot) => depot,
+                                                onSelected: (depot) {
+                                                  if (_statutAchatActuel != 'JOURNAL') {
+                                                    setState(() {
+                                                      _selectedDepot = depot;
+                                                    });
+                                                    if (_isArticleFormValid()) {
+                                                      _validerFocusNode.requestFocus();
+                                                    } else {
+                                                      _nFactFocusNode.requestFocus();
+                                                    }
+                                                  }
+                                                },
+                                                onSubmitted: (_) {
+                                                  if (_isArticleFormValid() &&
+                                                      _statutAchatActuel != 'JOURNAL') {
+                                                    _validerFocusNode.requestFocus();
+                                                  } else {
+                                                    _nFactFocusNode.requestFocus();
+                                                  }
+                                                },
+                                                hintText: 'Dépôt...',
+                                                decoration: InputDecoration(
+                                                  border: const OutlineInputBorder(),
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  fillColor: _statutAchatActuel == 'JOURNAL'
+                                                      ? Colors.grey.shade200
+                                                      : null,
+                                                  filled: _statutAchatActuel == 'JOURNAL',
+                                                ),
+                                                style: const TextStyle(fontSize: 12),
                                               ),
-                                              style: const TextStyle(fontSize: 12),
                                             ),
                                           ),
                                         ],
@@ -2522,37 +2223,66 @@ class _AchatsModalState extends State<AchatsModal> {
                                         Focus(
                                           focusNode: _validerFocusNode,
                                           onKeyEvent: (node, event) {
-                                            if (event is KeyDownEvent &&
-                                                event.logicalKey == LogicalKeyboardKey.tab) {
-                                              _annulerFocusNode.requestFocus();
-                                              return KeyEventResult.handled;
+                                            if (event is KeyDownEvent) {
+                                              if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                _annulerFocusNode.requestFocus();
+                                                return KeyEventResult.handled;
+                                              } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                                if (_validerFocusNode.hasFocus) {
+                                                  _validerAjout();
+                                                }
+                                                return KeyEventResult.handled;
+                                              }
                                             }
                                             return KeyEventResult.ignored;
                                           },
-                                          child: ElevatedButton(
-                                            focusNode: _validerFocusNode,
-                                            onPressed: _validerAjout,
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.green,
-                                              foregroundColor: Colors.white,
-                                              minimumSize: const Size(60, 25),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              border: _validerFocusNode.hasFocus
+                                                  ? Border.all(color: Colors.blue, width: 3)
+                                                  : null,
+                                              borderRadius: BorderRadius.circular(4),
+                                              boxShadow: _validerFocusNode.hasFocus
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: Colors.blue.withValues(alpha: 0.3),
+                                                        blurRadius: 4,
+                                                        spreadRadius: 1,
+                                                      )
+                                                    ]
+                                                  : null,
                                             ),
-                                            child: const Text('Valider', style: TextStyle(fontSize: 12)),
+                                            child: ElevatedButton(
+                                              onPressed: _validerAjout,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: _validerFocusNode.hasFocus
+                                                    ? Colors.green[600]
+                                                    : Colors.green,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(60, 35),
+                                                elevation: _validerFocusNode.hasFocus ? 4 : 2,
+                                              ),
+                                              child: Text(
+                                                _validerFocusNode.hasFocus ? 'Valider ↵' : 'Valider',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: _validerFocusNode.hasFocus
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 4),
-                                        // ANNULER BUTTON - with Focus wrapper and CRITICAL tab handling
                                         Focus(
                                           focusNode: _annulerFocusNode,
                                           onKeyEvent: (node, event) {
                                             if (event is KeyDownEvent) {
                                               if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                // CRITICAL FIX: TAB from Annuler goes back to Clients
-                                                // This completes the tab cycle
-                                                _articleFocusNode.requestFocus();
+                                                _nFactFocusNode.requestFocus();
                                                 return KeyEventResult.handled;
                                               } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-                                                // ENTER on Annuler resets the form ONLY when focused
                                                 if (_annulerFocusNode.hasFocus) {
                                                   _resetArticleForm();
                                                 }
@@ -2578,7 +2308,6 @@ class _AchatsModalState extends State<AchatsModal> {
                                                   : null,
                                             ),
                                             child: ElevatedButton(
-                                              focusNode: _annulerFocusNode,
                                               onPressed: _resetArticleForm,
                                               style: ElevatedButton.styleFrom(
                                                 backgroundColor: _annulerFocusNode.hasFocus
@@ -3340,6 +3069,7 @@ class _AchatsModalState extends State<AchatsModal> {
     _tvaController.dispose();
     _totalTTCController.dispose();
     _articleSearchController.dispose();
+    _autocompleteController?.dispose();
     _uniteController.dispose();
     _depotController.dispose();
     _quantiteController.dispose();

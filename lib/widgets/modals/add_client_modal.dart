@@ -11,8 +11,9 @@ class AddClientModal extends StatefulWidget {
   final CltData? client;
   final String? nomClient;
   final bool? tousDepots;
+  final String? forceCategorie;
 
-  const AddClientModal({super.key, this.client, this.nomClient, this.tousDepots});
+  const AddClientModal({super.key, this.client, this.nomClient, this.tousDepots, this.forceCategorie});
 
   @override
   State<AddClientModal> createState() => _AddClientModalState();
@@ -28,6 +29,7 @@ class _AddClientModalState extends State<AddClientModal> {
   final _rcsController = TextEditingController();
   final _soldesController = TextEditingController();
   final _categorieController = TextEditingController();
+  final _commercialController = TextEditingController();
   final _rsocFocusNode = FocusNode();
   String? _selectedCategorie;
 
@@ -47,11 +49,14 @@ class _AddClientModalState extends State<AddClientModal> {
     } else {
       // Pré-remplir avec le nom fourni ou valeur par défaut
       _rsocController.text = widget.nomClient ?? '';
-      // Pour Vendeur, toujours Magasin, sinon Tous Dépôts par défaut
-      _selectedCategorie =
-          AuthService().hasRole('Vendeur') ? ClientCategory.magasin.label : ClientCategory.tousDepots.label;
+      // Utiliser la catégorie forcée ou déterminer selon le rôle
+      _selectedCategorie = widget.forceCategorie ??
+          (AuthService().hasRole('Vendeur') ? ClientCategory.magasin.label : ClientCategory.tousDepots.label);
     }
-    
+
+    // Initialiser le champ commercial avec le nom de l'utilisateur connecté
+    _commercialController.text = AuthService().currentUser?.nom ?? '';
+
     // Focus automatique sur le champ Raison Social
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _rsocFocusNode.requestFocus();
@@ -366,7 +371,7 @@ class _AddClientModalState extends State<AddClientModal> {
               children: [
                 Row(
                   children: [
-                    _buildLabeledField('Commercial', TextEditingController(), width: 120),
+                    _buildLabeledField('Commercial', _commercialController, width: 120, readOnly: true),
                     const SizedBox(width: 8),
                     _buildLabeledField('Taux Remise(%)', TextEditingController(), width: 80),
                     const SizedBox(width: 8),
@@ -390,7 +395,7 @@ class _AddClientModalState extends State<AddClientModal> {
   }
 
   Widget _buildLabeledField(String label, TextEditingController controller,
-      {bool required = false, double? width}) {
+      {bool required = false, double? width, bool readOnly = false}) {
     return Row(
       children: [
         SizedBox(
@@ -419,11 +424,14 @@ class _AddClientModalState extends State<AddClientModal> {
           child: TextFormField(
             controller: controller,
             focusNode: controller == _rsocController ? _rsocFocusNode : null,
-            style: const TextStyle(fontSize: 12),
-            decoration: const InputDecoration(
+            readOnly: readOnly,
+            style: TextStyle(fontSize: 12, color: readOnly ? Colors.grey[600] : Colors.black),
+            decoration: InputDecoration(
               border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               isDense: true,
+              fillColor: readOnly ? Colors.grey[200] : Colors.white,
+              filled: true,
             ),
             validator: required
                 ? (value) {
@@ -482,7 +490,8 @@ class _AddClientModalState extends State<AddClientModal> {
   }
 
   Widget _buildCategorieDropdown() {
-    final isVendeur = AuthService().hasRole('Vendeur');
+    final currentRole = AuthService().currentUserRole;
+    final canSelectCategory = currentRole == 'Administrateur' || currentRole == 'Caisse';
 
     return Row(
       children: [
@@ -498,7 +507,7 @@ class _AddClientModalState extends State<AddClientModal> {
           width: 120,
           height: 24,
           decoration: BoxDecoration(
-            color: isVendeur ? Colors.grey[200] : Colors.white,
+            color: canSelectCategory ? Colors.white : Colors.grey[200],
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Colors.grey[300]!),
             boxShadow: [
@@ -509,30 +518,35 @@ class _AddClientModalState extends State<AddClientModal> {
               ),
             ],
           ),
-          child: DropdownButtonFormField<String>(
-            initialValue: _selectedCategorie,
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              isDense: true,
-              fillColor: isVendeur ? Colors.grey[200] : Colors.white,
-              filled: true,
-            ),
-            style: TextStyle(fontSize: 12, color: isVendeur ? Colors.grey[600] : Colors.black),
-            items: ClientCategory.values
-                .map((category) => DropdownMenuItem(
-                      value: category.label,
-                      child: Text(category.label),
-                    ))
-                .toList(),
-            onChanged: isVendeur
-                ? null
-                : (value) {
+          child: canSelectCategory
+              ? DropdownButtonFormField<String>(
+                  initialValue: _selectedCategorie,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    isDense: true,
+                  ),
+                  style: const TextStyle(fontSize: 12, color: Colors.black),
+                  items: ClientCategory.values
+                      .map((category) => DropdownMenuItem(
+                            value: category.label,
+                            child: Text(category.label),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
                     setState(() {
                       _selectedCategorie = value;
                     });
                   },
-          ),
+                )
+              : Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    ClientCategory.magasin.label,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ),
         ),
       ],
     );
@@ -567,7 +581,7 @@ class _AddClientModalState extends State<AddClientModal> {
           ),
           const SizedBox(width: 16),
           ElevatedButton.icon(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(context).pop(null),
             icon: const Icon(Icons.close, size: 16),
             label: const Text('Annuler (Échap)'),
             style: ElevatedButton.styleFrom(
@@ -600,14 +614,27 @@ class _AddClientModalState extends State<AddClientModal> {
         categorie: drift.Value(_selectedCategorie),
       );
 
+      CltData clientData;
       if (widget.client == null) {
         await DatabaseService().database.insertClient(companion);
+        // Créer l'objet client avec les données saisies
+        clientData = CltData(
+          rsoc: _rsocController.text,
+          adr: _adrController.text.isEmpty ? null : _adrController.text,
+          tel: _telController.text.isEmpty ? null : _telController.text,
+          email: _emailController.text.isEmpty ? null : _emailController.text,
+          nif: _nifController.text.isEmpty ? null : _nifController.text,
+          rcs: _rcsController.text.isEmpty ? null : _rcsController.text,
+          soldes: double.tryParse(_soldesController.text) ?? 0.0,
+          categorie: _selectedCategorie,
+        );
       } else {
         await DatabaseService().database.updateClient(widget.client!.rsoc, companion);
+        clientData = widget.client!;
       }
 
       if (mounted) {
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(clientData);
       }
     } catch (e) {
       if (mounted) {
@@ -628,6 +655,7 @@ class _AddClientModalState extends State<AddClientModal> {
     _rcsController.dispose();
     _soldesController.dispose();
     _categorieController.dispose();
+    _commercialController.dispose();
     _rsocFocusNode.dispose();
     super.dispose();
   }

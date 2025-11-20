@@ -1,241 +1,561 @@
 import 'package:drift/drift.dart';
 
-import '../constants/vente_types.dart';
 import '../database/database.dart';
 import '../database/database_service.dart';
-import '../services/auth_service.dart';
-import '../services/mode_paiement_service.dart';
+import '../utils/stock_converter.dart';
 
 class VenteService {
-  static final VenteService _instance = VenteService._internal();
-  factory VenteService() => _instance;
-  VenteService._internal();
+  final DatabaseService _databaseService = DatabaseService();
 
-  final DatabaseService _db = DatabaseService();
-
-  /// Génère le prochain numéro BL selon le type de vente
-  Future<String> genererNumeroBL(VenteType type) async {
-    final prefix = type.prefix;
-    
-    final result = await _db.database.customSelect(
-      'SELECT MAX(CAST(SUBSTR(nfact, 4) AS INTEGER)) as max_num FROM ventes WHERE nfact LIKE ?',
-      variables: [Variable('$prefix%')]
-    ).getSingleOrNull();
-    
-    final lastNum = result?.read<int?>('max_num') ?? 0;
-    final nextNum = lastNum + 1;
-    
-    return '$prefix$nextNum';
-  }
-
-  /// Filtre les ventes par type
-  Future<List<dynamic>> getVentesByType(VenteType type) async {
-    return await _db.database.customSelect(
-      'SELECT * FROM ventes WHERE nfact LIKE ? ORDER BY daty DESC',
-      variables: [Variable('${type.prefix}%')]
-    ).get();
-  }
-
-  /// Filtre les clients par type de vente
-  Future<List<dynamic>> getClientsByType(VenteType type) async {
-    final categorie = type == VenteType.magasin ? 'Magasin' : 'Tous Dépôts';
-    return await _db.database.customSelect(
-      'SELECT * FROM clt WHERE categorie = ? ORDER BY rsoc',
-      variables: [Variable(categorie)]
-    ).get();
-  }
-
-  /// Détermine le type de vente selon le rôle utilisateur
-  VenteType getTypeVenteParRole() {
-    return AuthService().hasRole('Vendeur') ? VenteType.magasin : VenteType.tousDepots;
-  }
-
-  /// Récupère les modes de paiement disponibles
-  Future<List<String>> getModesPaiement() async {
-    return await ModePaiementService().getAllModesPaiement();
-  }
-
-  /// Enregistre une vente en brouillard
-  Future<void> enregistrerVenteBrouillard({
-    required VenteType type,
-    required String client,
-    required String modePaiement,
+  /// Traite une vente en mode BROUILLARD (sans mouvement de stock)
+  Future<void> traiterVenteBrouillard({
+    required String numVentes,
+    required String? nFacture,
+    required DateTime date,
+    required String? client,
+    required String? modePaiement,
+    required double totalHT,
     required double totalTTC,
-    required List<Map<String, dynamic>> lignes,
+    required double tva,
+    required double? avance,
+    required String? commercial,
+    required double? commission,
+    required double? remise,
+    required List<Map<String, dynamic>> lignesVente,
   }) async {
-    await _db.database.transaction(() async {
-      final numeroBL = await genererNumeroBL(type);
-      final numVente = 'V${DateTime.now().millisecondsSinceEpoch}';
-      
-      // 1. Insérer la vente en brouillard
-      await _db.database.customStatement('''
-        INSERT INTO ventes (numventes, nfact, daty, clt, modepai, totalttc, verification)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      ''', [
-        numVente, numeroBL, DateTime.now().toIso8601String(),
-        client, modePaiement, totalTTC, StatutVente.brouillard.value
-      ]);
-      
-      // 2. Insérer les détails
-      for (final ligne in lignes) {
-        await _db.database.customStatement('''
-          INSERT INTO detventes (numventes, designation, unites, depots, q, pu, daty)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', [
-          numVente, ligne['designation'], ligne['unite'], ligne['depot'],
-          ligne['quantite'], ligne['prix'], DateTime.now().toIso8601String()
-        ]);
+    await _databaseService.database.transaction(() async {
+      // 1. Insérer la vente principale
+      await _databaseService.database.into(_databaseService.database.ventes).insert(
+            VentesCompanion.insert(
+              numventes: Value(numVentes),
+              nfact: Value(nFacture),
+              daty: Value(date),
+              clt: Value(client),
+              modepai: Value(modePaiement),
+              totalnt: Value(totalHT),
+              totalttc: Value(totalTTC),
+              tva: Value(tva),
+              avance: Value(avance),
+              commerc: Value(commercial),
+              commission: Value(commission),
+              remise: Value(remise),
+              verification: const Value('BROUILLARD'),
+            ),
+          );
+
+      // 2. Insérer les détails sans affecter les stocks
+      for (final ligne in lignesVente) {
+        await _databaseService.database.into(_databaseService.database.detventes).insert(
+              DetventesCompanion.insert(
+                numventes: Value(numVentes),
+                designation: Value(ligne['designation']),
+                unites: Value(ligne['unite']),
+                depots: Value(ligne['depot']),
+                q: Value(ligne['quantite']),
+                pu: Value(ligne['prixUnitaire']),
+                daty: Value(date),
+                diffPrix: Value(ligne['diffPrix']),
+              ),
+            );
       }
     });
   }
 
-  /// Valide une vente brouillard vers journal avec mouvement de stock
-  Future<void> validerVenteBrouillard(String numVente) async {
-    await _db.database.transaction(() async {
-      // 1. Vérifier que la vente existe et est en brouillard
-      final vente = await (_db.database.select(_db.database.ventes)
-            ..where((v) => v.numventes.equals(numVente)))
-          .getSingleOrNull();
-      
-      if (vente == null) {
-        throw Exception('Vente non trouvée');
-      }
-      
-      if (vente.verification != StatutVente.brouillard.value) {
-        throw Exception('Cette vente n\'est pas en brouillard');
+  /// Traite une vente complète en mode JOURNAL avec toutes les opérations nécessaires
+  Future<void> traiterVenteJournal({
+    required String numVentes,
+    required String? nFacture,
+    required DateTime date,
+    required String? client,
+    required String? modePaiement,
+    required DateTime? echeance,
+    required double totalHT,
+    required double totalTTC,
+    required double tva,
+    required double? avance,
+    required String? commercial,
+    required double? commission,
+    required double? remise,
+    required List<Map<String, dynamic>> lignesVente,
+    required double? montantRecu,
+    required double? monnaieARendre,
+  }) async {
+    await _databaseService.database.transaction(() async {
+      // 1. Insérer la vente principale
+      await _insererVente(
+        numVentes: numVentes,
+        nFacture: nFacture,
+        date: date,
+        client: client,
+        modePaiement: modePaiement,
+        echeance: echeance,
+        totalHT: totalHT,
+        totalTTC: totalTTC,
+        tva: tva,
+        avance: avance,
+        commercial: commercial,
+        commission: commission,
+        remise: remise,
+        montantRecu: montantRecu,
+        monnaieARendre: monnaieARendre,
+      );
+
+      // 2. Traiter chaque ligne de vente
+      for (final ligne in lignesVente) {
+        await _traiterLigneVente(
+          numVentes: numVentes,
+          ligne: ligne,
+          date: date,
+          client: client,
+        );
       }
 
-      // 2. Récupérer les détails de la vente
-      final details = await (_db.database.select(_db.database.detventes)
-            ..where((d) => d.numventes.equals(numVente)))
-          .get();
+      // 3. Ajuster compte client si crédit
+      if (modePaiement == 'A crédit' && client != null && client.isNotEmpty) {
+        await _ajusterCompteClient(
+          client: client,
+          numVentes: numVentes,
+          nFacture: nFacture,
+          montant: totalTTC - (avance ?? 0),
+          date: date,
+        );
+      }
 
-      // 3. Créer les mouvements de stock et mettre à jour les quantités
-      for (final detail in details) {
-        if (detail.designation != null && detail.depots != null && detail.q != null) {
-          await _creerMouvementStock(
-            designation: detail.designation!,
-            depot: detail.depots!,
-            quantite: detail.q!,
-            unite: detail.unites ?? 'Pce',
-            numVente: numVente,
+      // 4. Mouvement caisse si espèces
+      if (modePaiement == 'Espèces') {
+        await _mouvementCaisse(
+          numVentes: numVentes,
+          montant: totalTTC,
+          client: client,
+          date: date,
+        );
+      }
+    });
+  }
+
+  /// Insère la vente principale dans la table ventes
+  Future<void> _insererVente({
+    required String numVentes,
+    required String? nFacture,
+    required DateTime date,
+    required String? client,
+    required String? modePaiement,
+    required DateTime? echeance,
+    required double totalHT,
+    required double totalTTC,
+    required double tva,
+    required double? avance,
+    required String? commercial,
+    required double? commission,
+    required double? remise,
+    required double? montantRecu,
+    required double? monnaieARendre,
+  }) async {
+    await _databaseService.database.into(_databaseService.database.ventes).insert(
+          VentesCompanion.insert(
+            numventes: Value(numVentes),
+            nfact: Value(nFacture),
+            daty: Value(date),
+            clt: Value(client),
+            modepai: Value(modePaiement),
+            echeance: Value(echeance),
+            totalnt: Value(totalHT),
+            totalttc: Value(totalTTC),
+            tva: Value(tva),
+            avance: Value(avance),
+            commerc: Value(commercial),
+            commission: Value(commission),
+            remise: Value(remise),
+            verification: const Value('JOURNAL'),
+            montantRecu: Value(montantRecu),
+            monnaieARendre: Value(monnaieARendre),
+          ),
+        );
+  }
+
+  /// Traite une ligne de vente individuelle (privée pour usage interne)
+  Future<void> _traiterLigneVente({
+    required String numVentes,
+    required Map<String, dynamic> ligne,
+    required DateTime date,
+    required String? client,
+  }) async {
+    final designation = ligne['designation'] as String;
+    final unite = ligne['unite'] as String;
+    final depot = ligne['depot'] as String;
+    final quantite = ligne['quantite'] as double;
+    final prixUnitaire = ligne['prixUnitaire'] as double;
+    final diffPrix = ligne['diffPrix'] as double?;
+
+    // 1. Insérer détail vente seulement si pas déjà existant
+    final detailExiste = await (_databaseService.database.select(_databaseService.database.detventes)
+          ..where((d) => d.numventes.equals(numVentes) & d.designation.equals(designation)))
+        .getSingleOrNull();
+
+    if (detailExiste == null) {
+      await _databaseService.database.into(_databaseService.database.detventes).insert(
+            DetventesCompanion.insert(
+              numventes: Value(numVentes),
+              designation: Value(designation),
+              unites: Value(unite),
+              depots: Value(depot),
+              q: Value(quantite),
+              pu: Value(prixUnitaire),
+              daty: Value(date),
+              diffPrix: Value(diffPrix),
+            ),
           );
-          
-          await _mettreAJourStocks(
-            detail.designation!,
-            detail.depots!,
-            detail.q!,
-            detail.unites ?? 'Pce',
+    }
+
+    // 2. Récupérer l'article pour les conversions
+    final article = await (_databaseService.database.select(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(designation)))
+        .getSingleOrNull();
+
+    if (article == null) {
+      throw Exception('Article $designation non trouvé');
+    }
+
+    // 3. Réduire stocks par dépôt
+    await _reduireStockDepot(
+      article: article,
+      depot: depot,
+      unite: unite,
+      quantite: quantite,
+    );
+
+    // 4. Créer mouvement stock de sortie
+    await _creerMouvementStock(
+      numVentes: numVentes,
+      article: article,
+      depot: depot,
+      unite: unite,
+      quantite: quantite,
+      prixUnitaire: prixUnitaire,
+      client: client,
+      date: date,
+    );
+
+    // 5. Ajuster stock global article
+    await _ajusterStockGlobalArticle(
+      article: article,
+      unite: unite,
+      quantite: quantite,
+    );
+
+    // 6. Mettre à jour fiche stock
+    await _mettreAJourFicheStock(
+      designation: designation,
+      unite: unite,
+      quantite: quantite,
+    );
+  }
+
+  /// Réduit le stock dans la table depart
+  Future<void> _reduireStockDepot({
+    required Article article,
+    required String depot,
+    required String unite,
+    required double quantite,
+  }) async {
+    // Convertir la quantité vers toutes les unités
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    // Récupérer le stock actuel
+    final stockActuel = await (_databaseService.database.select(_databaseService.database.depart)
+          ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+        .getSingleOrNull();
+
+    if (stockActuel != null) {
+      // Calculer nouveaux stocks
+      final nouveauStockU1 = (stockActuel.stocksu1 ?? 0) - conversions['u1']!;
+      final nouveauStockU2 = (stockActuel.stocksu2 ?? 0) - conversions['u2']!;
+      final nouveauStockU3 = (stockActuel.stocksu3 ?? 0) - conversions['u3']!;
+
+      // Mettre à jour
+      await (_databaseService.database.update(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+          .write(DepartCompanion(
+        stocksu1: Value(nouveauStockU1),
+        stocksu2: Value(nouveauStockU2),
+        stocksu3: Value(nouveauStockU3),
+      ));
+    } else {
+      throw Exception('Stock non trouvé pour ${article.designation} dans le dépôt $depot');
+    }
+  }
+
+  /// Crée un mouvement de stock de sortie
+  Future<void> _creerMouvementStock({
+    required String numVentes,
+    required Article article,
+    required String depot,
+    required String unite,
+    required double quantite,
+    required double prixUnitaire,
+    required String? client,
+    required DateTime date,
+  }) async {
+    final ref = 'V-${DateTime.now().millisecondsSinceEpoch}-${article.designation}';
+
+    // Convertir la quantité vers toutes les unités pour le stock
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    await _databaseService.database.into(_databaseService.database.stocks).insert(
+          StocksCompanion.insert(
+            ref: Value(ref).toString(),
+            daty: Value(date),
+            lib: Value('Vente N° $numVentes'),
+            numventes: Value(numVentes),
+            refart: Value(article.designation),
+            qs: Value(quantite),
+            sortie: Value(quantite * prixUnitaire),
+            stocksu1: Value(conversions['u1']),
+            stocksu2: Value(conversions['u2']),
+            stocksu3: Value(conversions['u3']),
+            depots: Value(depot),
+            clt: Value(client),
+            verification: const Value('JOURNAL'),
+            us: Value(unite),
+            pus: Value(prixUnitaire),
+          ),
+        );
+  }
+
+  /// Ajuste le stock global de l'article
+  Future<void> _ajusterStockGlobalArticle({
+    required Article article,
+    required String unite,
+    required double quantite,
+  }) async {
+    // Convertir la quantité vers toutes les unités
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    // Calculer nouveaux stocks globaux
+    final nouveauStockU1 = (article.stocksu1 ?? 0) - conversions['u1']!;
+    final nouveauStockU2 = (article.stocksu2 ?? 0) - conversions['u2']!;
+    final nouveauStockU3 = (article.stocksu3 ?? 0) - conversions['u3']!;
+
+    // Mettre à jour l'article
+    await (_databaseService.database.update(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(article.designation)))
+        .write(ArticlesCompanion(
+      stocksu1: Value(nouveauStockU1),
+      stocksu2: Value(nouveauStockU2),
+      stocksu3: Value(nouveauStockU3),
+    ));
+  }
+
+  /// Met à jour la fiche stock
+  Future<void> _mettreAJourFicheStock({
+    required String designation,
+    required String unite,
+    required double quantite,
+  }) async {
+    final ficheExiste = await (_databaseService.database.select(_databaseService.database.fstocks)
+          ..where((f) => f.art.equals(designation)))
+        .getSingleOrNull();
+
+    if (ficheExiste != null) {
+      // Mettre à jour la fiche existante
+      double nouvelleQs = (ficheExiste.qs ?? 0) + quantite;
+      double nouvelleQst = (ficheExiste.qst ?? 0) + quantite;
+
+      await (_databaseService.database.update(_databaseService.database.fstocks)
+            ..where((f) => f.art.equals(designation)))
+          .write(FstocksCompanion(
+        qs: Value(nouvelleQs),
+        qst: Value(nouvelleQst),
+      ));
+    } else {
+      // Créer nouvelle fiche
+      final ref = 'FS-${DateTime.now().millisecondsSinceEpoch}';
+      await _databaseService.database.into(_databaseService.database.fstocks).insert(
+            FstocksCompanion.insert(
+              ref: Value(ref).toString(),
+              art: Value(designation),
+              qs: Value(quantite),
+              qst: Value(quantite),
+              ue: Value(unite),
+            ),
+          );
+    }
+  }
+
+  /// Ajuste le compte client pour vente à crédit
+  Future<void> _ajusterCompteClient({
+    required String client,
+    required String numVentes,
+    required String? nFacture,
+    required double montant,
+    required DateTime date,
+  }) async {
+    if (montant <= 0) return;
+
+    final ref = 'V-${DateTime.now().millisecondsSinceEpoch}';
+
+    await _databaseService.database.into(_databaseService.database.compteclt).insert(
+          ComptecltCompanion.insert(
+            ref: Value(ref).toString(),
+            daty: Value(date),
+            lib: Value('Vente N° $numVentes${nFacture != null ? ' - Facture $nFacture' : ''}'),
+            numventes: Value(numVentes),
+            nfact: Value(nFacture),
+            entres: Value(montant),
+            sorties: const Value(0.0),
+            solde: Value(montant),
+            clt: Value(client),
+            verification: const Value('JOURNAL'),
+          ),
+        );
+
+    // Mettre à jour le solde client
+    final clientData = await (_databaseService.database.select(_databaseService.database.clt)
+          ..where((c) => c.rsoc.equals(client)))
+        .getSingleOrNull();
+
+    if (clientData != null) {
+      final nouveauSolde = (clientData.soldes ?? 0) + montant;
+      await (_databaseService.database.update(_databaseService.database.clt)
+            ..where((c) => c.rsoc.equals(client)))
+          .write(CltCompanion(
+        soldes: Value(nouveauSolde),
+        datedernop: Value(date),
+      ));
+    }
+  }
+
+  /// Crée un mouvement de caisse pour paiement espèces
+  Future<void> _mouvementCaisse({
+    required String numVentes,
+    required double montant,
+    required String? client,
+    required DateTime date,
+  }) async {
+    if (montant <= 0) return;
+
+    final ref = 'V-${DateTime.now().millisecondsSinceEpoch}';
+
+    await _databaseService.database.into(_databaseService.database.caisse).insert(
+          CaisseCompanion.insert(
+            ref: Value(ref).toString(),
+            daty: Value(date),
+            lib: Value('Vente N° $numVentes'),
+            debit: Value(montant),
+            clt: Value(client ?? ''),
+            verification: const Value('JOURNAL'),
+          ),
+        );
+  }
+
+  /// Vérifie la disponibilité du stock avant vente
+  Future<bool> verifierDisponibiliteStock({
+    required String designation,
+    required String depot,
+    required String unite,
+    required double quantite,
+  }) async {
+    final article = await (_databaseService.database.select(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(designation)))
+        .getSingleOrNull();
+
+    if (article == null) return false;
+
+    final stockDepot = await (_databaseService.database.select(_databaseService.database.depart)
+          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+        .getSingleOrNull();
+
+    if (stockDepot == null) return false;
+
+    // Convertir la quantité demandée vers l'unité de base (u1)
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    // Vérifier si le stock est suffisant en u1
+    return (stockDepot.stocksu1 ?? 0) >= conversions['u1']!;
+  }
+
+  /// Valide une vente brouillard vers journal
+  Future<void> validerVenteBrouillard(String numVentes) async {
+    // Récupérer la vente
+    final vente = await (_databaseService.database.select(_databaseService.database.ventes)
+          ..where((v) => v.numventes.equals(numVentes)))
+        .getSingleOrNull();
+
+    if (vente == null) {
+      throw Exception('Vente non trouvée');
+    }
+
+    // Récupérer les détails
+    final details = await (_databaseService.database.select(_databaseService.database.detventes)
+          ..where((d) => d.numventes.equals(numVentes)))
+        .get();
+
+    await _databaseService.database.transaction(() async {
+      // Mettre à jour le statut de la vente
+      await (_databaseService.database.update(_databaseService.database.ventes)
+            ..where((v) => v.numventes.equals(numVentes)))
+          .write(const VentesCompanion(
+        verification: Value('JOURNAL'),
+      ));
+
+      // Traiter chaque ligne pour créer les mouvements de stock
+      for (final detail in details) {
+        if (detail.designation != null &&
+            detail.depots != null &&
+            detail.unites != null &&
+            detail.q != null) {
+          await _traiterLigneVente(
+            numVentes: numVentes,
+            ligne: {
+              'designation': detail.designation!,
+              'unite': detail.unites!,
+              'depot': detail.depots!,
+              'quantite': detail.q!,
+              'prixUnitaire': detail.pu ?? 0.0,
+              'diffPrix': detail.diffPrix ?? 0.0,
+            },
+            date: vente.daty ?? DateTime.now(),
+            client: vente.clt,
           );
         }
       }
 
-      // 4. Mettre à jour le statut vers journal
-      await (_db.database.update(_db.database.ventes)
-            ..where((v) => v.numventes.equals(numVente)))
-          .write(VentesCompanion(
-        verification: Value(StatutVente.journal.value),
-      ));
+      // Ajuster compte client si crédit
+      if (vente.modepai == 'A crédit' && vente.clt != null && vente.clt!.isNotEmpty) {
+        await _ajusterCompteClient(
+          client: vente.clt!,
+          numVentes: numVentes,
+          nFacture: vente.nfact,
+          montant: (vente.totalttc ?? 0) - (vente.avance ?? 0),
+          date: vente.daty ?? DateTime.now(),
+        );
+      }
+
+      // Mouvement caisse si espèces
+      if (vente.modepai == 'Espèces') {
+        await _mouvementCaisse(
+          numVentes: numVentes,
+          montant: vente.totalttc ?? 0,
+          client: vente.clt,
+          date: vente.daty ?? DateTime.now(),
+        );
+      }
     });
-  }
-
-  /// Crée un mouvement de stock
-  Future<void> _creerMouvementStock({
-    required String designation,
-    required String depot,
-    required double quantite,
-    required String unite,
-    required String numVente,
-  }) async {
-    final ref = 'VTE${DateTime.now().millisecondsSinceEpoch}';
-    
-    await _db.database.customStatement(
-      '''INSERT INTO stocks (ref, daty, lib, numventes, refart, qs, sortie, depots, us, verification)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-      [
-        ref,
-        DateTime.now().toIso8601String(),
-        'VENTE - $designation',
-        numVente,
-        designation,
-        quantite,
-        quantite,
-        depot,
-        unite,
-        'VENTE'
-      ]
-    );
-  }
-
-  /// Met à jour les stocks après validation
-  Future<void> _mettreAJourStocks(String designation, String depot, double quantite, String unite) async {
-    // Récupérer l'article pour les conversions d'unités
-    final article = await _db.database.getArticleByDesignation(designation);
-    if (article == null) return;
-
-    // Convertir la quantité vendue vers les unités de stock
-    final conversionStock = _convertirQuantiteVente(
-      article: article,
-      uniteVente: unite,
-      quantiteVente: quantite,
-    );
-
-    // Mettre à jour stock dépôt
-    final stockDepart = await _db.database.customSelect(
-      'SELECT * FROM depart WHERE designation = ? AND depots = ?',
-      variables: [Variable(designation), Variable(depot)]
-    ).getSingleOrNull();
-    
-    if (stockDepart != null) {
-      final stockU1Actuel = stockDepart.read<double?>('stocksu1') ?? 0;
-      final stockU2Actuel = stockDepart.read<double?>('stocksu2') ?? 0;
-      final stockU3Actuel = stockDepart.read<double?>('stocksu3') ?? 0;
-      
-      await _db.database.customStatement(
-        'UPDATE depart SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ? AND depots = ?',
-        [
-          stockU1Actuel - conversionStock['u1']!,
-          stockU2Actuel - conversionStock['u2']!,
-          stockU3Actuel - conversionStock['u3']!,
-          designation,
-          depot
-        ]
-      );
-    }
-    
-    // Mettre à jour stock global article
-    final stockGlobalU1 = (article.stocksu1 ?? 0) - conversionStock['u1']!;
-    final stockGlobalU2 = (article.stocksu2 ?? 0) - conversionStock['u2']!;
-    final stockGlobalU3 = (article.stocksu3 ?? 0) - conversionStock['u3']!;
-    
-    await _db.database.customStatement(
-      'UPDATE articles SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ?',
-      [stockGlobalU1, stockGlobalU2, stockGlobalU3, designation]
-    );
-  }
-
-  /// Convertit une quantité de vente vers les unités de stock
-  Map<String, double> _convertirQuantiteVente({
-    required Article article,
-    required String uniteVente,
-    required double quantiteVente,
-  }) {
-    double quantiteU1 = 0;
-    double quantiteU2 = 0;
-    double quantiteU3 = 0;
-
-    if (uniteVente == article.u1) {
-      quantiteU1 = quantiteVente;
-    } else if (uniteVente == article.u2) {
-      quantiteU2 = quantiteVente;
-    } else if (uniteVente == article.u3) {
-      quantiteU3 = quantiteVente;
-    }
-
-    return {
-      'u1': quantiteU1,
-      'u2': quantiteU2,
-      'u3': quantiteU3,
-    };
   }
 }

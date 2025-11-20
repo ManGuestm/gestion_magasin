@@ -30,7 +30,6 @@ class MenuData {
     commerces: [
       'Achats',
       'Ventes',
-      'Ventes (Tous dépôts)',
       'Retour de Marchandises',
       'Liste des achats',
       'Liste des ventes',

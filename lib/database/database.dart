@@ -1542,6 +1542,24 @@ class AppDatabase extends _$AppDatabase {
         .toList();
   }
 
+  /// Calcule le solde d'un fournisseur
+  Future<double> calculerSoldeFournisseur(String fournisseur) async {
+    try {
+      final comptes = await (select(comptefrns)
+            ..where((f) => f.frns.equals(fournisseur)))
+          .get();
+      
+      double solde = 0.0;
+      for (final compte in comptes) {
+        solde += (compte.entres ?? 0) - (compte.sortie ?? 0);
+      }
+      
+      return solde;
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
   /// Calcule le solde d'un client basé sur les ventes, retours et mouvements de compte
   Future<double> calculerSoldeClient(String rsocClient) async {
     const query = '''

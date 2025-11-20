@@ -49,6 +49,7 @@ class _VentesModalState extends State<VentesModal> {
   final TextEditingController _commissionController = TextEditingController();
   final TextEditingController _montantRecuController = TextEditingController();
   final TextEditingController _montantARendreController = TextEditingController();
+  final TextEditingController _echeanceController = TextEditingController();
   TextEditingController? _autocompleteController;
   final TextEditingController _depotController = TextEditingController();
   final TextEditingController _searchVentesController = TextEditingController();
@@ -66,6 +67,7 @@ class _VentesModalState extends State<VentesModal> {
   String? _selectedDepot;
   String? _selectedModePaiement = 'A crédit';
   String? _selectedClient;
+  String? _selectedCommercial;
   int? _selectedRowIndex;
   bool _isExistingPurchase = false;
   String _defaultDepot = 'MAG';
@@ -409,6 +411,7 @@ class _VentesModalState extends State<VentesModal> {
     _commissionController.dispose();
     _montantRecuController.dispose();
     _montantARendreController.dispose();
+    _echeanceController.dispose();
     _depotController.dispose();
     _searchVentesController.dispose();
     _searchArticleController.dispose();
@@ -1112,163 +1115,163 @@ class _VentesModalState extends State<VentesModal> {
   }
 
   Future<void> _validerVente() async {
-    if (_lignesVente.isEmpty) return;
-
-    if (_isExistingPurchase) {
-      await _modifierVente();
-    } else {
-      await _creerNouvelleVenteDB();
+    if (_lignesVente.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun article ajouté')),
+      );
+      return;
     }
-  }
 
-  Future<void> _creerNouvelleVenteDB() async {
-    try {
-      // Vérifier s'il y a des articles avec stock insuffisant
-      bool hasStockInsuffisant = _lignesVente.any((ligne) => ligne['stockInsuffisant'] == true);
+    // Vérifier les stocks avant validation seulement pour mode JOURNAL
+    if (_selectedVerification == 'JOURNAL') {
+      for (final ligne in _lignesVente) {
+        final stockDisponible = await _venteService.verifierDisponibiliteStock(
+          designation: ligne['designation'],
+          depot: ligne['depot'],
+          unite: ligne['unites'],
+          quantite: ligne['quantite'],
+        );
 
-      // Si mode Journal et stock insuffisant, empêcher la validation (sauf pour admin)
-      if (_statutVente == StatutVente.journal && hasStockInsuffisant && !_isAdmin()) {
-        if (mounted) {
-          _scaffoldMessengerKey.currentState?.showSnackBar(
-            const SnackBar(
-              content: SelectableText(
-                  'Impossible de valider en Journal: certains articles ont un stock insuffisant.\nUtilisez le mode Brouillard.'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 4),
-            ),
-          );
+        if (!stockDisponible) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content:
+                    Text('Stock insuffisant pour ${ligne['designation']} dans le dépôt ${ligne['depot']}'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
         }
-        return;
       }
+    }
 
-      // Si stock insuffisant, forcer le mode brouillard pour tous (sauf admin qui peut choisir)
-      if (hasStockInsuffisant && !_isAdmin()) {
-        _statutVente = StatutVente.brouillard;
-      }
+    if (mounted) {
+      // Afficher le modal de confirmation
+      final confirmer = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Confirmer la validation'),
+          content: Text(
+              'Êtes-vous sûr de vouloir valider cette vente?\n\nN° Vente: ${_numVentesController.text}\nClient: ${_selectedClient ?? "Aucun"}\nTotal TTC: ${_totalTTCController.text}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              autofocus: true,
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Valider'),
+            ),
+          ],
+        ),
+      );
 
-      double totalHT = 0;
-      for (var ligne in _lignesVente) {
-        totalHT += ligne['montant'] ?? 0;
-      }
+      if (confirmer != true) return;
+    }
 
-      double remise = double.tryParse(_remiseController.text) ?? 0;
-      double totalApresRemise = totalHT - (totalHT * remise / 100);
-      double tva = double.tryParse(_tvaController.text) ?? 0;
-      double totalTTC = totalApresRemise + (totalApresRemise * tva / 100);
-      double avance = double.tryParse(_avanceController.text) ?? 0;
-      double commission = double.tryParse(_commissionController.text) ?? 0;
+    try {
+      // Préparer les données de la vente
+      final lignesVenteData = _lignesVente
+          .map((ligne) => {
+                'designation': ligne['designation'],
+                'unite': ligne['unites'],
+                'depot': ligne['depot'],
+                'quantite': ligne['quantite'],
+                'prixUnitaire': ligne['prixUnitaire'],
+                'diffPrix': ligne['diffPrix'],
+              })
+          .toList();
 
-      double montantRecu = double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0;
-      double monnaieARendre = double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0;
-
-      if (_statutVente == StatutVente.brouillard) {
-        // Mode Brouillard : Enregistrement dans detventes seulement
-        await _enregistrerVenteBrouillard(totalTTC);
+      // Traiter la vente avec le service selon le mode
+      if (_selectedVerification == 'BROUILLARD') {
+        await _venteService.traiterVenteBrouillard(
+          numVentes: _numVentesController.text,
+          nFacture: _nFactureController.text.isEmpty ? null : _nFactureController.text,
+          date: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
+          client: _selectedClient,
+          modePaiement: _selectedModePaiement,
+          totalHT: double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0,
+          totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
+          tva: double.tryParse(_tvaController.text) ?? 0,
+          avance: double.tryParse(_avanceController.text) ?? 0,
+          commercial: _selectedCommercial,
+          commission: double.tryParse(_commissionController.text) ?? 0,
+          remise: double.tryParse(_remiseController.text) ?? 0,
+          lignesVente: lignesVenteData,
+        );
       } else {
-        // Mode Journal : Validation avec mouvement de stock
-        await _enregistrerVenteJournal(
-            totalApresRemise, totalTTC, tva, avance, commission, montantRecu, monnaieARendre);
+        await _venteService.traiterVenteJournal(
+          numVentes: _numVentesController.text,
+          nFacture: _nFactureController.text.isEmpty ? null : _nFactureController.text,
+          date: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
+          client: _selectedClient,
+          modePaiement: _selectedModePaiement,
+          echeance: _selectedModePaiement == 'A crédit'
+              ? (DateTime.tryParse(_echeanceController.text) ?? DateTime.now().add(const Duration(days: 30)))
+              : null,
+          totalHT: double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0,
+          totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
+          tva: double.tryParse(_tvaController.text) ?? 0,
+          avance: double.tryParse(_avanceController.text) ?? 0,
+          commercial: _selectedCommercial,
+          commission: double.tryParse(_commissionController.text) ?? 0,
+          remise: double.tryParse(_remiseController.text) ?? 0,
+          lignesVente: lignesVenteData,
+          montantRecu: double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0,
+          monnaieARendre: double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0,
+        );
       }
-
-      await _loadVentesNumbers();
 
       if (mounted) {
-        final message = _statutVente == StatutVente.brouillard
-            ? 'Vente enregistrée en brouillard - Aucun mouvement de stock'
-            : 'Vente validée avec mouvement de stock et mise à jour des quantités';
-        final color = _statutVente == StatutVente.brouillard ? Colors.orange : Colors.green;
-
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            content: SelectableText(message),
-            backgroundColor: color,
-            duration: const Duration(seconds: 4),
-          ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vente validée avec succès'), backgroundColor: Colors.green),
         );
-        await _creerNouvelleVente();
+
+        // Réinitialiser le formulaire
+        _reinitialiserFormulaire();
       }
     } catch (e) {
       if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            content: SelectableText('Erreur lors de l\'enregistrement: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 20),
-          ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la validation: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
-  Future<void> _enregistrerVenteBrouillard(double totalTTC) async {
-    final authService = AuthService();
-    final venteCompanion = VentesCompanion(
-      numventes: drift.Value(_numVentesController.text),
-      nfact: drift.Value(_nFactureController.text),
-      daty: drift.Value(DateTime.now()),
-      clt: drift.Value(_selectedClient ?? ''),
-      modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
-      totalttc: drift.Value(totalTTC),
-      heure: drift.Value(_heureController.text),
-      verification: drift.Value(StatutVente.brouillard.value),
-      totalnt: drift.Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0),
-      tva: drift.Value(double.tryParse(_tvaController.text) ?? 0),
-      remise: drift.Value(double.tryParse(_remiseController.text) ?? 0),
-      avance: drift.Value(double.tryParse(_avanceController.text) ?? 0),
-      commission: drift.Value(double.tryParse(_commissionController.text) ?? 0),
-      commerc: drift.Value(authService.currentUser?.nom ?? ''),
-    );
-
-    await _databaseService.database.transaction(() async {
-      // Insérer la vente
-      await _databaseService.database.into(_databaseService.database.ventes).insert(venteCompanion);
-
-      // Insérer les détails sans affecter les stocks
-      for (var ligne in _lignesVente) {
-        await _databaseService.database.into(_databaseService.database.detventes).insert(
-              DetventesCompanion.insert(
-                numventes: drift.Value(_numVentesController.text),
-                designation: drift.Value(ligne['designation']),
-                unites: drift.Value(ligne['unites']),
-                depots: drift.Value(ligne['depot']),
-                q: drift.Value(ligne['quantite']),
-                pu: drift.Value(ligne['prixUnitaire']),
-                daty: drift.Value(DateTime.now()),
-                diffPrix: drift.Value(ligne['diffPrix'] ?? 0.0),
-              ),
-            );
+  void _reinitialiserFormulaire() {
+    setState(() {
+      _isExistingPurchase = false;
+      _selectedRowIndex = null;
+      _lignesVente.clear();
+      _clientController.clear();
+      _selectedClient = null;
+      _statutVenteActuelle = null;
+      _selectedVerification = 'BROUILLARD';
+      _statutVente = StatutVente.brouillard;
+      _showCreditMode = _shouldShowCreditMode(null);
+      if (_autocompleteController != null) {
+        _autocompleteController!.clear();
       }
-
-      // En mode brouillard : pas de comptabilisation dans le compte client
     });
-  }
 
-  Future<void> _enregistrerVenteJournal(double totalApresRemise, double totalTTC, double tva, double avance,
-      double commission, double montantRecu, double monnaieARendre) async {
-    final authService = AuthService();
-    final venteCompanion = VentesCompanion(
-      numventes: drift.Value(_numVentesController.text),
-      nfact: drift.Value(_nFactureController.text),
-      daty: drift.Value(DateTime.now()),
-      clt: drift.Value(_selectedClient ?? ''),
-      modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
-      totalnt: drift.Value(totalApresRemise),
-      totalttc: drift.Value(totalTTC),
-      tva: drift.Value(tva),
-      avance: drift.Value(avance),
-      commission: drift.Value(commission),
-      remise: drift.Value(double.tryParse(_remiseController.text) ?? 0),
-      heure: drift.Value(_heureController.text),
-      verification: drift.Value(StatutVente.journal.value),
-      montantRecu: drift.Value(montantRecu),
-      monnaieARendre: drift.Value(monnaieARendre),
-      commerc: drift.Value(authService.currentUser?.nom ?? ''),
-    );
+    _totalHTController.text = '0';
+    _remiseController.text = '0';
+    _tvaController.text = '0';
+    _totalTTCController.text = '0';
+    _avanceController.text = '0';
+    _resteController.text = '0';
+    _nouveauSoldeController.text = '0';
+    _commissionController.text = '0';
+    _montantRecuController.text = '0';
+    _montantARendreController.text = '0';
 
-    await _databaseService.database.enregistrerVenteComplete(
-      vente: venteCompanion,
-      lignesVente: _lignesVente,
-    );
+    _resetArticleForm();
+    _initializeForm();
+    _chargerSoldeClient(null);
   }
 
   Future<void> _modifierVente() async {
@@ -1672,10 +1675,8 @@ class _VentesModalState extends State<VentesModal> {
               child: const Text('Non'),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true);
-                Navigator.of(context).pop();
-              },
+              autofocus: true,
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Oui'),
             ),
           ],
@@ -1685,35 +1686,35 @@ class _VentesModalState extends State<VentesModal> {
       if (confirmer == true) {
         // Ouvrir le modal d'ajout de client avec le nom pré-rempli
         if (mounted) {
-          await showDialog(
+          final nouveauClient = await showDialog<CltData>(
             context: context,
             builder: (context) => AddClientModal(
               nomClient: nomClient,
               tousDepots: widget.tousDepots,
             ),
           );
-        }
 
-        // Recharger la liste des clients
-        await _loadData();
+          if (nouveauClient != null) {
+            // Recharger la liste des clients
+            await _loadData();
 
-        // Chercher le client créé et le sélectionner
-        final nouveauClient = _clients
-            .where((client) => client.rsoc.toLowerCase().contains(nomClient.toLowerCase()))
-            .firstOrNull;
-
-        if (nouveauClient != null) {
-          setState(() {
-            _selectedClient = nouveauClient.rsoc;
-            _clientController.text = nouveauClient.rsoc;
-            // Déterminer si on affiche le mode crédit selon la catégorie
-            _showCreditMode = _shouldShowCreditMode(nouveauClient);
-            // Ajuster le mode de paiement si nécessaire
-            if ((!_showCreditMode || _isVendeur()) && _selectedModePaiement == 'A crédit') {
-              _selectedModePaiement = 'Espèces';
-            }
-          });
-          _chargerSoldeClient(nouveauClient.rsoc);
+            setState(() {
+              _selectedClient = nouveauClient.rsoc;
+              _clientController.text = nouveauClient.rsoc;
+              // Déterminer si on affiche le mode crédit selon la catégorie
+              _showCreditMode = _shouldShowCreditMode(nouveauClient);
+              // Ajuster le mode de paiement si nécessaire
+              if ((!_showCreditMode || _isVendeur()) && _selectedModePaiement == 'A crédit') {
+                _selectedModePaiement = 'Espèces';
+              }
+            });
+            _chargerSoldeClient(nouveauClient.rsoc);
+            
+            // Positionner le curseur dans le champ désignation article
+            Future.delayed(const Duration(milliseconds: 100), () {
+              _designationFocusNode.requestFocus();
+            });
+          }
         }
       } else {
         // Réinitialiser le champ client

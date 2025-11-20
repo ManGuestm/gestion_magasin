@@ -2,272 +2,664 @@ import 'package:drift/drift.dart';
 
 import '../database/database.dart';
 import '../database/database_service.dart';
+import '../utils/stock_converter.dart';
 
 class AchatService {
-  static final AchatService _instance = AchatService._internal();
-  factory AchatService() => _instance;
-  AchatService._internal();
+  final DatabaseService _databaseService = DatabaseService();
 
-  final DatabaseService _db = DatabaseService();
-
-  /// Enregistre un achat complet avec détails et mise à jour des stocks
-  Future<void> enregistrerAchatComplet({
-    required AchatsCompanion achat,
+  /// Traite un achat en mode BROUILLARD (sans mouvement de stock)
+  Future<void> traiterAchatBrouillard({
+    required String numAchats,
+    required String? nFacture,
+    required DateTime date,
+    required String? fournisseur,
+    required String? modePaiement,
+    required double totalHT,
+    required double totalTTC,
+    required double tva,
     required List<Map<String, dynamic>> lignesAchat,
   }) async {
-    final database = _db.database;
-
-    await database.transaction(() async {
+    await _databaseService.database.transaction(() async {
       // 1. Insérer l'achat principal
-      await database.insertAchat(achat);
+      await _databaseService.database.into(_databaseService.database.achats).insert(
+            AchatsCompanion.insert(
+              numachats: Value(numAchats),
+              nfact: Value(nFacture),
+              daty: Value(date),
+              frns: Value(fournisseur),
+              modepai: Value(modePaiement),
+              totalnt: Value(totalHT),
+              totalttc: Value(totalTTC),
+              tva: Value(tva),
+              verification: const Value('BROUILLARD'),
+            ),
+          );
 
-      // 2. Insérer les détails d'achat
-      for (var ligne in lignesAchat) {
-        await database.customStatement(
-            '''INSERT INTO detachats (numachats, designation, unites, q, pu, daty, depots, qe)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-            [
-              achat.numachats.value,
-              ligne['designation'],
-              ligne['unites'],
-              ligne['quantite'],
-              ligne['prixUnitaire'],
-              achat.daty.value?.toIso8601String(),
-              ligne['depot'],
-              ligne['quantite']
-            ]);
+      // 2. Insérer les détails sans affecter les stocks
+      for (final ligne in lignesAchat) {
+        await _databaseService.database.into(_databaseService.database.detachats).insert(
+              DetachatsCompanion.insert(
+                numachats: Value(numAchats),
+                designation: Value(ligne['designation']),
+                unites: Value(ligne['unite']),
+                depots: Value(ligne['depot']),
+                q: Value(ligne['quantite']),
+                pu: Value(ligne['prixUnitaire']),
+                daty: Value(date),
+              ),
+            );
+      }
+    });
+  }
 
-        // 3. Mettre à jour les stocks
-        await _mettreAJourStocksAchat(
-          ligne['designation'],
-          ligne['depot'],
-          ligne['unites'],
-          ligne['quantite'],
-          ligne['prixUnitaire'],
-          achat.numachats.value ?? '',
+  /// Traite un achat complet en mode JOURNAL avec mouvements de stock
+  Future<void> traiterAchatJournal({
+    required String numAchats,
+    required String? nFacture,
+    required DateTime date,
+    required String? fournisseur,
+    required String? modePaiement,
+    required DateTime? echeance,
+    required double totalHT,
+    required double totalTTC,
+    required double tva,
+    required List<Map<String, dynamic>> lignesAchat,
+  }) async {
+    await _databaseService.database.transaction(() async {
+      // 1. Insérer l'achat principal
+      await _insererAchat(
+        numAchats: numAchats,
+        nFacture: nFacture,
+        date: date,
+        fournisseur: fournisseur,
+        modePaiement: modePaiement,
+        echeance: echeance,
+        totalHT: totalHT,
+        totalTTC: totalTTC,
+        tva: tva,
+      );
+
+      // 2. Traiter chaque ligne d'achat
+      for (final ligne in lignesAchat) {
+        await _traiterLigneAchat(
+          numAchats: numAchats,
+          ligne: ligne,
+          date: date,
+          fournisseur: fournisseur,
         );
       }
 
-      // 4. Mettre à jour le solde fournisseur si nécessaire
-      if (achat.frns.present && achat.totalttc.present && achat.regl.present) {
-        await _mettreAJourSoldeFournisseur(
-          achat.frns.value!,
-          achat.totalttc.value! - (achat.regl.value ?? 0),
+      // 3. Ajuster compte fournisseur si crédit
+      if (modePaiement == 'A crédit' && fournisseur != null && fournisseur.isNotEmpty) {
+        await _ajusterCompteFournisseur(
+          fournisseur: fournisseur,
+          numAchats: numAchats,
+          nFacture: nFacture,
+          montant: totalTTC,
+          date: date,
+        );
+      }
+
+      // 4. Mouvement caisse si espèces
+      if (modePaiement == 'Espèces') {
+        await _mouvementCaisseAchat(
+          numAchats: numAchats,
+          montant: totalTTC,
+          fournisseur: fournisseur,
+          date: date,
         );
       }
     });
   }
 
-  /// Met à jour les stocks après un achat
-  Future<void> _mettreAJourStocksAchat(
-    String designation,
-    String depot,
-    String unite,
-    double quantite,
-    double prixUnitaire,
-    String numAchat,
-  ) async {
-    final database = _db.database;
+  /// Insère l'achat principal
+  Future<void> _insererAchat({
+    required String numAchats,
+    required String? nFacture,
+    required DateTime date,
+    required String? fournisseur,
+    required String? modePaiement,
+    required DateTime? echeance,
+    required double totalHT,
+    required double totalTTC,
+    required double tva,
+  }) async {
+    await _databaseService.database.into(_databaseService.database.achats).insert(
+          AchatsCompanion.insert(
+            numachats: Value(numAchats),
+            nfact: Value(nFacture),
+            daty: Value(date),
+            frns: Value(fournisseur),
+            modepai: Value(modePaiement),
+            echeance: Value(echeance),
+            totalnt: Value(totalHT),
+            totalttc: Value(totalTTC),
+            tva: Value(tva),
+            verification: const Value('JOURNAL'),
+          ),
+        );
+  }
 
-    // 1. Récupérer l'article pour les conversions
-    final article = await database.getArticleByDesignation(designation);
-    if (article == null) return;
+  /// Traite une ligne d'achat individuelle
+  Future<void> _traiterLigneAchat({
+    required String numAchats,
+    required Map<String, dynamic> ligne,
+    required DateTime date,
+    required String? fournisseur,
+  }) async {
+    final designation = ligne['designation'] as String;
+    final unite = ligne['unite'] as String;
+    final depot = ligne['depot'] as String;
+    final quantite = ligne['quantite'] as double;
+    final prixUnitaire = ligne['prixUnitaire'] as double;
 
-    // 2. Convertir la quantité selon l'unité
-    double quantiteU1 = 0, quantiteU2 = 0;
+    // 1. Insérer détail achat
+    await _databaseService.database.into(_databaseService.database.detachats).insert(
+          DetachatsCompanion.insert(
+            numachats: Value(numAchats),
+            designation: Value(designation),
+            unites: Value(unite),
+            depots: Value(depot),
+            q: Value(quantite),
+            pu: Value(prixUnitaire),
+            daty: Value(date),
+          ),
+        );
 
-    if (unite == article.u1) {
-      quantiteU1 = quantite;
-    } else if (unite == article.u2 && article.tu2u1 != null) {
-      quantiteU1 = quantite / article.tu2u1!;
-      quantiteU2 = quantite;
-    } else if (unite == article.u2) {
-      quantiteU2 = quantite;
+    // 2. Récupérer l'article
+    final article = await (_databaseService.database.select(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(designation)))
+        .getSingleOrNull();
+
+    if (article == null) {
+      throw Exception('Article $designation non trouvé');
     }
 
-    // 3. Mettre à jour le stock par dépôt (table depart)
-    final stockDepart = await database.customSelect(
-        'SELECT * FROM depart WHERE designation = ? AND depots = ?',
-        variables: [Variable(designation), Variable(depot)]).getSingleOrNull();
+    // 3. Augmenter stocks par dépôt
+    await _augmenterStockDepot(
+      article: article,
+      depot: depot,
+      unite: unite,
+      quantite: quantite,
+    );
 
-    if (stockDepart == null) {
-      // Créer nouveau stock par dépôt
-      await database.customStatement(
-          'INSERT INTO depart (designation, depots, stocksu1, stocksu2, stocksu3) VALUES (?, ?, ?, ?, 0)',
-          [designation, depot, quantiteU1, quantiteU2]);
-    } else {
-      // Mettre à jour stock existant
-      final stockU1Actuel = stockDepart.read<double?>('stocksu1') ?? 0;
-      final stockU2Actuel = stockDepart.read<double?>('stocksu2') ?? 0;
-
-      await database.customStatement(
-          'UPDATE depart SET stocksu1 = ?, stocksu2 = ? WHERE designation = ? AND depots = ?',
-          [stockU1Actuel + quantiteU1, stockU2Actuel + quantiteU2, designation, depot]);
-    }
-
-    // 4. Mettre à jour le stock global et CMUP (table articles)
-    final stockGlobalU1Actuel = article.stocksu1 ?? 0;
-    final stockGlobalU2Actuel = article.stocksu2 ?? 0;
-    final cmupActuel = article.cmup ?? 0;
-
-    // Calculer nouveau CMUP
-    final ancienneValeur = stockGlobalU1Actuel * cmupActuel;
-    final nouvelleValeur = quantiteU1 * prixUnitaire;
-    final quantiteTotale = stockGlobalU1Actuel + quantiteU1;
-
-    final nouveauCmup =
-        quantiteTotale > 0 ? (ancienneValeur + nouvelleValeur) / quantiteTotale : prixUnitaire;
-
-    await database.customStatement(
-        'UPDATE articles SET stocksu1 = ?, stocksu2 = ?, cmup = ? WHERE designation = ?',
-        [stockGlobalU1Actuel + quantiteU1, stockGlobalU2Actuel + quantiteU2, nouveauCmup, designation]);
-
-    // 5. Créer un mouvement de stock
+    // 4. Créer mouvement stock d'entrée
     await _creerMouvementStockAchat(
-      designation: designation,
+      numAchats: numAchats,
+      article: article,
       depot: depot,
       unite: unite,
       quantite: quantite,
       prixUnitaire: prixUnitaire,
-      numAchat: numAchat,
+      fournisseur: fournisseur,
+      date: date,
+    );
+
+    // 5. Calculer et mettre à jour le CMUP
+    await _calculerEtMettreAJourCMUP(
+      article: article,
+      unite: unite,
+      quantite: quantite,
+      prixUnitaire: prixUnitaire,
+    );
+
+    // 6. Ajuster stock global article
+    await _ajusterStockGlobalArticleAchat(
+      article: article,
+      unite: unite,
+      quantite: quantite,
+    );
+
+    // 7. Mettre à jour fiche stock
+    await _mettreAJourFicheStockAchat(
+      designation: designation,
+      unite: unite,
+      quantite: quantite,
     );
   }
 
-  /// Crée un mouvement de stock pour un achat
+  /// Augmente le stock dans la table depart
+  Future<void> _augmenterStockDepot({
+    required Article article,
+    required String depot,
+    required String unite,
+    required double quantite,
+  }) async {
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    final stockActuel = await (_databaseService.database.select(_databaseService.database.depart)
+          ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+        .getSingleOrNull();
+
+    if (stockActuel != null) {
+      final nouveauStockU1 = (stockActuel.stocksu1 ?? 0) + conversions['u1']!;
+      final nouveauStockU2 = (stockActuel.stocksu2 ?? 0) + conversions['u2']!;
+      final nouveauStockU3 = (stockActuel.stocksu3 ?? 0) + conversions['u3']!;
+
+      await (_databaseService.database.update(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+          .write(DepartCompanion(
+        stocksu1: Value(nouveauStockU1),
+        stocksu2: Value(nouveauStockU2),
+        stocksu3: Value(nouveauStockU3),
+      ));
+    } else {
+      // Créer nouveau stock si n'existe pas
+      await _databaseService.database.into(_databaseService.database.depart).insert(
+            DepartCompanion.insert(
+              designation: article.designation,
+              depots: depot,
+              stocksu1: Value(conversions['u1']),
+              stocksu2: Value(conversions['u2']),
+              stocksu3: Value(conversions['u3']),
+            ),
+          );
+    }
+  }
+
+  /// Crée un mouvement de stock d'entrée
   Future<void> _creerMouvementStockAchat({
-    required String designation,
+    required String numAchats,
+    required Article article,
     required String depot,
     required String unite,
     required double quantite,
     required double prixUnitaire,
-    required String numAchat,
+    required String? fournisseur,
+    required DateTime date,
   }) async {
-    final database = _db.database;
-    final ref = 'ACH${DateTime.now().millisecondsSinceEpoch}';
+    final ref = 'A-${DateTime.now().millisecondsSinceEpoch}-${article.designation}';
 
-    await database.customStatement(
-        '''INSERT INTO stocks (ref, daty, lib, refart, qe, entres, ue, depots, numachats, pus, verification)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        [
-          ref,
-          DateTime.now().toIso8601String(),
-          'ACHAT - $designation',
-          designation,
-          quantite,
-          quantite,
-          unite,
-          depot,
-          numAchat,
-          prixUnitaire,
-          'ACHAT'
-        ]);
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    await _databaseService.database.into(_databaseService.database.stocks).insert(
+          StocksCompanion.insert(
+            ref: ref,
+            daty: Value(date),
+            lib: Value('Achat N° $numAchats'),
+            numachats: Value(numAchats),
+            refart: Value(article.designation),
+            qe: Value(quantite),
+            entres: Value(quantite * prixUnitaire),
+            stocksu1: Value(conversions['u1']),
+            stocksu2: Value(conversions['u2']),
+            stocksu3: Value(conversions['u3']),
+            depots: Value(depot),
+            frns: Value(fournisseur),
+            verification: const Value('JOURNAL'),
+            ue: Value(unite),
+            pus: Value(prixUnitaire),
+          ),
+        );
   }
 
-  /// Met à jour le solde d'un fournisseur
-  Future<void> _mettreAJourSoldeFournisseur(String rsocFournisseur, double montant) async {
-    final database = _db.database;
+  /// Ajuste le stock global de l'article
+  Future<void> _ajusterStockGlobalArticleAchat({
+    required Article article,
+    required String unite,
+    required double quantite,
+  }) async {
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
 
-    final fournisseur = await database.getFournisseurByRsoc(rsocFournisseur);
-    if (fournisseur != null) {
-      final nouveauSolde = (fournisseur.soldes ?? 0) + montant;
+    final nouveauStockU1 = (article.stocksu1 ?? 0) + conversions['u1']!;
+    final nouveauStockU2 = (article.stocksu2 ?? 0) + conversions['u2']!;
+    final nouveauStockU3 = (article.stocksu3 ?? 0) + conversions['u3']!;
 
-      await database.customStatement('UPDATE frns SET soldes = ?, datedernop = ? WHERE rsoc = ?',
-          [nouveauSolde, DateTime.now().toIso8601String(), rsocFournisseur]);
+    await (_databaseService.database.update(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(article.designation)))
+        .write(ArticlesCompanion(
+      stocksu1: Value(nouveauStockU1),
+      stocksu2: Value(nouveauStockU2),
+      stocksu3: Value(nouveauStockU3),
+    ));
+  }
 
-      // Créer un mouvement dans comptefrns
-      final ref = 'FRN${DateTime.now().millisecondsSinceEpoch}';
-      await database.customStatement('''INSERT INTO comptefrns (ref, daty, lib, entres, sortie, solde, frns)
-           VALUES (?, ?, ?, ?, ?, ?, ?)''', [
-        ref,
-        DateTime.now().toIso8601String(),
-        'Achat à crédit',
-        montant > 0 ? montant : 0,
-        montant < 0 ? -montant : 0,
-        nouveauSolde,
-        rsocFournisseur
-      ]);
+  /// Ajuste le compte fournisseur pour achat à crédit
+  Future<void> _ajusterCompteFournisseur({
+    required String fournisseur,
+    required String numAchats,
+    required String? nFacture,
+    required double montant,
+    required DateTime date,
+  }) async {
+    if (montant <= 0) return;
+
+    final ref = 'A-${DateTime.now().millisecondsSinceEpoch}';
+
+    await _databaseService.database.into(_databaseService.database.comptefrns).insert(
+          ComptefrnsCompanion.insert(
+            ref: ref,
+            daty: Value(date),
+            lib: Value('Achat N° $numAchats${nFacture != null ? ' - Facture $nFacture' : ''}'),
+            numachats: Value(numAchats),
+            nfact: Value(nFacture),
+            entres: Value(montant),
+            sortie: const Value(0.0),
+            solde: Value(montant),
+            frns: Value(fournisseur),
+            verification: const Value('JOURNAL'),
+          ),
+        );
+
+    // Mettre à jour le solde fournisseur
+    final fournisseurData = await (_databaseService.database.select(_databaseService.database.frns)
+          ..where((f) => f.rsoc.equals(fournisseur)))
+        .getSingleOrNull();
+
+    if (fournisseurData != null) {
+      final nouveauSolde = (fournisseurData.soldes ?? 0) + montant;
+      await (_databaseService.database.update(_databaseService.database.frns)
+            ..where((f) => f.rsoc.equals(fournisseur)))
+          .write(FrnsCompanion(
+        soldes: Value(nouveauSolde),
+        datedernop: Value(date),
+      ));
     }
   }
 
-  /// Génère un numéro d'achat unique
-  Future<String> genererNumeroAchat() async {
-    final database = _db.database;
+  /// Crée un mouvement de caisse pour paiement espèces
+  Future<void> _mouvementCaisseAchat({
+    required String numAchats,
+    required double montant,
+    required String? fournisseur,
+    required DateTime date,
+  }) async {
+    if (montant <= 0) return;
 
-    final result = await database.customSelect(
-        'SELECT COUNT(*) as count FROM achats WHERE DATE(daty) = DATE(?)',
-        variables: [Variable(DateTime.now().toIso8601String())]).getSingle();
+    final ref = 'A-${DateTime.now().millisecondsSinceEpoch}';
 
-    final count = result.read<int>('count') + 1;
-    final dateStr = DateTime.now().toString().substring(0, 10).replaceAll('-', '');
-
-    return 'ACH$dateStr${count.toString().padLeft(3, '0')}';
+    await _databaseService.database.into(_databaseService.database.caisse).insert(
+          CaisseCompanion.insert(
+            ref: ref,
+            daty: Value(date),
+            lib: Value('Achat N° $numAchats'),
+            credit: Value(montant),
+            frns: Value(fournisseur ?? ''),
+            verification: const Value('JOURNAL'),
+          ),
+        );
   }
 
-  /// Récupère les achats par période
-  Future<List<Map<String, dynamic>>> getAchatsParPeriode(DateTime debut, DateTime fin) async {
-    final database = _db.database;
+  /// Valide un achat brouillard vers journal
+  Future<void> validerAchatBrouillard(String numAchats) async {
+    final achat = await (_databaseService.database.select(_databaseService.database.achats)
+          ..where((a) => a.numachats.equals(numAchats)))
+        .getSingleOrNull();
 
-    final result = await database.customSelect('''SELECT a.*, f.rsoc as nom_fournisseur 
-         FROM achats a 
-         LEFT JOIN frns f ON a.frns = f.rsoc 
-         WHERE a.daty BETWEEN ? AND ? 
-         ORDER BY a.daty DESC''',
-        variables: [Variable(debut.toIso8601String()), Variable(fin.toIso8601String())]).get();
+    if (achat == null) {
+      throw Exception('Achat non trouvé');
+    }
 
-    return result
-        .map((row) => {
-              'num': row.read<int>('num'),
-              'numachats': row.read<String?>('numachats'),
-              'daty': row.read<DateTime?>('daty'),
-              'frns': row.read<String?>('frns'),
-              'nom_fournisseur': row.read<String?>('nom_fournisseur'),
-              'totalttc': row.read<double?>('totalttc'),
-              'modepai': row.read<String?>('modepai'),
-            })
-        .toList();
+    final details = await (_databaseService.database.select(_databaseService.database.detachats)
+          ..where((d) => d.numachats.equals(numAchats)))
+        .get();
+
+    await _databaseService.database.transaction(() async {
+      // Mettre à jour le statut de l'achat
+      await (_databaseService.database.update(_databaseService.database.achats)
+            ..where((a) => a.numachats.equals(numAchats)))
+          .write(const AchatsCompanion(
+        verification: Value('JOURNAL'),
+      ));
+
+      // Traiter chaque ligne pour créer SEULEMENT les mouvements de stock (pas réinsérer detachats)
+      for (final detail in details) {
+        if (detail.designation != null &&
+            detail.depots != null &&
+            detail.unites != null &&
+            detail.q != null) {
+          await _traiterLigneAchatSansDetail(
+            numAchats: numAchats,
+            ligne: {
+              'designation': detail.designation!,
+              'unite': detail.unites!,
+              'depot': detail.depots!,
+              'quantite': detail.q!,
+              'prixUnitaire': detail.pu ?? 0.0,
+            },
+            date: achat.daty ?? DateTime.now(),
+            fournisseur: achat.frns,
+          );
+        }
+      }
+
+      // Ajuster compte fournisseur si crédit
+      if (achat.modepai == 'A crédit' && achat.frns != null && achat.frns!.isNotEmpty) {
+        await _ajusterCompteFournisseur(
+          fournisseur: achat.frns!,
+          numAchats: numAchats,
+          nFacture: achat.nfact,
+          montant: achat.totalttc ?? 0,
+          date: achat.daty ?? DateTime.now(),
+        );
+      }
+
+      // Mouvement caisse si espèces
+      if (achat.modepai == 'Espèces') {
+        await _mouvementCaisseAchat(
+          numAchats: numAchats,
+          montant: achat.totalttc ?? 0,
+          fournisseur: achat.frns,
+          date: achat.daty ?? DateTime.now(),
+        );
+      }
+    });
   }
 
-  /// Récupère les détails d'un achat
-  Future<List<Map<String, dynamic>>> getDetailsAchat(String numAchat) async {
-    final database = _db.database;
+  /// Traite une ligne d'achat sans réinsérer le détail (pour validation brouillard)
+  Future<void> _traiterLigneAchatSansDetail({
+    required String numAchats,
+    required Map<String, dynamic> ligne,
+    required DateTime date,
+    required String? fournisseur,
+  }) async {
+    final designation = ligne['designation'] as String;
+    final unite = ligne['unite'] as String;
+    final depot = ligne['depot'] as String;
+    final quantite = ligne['quantite'] as double;
+    final prixUnitaire = ligne['prixUnitaire'] as double;
 
-    final result = await database.customSelect('''SELECT da.*, a.designation as nom_article 
-         FROM detachats da 
-         LEFT JOIN articles a ON da.designation = a.designation 
-         WHERE da.numachats = ? 
-         ORDER BY da.num''', variables: [Variable(numAchat)]).get();
+    // Récupérer l'article
+    final article = await (_databaseService.database.select(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(designation)))
+        .getSingleOrNull();
 
-    return result
-        .map((row) => {
-              'num': row.read<int>('num'),
-              'designation': row.read<String?>('designation'),
-              'nom_article': row.read<String?>('nom_article'),
-              'unites': row.read<String?>('unites'),
-              'q': row.read<double?>('q'),
-              'pu': row.read<double?>('pu'),
-              'depots': row.read<String?>('depots'),
-            })
-        .toList();
+    if (article == null) {
+      throw Exception('Article $designation non trouvé');
+    }
+
+    // Augmenter stocks par dépôt
+    await _augmenterStockDepot(
+      article: article,
+      depot: depot,
+      unite: unite,
+      quantite: quantite,
+    );
+
+    // Créer mouvement stock d'entrée
+    await _creerMouvementStockAchat(
+      numAchats: numAchats,
+      article: article,
+      depot: depot,
+      unite: unite,
+      quantite: quantite,
+      prixUnitaire: prixUnitaire,
+      fournisseur: fournisseur,
+      date: date,
+    );
+
+    // Calculer et mettre à jour le CMUP
+    await _calculerEtMettreAJourCMUP(
+      article: article,
+      unite: unite,
+      quantite: quantite,
+      prixUnitaire: prixUnitaire,
+    );
+
+    // Ajuster stock global article
+    await _ajusterStockGlobalArticleAchat(
+      article: article,
+      unite: unite,
+      quantite: quantite,
+    );
+
+    // Mettre à jour fiche stock
+    await _mettreAJourFicheStockAchat(
+      designation: designation,
+      unite: unite,
+      quantite: quantite,
+    );
   }
 
-  /// Calcule les statistiques d'achats
-  Future<Map<String, dynamic>> getStatistiquesAchats(DateTime debut, DateTime fin) async {
-    final database = _db.database;
+  /// Calcule et met à jour le CMUP de l'article
+  Future<void> _calculerEtMettreAJourCMUP({
+    required Article article,
+    required String unite,
+    required double quantite,
+    required double prixUnitaire,
+  }) async {
+    // Convertir la quantité d'achat en unité de base (u3) pour le calcul CMUP
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
 
-    final result = await database.customSelect('''SELECT 
-           COUNT(*) as nombre_achats,
-           COALESCE(SUM(totalnt), 0) as total_ht,
-           COALESCE(SUM(totalttc), 0) as total_ttc,
-           COALESCE(AVG(totalttc), 0) as moyenne_achat
-         FROM achats 
-         WHERE daty BETWEEN ? AND ?''',
-        variables: [Variable(debut.toIso8601String()), Variable(fin.toIso8601String())]).getSingle();
+    final quantiteU3 = conversions['u3']!;
 
-    return {
-      'nombre_achats': result.read<int>('nombre_achats'),
-      'total_ht': result.read<double>('total_ht'),
-      'total_ttc': result.read<double>('total_ttc'),
-      'moyenne_achat': result.read<double>('moyenne_achat'),
-    };
+    // Calculer le nouveau CMUP
+    final stockActuelU3 = article.stocksu3 ?? 0;
+    final cmupActuel = article.cmup ?? 0;
+
+    double nouveauCMUP;
+    if (stockActuelU3 == 0) {
+      // Premier achat : CMUP = prix d'achat
+      nouveauCMUP = prixUnitaire;
+    } else {
+      // CMUP pondéré : (stock_actuel * CMUP_actuel + quantité_achat * prix_achat) / (stock_actuel + quantité_achat)
+      final valeurStockActuel = stockActuelU3 * cmupActuel;
+      final valeurAchat = quantiteU3 * prixUnitaire;
+      final stockTotal = stockActuelU3 + quantiteU3;
+
+      nouveauCMUP = stockTotal > 0 ? (valeurStockActuel + valeurAchat) / stockTotal : prixUnitaire;
+    }
+
+    // Mettre à jour le CMUP dans la table articles
+    await (_databaseService.database.update(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(article.designation)))
+        .write(ArticlesCompanion(
+      cmup: Value(nouveauCMUP),
+    ));
+  }
+
+  /// Met à jour la fiche stock pour les achats
+  Future<void> _mettreAJourFicheStockAchat({
+    required String designation,
+    required String unite,
+    required double quantite,
+  }) async {
+    final ficheExiste = await (_databaseService.database.select(_databaseService.database.fstocks)
+          ..where((f) => f.art.equals(designation)))
+        .getSingleOrNull();
+
+    if (ficheExiste != null) {
+      // Mettre à jour la fiche existante - pour les achats on augmente qe (entrées)
+      double nouvelleQe = (ficheExiste.qe ?? 0) + quantite;
+
+      await (_databaseService.database.update(_databaseService.database.fstocks)
+            ..where((f) => f.art.equals(designation)))
+          .write(FstocksCompanion(
+        qe: Value(nouvelleQe),
+      ));
+    } else {
+      // Créer nouvelle fiche
+      final ref = 'FS-${DateTime.now().millisecondsSinceEpoch}';
+      await _databaseService.database.into(_databaseService.database.fstocks).insert(
+            FstocksCompanion.insert(
+              ref: ref,
+              art: Value(designation),
+              qe: Value(quantite),
+              qs: const Value(0.0), // Pas de sortie pour un achat
+              qst: const Value(0.0),
+              ue: Value(unite),
+            ),
+          );
+    }
+  }
+
+  /// Contre-passe un achat journalisé
+  Future<void> contrePasserAchatJournal(String numAchats) async {
+    final achat = await (_databaseService.database.select(_databaseService.database.achats)
+          ..where((a) => a.numachats.equals(numAchats)))
+        .getSingleOrNull();
+
+    if (achat == null) throw Exception('Achat non trouvé');
+    if (achat.contre == '1') throw Exception('Achat déjà contre-passé');
+    if (achat.verification != 'JOURNAL')
+      throw Exception('Seuls les achats journalisés peuvent être contre-passés');
+
+    await _databaseService.database.transaction(() async {
+      // 1. Marquer comme contre-passé
+      await (_databaseService.database.update(_databaseService.database.achats)
+            ..where((a) => a.numachats.equals(numAchats)))
+          .write(const AchatsCompanion(contre: Value('1')));
+
+      // 2. Ajuster compte fournisseur (sortie pour annuler l'entrée)
+      if (achat.frns != null && achat.frns!.isNotEmpty) {
+        final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
+        await _databaseService.database.into(_databaseService.database.comptefrns).insert(
+              ComptefrnsCompanion.insert(
+                ref: ref,
+                daty: Value(DateTime.now()),
+                lib: Value('Contre-passement achat N° $numAchats'),
+                numachats: Value(numAchats),
+                sortie: Value(achat.totalttc ?? 0),
+                solde: Value(-(achat.totalttc ?? 0)),
+                frns: Value(achat.frns!),
+                verification: const Value('JOURNAL'),
+              ),
+            );
+
+        // Mettre à jour solde fournisseur
+        final fournisseur = await (_databaseService.database.select(_databaseService.database.frns)
+              ..where((f) => f.rsoc.equals(achat.frns!)))
+            .getSingleOrNull();
+        if (fournisseur != null) {
+          await (_databaseService.database.update(_databaseService.database.frns)
+                ..where((f) => f.rsoc.equals(achat.frns!)))
+              .write(FrnsCompanion(
+            soldes: Value((fournisseur.soldes ?? 0) - (achat.totalttc ?? 0)),
+            datedernop: Value(DateTime.now()),
+          ));
+        }
+      }
+
+      // 3. Mouvement caisse si paiement espèces (entrée pour récupérer l'argent)
+      if (achat.modepai == 'Espèces') {
+        final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
+        await _databaseService.database.into(_databaseService.database.caisse).insert(
+              CaisseCompanion.insert(
+                ref: ref,
+                daty: Value(DateTime.now()),
+                lib: Value('Contre-passement achat N° $numAchats'),
+                debit: Value(achat.totalttc ?? 0),
+                frns: Value(achat.frns ?? ''),
+                verification: const Value('JOURNAL'),
+              ),
+            );
+      }
+    });
   }
 }
