@@ -168,6 +168,12 @@ class _ListeVentesModalState extends State<ListeVentesModal> {
                                     child: Text('Total TTC', style: TextStyle(fontWeight: FontWeight.bold)),
                                   ),
                                 ),
+                                Expanded(
+                                  flex: 1,
+                                  child: Center(
+                                    child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -249,6 +255,19 @@ class _ListeVentesModalState extends State<ListeVentesModal> {
                                                 child: Text(
                                                   NumberUtils.formatNumber(vente.totalttc ?? 0),
                                                   style: const TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 1,
+                                              child: Center(
+                                                child: Text(
+                                                  (vente.contre == '1') ? 'CP' : 'OK',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: (vente.contre == '1') ? Colors.red : Colors.green,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                               ),
                                             ),

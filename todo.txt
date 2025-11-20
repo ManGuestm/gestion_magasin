@@ -1,0 +1,17 @@
+-- Voir toutes les ventes avec écart de prix
+SELECT numventes, designation, pu, diffPrix, (pu - diffPrix) as prix_standard
+FROM detventes 
+WHERE diffPrix != 0;
+
+-- Calculer l'impact total des écarts par vente
+SELECT numventes, SUM(q * diffPrix) as impact_total_ecart
+FROM detventes 
+GROUP BY numventes
+HAVING SUM(q * diffPrix) != 0;
+
+-- Top des articles avec les plus gros écarts
+SELECT designation, AVG(diffPrix) as ecart_moyen, COUNT(*) as nb_ventes
+FROM detventes 
+WHERE diffPrix != 0
+GROUP BY designation
+ORDER BY ABS(AVG(diffPrix)) DESC;

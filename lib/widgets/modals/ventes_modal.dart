@@ -121,29 +121,8 @@ class _VentesModalState extends State<VentesModal> {
       _onSearchArticleChanged(_searchArticleController.text);
     });
 
-    _quantiteController.addListener(() {
-      debugPrint('Quantité changée vers: ${_quantiteController.text}');
-    });
-
-    // Add focus listeners for debugging
-    _clientFocusNode.addListener(() {
-      if (_clientFocusNode.hasFocus) debugPrint('Focus: Client field activated');
-    });
-    _designationFocusNode.addListener(() {
-      if (_designationFocusNode.hasFocus) debugPrint('Focus: Designation field activated');
-    });
-    _uniteFocusNode.addListener(() {
-      if (_uniteFocusNode.hasFocus) debugPrint('Focus: Unite field activated');
-    });
-    _quantiteFocusNode.addListener(() {
-      if (_quantiteFocusNode.hasFocus) debugPrint('Focus: Quantite field activated');
-    });
-    _prixFocusNode.addListener(() {
-      if (_prixFocusNode.hasFocus) debugPrint('Focus: Prix field activated');
-    });
     _depotFocusNode.addListener(() {
       if (_depotFocusNode.hasFocus) {
-        debugPrint('Focus: Depot field activated');
         // Force focus on the depot field's text field
         Future.delayed(const Duration(milliseconds: 50), () {
           if (_depotFocusNode.hasFocus) {
@@ -153,13 +132,7 @@ class _VentesModalState extends State<VentesModal> {
       }
     });
     _ajouterFocusNode.addListener(() {
-      if (_ajouterFocusNode.hasFocus) {
-        debugPrint('Focus: Ajouter button activated - Quantité avant: ${_quantiteController.text}');
-      }
       setState(() {}); // Rebuild to update elevation
-    });
-    _annulerFocusNode.addListener(() {
-      if (_annulerFocusNode.hasFocus) debugPrint('Focus: Annuler button activated');
     });
 
     // Position cursor in client field after build
@@ -192,6 +165,7 @@ class _VentesModalState extends State<VentesModal> {
                 'numventes': v.numventes ?? '',
                 'verification': v.verification ?? 'JOURNAL',
                 'daty': v.daty,
+                'contre': v.contre ?? '',
               })
           .where((v) => (v['numventes'] as String).isNotEmpty)
           .toList();
@@ -246,6 +220,7 @@ class _VentesModalState extends State<VentesModal> {
                 ),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(true),
+                  autofocus: true,
                   child: const Text('Valider'),
                 ),
               ],
@@ -1067,13 +1042,8 @@ class _VentesModalState extends State<VentesModal> {
 
   void _calculerTotaux() {
     double totalHT = 0;
-    double totalDiff = 0;
     for (var ligne in _lignesVente) {
       totalHT += ligne['montant'] ?? 0;
-      // Calculer Total_Diff = Somme[Quantité x Diff_prix]
-      double quantite = ligne['quantite'] ?? 0.0;
-      double diffPrix = ligne['diffPrix'] ?? 0.0;
-      totalDiff += quantite * diffPrix;
     }
 
     double remise = double.tryParse(_remiseController.text) ?? 0;
@@ -1098,11 +1068,6 @@ class _VentesModalState extends State<VentesModal> {
       _resteController.text = _formatNumber(reste);
       _nouveauSoldeController.text = _formatNumber(nouveauSolde);
     });
-
-    // Afficher le total des différences si différent de zéro
-    if (totalDiff != 0 && mounted) {
-      debugPrint('Total différence prix: ${_formatNumber(totalDiff)}');
-    }
   }
 
   void _calculerMonnaie() {
@@ -1469,13 +1434,25 @@ class _VentesModalState extends State<VentesModal> {
     if (confirm != true) return;
 
     try {
-      // Récupérer les détails de la vente avant suppression pour restaurer les stocks
+      // Récupérer les détails de la vente pour restaurer les stocks
       final detailsVente = await (_databaseService.database.select(_databaseService.database.detventes)
             ..where((d) => d.numventes.equals(_numVentesController.text)))
           .get();
 
+      // Récupérer les informations de la vente pour ajuster le compte client
+      final venteInfo = await (_databaseService.database.select(_databaseService.database.ventes)
+            ..where((v) => v.numventes.equals(_numVentesController.text)))
+          .getSingleOrNull();
+
       await _databaseService.database.transaction(() async {
-        // Restaurer les stocks pour chaque ligne de vente
+        // 1. Marquer la vente comme contre-passée
+        await (_databaseService.database.update(_databaseService.database.ventes)
+              ..where((v) => v.numventes.equals(_numVentesController.text)))
+            .write(const VentesCompanion(
+          contre: drift.Value('1'),
+        ));
+
+        // 2. Restaurer les stocks pour chaque ligne de vente
         for (var detail in detailsVente) {
           if (detail.designation != null &&
               detail.depots != null &&
@@ -1513,18 +1490,65 @@ class _VentesModalState extends State<VentesModal> {
                 stocksu3: drift.Value(nouveauStockU3),
               ));
             }
+
+            // 3. Créer mouvement de stock de restauration
+            final refStock = 'CP-${DateTime.now().millisecondsSinceEpoch}-${detail.designation}';
+            await _databaseService.database.into(_databaseService.database.stocks).insert(
+                  StocksCompanion.insert(
+                    ref: drift.Value(refStock).toString(),
+                    daty: drift.Value(DateTime.now()),
+                    lib: drift.Value('Contre-passement vente N° ${_numVentesController.text}'),
+                    numventes: drift.Value(_numVentesController.text),
+                    refart: drift.Value(detail.designation!),
+                    qe: drift.Value(detail.q!),
+                    entres: drift.Value((detail.q! * (detail.pu ?? 0))),
+                    depots: drift.Value(detail.depots!),
+                    verification: const drift.Value('JOURNAL'),
+                    marq: const drift.Value('CP'),
+                  ),
+                );
           }
         }
 
-        // Supprimer les détails de vente
-        await (_databaseService.database.delete(_databaseService.database.detventes)
-              ..where((d) => d.numventes.equals(_numVentesController.text)))
-            .go();
+        // 4. Ajuster le compte client si la vente était à crédit
+        if (venteInfo != null &&
+            venteInfo.modepai == 'A crédit' &&
+            venteInfo.clt != null &&
+            venteInfo.clt!.isNotEmpty) {
+          final montantAnnule = (venteInfo.totalttc ?? 0) - (venteInfo.avance ?? 0);
+          if (montantAnnule > 0) {
+            final refCompte = 'CP-${DateTime.now().millisecondsSinceEpoch}';
+            await _databaseService.database.into(_databaseService.database.compteclt).insert(
+                  ComptecltCompanion.insert(
+                    ref: drift.Value(refCompte).toString(),
+                    clt: drift.Value(venteInfo.clt!),
+                    daty: drift.Value(DateTime.now()),
+                    lib: drift.Value('Contre-passement vente N° ${venteInfo.numventes}'),
+                    entres: const drift.Value(0.0),
+                    sorties: drift.Value(montantAnnule),
+                    solde: const drift.Value(0.0),
+                  ),
+                );
+          }
+        }
 
-        // Supprimer la vente
-        await (_databaseService.database.delete(_databaseService.database.ventes)
-              ..where((v) => v.numventes.equals(_numVentesController.text)))
-            .go();
+        // 5. Mouvement caisse si paiement espèces
+        if (venteInfo != null && venteInfo.modepai == 'Espèces') {
+          final montantCaisse = venteInfo.totalttc ?? 0;
+          if (montantCaisse > 0) {
+            final refCaisse = 'CP-${DateTime.now().millisecondsSinceEpoch}';
+            await _databaseService.database.into(_databaseService.database.caisse).insert(
+                  CaisseCompanion.insert(
+                    ref: drift.Value(refCaisse).toString(),
+                    daty: drift.Value(DateTime.now()),
+                    lib: drift.Value('Contre-passement vente N° ${venteInfo.numventes}'),
+                    credit: drift.Value(montantCaisse),
+                    clt: drift.Value(venteInfo.clt ?? ''),
+                    verification: const drift.Value('JOURNAL'),
+                  ),
+                );
+          }
+        }
       });
 
       if (mounted) {
@@ -1533,7 +1557,9 @@ class _VentesModalState extends State<VentesModal> {
               content: Text('Vente contre-passée avec succès - Stocks restaurés'),
               backgroundColor: Colors.green),
         );
-        Navigator.of(context).pop();
+
+        // Recharger la vente pour afficher le statut contre-passé
+        await _chargerVenteExistante(_numVentesController.text);
       }
     } catch (e) {
       if (mounted) {
@@ -2178,6 +2204,7 @@ class _VentesModalState extends State<VentesModal> {
                                                           fillColor: Color(0xFFF5F5F5),
                                                           filled: true,
                                                         ),
+                                                        readOnly: true,
                                                         style: const TextStyle(fontSize: 12),
                                                       ),
                                                     ),
@@ -2717,7 +2744,9 @@ class _VentesModalState extends State<VentesModal> {
                                                   itemBuilder: (context, index) {
                                                     final ligne = _lignesVente[index];
                                                     return GestureDetector(
-                                                      onTap: () => _chargerLigneArticle(index),
+                                                      onTap: _selectedVerification == 'JOURNAL'
+                                                          ? null
+                                                          : () => _chargerLigneArticle(index),
                                                       child: Container(
                                                         height: 18,
                                                         decoration: BoxDecoration(
