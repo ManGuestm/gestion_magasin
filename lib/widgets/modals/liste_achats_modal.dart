@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
@@ -52,8 +53,8 @@ class _ListeAchatsModalState extends State<ListeAchatsModal> {
       } else {
         _achatsFiltered = _achats.where((achat) {
           return (achat.numachats?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
-                 (achat.frns?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
-                 (achat.nfact?.toLowerCase().contains(query.toLowerCase()) ?? false);
+              (achat.frns?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
+              (achat.nfact?.toLowerCase().contains(query.toLowerCase()) ?? false);
         }).toList();
       }
     });
@@ -68,7 +69,7 @@ class _ListeAchatsModalState extends State<ListeAchatsModal> {
           borderRadius: const BorderRadius.all(Radius.circular(16)),
           color: Colors.grey[100],
         ),
-        width: MediaQuery.of(context).size.width * 0.9,
+        width: MediaQuery.of(context).size.width * 0.95,
         height: MediaQuery.of(context).size.height * 0.8,
         child: Column(
           children: [
@@ -132,40 +133,66 @@ class _ListeAchatsModalState extends State<ListeAchatsModal> {
                             ),
                             child: const Row(
                               children: [
+                                //Fournisseurs
+                                Expanded(
+                                  flex: 2,
+                                  child: Center(
+                                    child: Text('Fournisseur', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                                //N°Achat
                                 Expanded(
                                   flex: 2,
                                   child: Center(
                                     child: Text('N° Achat', style: TextStyle(fontWeight: FontWeight.bold)),
                                   ),
                                 ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Center(
-                                    child: Text('N° Facture', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Center(
-                                    child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 3,
-                                  child: Center(
-                                    child: Text('Fournisseur', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
-                                Expanded(
-                                  flex: 2,
-                                  child: Center(
-                                    child: Text('Total HT', style: TextStyle(fontWeight: FontWeight.bold)),
-                                  ),
-                                ),
+                                //Total TTC
                                 Expanded(
                                   flex: 2,
                                   child: Center(
                                     child: Text('Total TTC', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                                //Date facture
+                                Expanded(
+                                  flex: 2,
+                                  child: Center(
+                                    child: Text(
+                                      'Date facture',
+                                      style: TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                                //Echeance
+                                Expanded(
+                                  flex: 2,
+                                  child: Center(
+                                    child: Text('Echéance', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                                //Mode de paiement
+                                Expanded(
+                                  flex: 2,
+                                  child: Center(
+                                    child: Text('Moyen de paiement',
+                                        style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                                //Contre passation
+                                Expanded(
+                                  flex: 2,
+                                  child: Center(
+                                    child: Text('Contre Passation',
+                                        style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                                //Vérification
+                                Expanded(
+                                  flex: 2,
+                                  child: Center(
+                                    child:
+                                        Text('Vérification', style: TextStyle(fontWeight: FontWeight.bold)),
                                   ),
                                 ),
                               ],
@@ -194,6 +221,19 @@ class _ListeAchatsModalState extends State<ListeAchatsModal> {
                                         ),
                                         child: Row(
                                           children: [
+                                            //Fournisseurs
+                                            Expanded(
+                                              flex: 2,
+                                              child: Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                child: Text(
+                                                  achat.frns ?? '',
+                                                  style: const TextStyle(fontSize: 12),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            ),
+                                            //N° Achat
                                             Expanded(
                                               flex: 2,
                                               child: Center(
@@ -203,15 +243,17 @@ class _ListeAchatsModalState extends State<ListeAchatsModal> {
                                                 ),
                                               ),
                                             ),
+                                            //Total TTC
                                             Expanded(
                                               flex: 2,
                                               child: Center(
                                                 child: Text(
-                                                  achat.nfact ?? '',
+                                                  NumberUtils.formatNumber(achat.totalttc ?? 0),
                                                   style: const TextStyle(fontSize: 12),
                                                 ),
                                               ),
                                             ),
+                                            //Date facture
                                             Expanded(
                                               flex: 2,
                                               child: Center(
@@ -223,31 +265,44 @@ class _ListeAchatsModalState extends State<ListeAchatsModal> {
                                                 ),
                                               ),
                                             ),
-                                            Expanded(
-                                              flex: 3,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                child: Text(
-                                                  achat.frns ?? '',
-                                                  style: const TextStyle(fontSize: 12),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
+                                            //Echeance
                                             Expanded(
                                               flex: 2,
                                               child: Center(
                                                 child: Text(
-                                                  NumberUtils.formatNumber(achat.totalnt ?? 0),
+                                                  achat.echeance != null
+                                                      ? app_date.AppDateUtils.formatDate(achat.echeance!)
+                                                      : '',
                                                   style: const TextStyle(fontSize: 12),
                                                 ),
                                               ),
                                             ),
+                                            //Moyen de paiement
                                             Expanded(
                                               flex: 2,
                                               child: Center(
                                                 child: Text(
-                                                  NumberUtils.formatNumber(achat.totalttc ?? 0),
+                                                  achat.modepai ?? '',
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                            ),
+                                            //Contre passation
+                                            Expanded(
+                                              flex: 2,
+                                              child: Center(
+                                                child: Text(
+                                                  achat.contre == "1" ? 'Contre Passer' : '',
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                            ),
+                                            //Vérification
+                                            Expanded(
+                                              flex: 2,
+                                              child: Center(
+                                                child: Text(
+                                                  achat.verification ?? '',
                                                   style: const TextStyle(fontSize: 12),
                                                 ),
                                               ),

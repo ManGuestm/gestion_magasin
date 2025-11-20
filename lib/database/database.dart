@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -964,7 +965,55 @@ class AppDatabase extends _$AppDatabase {
 
   // ========== MÉTHODES CLIENTS ==========
   /// Récupère tous les clients
-  Future<List<CltData>> getAllClients() => select(clt).get();
+  Future<List<CltData>> getAllClients() async {
+    try {
+      final result = await customSelect('SELECT * FROM clt').get();
+      return result.map((row) {
+        try {
+          DateTime? datedernop;
+          final dateStr = row.readNullable<String>('datedernop');
+          if (dateStr != null) {
+            try {
+              datedernop = DateTime.parse(dateStr);
+            } catch (e) {
+              datedernop = null;
+            }
+          }
+          
+          return CltData(
+            rsoc: row.read<String>('rsoc'),
+            adr: row.readNullable<String>('adr'),
+            capital: row.readNullable<double>('capital'),
+            rcs: row.readNullable<String>('rcs'),
+            nif: row.readNullable<String>('nif'),
+            stat: row.readNullable<String>('stat'),
+            tel: row.readNullable<String>('tel'),
+            port: row.readNullable<String>('port'),
+            email: row.readNullable<String>('email'),
+            site: row.readNullable<String>('site'),
+            fax: row.readNullable<String>('fax'),
+            telex: row.readNullable<String>('telex'),
+            soldes: row.readNullable<double>('soldes'),
+            datedernop: datedernop,
+            delai: row.readNullable<int>('delai'),
+            soldesa: row.readNullable<double>('soldesa'),
+            action: row.readNullable<String>('action'),
+            commercial: row.readNullable<String>('commercial'),
+            plafon: row.readNullable<double>('plafon'),
+            taux: row.readNullable<double>('taux'),
+            categorie: row.readNullable<String>('categorie'),
+            plafonbl: row.readNullable<double>('plafonbl'),
+          );
+        } catch (e) {
+          debugPrint('Erreur lecture client: $e');
+          return null;
+        }
+      }).where((client) => client != null).cast<CltData>().toList();
+    } catch (e) {
+      debugPrint('Erreur getAllClients: $e');
+      return [];
+    }
+  }
 
   /// Récupère un client par raison sociale
   Future<CltData?> getClientByRsoc(String rsoc) =>
@@ -1172,6 +1221,7 @@ class AppDatabase extends _$AppDatabase {
           pu: Value(ligne['prixUnitaire']),
           daty: vente.daty,
           depots: Value(ligne['depot']),
+          diffPrix: ligne['diffPrix'] != null ? Value(ligne['diffPrix']) : const Value.absent(),
         );
         await into(detventes).insert(detailCompanion);
 
@@ -1186,12 +1236,64 @@ class AppDatabase extends _$AppDatabase {
         );
       }
 
-      // 4. Mettre à jour le solde client si nécessaire
-      if (vente.clt.present && vente.totalttc.present && vente.avance.present) {
-        await _mettreAJourSoldeClient(
-          vente.clt.value!,
-          vente.totalttc.value! - (vente.avance.value ?? 0),
-        );
+      // 4. Gérer le compte client
+      if (vente.clt.present && vente.clt.value != null && vente.clt.value!.isNotEmpty) {
+        final client = await getClientByRsoc(vente.clt.value!);
+        if (client != null) {
+          final montantVente = vente.totalttc.value ?? 0.0;
+          final avance = vente.avance.value ?? 0.0;
+          final montantCredit = montantVente - avance;
+          
+          if (vente.modepai.value == 'A crédit' && montantCredit > 0 && vente.verification.value == 'Journal') {
+            // Vente à crédit validée : augmenter le solde client
+            final nouveauSolde = (client.soldes ?? 0.0) + montantCredit;
+            
+            // Mettre à jour le solde dans la table clients
+            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!)))
+                .write(CltCompanion(
+                  soldes: Value(nouveauSolde),
+                  datedernop: vente.daty,
+                ));
+            
+            // Insérer l'écriture dans compteclt
+            await insererEcritureCompteClient(
+              rsocClient: vente.clt.value!,
+              date: vente.daty.value ?? DateTime.now(),
+              libelle: 'Vente à crédit N° ${vente.numventes.value ?? ''}',
+              numVentes: vente.numventes.value,
+              nFact: vente.nfact.value,
+              entrees: montantCredit,
+              sorties: 0.0,
+              nouveauSolde: nouveauSolde,
+              verification: vente.verification.value ?? 'JOURNAL',
+            );
+          }
+          
+          if (avance > 0) {
+            // Avance reçue : diminuer le solde client
+            final nouveauSolde = (client.soldes ?? 0.0) - avance;
+            
+            // Mettre à jour le solde dans la table clients
+            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!)))
+                .write(CltCompanion(
+                  soldes: Value(nouveauSolde),
+                  datedernop: vente.daty,
+                ));
+            
+            // Insérer l'écriture dans compteclt
+            await insererEcritureCompteClient(
+              rsocClient: vente.clt.value!,
+              date: vente.daty.value ?? DateTime.now(),
+              libelle: 'Avance sur vente N° ${vente.numventes.value ?? ''}',
+              numVentes: vente.numventes.value,
+              nFact: vente.nfact.value,
+              entrees: 0.0,
+              sorties: avance,
+              nouveauSolde: nouveauSolde,
+              verification: vente.verification.value ?? 'JOURNAL',
+            );
+          }
+        }
       }
     });
   }
@@ -1249,27 +1351,38 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Met à jour le solde d'un client
-  Future<void> _mettreAJourSoldeClient(String rsocClient, double montant) async {
-    final client = await getClientByRsoc(rsocClient);
-    if (client != null) {
-      final nouveauSolde = (client.soldes ?? 0) + montant;
-      await customStatement('UPDATE clt SET soldes = ?, datedernop = ? WHERE rsoc = ?',
-          [nouveauSolde, DateTime.now().toIso8601String(), rsocClient]);
 
-      // Créer un mouvement dans compteclt
-      final ref = 'CLT${DateTime.now().millisecondsSinceEpoch}';
-      await customStatement('''INSERT INTO compteclt (ref, daty, lib, entres, sorties, solde, clt)
-           VALUES (?, ?, ?, ?, ?, ?, ?)''', [
-        ref,
-        DateTime.now().toIso8601String(),
-        'Vente à crédit',
-        montant > 0 ? montant : 0,
-        montant < 0 ? -montant : 0,
-        nouveauSolde,
-        rsocClient
-      ]);
-    }
+  /// Insère une écriture dans le compte client
+  Future<void> insererEcritureCompteClient({
+    required String rsocClient,
+    required DateTime date,
+    required String libelle,
+    String? numVentes,
+    String? nFact,
+    String? refArt,
+    double? quantite,
+    double? prixUnitaire,
+    double? entrees,
+    double? sorties,
+    required double nouveauSolde,
+    String? verification,
+  }) async {
+    final ref = 'CLT${DateTime.now().millisecondsSinceEpoch}';
+    await into(compteclt).insert(ComptecltCompanion(
+      ref: Value(ref),
+      daty: Value(date),
+      lib: Value(libelle),
+      numventes: numVentes != null ? Value(numVentes) : const Value.absent(),
+      nfact: nFact != null ? Value(nFact) : const Value.absent(),
+      refart: refArt != null ? Value(refArt) : const Value.absent(),
+      qs: quantite != null ? Value(quantite) : const Value.absent(),
+      pus: prixUnitaire != null ? Value(prixUnitaire) : const Value.absent(),
+      entres: entrees != null ? Value(entrees) : const Value.absent(),
+      sorties: sorties != null ? Value(sorties) : const Value.absent(),
+      solde: Value(nouveauSolde),
+      clt: Value(rsocClient),
+      verification: verification != null ? Value(verification) : const Value.absent(),
+    ));
   }
 
   /// Crée un mouvement de stock
@@ -1521,7 +1634,7 @@ class AppDatabase extends _$AppDatabase {
       // Initialiser les modes de paiement par défaut
       await _initializeDefaultPaymentModes();
     } catch (e) {
-      print('Erreur lors de la création de l\'admin par défaut: $e');
+      debugPrint('Erreur lors de la création de l\'admin par défaut: $e');
       // Ne pas faire échouer l'initialisation pour cette erreur
     }
   }
@@ -1645,10 +1758,23 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _ajusterSoldeClientContrePassage(String rsocClient, double montantVente) async {
     final client = await getClientByRsoc(rsocClient);
     if (client != null) {
+      final nouveauSolde = (client.soldes ?? 0) - montantVente;
+      
       await (update(clt)..where((c) => c.rsoc.equals(rsocClient))).write(CltCompanion(
-        soldes: Value((client.soldes ?? 0) - montantVente),
+        soldes: Value(nouveauSolde),
         datedernop: Value(DateTime.now()),
       ));
+      
+      // Insérer l'écriture de contre-passage dans compteclt
+      await insererEcritureCompteClient(
+        rsocClient: rsocClient,
+        date: DateTime.now(),
+        libelle: 'Contre-passage vente',
+        entrees: 0.0,
+        sorties: montantVente,
+        nouveauSolde: nouveauSolde,
+        verification: 'CONTRE_PASSE',
+      );
     }
   }
 
@@ -1696,15 +1822,30 @@ class AppDatabase extends _$AppDatabase {
     final ref = 'REG-${DateTime.now().millisecondsSinceEpoch}';
 
     if (type == 'Client') {
-      await into(compteclt).insert(ComptecltCompanion(
-        ref: Value(ref),
-        daty: Value(date),
-        lib: Value(libelle),
-        entres: Value(affectation == 'Débit' ? montant : 0.0),
-        sorties: Value(affectation == 'Crédit' ? montant : 0.0),
-        clt: Value(raisonSociale),
-        solde: Value(affectation == 'Débit' ? montant : -montant),
-      ));
+      // Calculer le nouveau solde client
+      final client = await getClientByRsoc(raisonSociale);
+      final soldeActuel = client?.soldes ?? 0.0;
+      final nouveauSolde = affectation == 'Débit' 
+          ? soldeActuel + montant 
+          : soldeActuel - montant;
+
+      // Mettre à jour le solde dans la table clients
+      await (update(clt)..where((c) => c.rsoc.equals(raisonSociale)))
+          .write(CltCompanion(
+            soldes: Value(nouveauSolde),
+            datedernop: Value(date),
+          ));
+
+      // Insérer l'écriture dans compteclt
+      await insererEcritureCompteClient(
+        rsocClient: raisonSociale,
+        date: date,
+        libelle: libelle,
+        entrees: affectation == 'Débit' ? montant : 0.0,
+        sorties: affectation == 'Crédit' ? montant : 0.0,
+        nouveauSolde: nouveauSolde,
+        verification: 'REGULARISATION',
+      );
     } else {
       await into(comptefrns).insert(ComptefrnsCompanion(
         ref: Value(ref),

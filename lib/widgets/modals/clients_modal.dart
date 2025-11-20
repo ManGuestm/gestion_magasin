@@ -247,9 +247,15 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
                   displayStringForOption: (client) => client.rsoc,
                   onSelected: (client) => _selectClient(client),
                   fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                    // Focus automatique sur le champ de recherche
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      focusNode.requestFocus();
+                    });
+                    
                     return TextField(
                       controller: controller,
                       focusNode: focusNode,
+                      autofocus: true,
                       style: const TextStyle(fontSize: 12),
                       decoration: InputDecoration(
                         border: InputBorder.none,
@@ -379,12 +385,20 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
     if (_isLoading) return;
     setState(() => _isLoading = true);
 
-    final clients = await DatabaseService().database.getAllClients();
-    setState(() {
-      _clients = clients;
-      _isLoading = false;
-    });
-    _applyFilter();
+    try {
+      final clients = await DatabaseService().database.getAllClients();
+      setState(() {
+        _clients = clients;
+        _isLoading = false;
+      });
+      _applyFilter();
+    } catch (e) {
+      debugPrint('Erreur chargement clients: $e');
+      setState(() {
+        _clients = [];
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _verifierEtCreerClient(String nomClient) async {
@@ -638,30 +652,57 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
   }
 
   Future<void> _loadHistoriqueClient(String rsocClient) async {
-    final historique = await DatabaseService().database.customSelect(
-      'SELECT * FROM compteclt WHERE clt = ? ORDER BY daty DESC LIMIT 50',
-      variables: [Variable(rsocClient)],
-    ).get();
+    try {
+      final historique = await DatabaseService().database.customSelect(
+        'SELECT * FROM compteclt WHERE clt = ? ORDER BY daty DESC LIMIT 50',
+        variables: [Variable(rsocClient)],
+      ).get();
 
-    setState(() {
-      _historiqueClient = historique
-          .map((row) => ComptecltData(
-                ref: row.read<String>('ref'),
-                daty: row.read<DateTime?>('daty'),
-                lib: row.read<String?>('lib'),
-                numventes: row.read<String?>('numventes'),
-                nfact: row.read<String?>('nfact'),
-                refart: row.read<String?>('refart'),
-                qs: row.read<double?>('qs'),
-                pus: row.read<double?>('pus'),
-                entres: row.read<double?>('entres'),
-                sorties: row.read<double?>('sorties'),
-                solde: row.read<double?>('solde'),
-                clt: row.read<String?>('clt'),
-                verification: row.read<String?>('verification'),
-              ))
-          .toList();
-    });
+      setState(() {
+        _historiqueClient = historique
+            .map((row) {
+              try {
+                DateTime? daty;
+                final datyStr = row.readNullable<String>('daty');
+                if (datyStr != null) {
+                  try {
+                    daty = DateTime.parse(datyStr);
+                  } catch (e) {
+                    debugPrint('Erreur parsing date: $datyStr - $e');
+                    daty = null;
+                  }
+                }
+                
+                return ComptecltData(
+                  ref: row.read<String>('ref'),
+                  daty: daty,
+                  lib: row.readNullable<String>('lib'),
+                  numventes: row.readNullable<String>('numventes'),
+                  nfact: row.readNullable<String>('nfact'),
+                  refart: row.readNullable<String>('refart'),
+                  qs: row.readNullable<double>('qs'),
+                  pus: row.readNullable<double>('pus'),
+                  entres: row.readNullable<double>('entres'),
+                  sorties: row.readNullable<double>('sorties'),
+                  solde: row.readNullable<double>('solde'),
+                  clt: row.readNullable<String>('clt'),
+                  verification: row.readNullable<String>('verification'),
+                );
+              } catch (e) {
+                debugPrint('Erreur lecture ligne historique: $e');
+                return null;
+              }
+            })
+            .where((item) => item != null)
+            .cast<ComptecltData>()
+            .toList();
+      });
+    } catch (e) {
+      debugPrint('Erreur chargement historique: $e');
+      setState(() {
+        _historiqueClient = [];
+      });
+    }
   }
 
   Widget _buildHistoriqueSection() {

@@ -6,12 +6,16 @@ class ModePaiementDropdown extends StatefulWidget {
   final String? selectedMode;
   final ValueChanged<String?> onChanged;
   final bool enabled;
+  final bool showCreditMode;
+  final bool tousDepots;
 
   const ModePaiementDropdown({
     super.key,
     this.selectedMode,
     required this.onChanged,
     this.enabled = true,
+    this.showCreditMode = true,
+    this.tousDepots = true,
   });
 
   @override
@@ -53,8 +57,26 @@ class _ModePaiementDropdownState extends State<ModePaiementDropdown> {
       return const SizedBox(
         width: 120,
         height: 20,
-        child: Center(child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1))),
+        child:
+            Center(child: SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1))),
       );
+    }
+
+    final availableModes = _modesPaiement.where((mode) {
+      if (mode != 'A crédit') return true;
+      if (!widget.tousDepots) return false;
+      return widget.showCreditMode;
+    }).toList();
+
+    final validSelectedMode = availableModes.contains(widget.selectedMode)
+        ? widget.selectedMode
+        : (availableModes.isNotEmpty ? availableModes.first : null);
+
+    // Notify parent if selected mode was automatically changed
+    if (validSelectedMode != widget.selectedMode && validSelectedMode != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onChanged(validSelectedMode);
+      });
     }
 
     return Container(
@@ -65,19 +87,19 @@ class _ModePaiementDropdownState extends State<ModePaiementDropdown> {
         border: Border.all(color: Colors.grey[400]!),
       ),
       child: DropdownButtonFormField<String>(
-        initialValue: widget.selectedMode,
+        initialValue: validSelectedMode,
         decoration: const InputDecoration(
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
           isDense: true,
         ),
         style: const TextStyle(fontSize: 11, color: Colors.black),
-        items: _modesPaiement.map((mode) => 
-          DropdownMenuItem(
-            value: mode,
-            child: Text(mode),
-          )
-        ).toList(),
+        items: availableModes
+            .map((mode) => DropdownMenuItem(
+                  value: mode,
+                  child: Text(mode),
+                ))
+            .toList(),
         onChanged: widget.enabled ? widget.onChanged : null,
       ),
     );

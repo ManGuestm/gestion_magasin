@@ -170,6 +170,13 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
             // Si il y a une suggestion, valider d'abord
             if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
               _selectOption(_filteredOptions[_selectedIndex]);
+              // Après sélection, passer au champ suivant
+              if (widget.onTabPressed != null) {
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  widget.onTabPressed!();
+                });
+              }
+              return KeyEventResult.handled;
             }
             // Appeler le callback de navigation Tab si défini
             if (widget.onTabPressed != null) {

@@ -105,39 +105,49 @@ class _MouvementStockModalState extends State<MouvementStockModal> with FormNavi
       final ref = 'MVT${DateTime.now().millisecondsSinceEpoch}';
       final quantite = double.parse(_quantiteController.text);
       final prix = double.parse(_prixController.text);
+      final designation = _refArticleController.text;
+      final depot = _selectedDepot!;
 
-      // Créer le mouvement de stock
-      final stockCompanion = StocksCompanion.insert(
-        ref: ref,
-        daty: Value(DateTime.now()),
-        lib: Value(_libelleController.text.isEmpty
-            ? '${_typeMouvement == TypeMouvement.entree ? "Entrée" : "Sortie"} - ${_refArticleController.text}'
-            : _libelleController.text),
-        refart: Value(_refArticleController.text),
-        depots: Value(_selectedDepot!),
-        qe: Value(_typeMouvement == TypeMouvement.entree ? quantite : 0),
-        entres: Value(_typeMouvement == TypeMouvement.entree ? quantite : 0),
-        qs: Value(_typeMouvement == TypeMouvement.sortie ? quantite : 0),
-        sortie: Value(_typeMouvement == TypeMouvement.sortie ? quantite : 0),
-        pus: Value(prix),
-        ue: Value(_uniteEntree ?? _unitesDisponibles.first),
-        us: Value(_uniteSortie ?? _unitesDisponibles.first),
-        numachats: Value(_numeroDocController.text.isEmpty ? null : _numeroDocController.text),
-        numventes: Value(_numeroDocController.text.isEmpty ? null : _numeroDocController.text),
-        clt: Value(_clientController.text.isEmpty ? null : _clientController.text),
-        frns: Value(_fournisseurController.text.isEmpty ? null : _fournisseurController.text),
-        verification: Value(_typeMouvement == TypeMouvement.entree ? 'ENTREE' : 'SORTIE'),
-      );
+      await _databaseService.database.transaction(() async {
+        // 1. Créer le mouvement de stock
+        final stockCompanion = StocksCompanion.insert(
+          ref: ref,
+          daty: Value(DateTime.now()),
+          lib: Value(_libelleController.text.isEmpty
+              ? '${_typeMouvement == TypeMouvement.entree ? "Entrée" : "Sortie"} - $designation'
+              : _libelleController.text),
+          refart: Value(designation),
+          depots: Value(depot),
+          qe: Value(_typeMouvement == TypeMouvement.entree ? quantite : 0),
+          entres: Value(_typeMouvement == TypeMouvement.entree ? quantite : 0),
+          qs: Value(_typeMouvement == TypeMouvement.sortie ? quantite : 0),
+          sortie: Value(_typeMouvement == TypeMouvement.sortie ? quantite : 0),
+          pus: Value(prix),
+          ue: Value(_uniteEntree ?? _unitesDisponibles.first),
+          us: Value(_uniteSortie ?? _unitesDisponibles.first),
+          numachats: Value(_numeroDocController.text.isEmpty ? null : _numeroDocController.text),
+          numventes: Value(_numeroDocController.text.isEmpty ? null : _numeroDocController.text),
+          clt: Value(_clientController.text.isEmpty ? null : _clientController.text),
+          frns: Value(_fournisseurController.text.isEmpty ? null : _fournisseurController.text),
+          verification: Value(_typeMouvement == TypeMouvement.entree ? 'ENTREE' : 'SORTIE'),
+        );
 
-      await _databaseService.database.insertStock(stockCompanion);
+        await _databaseService.database.insertStock(stockCompanion);
 
-      // Mettre à jour le stock par dépôt
-      await _mettreAJourStockDepart();
+        // 2. Mettre à jour le stock par dépôt (table depart)
+        await _mettreAJourStockDepart(designation, depot, quantite);
+
+        // 3. Mettre à jour le stock global (table articles)
+        await _mettreAJourStockArticle(designation, quantite, prix);
+
+        // 4. Mettre à jour les fiches stocks si nécessaire
+        await _mettreAJourFicheStock(designation, quantite);
+      });
 
       if (mounted) {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mouvement enregistré avec succès')),
+          const SnackBar(content: Text('Mouvement validé avec succès')),
         );
       }
     } catch (e) {
@@ -149,11 +159,7 @@ class _MouvementStockModalState extends State<MouvementStockModal> with FormNavi
     }
   }
 
-  Future<void> _mettreAJourStockDepart() async {
-    final designation = _refArticleController.text;
-    final depot = _selectedDepot!;
-    final quantite = double.parse(_quantiteController.text);
-
+  Future<void> _mettreAJourStockDepart(String designation, String depot, double quantite) async {
     // Récupérer le stock actuel
     final stockActuel = await _databaseService.database.customSelect(
         'SELECT * FROM depart WHERE designation = ? AND depots = ?',
@@ -176,13 +182,80 @@ class _MouvementStockModalState extends State<MouvementStockModal> with FormNavi
     }
   }
 
+  Future<void> _mettreAJourStockArticle(String designation, double quantite, double prix) async {
+    // Récupérer l'article
+    final article = await _databaseService.database.getArticleByDesignation(designation);
+    if (article == null) return;
+
+    // Calculer le nouveau stock global
+    final stockActuel = article.stocksu1 ?? 0;
+    final nouveauStock = _typeMouvement == TypeMouvement.entree 
+        ? stockActuel + quantite 
+        : stockActuel - quantite;
+
+    // Calculer le nouveau CMUP si c'est une entrée
+    double? nouveauCmup;
+    if (_typeMouvement == TypeMouvement.entree) {
+      final ancienneValeur = stockActuel * (article.cmup ?? 0);
+      final nouvelleValeur = quantite * prix;
+      final quantiteTotale = stockActuel + quantite;
+
+      if (quantiteTotale > 0) {
+        nouveauCmup = (ancienneValeur + nouvelleValeur) / quantiteTotale;
+      }
+    }
+
+    // Mettre à jour l'article
+    await _databaseService.database.customStatement(
+        'UPDATE articles SET stocksu1 = ?, cmup = ? WHERE designation = ?',
+        [nouveauStock, nouveauCmup ?? article.cmup, designation]);
+  }
+
+  Future<void> _mettreAJourFicheStock(String designation, double quantite) async {
+    // Vérifier si une fiche stock existe
+    final ficheStock = await _databaseService.database.customSelect(
+        'SELECT * FROM fstocks WHERE art = ?',
+        variables: [Variable(designation)]).getSingleOrNull();
+
+    if (ficheStock != null) {
+      // Mettre à jour la fiche stock existante
+      final qeActuel = ficheStock.read<double?>('qe') ?? 0;
+      final qsActuel = ficheStock.read<double?>('qs') ?? 0;
+      final qstActuel = ficheStock.read<double?>('qst') ?? 0;
+
+      if (_typeMouvement == TypeMouvement.entree) {
+        await _databaseService.database.customStatement(
+            'UPDATE fstocks SET qe = ?, qst = ? WHERE art = ?',
+            [qeActuel + quantite, qstActuel + quantite, designation]);
+      } else {
+        await _databaseService.database.customStatement(
+            'UPDATE fstocks SET qs = ?, qst = ? WHERE art = ?',
+            [qsActuel + quantite, qstActuel - quantite, designation]);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return BaseModal(
       title: 'Mouvement de Stock',
       width: 600,
       height: 550,
-      onSave: _enregistrerMouvement,
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton(
+          onPressed: _enregistrerMouvement,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Valider'),
+        ),
+      ],
       content: Form(
         key: _formKey,
         child: Padding(

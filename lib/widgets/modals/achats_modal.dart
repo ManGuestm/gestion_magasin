@@ -202,6 +202,16 @@ class _AchatsModalState extends State<AchatsModal> {
   Future<void> _ajusterCompteFournisseur() async {
     if (_selectedFournisseur == null) return;
 
+    // Vérifier si l'achat est contre-passé
+    final achatActuel = await (_databaseService.database.select(_databaseService.database.achats)
+          ..where((a) => a.numachats.equals(_numAchatsController.text)))
+        .getSingleOrNull();
+
+    // Ne pas comptabiliser si contre-passé
+    if (achatActuel?.contre == '1') {
+      return;
+    }
+
     try {
       final totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0;
       final ref = 'ACH-${_numAchatsController.text}-${DateTime.now().millisecondsSinceEpoch}';
@@ -667,6 +677,12 @@ class _AchatsModalState extends State<AchatsModal> {
           _statutAchatActuel = achat.verification ?? 'BROUILLARD';
           _selectedStatut = _statutAchatActuel == 'JOURNAL' ? 'Journal' : 'Brouillard';
 
+          // Vérifier si l'achat est contre-passé
+          final isContrePasse = achat.contre == '1';
+          if (isContrePasse) {
+            _statutAchatActuel = 'CONTRE-PASSÉ';
+          }
+
           // Remplir les lignes d'achat
           _lignesAchat.clear();
           for (var detail in details) {
@@ -1008,132 +1024,182 @@ class _AchatsModalState extends State<AchatsModal> {
       return;
     }
 
-    // Confirmation
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmation'),
-        content: Text(
-            'Voulez-vous vraiment contre-passer l\'achat N° ${_numAchatsController.text} ?\n\nCette action supprimera définitivement l\'achat et ajustera les stocks.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Confirmer'),
-          ),
-        ],
-      ),
-    );
+    // Vérifier si l'achat est déjà contre-passé
+    final achatActuel = await (_databaseService.database.select(_databaseService.database.achats)
+          ..where((a) => a.numachats.equals(_numAchatsController.text)))
+        .getSingleOrNull();
 
-    if (confirm != true) return;
+    if (mounted) {
+      if (achatActuel?.contre == '1') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Cet achat est déjà contre-passé')),
+        );
+        return;
+      }
+    }
+
+    // Vérifier si l'achat est journalisé
+    final isJournalise = achatActuel?.verification == 'JOURNAL';
+
+    // Confirmation avec message adapté
+    if (mounted) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Confirmation'),
+          content: Text(
+              'Voulez-vous vraiment contre-passer l\'achat N° ${_numAchatsController.text} ?\n\n${isJournalise ? "Cet achat journalisé sera marqué comme contre-passé sans ajustement des stocks." : "Cet achat sera marqué comme contre-passé et les stocks seront ajustés."}'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+              child: const Text('Confirmer'),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
 
     try {
       await _databaseService.database.transaction(() async {
-        // Récupérer les lignes de l'achat à contre-passer
-        final lignesAchat = await (_databaseService.database.select(_databaseService.database.detachats)
-              ..where((d) => d.numachats.equals(_numAchatsController.text)))
-            .get();
+        // Mettre à jour le statut contre-passé dans la table achats
+        await (_databaseService.database.update(_databaseService.database.achats)
+              ..where((a) => a.numachats.equals(_numAchatsController.text)))
+            .write(const AchatsCompanion(
+          contre: Value('1'),
+        ));
 
-        // Recharger les articles pour avoir les stocks actuels
-        _articles = await _databaseService.database.getAllArticles();
+        // Si l'achat est journalisé, ajuster le compte fournisseur
+        if (isJournalise) {
+          final totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0;
+          final ref = 'CP-${_numAchatsController.text}-${DateTime.now().millisecondsSinceEpoch}';
 
-        // Annuler l'impact sur les stocks avec conversion automatique
-        for (var ligne in lignesAchat) {
-          Article? article = _articles.firstWhere(
-            (a) => a.designation == ligne.designation,
-            orElse: () => throw Exception('Article ${ligne.designation} non trouvé'),
-          );
-
-          // Ajouter entrée de sortie dans variation des stocks
-          await _databaseService.database.into(_databaseService.database.stocks).insert(
-                StocksCompanion.insert(
-                  ref:
-                      'CP-${_numAchatsController.text}-${ligne.designation}-${DateTime.now().millisecondsSinceEpoch}',
+          // Ajouter une sortie dans le compte fournisseur
+          await _databaseService.database.into(_databaseService.database.comptefrns).insert(
+                ComptefrnsCompanion.insert(
+                  ref: ref,
                   daty: Value(DateTime.now()),
-                  lib: Value('Contre-passement achat ${_numAchatsController.text}'),
-                  refart: Value(ligne.designation ?? ''),
-                  sortie: Value(ligne.q ?? 0),
-                  ue: Value(ligne.unites ?? ''),
-                  depots: Value(ligne.depots ?? ''),
-                  cmup: Value(article.cmup ?? 0),
+                  lib: Value('Contre-passement achat N° ${_numAchatsController.text}'),
+                  numachats: Value(_numAchatsController.text),
+                  sortie: Value(totalTTC),
+                  frns: Value(_selectedFournisseur!),
+                  solde: Value(-totalTTC),
                 ),
               );
 
-          // Convertir la quantité à annuler en unités optimales
-          final conversionAnnulation = StockConverter.convertirQuantiteAchat(
-            article: article,
-            uniteAchat: ligne.unites ?? article.u3!,
-            quantiteAchat: ligne.q ?? 0,
-          );
-
-          // Annuler les stocks articles avec conversion automatique
-          final stocksActuelsArticle = StockConverter.convertirStockOptimal(
-            article: article,
-            quantiteU1: (article.stocksu1 ?? 0) - conversionAnnulation['u1']!,
-            quantiteU2: (article.stocksu2 ?? 0) - conversionAnnulation['u2']!,
-            quantiteU3: (article.stocksu3 ?? 0) - conversionAnnulation['u3']!,
-          );
-
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu1: Value(stocksActuelsArticle['u1']! >= 0 ? stocksActuelsArticle['u1']! : 0),
-            stocksu2: Value(stocksActuelsArticle['u2']! >= 0 ? stocksActuelsArticle['u2']! : 0),
-            stocksu3: Value(stocksActuelsArticle['u3']! >= 0 ? stocksActuelsArticle['u3']! : 0),
-          ));
-
-          // Annuler les stocks par dépôt avec conversion automatique
-          final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
-                ..where(
-                    (d) => d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
-              .getSingleOrNull();
-
-          if (existingDepart != null) {
-            final stocksActuelsDepot = StockConverter.convertirStockOptimal(
-              article: article,
-              quantiteU1: (existingDepart.stocksu1 ?? 0) - conversionAnnulation['u1']!,
-              quantiteU2: (existingDepart.stocksu2 ?? 0) - conversionAnnulation['u2']!,
-              quantiteU3: (existingDepart.stocksu3 ?? 0) - conversionAnnulation['u3']!,
-            );
-
-            await (_databaseService.database.update(_databaseService.database.depart)
-                  ..where(
-                      (d) => d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
-                .write(DepartCompanion(
-              stocksu1: Value(stocksActuelsDepot['u1']! >= 0 ? stocksActuelsDepot['u1']! : 0),
-              stocksu2: Value(stocksActuelsDepot['u2']! >= 0 ? stocksActuelsDepot['u2']! : 0),
-              stocksu3: Value(stocksActuelsDepot['u3']! >= 0 ? stocksActuelsDepot['u3']! : 0),
+          // Mettre à jour le solde dans la table frns
+          final fournisseur = await _databaseService.database.getFournisseurByRsoc(_selectedFournisseur!);
+          if (fournisseur != null) {
+            await (_databaseService.database.update(_databaseService.database.frns)
+                  ..where((f) => f.rsoc.equals(_selectedFournisseur!)))
+                .write(FrnsCompanion(
+              soldes: Value((fournisseur.soldes ?? 0) - totalTTC),
+              datedernop: Value(DateTime.now()),
             ));
           }
-
-          // Recalculer le CMUP après suppression
-          await _recalculerCMUPApresAnnulation(article, ligne.q ?? 0, ligne.pu ?? 0);
         }
 
-        // Supprimer les entrées de stock
-        await (_databaseService.database.delete(_databaseService.database.stocks)
-              ..where((s) => s.numachats.equals(_numAchatsController.text)))
-            .go();
+        // Si l'achat n'est PAS journalisé, ajuster les stocks
+        if (!isJournalise) {
+          // Récupérer les lignes de l'achat à contre-passer
+          final lignesAchat = await (_databaseService.database.select(_databaseService.database.detachats)
+                ..where((d) => d.numachats.equals(_numAchatsController.text)))
+              .get();
 
-        // Supprimer les lignes d'achat
-        await (_databaseService.database.delete(_databaseService.database.detachats)
-              ..where((d) => d.numachats.equals(_numAchatsController.text)))
-            .go();
+          // Recharger les articles pour avoir les stocks actuels
+          _articles = await _databaseService.database.getAllArticles();
 
-        // Supprimer l'achat principal
-        await (_databaseService.database.delete(_databaseService.database.achats)
-              ..where((a) => a.numachats.equals(_numAchatsController.text)))
-            .go();
+          // Annuler l'impact sur les stocks avec conversion automatique
+          for (var ligne in lignesAchat) {
+            Article? article = _articles.firstWhere(
+              (a) => a.designation == ligne.designation,
+              orElse: () => throw Exception('Article ${ligne.designation} non trouvé'),
+            );
+
+            // Ajouter entrée de sortie dans variation des stocks
+            await _databaseService.database.into(_databaseService.database.stocks).insert(
+                  StocksCompanion.insert(
+                    ref:
+                        'CP-${_numAchatsController.text}-${ligne.designation}-${DateTime.now().millisecondsSinceEpoch}',
+                    daty: Value(DateTime.now()),
+                    lib: Value('Contre-passement achat ${_numAchatsController.text}'),
+                    refart: Value(ligne.designation ?? ''),
+                    sortie: Value(ligne.q ?? 0),
+                    ue: Value(ligne.unites ?? ''),
+                    depots: Value(ligne.depots ?? ''),
+                    cmup: Value(article.cmup ?? 0),
+                  ),
+                );
+
+            // Convertir la quantité à annuler en unités optimales
+            final conversionAnnulation = StockConverter.convertirQuantiteAchat(
+              article: article,
+              uniteAchat: ligne.unites ?? article.u3!,
+              quantiteAchat: ligne.q ?? 0,
+            );
+
+            // Annuler les stocks articles avec conversion automatique
+            final stocksActuelsArticle = StockConverter.convertirStockOptimal(
+              article: article,
+              quantiteU1: (article.stocksu1 ?? 0) - conversionAnnulation['u1']!,
+              quantiteU2: (article.stocksu2 ?? 0) - conversionAnnulation['u2']!,
+              quantiteU3: (article.stocksu3 ?? 0) - conversionAnnulation['u3']!,
+            );
+
+            await (_databaseService.database.update(_databaseService.database.articles)
+                  ..where((a) => a.designation.equals(article.designation)))
+                .write(ArticlesCompanion(
+              stocksu1: Value(stocksActuelsArticle['u1']! >= 0 ? stocksActuelsArticle['u1']! : 0),
+              stocksu2: Value(stocksActuelsArticle['u2']! >= 0 ? stocksActuelsArticle['u2']! : 0),
+              stocksu3: Value(stocksActuelsArticle['u3']! >= 0 ? stocksActuelsArticle['u3']! : 0),
+            ));
+
+            // Annuler les stocks par dépôt avec conversion automatique
+            final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
+                  ..where(
+                      (d) => d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
+                .getSingleOrNull();
+
+            if (existingDepart != null) {
+              final stocksActuelsDepot = StockConverter.convertirStockOptimal(
+                article: article,
+                quantiteU1: (existingDepart.stocksu1 ?? 0) - conversionAnnulation['u1']!,
+                quantiteU2: (existingDepart.stocksu2 ?? 0) - conversionAnnulation['u2']!,
+                quantiteU3: (existingDepart.stocksu3 ?? 0) - conversionAnnulation['u3']!,
+              );
+
+              await (_databaseService.database.update(_databaseService.database.depart)
+                    ..where((d) =>
+                        d.designation.equals(article.designation) & d.depots.equals(ligne.depots ?? '')))
+                  .write(DepartCompanion(
+                stocksu1: Value(stocksActuelsDepot['u1']! >= 0 ? stocksActuelsDepot['u1']! : 0),
+                stocksu2: Value(stocksActuelsDepot['u2']! >= 0 ? stocksActuelsDepot['u2']! : 0),
+                stocksu3: Value(stocksActuelsDepot['u3']! >= 0 ? stocksActuelsDepot['u3']! : 0),
+              ));
+            }
+
+            // Recalculer le CMUP après suppression
+            await _recalculerCMUPApresAnnulation(article, ligne.q ?? 0, ligne.pu ?? 0);
+          }
+        }
       });
 
       // Recharger toutes les données pour mettre à jour l'interface
       await _loadAchatsNumbers();
       await _loadData();
-      await _creerNouvelAchat();
+
+      // Mettre à jour l'interface pour refléter le statut contre-passé
+      if (mounted) {
+        setState(() {
+          // Recharger l'achat pour voir le statut mis à jour
+          _chargerAchatExistant(_numAchatsController.text);
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1981,11 +2047,17 @@ class _AchatsModalState extends State<AchatsModal> {
                                           decoration: BoxDecoration(
                                             color: _statutAchatActuel == 'JOURNAL'
                                                 ? Colors.green
-                                                : Colors.orange,
+                                                : _statutAchatActuel == 'CONTRE-PASSÉ'
+                                                    ? Colors.red
+                                                    : Colors.orange,
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text(
-                                            _statutAchatActuel == 'JOURNAL' ? 'J' : 'B',
+                                            _statutAchatActuel == 'JOURNAL'
+                                                ? 'J'
+                                                : _statutAchatActuel == 'CONTRE-PASSÉ'
+                                                    ? 'CP'
+                                                    : 'B',
                                             style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 10,
@@ -3126,7 +3198,8 @@ class _AchatsModalState extends State<AchatsModal> {
                                   Tooltip(
                                     message: 'Contre-passer (Ctrl+D)',
                                     child: ElevatedButton(
-                                      onPressed: _contrePasserAchat,
+                                      onPressed:
+                                          _statutAchatActuel == 'CONTRE-PASSÉ' ? null : _contrePasserAchat,
                                       style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
                                       child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
                                     ),
@@ -3135,7 +3208,9 @@ class _AchatsModalState extends State<AchatsModal> {
                                 Tooltip(
                                   message: _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
                                   child: ElevatedButton(
-                                    onPressed: _isExistingPurchase && _statutAchatActuel == 'JOURNAL'
+                                    onPressed: _isExistingPurchase &&
+                                            (_statutAchatActuel == 'JOURNAL' ||
+                                                _statutAchatActuel == 'CONTRE-PASSÉ')
                                         ? null
                                         : (_isExistingPurchase ? _modifierAchat : _validerAchat),
                                     style: ElevatedButton.styleFrom(

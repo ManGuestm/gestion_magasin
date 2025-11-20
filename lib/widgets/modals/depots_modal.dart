@@ -16,12 +16,16 @@ class _DepotsModalState extends State<DepotsModal> {
   List<Depot> _filteredDepots = [];
   final TextEditingController _controller = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   Depot? _selectedDepot;
 
   @override
   void initState() {
     super.initState();
     _loadDepots();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+    });
   }
 
   @override
@@ -38,7 +42,7 @@ class _DepotsModalState extends State<DepotsModal> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha:0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
@@ -74,7 +78,7 @@ class _DepotsModalState extends State<DepotsModal> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha:0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
@@ -97,7 +101,7 @@ class _DepotsModalState extends State<DepotsModal> {
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close, color: Colors.white),
             style: IconButton.styleFrom(
-              backgroundColor: Colors.white.withValues(alpha:0.2),
+              backgroundColor: Colors.white.withValues(alpha: 0.2),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -107,8 +111,6 @@ class _DepotsModalState extends State<DepotsModal> {
       ),
     );
   }
-
-
 
   Widget _buildContent() {
     return Expanded(
@@ -130,8 +132,7 @@ class _DepotsModalState extends State<DepotsModal> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.add_circle_outline, 
-                           color: Colors.blue.shade600, size: 20),
+                      Icon(Icons.add_circle_outline, color: Colors.blue.shade600, size: 20),
                       const SizedBox(width: 8),
                       const Text(
                         'Ajouter un nouveau dépôt',
@@ -145,6 +146,7 @@ class _DepotsModalState extends State<DepotsModal> {
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _controller,
+                    focusNode: _focusNode,
                     decoration: InputDecoration(
                       hintText: 'Nom du dépôt',
                       prefixIcon: const Icon(Icons.home_work, size: 20),
@@ -162,8 +164,7 @@ class _DepotsModalState extends State<DepotsModal> {
                       ),
                       filled: true,
                       fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     onFieldSubmitted: (_) => _addDepot(),
                   ),
@@ -227,8 +228,7 @@ class _DepotsModalState extends State<DepotsModal> {
                           final depot = _filteredDepots[index];
                           final isSelected = _selectedDepot?.depots == depot.depots;
                           return Container(
-                            margin: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(
@@ -237,30 +237,22 @@ class _DepotsModalState extends State<DepotsModal> {
                                 child: Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: isSelected 
-                                        ? Colors.blue.shade50 
-                                        : Colors.transparent,
+                                    color: isSelected ? Colors.blue.shade50 : Colors.transparent,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: isSelected 
-                                        ? Border.all(color: Colors.blue.shade200)
-                                        : null,
+                                    border: isSelected ? Border.all(color: Colors.blue.shade200) : null,
                                   ),
                                   child: Row(
                                     children: [
                                       Container(
                                         padding: const EdgeInsets.all(6),
                                         decoration: BoxDecoration(
-                                          color: isSelected 
-                                              ? Colors.blue.shade600
-                                              : Colors.grey.shade100,
+                                          color: isSelected ? Colors.blue.shade600 : Colors.grey.shade100,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Icon(
                                           Icons.home_work,
                                           size: 16,
-                                          color: isSelected 
-                                              ? Colors.white
-                                              : Colors.grey.shade600,
+                                          color: isSelected ? Colors.white : Colors.grey.shade600,
                                         ),
                                       ),
                                       const SizedBox(width: 12),
@@ -269,12 +261,8 @@ class _DepotsModalState extends State<DepotsModal> {
                                           depot.depots,
                                           style: TextStyle(
                                             fontSize: 14,
-                                            fontWeight: isSelected 
-                                                ? FontWeight.w500 
-                                                : FontWeight.normal,
-                                            color: isSelected 
-                                                ? Colors.blue.shade700
-                                                : Colors.grey.shade800,
+                                            fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                                            color: isSelected ? Colors.blue.shade700 : Colors.grey.shade800,
                                           ),
                                         ),
                                       ),
@@ -355,8 +343,7 @@ class _DepotsModalState extends State<DepotsModal> {
                 ),
                 filled: true,
                 fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 12),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
               onChanged: _filterDepots,
             ),
@@ -546,6 +533,7 @@ class _DepotsModalState extends State<DepotsModal> {
   void dispose() {
     _controller.dispose();
     _searchController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 }

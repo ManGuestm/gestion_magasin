@@ -52,6 +52,7 @@ class _VentesModalState extends State<VentesModal> {
   TextEditingController? _autocompleteController;
   final TextEditingController _depotController = TextEditingController();
   final TextEditingController _searchVentesController = TextEditingController();
+  final TextEditingController _searchArticleController = TextEditingController();
 
   // Lists
   List<Article> _articles = [];
@@ -68,10 +69,15 @@ class _VentesModalState extends State<VentesModal> {
   int? _selectedRowIndex;
   bool _isExistingPurchase = false;
   String _defaultDepot = 'MAG';
+  bool _showCreditMode = true;
 
   String _searchVentesText = '';
   bool _isModifyingArticle = false;
   Map<String, dynamic>? _originalArticleData;
+
+  // Right sidebar state
+  bool _isRightSidebarCollapsed = false;
+  Article? _searchedArticle;
 
   // Stock management
   double _stockDisponible = 0.0;
@@ -86,6 +92,7 @@ class _VentesModalState extends State<VentesModal> {
   String _selectedFormat = 'A6';
 
   // Workflow validation
+  String _selectedVerification = 'BROUILLARD';
   StatutVente _statutVente = StatutVente.brouillard;
   StatutVente? _statutVenteActuelle;
 
@@ -112,12 +119,42 @@ class _VentesModalState extends State<VentesModal> {
       });
     });
 
-    // Debug focus nodes
-    _depotFocusNode.addListener(() {
-      debugPrint('Dépôt focus changed: ${_depotFocusNode.hasFocus}');
+    _searchArticleController.addListener(() {
+      _onSearchArticleChanged(_searchArticleController.text);
+    });
+
+    // Add focus listeners for debugging
+    _clientFocusNode.addListener(() {
+      if (_clientFocusNode.hasFocus) debugPrint('Focus: Client field activated');
+    });
+    _designationFocusNode.addListener(() {
+      if (_designationFocusNode.hasFocus) debugPrint('Focus: Designation field activated');
+    });
+    _uniteFocusNode.addListener(() {
+      if (_uniteFocusNode.hasFocus) debugPrint('Focus: Unite field activated');
+    });
+    _quantiteFocusNode.addListener(() {
+      if (_quantiteFocusNode.hasFocus) debugPrint('Focus: Quantite field activated');
     });
     _prixFocusNode.addListener(() {
-      debugPrint('Prix focus changed: ${_prixFocusNode.hasFocus}');
+      if (_prixFocusNode.hasFocus) debugPrint('Focus: Prix field activated');
+    });
+    _depotFocusNode.addListener(() {
+      if (_depotFocusNode.hasFocus) {
+        debugPrint('Focus: Depot field activated');
+        // Force focus on the depot field's text field
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (_depotFocusNode.hasFocus) {
+            _depotFocusNode.requestFocus();
+          }
+        });
+      }
+    });
+    _ajouterFocusNode.addListener(() {
+      if (_ajouterFocusNode.hasFocus) debugPrint('Focus: Ajouter button activated');
+    });
+    _annulerFocusNode.addListener(() {
+      if (_annulerFocusNode.hasFocus) debugPrint('Focus: Annuler button activated');
     });
 
     // Position cursor in client field after build
@@ -133,9 +170,17 @@ class _VentesModalState extends State<VentesModal> {
 
   Future<List<Map<String, dynamic>>> _getVentesAvecStatut() async {
     try {
-      final ventes = await (_databaseService.database.select(_databaseService.database.ventes)
-            ..orderBy([(v) => drift.OrderingTerm.desc(v.daty)]))
-          .get();
+      var query = _databaseService.database.select(_databaseService.database.ventes)
+        ..orderBy([(v) => drift.OrderingTerm.desc(v.daty)]);
+
+      // Si vendeur, filtrer par commercial et statut brouillard uniquement
+      if (_isVendeur()) {
+        final authService = AuthService();
+        final currentUser = authService.currentUser?.nom ?? '';
+        query = query..where((v) => v.commerc.equals(currentUser) & v.verification.equals('BROUILLARD'));
+      }
+
+      final ventes = await query.get();
 
       return ventes
           .map((v) => {
@@ -165,16 +210,16 @@ class _VentesModalState extends State<VentesModal> {
   Future<void> _validerBrouillardVersJournal() async {
     if (!_isExistingPurchase || _numVentesController.text.isEmpty) return;
 
-    // Vérifier s'il y a des articles avec stock insuffisant
+    // Vérifier s'il y a des articles avec stock insuffisant (sauf pour admin)
     bool hasStockInsuffisant = await _verifierStockPourValidation();
 
-    if (hasStockInsuffisant) {
+    if (hasStockInsuffisant && !_isAdmin()) {
       if (mounted) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(
             content: SelectableText('Impossible de valider: certains articles ont un stock insuffisant'),
             backgroundColor: Colors.red,
-            duration: Duration(milliseconds: 5),
+            duration: Duration(seconds: 5),
           ),
         );
       }
@@ -219,6 +264,12 @@ class _VentesModalState extends State<VentesModal> {
         // Recharger la vente pour afficher le nouveau statut
         await _chargerVenteExistante(_numVentesController.text);
 
+        // Mettre à jour le statut d'enregistrement
+        setState(() {
+          _selectedVerification = 'JOURNAL';
+          _statutVente = StatutVente.journal;
+        });
+
         // Rafraîchir la liste des ventes
         await _loadVentesNumbers();
         setState(() {});
@@ -260,6 +311,7 @@ class _VentesModalState extends State<VentesModal> {
         setState(() {
           // Déterminer le statut de la vente
           final verification = vente.verification ?? 'JOURNAL';
+          _selectedVerification = verification;
           _statutVenteActuelle = verification == 'BROUILLARD' ? StatutVente.brouillard : StatutVente.journal;
 
           _nFactureController.text = vente.nfact ?? '';
@@ -271,6 +323,14 @@ class _VentesModalState extends State<VentesModal> {
           _selectedClient = vente.clt;
           _selectedModePaiement = vente.modepai ?? 'A crédit';
           _heureController.text = vente.heure ?? '';
+
+          // Déterminer l'affichage du mode crédit selon le client
+          if (vente.clt != null && vente.clt!.isNotEmpty) {
+            final client = _clients.where((c) => c.rsoc == vente.clt).firstOrNull;
+            if (client != null) {
+              _showCreditMode = _shouldShowCreditMode(client);
+            }
+          }
           _chargerSoldeClient(vente.clt);
           _tvaController.text = (vente.tva ?? 0).toString();
           _remiseController.text = (vente.remise ?? 0).toString();
@@ -315,18 +375,33 @@ class _VentesModalState extends State<VentesModal> {
   }
 
   List<CltData> _filterClientsByRole(List<CltData> allClients) {
-    final authService = AuthService();
-    final userRole = authService.currentUserRole;
+    // final authService = AuthService();
+    // final userRole = authService.currentUserRole;
 
     // Si vendeur et mode magasin uniquement, filtrer les clients
-    if (userRole == 'Vendeur' && !widget.tousDepots) {
-      return allClients
-          .where((client) => client.categorie == null || client.categorie == ClientCategory.magasin.label)
-          .toList();
-    }
+    // if (userRole == 'Vendeur' && !widget.tousDepots) {
+    //   return allClients
+    //       .where((client) => client.categorie == null || client.categorie == ClientCategory.magasin.label)
+    //       .toList();
+    // }
 
     // Pour tous les autres cas, retourner tous les clients
     return allClients;
+  }
+
+  bool _isVendeur() {
+    final authService = AuthService();
+    return authService.currentUserRole == 'Vendeur';
+  }
+
+  bool _isAdmin() {
+    final authService = AuthService();
+    return authService.currentUserRole == 'Administrateur';
+  }
+
+  bool _shouldShowCreditMode(CltData? client) {
+    if (client == null) return true;
+    return client.categorie == null || client.categorie == ClientCategory.tousDepots.label;
   }
 
   @override
@@ -351,6 +426,7 @@ class _VentesModalState extends State<VentesModal> {
     _montantARendreController.dispose();
     _depotController.dispose();
     _searchVentesController.dispose();
+    _searchArticleController.dispose();
     _soldeAnterieurController.dispose();
     _clientFocusNode.dispose();
     _designationFocusNode.dispose();
@@ -421,6 +497,7 @@ class _VentesModalState extends State<VentesModal> {
     _resteController.text = '0';
     _nouveauSoldeController.text = '0';
     _commissionController.text = '0';
+    _selectedVerification = 'BROUILLARD';
   }
 
   Future<void> _loadData() async {
@@ -467,6 +544,28 @@ class _VentesModalState extends State<VentesModal> {
       });
 
       await _verifierStockEtBasculer(article);
+    }
+  }
+
+  void _onSearchArticleChanged(String text) async {
+    if (text.trim().isEmpty) {
+      setState(() {
+        _searchedArticle = null;
+      });
+      return;
+    }
+
+    try {
+      final article =
+          _articles.where((a) => a.designation.toLowerCase().contains(text.toLowerCase())).firstOrNull;
+
+      setState(() {
+        _searchedArticle = article;
+      });
+    } catch (e) {
+      setState(() {
+        _searchedArticle = null;
+      });
     }
   }
 
@@ -668,8 +767,11 @@ class _VentesModalState extends State<VentesModal> {
     // Vérifier les stocks dans les autres dépôts
     final autresStocks = await _verifierStocksAutresDepots(article, depotActuel);
 
-    // Toujours afficher le modal d'information sans basculement automatique
-    _afficherModalStockInsuffisant(article, depotActuel, autresStocks);
+    // N'afficher le modal que si on n'est pas en train de naviguer par tabulation
+    // Vérifier si le focus est sur les boutons Ajouter ou Annuler (navigation)
+    if (!_ajouterFocusNode.hasFocus && !_annulerFocusNode.hasFocus) {
+      _afficherModalStockInsuffisant(article, depotActuel, autresStocks);
+    }
   }
 
   Future<List<Map<String, dynamic>>> _verifierStocksAutresDepots(Article article, String depotActuel) async {
@@ -867,7 +969,7 @@ class _VentesModalState extends State<VentesModal> {
     if (_selectedArticle == null) return;
 
     double quantite = double.tryParse(value) ?? 0.0;
-    String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? '');
+    // String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? '');
 
     // Si stock insuffisant et quantité > stock disponible, forcer le mode brouillard
     if (quantite > _stockDisponible && _stockDisponible <= 0) {
@@ -875,23 +977,23 @@ class _VentesModalState extends State<VentesModal> {
         _statutVente = StatutVente.brouillard;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Stock insuffisant - Vente possible en brouillard uniquement'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   const SnackBar(
+      //     content: Text('Stock insuffisant - Vente possible en brouillard uniquement'),
+      //     backgroundColor: Colors.orange,
+      //   ),
+      // );
     } else if (quantite > _stockDisponible && _stockDisponible > 0) {
       setState(() {
         _quantiteController.text = _stockDisponible.toStringAsFixed(0);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Quantité maximale disponible: ${_stockDisponible.toStringAsFixed(0)} $unite'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(
+      //     content: Text('Quantité maximale disponible: ${_stockDisponible.toStringAsFixed(0)} $unite'),
+      //     backgroundColor: Colors.orange,
+      //   ),
+      // );
     }
 
     _calculerMontant();
@@ -1053,19 +1155,6 @@ class _VentesModalState extends State<VentesModal> {
 
     _calculerTotaux();
     _resetArticleForm();
-  }
-
-  String _getPrixUnitInfo() {
-    if (_selectedArticle == null || _selectedUnite == null) return '';
-
-    if (_selectedUnite == _selectedArticle!.u1) {
-      return 'PVU1: ${_formatNumber(_selectedArticle!.pvu1 ?? 0)}';
-    } else if (_selectedUnite == _selectedArticle!.u2) {
-      return 'PVU2: ${_formatNumber(_selectedArticle!.pvu2 ?? 0)}';
-    } else if (_selectedUnite == _selectedArticle!.u3) {
-      return 'PVU3: ${_formatNumber(_selectedArticle!.pvu3 ?? 0)}';
-    }
-    return '';
   }
 
   Future<double> _getPrixVenteStandard(Article article, String unite) async {
@@ -1277,8 +1366,8 @@ class _VentesModalState extends State<VentesModal> {
       // Vérifier s'il y a des articles avec stock insuffisant
       bool hasStockInsuffisant = _lignesVente.any((ligne) => ligne['stockInsuffisant'] == true);
 
-      // Si mode Journal et stock insuffisant, empêcher la validation
-      if (_statutVente == StatutVente.journal && hasStockInsuffisant) {
+      // Si mode Journal et stock insuffisant, empêcher la validation (sauf pour admin)
+      if (_statutVente == StatutVente.journal && hasStockInsuffisant && !_isAdmin()) {
         if (mounted) {
           _scaffoldMessengerKey.currentState?.showSnackBar(
             const SnackBar(
@@ -1290,6 +1379,11 @@ class _VentesModalState extends State<VentesModal> {
           );
         }
         return;
+      }
+
+      // Si stock insuffisant, forcer le mode brouillard pour tous (sauf admin qui peut choisir)
+      if (hasStockInsuffisant && !_isAdmin()) {
+        _statutVente = StatutVente.brouillard;
       }
 
       double totalHT = 0;
@@ -1347,6 +1441,7 @@ class _VentesModalState extends State<VentesModal> {
   }
 
   Future<void> _enregistrerVenteBrouillard(double totalTTC) async {
+    final authService = AuthService();
     final venteCompanion = VentesCompanion(
       numventes: drift.Value(_numVentesController.text),
       nfact: drift.Value(_nFactureController.text),
@@ -1356,6 +1451,12 @@ class _VentesModalState extends State<VentesModal> {
       totalttc: drift.Value(totalTTC),
       heure: drift.Value(_heureController.text),
       verification: drift.Value(StatutVente.brouillard.value),
+      totalnt: drift.Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0),
+      tva: drift.Value(double.tryParse(_tvaController.text) ?? 0),
+      remise: drift.Value(double.tryParse(_remiseController.text) ?? 0),
+      avance: drift.Value(double.tryParse(_avanceController.text) ?? 0),
+      commission: drift.Value(double.tryParse(_commissionController.text) ?? 0),
+      commerc: drift.Value(authService.currentUser?.nom ?? ''),
     );
 
     await _databaseService.database.transaction(() async {
@@ -1377,11 +1478,14 @@ class _VentesModalState extends State<VentesModal> {
               ),
             );
       }
+
+      // En mode brouillard : pas de comptabilisation dans le compte client
     });
   }
 
   Future<void> _enregistrerVenteJournal(double totalApresRemise, double totalTTC, double tva, double avance,
       double commission, double montantRecu, double monnaieARendre) async {
+    final authService = AuthService();
     final venteCompanion = VentesCompanion(
       numventes: drift.Value(_numVentesController.text),
       nfact: drift.Value(_nFactureController.text),
@@ -1398,6 +1502,7 @@ class _VentesModalState extends State<VentesModal> {
       verification: drift.Value(StatutVente.journal.value),
       montantRecu: drift.Value(montantRecu),
       monnaieARendre: drift.Value(monnaieARendre),
+      commerc: drift.Value(authService.currentUser?.nom ?? ''),
     );
 
     await _databaseService.database.enregistrerVenteComplete(
@@ -1407,6 +1512,40 @@ class _VentesModalState extends State<VentesModal> {
   }
 
   Future<void> _modifierVente() async {
+    if (_selectedClient == null || _lignesVente.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez sélectionner un client et ajouter des articles')),
+      );
+      return;
+    }
+
+    if (!_isExistingPurchase || _numVentesController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune vente sélectionnée pour modification')),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: Text('Voulez-vous vraiment modifier la vente N° ${_numVentesController.text} ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     try {
       double totalHT = 0;
       for (var ligne in _lignesVente) {
@@ -1487,6 +1626,9 @@ class _VentesModalState extends State<VentesModal> {
       _clientController.clear();
       _selectedClient = null;
       _statutVenteActuelle = null;
+      _selectedVerification = 'BROUILLARD';
+      _statutVente = StatutVente.brouillard;
+      _showCreditMode = _shouldShowCreditMode(null); // Réinitialiser l'affichage du mode crédit
       if (_autocompleteController != null) {
         _autocompleteController!.clear();
       }
@@ -1743,6 +1885,12 @@ class _VentesModalState extends State<VentesModal> {
           setState(() {
             _selectedClient = nouveauClient.rsoc;
             _clientController.text = nouveauClient.rsoc;
+            // Déterminer si on affiche le mode crédit selon la catégorie
+            _showCreditMode = _shouldShowCreditMode(nouveauClient);
+            // Ajuster le mode de paiement si nécessaire
+            if ((!_showCreditMode || _isVendeur()) && _selectedModePaiement == 'A crédit') {
+              _selectedModePaiement = 'Espèces';
+            }
           });
           _chargerSoldeClient(nouveauClient.rsoc);
         }
@@ -1761,6 +1909,12 @@ class _VentesModalState extends State<VentesModal> {
       setState(() {
         _selectedClient = client.rsoc;
         _clientController.text = client.rsoc;
+        // Déterminer si on affiche le mode crédit selon la catégorie
+        _showCreditMode = _shouldShowCreditMode(client);
+        // Ajuster le mode de paiement si nécessaire
+        if ((!_showCreditMode || _isVendeur()) && _selectedModePaiement == 'A crédit') {
+          _selectedModePaiement = 'Espèces';
+        }
       });
       _chargerSoldeClient(client.rsoc);
     }
@@ -1809,6 +1963,140 @@ class _VentesModalState extends State<VentesModal> {
         Navigator.of(context).pop();
       }
     }
+  }
+
+  Widget _buildVentesListByStatus(String statut) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _getVentesAvecStatut(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final ventes = snapshot.data!.where((v) => (v['verification'] ?? 'JOURNAL') == statut).toList();
+
+        final filteredVentes = _searchVentesText.isEmpty
+            ? ventes
+            : ventes.where((v) => v['numventes'].toLowerCase().contains(_searchVentesText)).toList();
+
+        if (filteredVentes.isEmpty) {
+          return Center(
+            child: Text(
+              statut == 'BROUILLARD' ? 'Aucune vente en brouillard' : 'Aucune vente validée',
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          );
+        }
+
+        return ListView.builder(
+          itemCount: filteredVentes.length,
+          itemBuilder: (context, index) {
+            final vente = filteredVentes[index];
+            final numVente = vente['numventes'];
+            final isSelected = numVente == _numVentesController.text;
+            final isBrouillard = statut == 'BROUILLARD';
+
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              child: ListTile(
+                dense: true,
+                title: Text(
+                  'Vente N° $numVente',
+                  style: const TextStyle(fontSize: 11),
+                ),
+                subtitle: isBrouillard
+                    ? const Text(
+                        'En attente de validation',
+                        style: TextStyle(fontSize: 9, color: Colors.orange),
+                      )
+                    : null,
+                selected: isSelected,
+                selectedTileColor: Colors.blue[100],
+                onTap: () {
+                  _numVentesController.text = numVente;
+                  _chargerVenteExistante(numVente);
+                },
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPriceRow(String? unite, double? prix) {
+    if (unite == null || unite.isEmpty || prix == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: _selectedUnite == unite ? Colors.green[100] : Colors.grey[50],
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(
+          color: _selectedUnite == unite ? Colors.green[300]! : Colors.grey[300]!,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '1 $unite:',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: _selectedUnite == unite ? FontWeight.w500 : FontWeight.normal,
+              color: _selectedUnite == unite ? Colors.green[700] : Colors.black87,
+            ),
+          ),
+          Text(
+            "${_formatNumber(prix)} Ar",
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: _selectedUnite == unite ? Colors.green[700] : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConversionRow(String? u1, String? u2, double? taux) {
+    if (taux == null || taux == 0 || u1 == null || u1.isEmpty || u2 == null || u2.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: Colors.orange[200]!),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '1 ($u1) :',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.orange[700],
+            ),
+          ),
+          Text(
+            "$taux $u2",
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.orange[700],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1895,97 +2183,122 @@ class _VentesModalState extends State<VentesModal> {
                               border: Border(right: BorderSide(color: Colors.grey, width: 1)),
                               color: Colors.white,
                             ),
-                            child: Column(
-                              children: [
-                                // Search field
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  child: TextField(
-                                    controller: _searchVentesController,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Rechercher vente...',
-                                      border: OutlineInputBorder(),
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      prefixIcon: Icon(Icons.search, size: 16),
-                                    ),
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                // Sales list
-                                Expanded(
-                                  child: FutureBuilder<List<Map<String, dynamic>>>(
-                                    future: _getVentesAvecStatut(),
-                                    builder: (context, snapshot) {
-                                      if (!snapshot.hasData) {
-                                        return const Center(child: CircularProgressIndicator());
-                                      }
-
-                                      final ventes = snapshot.data!;
-                                      final filteredVentes = _searchVentesText.isEmpty
-                                          ? ventes
-                                          : ventes
-                                              .where((v) =>
-                                                  v['numventes'].toLowerCase().contains(_searchVentesText))
-                                              .toList();
-
-                                      return ListView.builder(
-                                        itemCount: filteredVentes.length,
-                                        itemBuilder: (context, index) {
-                                          final vente = filteredVentes[index];
-                                          final numVente = vente['numventes'];
-                                          final statut = vente['verification'] ?? 'JOURNAL';
-                                          final isSelected = numVente == _numVentesController.text;
-                                          final isBrouillard = statut == 'BROUILLARD';
-
-                                          return Container(
-                                            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                            child: ListTile(
-                                              dense: true,
-                                              title: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Text('Vente N° $numVente',
-                                                        style: const TextStyle(fontSize: 11)),
-                                                  ),
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                        horizontal: 4, vertical: 1),
-                                                    decoration: BoxDecoration(
-                                                      color: isBrouillard ? Colors.orange : Colors.green,
-                                                      borderRadius: BorderRadius.circular(3),
-                                                    ),
-                                                    child: Text(
-                                                      isBrouillard ? 'B' : 'J',
-                                                      style:
-                                                          const TextStyle(color: Colors.white, fontSize: 9),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              subtitle: isBrouillard
-                                                  ? const Text(
-                                                      'En attente de validation',
-                                                      style: TextStyle(fontSize: 9, color: Colors.orange),
-                                                    )
-                                                  : null,
-                                              selected: isSelected,
-                                              selectedTileColor: Colors.blue[100],
-                                              onTap: () {
-                                                _numVentesController.text = numVente;
-                                                _chargerVenteExistante(numVente);
-                                              },
+                            child: _isVendeur()
+                                ? // Vendeur: Simple list without tabs
+                                Column(
+                                    children: [
+                                      // Search field
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        child: TextField(
+                                          controller: _searchVentesController,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Rechercher vente...',
+                                            border: OutlineInputBorder(),
+                                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            prefixIcon: Icon(Icons.search, size: 16),
+                                          ),
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                      // Header
+                                      Container(
+                                        height: 35,
+                                        decoration: const BoxDecoration(
+                                          border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
+                                        ),
+                                        child: const Center(
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Icon(Icons.pending, size: 12, color: Colors.orange),
+                                              SizedBox(width: 4),
+                                              Text('Mes Ventes en attente',
+                                                  style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: Colors.orange)),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      // Sales list
+                                      Expanded(
+                                        child: _buildVentesListByStatus('BROUILLARD'),
+                                      ),
+                                    ],
+                                  )
+                                : // Other users: Tabs
+                                DefaultTabController(
+                                    length: 2,
+                                    child: Column(
+                                      children: [
+                                        // Search field
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          child: TextField(
+                                            controller: _searchVentesController,
+                                            decoration: const InputDecoration(
+                                              hintText: 'Rechercher vente...',
+                                              border: OutlineInputBorder(),
+                                              contentPadding:
+                                                  EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              prefixIcon: Icon(Icons.search, size: 16),
                                             ),
-                                          );
-                                        },
-                                      );
-                                    },
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
+                                        ),
+                                        // Tab bar
+                                        Container(
+                                          decoration: const BoxDecoration(
+                                            border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
+                                          ),
+                                          child: const TabBar(
+                                            labelColor: Colors.orange,
+                                            unselectedLabelColor: Colors.grey,
+                                            indicatorColor: Colors.orange,
+                                            labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+                                            tabs: [
+                                              Tab(
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.pending, size: 12),
+                                                    SizedBox(width: 4),
+                                                    Text('Brouillard'),
+                                                  ],
+                                                ),
+                                              ),
+                                              Tab(
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.check_circle, size: 12),
+                                                    SizedBox(width: 4),
+                                                    Text('Journal'),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        // Tab views
+                                        Expanded(
+                                          child: TabBarView(
+                                            children: [
+                                              // Brouillard tab
+                                              _buildVentesListByStatus('BROUILLARD'),
+                                              // Journal tab
+                                              _buildVentesListByStatus('JOURNAL'),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
 
-                          // Right side - Main form
+                          // center Content - Main form
                           Expanded(
                             child: Column(
                               children: [
@@ -2003,7 +2316,7 @@ class _VentesModalState extends State<VentesModal> {
                                                 width: 120,
                                                 padding:
                                                     const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                                                color: _statutVente == StatutVente.journal
+                                                color: _selectedVerification == 'JOURNAL'
                                                     ? Colors.green
                                                     : Colors.orange,
                                                 child: const Text('Enregistrement',
@@ -2013,8 +2326,8 @@ class _VentesModalState extends State<VentesModal> {
                                               SizedBox(
                                                 width: 120,
                                                 height: 25,
-                                                child: DropdownButtonFormField<StatutVente>(
-                                                  initialValue: _statutVente,
+                                                child: DropdownButtonFormField<String>(
+                                                  initialValue: _selectedVerification,
                                                   decoration: const InputDecoration(
                                                     border: OutlineInputBorder(),
                                                     contentPadding:
@@ -2022,21 +2335,26 @@ class _VentesModalState extends State<VentesModal> {
                                                   ),
                                                   items: const [
                                                     DropdownMenuItem(
-                                                        value: StatutVente.brouillard,
+                                                        value: 'BROUILLARD',
                                                         child: Text('Brouillard',
                                                             style: TextStyle(fontSize: 12))),
                                                     DropdownMenuItem(
-                                                        value: StatutVente.journal,
+                                                        value: 'JOURNAL',
                                                         child:
                                                             Text('Journal', style: TextStyle(fontSize: 12))),
                                                   ],
-                                                  onChanged: (value) {
-                                                    if (value != null) {
-                                                      setState(() {
-                                                        _statutVente = value;
-                                                      });
-                                                    }
-                                                  },
+                                                  onChanged: _isExistingPurchase
+                                                      ? null
+                                                      : (value) {
+                                                          if (value != null) {
+                                                            setState(() {
+                                                              _selectedVerification = value;
+                                                              _statutVente = value == 'JOURNAL'
+                                                                  ? StatutVente.journal
+                                                                  : StatutVente.brouillard;
+                                                            });
+                                                          }
+                                                        },
                                                 ),
                                               ),
                                             ],
@@ -2154,9 +2472,14 @@ class _VentesModalState extends State<VentesModal> {
                                                   setState(() {
                                                     _selectedClient = client.rsoc;
                                                     _clientController.text = client.rsoc;
+                                                    _showCreditMode = _shouldShowCreditMode(client);
+                                                    if ((!_showCreditMode || _isVendeur()) &&
+                                                        _selectedModePaiement == 'A crédit') {
+                                                      _selectedModePaiement = 'Espèces';
+                                                    }
                                                   });
                                                   _chargerSoldeClient(client.rsoc);
-                                                  // Naviguer automatiquement vers le champ suivant
+                                                  // Navigate to next field on selection
                                                   _designationFocusNode.requestFocus();
                                                 },
                                                 controller: _clientController,
@@ -2166,14 +2489,17 @@ class _VentesModalState extends State<VentesModal> {
                                                   border: OutlineInputBorder(),
                                                   contentPadding:
                                                       EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  focusedBorder: OutlineInputBorder(
+                                                    borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                  ),
                                                 ),
                                                 style: const TextStyle(fontSize: 12),
                                                 onSubmitted: (value) async {
                                                   await _verifierEtCreerClient(value);
                                                 },
-                                                onTabPressed: () {
-                                                  _designationFocusNode.requestFocus();
-                                                },
+                                                // TAB pressed in Client field goes to Désignation
+                                                onTabPressed: () => _designationFocusNode.requestFocus(),
+                                                enabled: _selectedVerification != 'JOURNAL',
                                               ),
                                             ),
                                           ),
@@ -2204,7 +2530,7 @@ class _VentesModalState extends State<VentesModal> {
                                                 displayStringForOption: (article) => article.designation,
                                                 onSelected: (article) {
                                                   _onArticleSelected(article);
-                                                  // Naviguer automatiquement vers le champ suivant
+                                                  // Navigate to next field on selection
                                                   _uniteFocusNode.requestFocus();
                                                 },
                                                 focusNode: _designationFocusNode,
@@ -2213,13 +2539,22 @@ class _VentesModalState extends State<VentesModal> {
                                                   border: OutlineInputBorder(),
                                                   contentPadding:
                                                       EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  focusedBorder: OutlineInputBorder(
+                                                    borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                  ),
                                                 ),
                                                 style: const TextStyle(fontSize: 12),
-                                                onTabPressed: () {
-                                                  _uniteFocusNode.requestFocus();
-                                                },
+                                                // TAB pressed in Désignation field goes to Unités
+                                                onTabPressed: () => _uniteFocusNode.requestFocus(),
                                               ),
                                             ),
+                                            const SizedBox(height: 4),
+                                            if (_selectedArticle != null && _stockAffichage.isNotEmpty)
+                                              Text(
+                                                _stockAffichage,
+                                                style: const TextStyle(fontSize: 9, color: Colors.green),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                           ],
                                         ),
                                       ),
@@ -2250,11 +2585,14 @@ class _VentesModalState extends State<VentesModal> {
                                                       EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                                 ),
                                                 style: const TextStyle(fontSize: 12),
-                                                onTabPressed: () {
-                                                  _quantiteFocusNode.requestFocus();
-                                                },
+                                                // TAB pressed in Unités field goes to Quantités
+                                                onTabPressed: () => _quantiteFocusNode.requestFocus(),
                                               ),
                                             ),
+                                            if (_selectedArticle != null)
+                                              const SizedBox(
+                                                height: 16,
+                                              )
                                           ],
                                         ),
                                       ),
@@ -2264,41 +2602,47 @@ class _VentesModalState extends State<VentesModal> {
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                const Text('Quantités', style: TextStyle(fontSize: 12)),
-                                                if (_selectedArticle != null && _stockAffichage.isNotEmpty)
-                                                  Text(
-                                                    'Stock: $_stockAffichage',
-                                                    style: const TextStyle(fontSize: 9, color: Colors.green),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                              ],
-                                            ),
+                                            const Text('Quantités', style: TextStyle(fontSize: 12)),
                                             const SizedBox(height: 4),
                                             SizedBox(
                                               height: 25,
-                                              child: TextField(
-                                                controller: _quantiteController,
-                                                focusNode: _quantiteFocusNode,
-                                                decoration: InputDecoration(
-                                                  border: const OutlineInputBorder(),
-                                                  contentPadding:
-                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: _stockInsuffisant ? Colors.orange[100] : null,
-                                                  filled: _stockInsuffisant,
-                                                ),
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: _stockInsuffisant ? Colors.orange[800] : null,
-                                                ),
-                                                onChanged: _validerQuantite,
-                                                onSubmitted: (value) {
-                                                  _prixFocusNode.requestFocus();
+                                              child: Focus(
+                                                onKeyEvent: (node, event) {
+                                                  if (event is KeyDownEvent &&
+                                                      event.logicalKey == LogicalKeyboardKey.tab) {
+                                                    _prixFocusNode.requestFocus();
+                                                    return KeyEventResult.handled;
+                                                  }
+                                                  return KeyEventResult.ignored;
                                                 },
+                                                child: TextField(
+                                                  controller: _quantiteController,
+                                                  focusNode: _quantiteFocusNode,
+                                                  decoration: InputDecoration(
+                                                    border: const OutlineInputBorder(),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 4, vertical: 2),
+                                                    fillColor: _stockInsuffisant ? Colors.orange[100] : null,
+                                                    filled: _stockInsuffisant,
+                                                    focusedBorder: const OutlineInputBorder(
+                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                    ),
+                                                  ),
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: _stockInsuffisant ? Colors.orange[800] : null,
+                                                  ),
+                                                  onChanged: _validerQuantite,
+                                                  // ENTER/TAB in Quantités goes to Prix
+                                                  onSubmitted: (value) => _prixFocusNode.requestFocus(),
+                                                  readOnly: _selectedVerification == 'JOURNAL',
+                                                ),
                                               ),
                                             ),
+                                            if (_selectedArticle != null)
+                                              const SizedBox(
+                                                height: 16,
+                                              )
                                           ],
                                         ),
                                       ),
@@ -2308,36 +2652,47 @@ class _VentesModalState extends State<VentesModal> {
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Column(
+                                            const Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                const Text('P.U HT', style: TextStyle(fontSize: 12)),
-                                                if (_selectedArticle != null && _selectedUnite != null)
-                                                  Text(
-                                                    _getPrixUnitInfo(),
-                                                    style: const TextStyle(fontSize: 9, color: Colors.blue),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
+                                                Text('P.U HT', style: TextStyle(fontSize: 12)),
                                               ],
                                             ),
                                             const SizedBox(height: 4),
                                             SizedBox(
                                               height: 25,
-                                              child: TextField(
-                                                controller: _prixController,
-                                                focusNode: _prixFocusNode,
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                ),
-                                                style: const TextStyle(fontSize: 12),
-                                                onChanged: (value) => _calculerMontant(),
-                                                onSubmitted: (value) {
-                                                  _depotFocusNode.requestFocus();
+                                              child: Focus(
+                                                onKeyEvent: (node, event) {
+                                                  if (event is KeyDownEvent &&
+                                                      event.logicalKey == LogicalKeyboardKey.tab) {
+                                                    _depotFocusNode.requestFocus();
+                                                    return KeyEventResult.handled;
+                                                  }
+                                                  return KeyEventResult.ignored;
                                                 },
+                                                child: TextField(
+                                                  controller: _prixController,
+                                                  focusNode: _prixFocusNode,
+                                                  decoration: const InputDecoration(
+                                                    border: OutlineInputBorder(),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    focusedBorder: OutlineInputBorder(
+                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                    ),
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
+                                                  onChanged: (value) => _calculerMontant(),
+                                                  // ENTER in Prix goes to Dépôts
+                                                  onSubmitted: (value) => _depotFocusNode.requestFocus(),
+                                                  readOnly: _selectedVerification == 'JOURNAL',
+                                                ),
                                               ),
                                             ),
+                                            if (_selectedArticle != null)
+                                              const SizedBox(
+                                                height: 16,
+                                              )
                                           ],
                                         ),
                                       ),
@@ -2355,22 +2710,28 @@ class _VentesModalState extends State<VentesModal> {
                                                 options: _depots.map((depot) => depot.depots).toList(),
                                                 displayStringForOption: (depot) => depot,
                                                 controller: _depotController,
+                                                focusNode: _depotFocusNode,
                                                 onSelected: (depot) {
                                                   _onDepotChanged(depot);
                                                 },
-                                                focusNode: _depotFocusNode,
-                                                onTabPressed: () {
-                                                  _ajouterFocusNode.requestFocus();
-                                                },
+                                                // TAB pressed in Dépôts field goes to Ajouter button
+                                                onTabPressed: () => _ajouterFocusNode.requestFocus(),
                                                 hintText: 'Dépôt...',
                                                 decoration: const InputDecoration(
                                                   border: OutlineInputBorder(),
                                                   contentPadding:
                                                       EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  focusedBorder: OutlineInputBorder(
+                                                    borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                  ),
                                                 ),
                                                 style: const TextStyle(fontSize: 11),
                                               ),
                                             ),
+                                            if (_selectedArticle != null)
+                                              const SizedBox(
+                                                height: 16,
+                                              )
                                           ],
                                         ),
                                       ),
@@ -2380,86 +2741,183 @@ class _VentesModalState extends State<VentesModal> {
                                           children: [
                                             const SizedBox(height: 16),
                                             if (_isModifyingArticle) ...[
-                                              Row(
+                                              // MODIFICATION MODE: Valider and Annuler buttons
+                                              Column(
                                                 children: [
-                                                  ElevatedButton(
-                                                    onPressed: _isArticleFormValid()
-                                                        ? () {
-                                                            _ajouterLigne();
-                                                          }
-                                                        : null,
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor:
-                                                          _isArticleFormValid() ? Colors.green : Colors.grey,
-                                                      foregroundColor: Colors.white,
-                                                      minimumSize: const Size(50, 25),
-                                                    ),
-                                                    child: const Text('OK', style: TextStyle(fontSize: 12)),
+                                                  Row(
+                                                    children: [
+                                                      ElevatedButton(
+                                                        onPressed: _isArticleFormValid()
+                                                            ? () {
+                                                                _ajouterLigne();
+                                                              }
+                                                            : null,
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor: _isArticleFormValid()
+                                                              ? Colors.green
+                                                              : Colors.grey,
+                                                          foregroundColor: Colors.white,
+                                                          minimumSize: const Size(50, 35),
+                                                        ),
+                                                        child: const Text('Valider',
+                                                            style: TextStyle(fontSize: 12)),
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      ElevatedButton(
+                                                        onPressed: _annulerAjout,
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor: Colors.red,
+                                                          foregroundColor: Colors.white,
+                                                          minimumSize: const Size(50, 35),
+                                                        ),
+                                                        child: const Text('Annuler',
+                                                            style: TextStyle(fontSize: 12)),
+                                                      ),
+                                                    ],
                                                   ),
-                                                  const SizedBox(width: 4),
-                                                  ElevatedButton(
-                                                    onPressed: _annulerAjout,
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: Colors.red,
-                                                      foregroundColor: Colors.white,
-                                                      minimumSize: const Size(50, 25),
-                                                    ),
-                                                    child: const Text('X', style: TextStyle(fontSize: 12)),
-                                                  ),
+                                                  if (_selectedArticle != null) const SizedBox(height: 16),
                                                 ],
                                               ),
                                             ] else ...[
-                                              Row(
+                                              // NORMAL MODE: Ajouter and Annuler buttons with proper focus handling
+                                              Column(
                                                 children: [
-                                                  Focus(
-                                                    focusNode: _ajouterFocusNode,
-                                                    onKeyEvent: (node, event) {
-                                                      if (event is KeyDownEvent &&
-                                                          event.logicalKey == LogicalKeyboardKey.tab) {
-                                                        _annulerFocusNode.requestFocus();
-                                                        return KeyEventResult.handled;
-                                                      }
-                                                      return KeyEventResult.ignored;
-                                                    },
-                                                    child: ElevatedButton(
-                                                      onPressed: _isArticleFormValid()
-                                                          ? () {
-                                                              _ajouterLigne();
+                                                  Row(
+                                                    children: [
+                                                      // AJOUTER BUTTON - with Focus wrapper
+                                                      Focus(
+                                                        focusNode: _ajouterFocusNode,
+                                                        onKeyEvent: (node, event) {
+                                                          if (event is KeyDownEvent) {
+                                                            if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                              // TAB from Ajouter goes to Annuler
+                                                              _annulerFocusNode.requestFocus();
+                                                              return KeyEventResult.handled;
+                                                            } else if (event.logicalKey ==
+                                                                LogicalKeyboardKey.enter) {
+                                                              // ENTER on Ajouter executes the add action ONLY when focused
+                                                              if (_ajouterFocusNode.hasFocus &&
+                                                                  _isArticleFormValid()) {
+                                                                _ajouterLigne();
+                                                              }
+                                                              return KeyEventResult.handled;
                                                             }
-                                                          : null,
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: _isArticleFormValid()
-                                                            ? Colors.green
-                                                            : Colors.grey,
-                                                        foregroundColor: Colors.white,
-                                                        minimumSize: const Size(60, 25),
+                                                          }
+                                                          return KeyEventResult.ignored;
+                                                        },
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            border: _ajouterFocusNode.hasFocus
+                                                                ? Border.all(color: Colors.blue, width: 3)
+                                                                : null,
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            boxShadow: _ajouterFocusNode.hasFocus
+                                                                ? [
+                                                                    BoxShadow(
+                                                                      color:
+                                                                          Colors.blue.withValues(alpha: 0.3),
+                                                                      blurRadius: 4,
+                                                                      spreadRadius: 1,
+                                                                    )
+                                                                  ]
+                                                                : null,
+                                                          ),
+                                                          child: ElevatedButton(
+                                                            onPressed: _isArticleFormValid()
+                                                                ? () {
+                                                                    _ajouterLigne();
+                                                                  }
+                                                                : null,
+                                                            style: ElevatedButton.styleFrom(
+                                                              backgroundColor: _isArticleFormValid()
+                                                                  ? (_ajouterFocusNode.hasFocus
+                                                                      ? Colors.green[600]
+                                                                      : Colors.green)
+                                                                  : Colors.grey,
+                                                              foregroundColor: Colors.white,
+                                                              minimumSize: const Size(60, 35),
+                                                              elevation: _ajouterFocusNode.hasFocus ? 4 : 2,
+                                                            ),
+                                                            child: Text(
+                                                              _ajouterFocusNode.hasFocus
+                                                                  ? 'Ajouter ↵'
+                                                                  : 'Ajouter',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: _ajouterFocusNode.hasFocus
+                                                                    ? FontWeight.bold
+                                                                    : FontWeight.normal,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
                                                       ),
-                                                      child: const Text('Ajouter',
-                                                          style: TextStyle(fontSize: 12)),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 4),
-                                                  Focus(
-                                                    focusNode: _annulerFocusNode,
-                                                    onKeyEvent: (node, event) {
-                                                      if (event is KeyDownEvent &&
-                                                          event.logicalKey == LogicalKeyboardKey.tab) {
-                                                        _clientFocusNode.requestFocus();
-                                                        return KeyEventResult.handled;
-                                                      }
-                                                      return KeyEventResult.ignored;
-                                                    },
-                                                    child: ElevatedButton(
-                                                      onPressed: _resetArticleForm,
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: Colors.orange,
-                                                        foregroundColor: Colors.white,
-                                                        minimumSize: const Size(60, 25),
+                                                      const SizedBox(width: 4),
+                                                      // ANNULER BUTTON - with Focus wrapper and CRITICAL tab handling
+                                                      Focus(
+                                                        focusNode: _annulerFocusNode,
+                                                        onKeyEvent: (node, event) {
+                                                          if (event is KeyDownEvent) {
+                                                            if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                              // CRITICAL FIX: TAB from Annuler goes back to Clients
+                                                              // This completes the tab cycle
+                                                              _clientFocusNode.requestFocus();
+                                                              return KeyEventResult.handled;
+                                                            } else if (event.logicalKey ==
+                                                                LogicalKeyboardKey.enter) {
+                                                              // ENTER on Annuler resets the form ONLY when focused
+                                                              if (_annulerFocusNode.hasFocus) {
+                                                                _resetArticleForm();
+                                                              }
+                                                              return KeyEventResult.handled;
+                                                            }
+                                                          }
+                                                          return KeyEventResult.ignored;
+                                                        },
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            border: _annulerFocusNode.hasFocus
+                                                                ? Border.all(color: Colors.blue, width: 3)
+                                                                : null,
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            boxShadow: _annulerFocusNode.hasFocus
+                                                                ? [
+                                                                    BoxShadow(
+                                                                      color:
+                                                                          Colors.blue.withValues(alpha: 0.3),
+                                                                      blurRadius: 4,
+                                                                      spreadRadius: 1,
+                                                                    )
+                                                                  ]
+                                                                : null,
+                                                          ),
+                                                          child: ElevatedButton(
+                                                            onPressed: _resetArticleForm,
+                                                            style: ElevatedButton.styleFrom(
+                                                              backgroundColor: _annulerFocusNode.hasFocus
+                                                                  ? Colors.orange[600]
+                                                                  : Colors.orange,
+                                                              foregroundColor: Colors.white,
+                                                              minimumSize: const Size(60, 35),
+                                                              elevation: _annulerFocusNode.hasFocus ? 4 : 2,
+                                                            ),
+                                                            child: Text(
+                                                              _annulerFocusNode.hasFocus
+                                                                  ? 'Annuler ↵'
+                                                                  : 'Annuler',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: _annulerFocusNode.hasFocus
+                                                                    ? FontWeight.bold
+                                                                    : FontWeight.normal,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
                                                       ),
-                                                      child: const Text('Annuler',
-                                                          style: TextStyle(fontSize: 12)),
-                                                    ),
+                                                    ],
                                                   ),
+                                                  if (_selectedArticle != null) const SizedBox(height: 16),
                                                 ],
                                               ),
                                             ],
@@ -2790,6 +3248,8 @@ class _VentesModalState extends State<VentesModal> {
                                                 width: double.infinity,
                                                 child: ModePaiementDropdown(
                                                   selectedMode: _selectedModePaiement,
+                                                  showCreditMode: _showCreditMode && !_isVendeur(),
+                                                  tousDepots: widget.tousDepots,
                                                   onChanged: (value) {
                                                     setState(() {
                                                       _selectedModePaiement = value;
@@ -2802,28 +3262,30 @@ class _VentesModalState extends State<VentesModal> {
                                                   },
                                                 ),
                                               ),
-                                              const SizedBox(height: 12),
-                                              Row(
-                                                children: [
-                                                  const Text('Avance:', style: TextStyle(fontSize: 12)),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: SizedBox(
-                                                      height: 25,
-                                                      child: TextField(
-                                                        controller: _avanceController,
-                                                        decoration: const InputDecoration(
-                                                          border: OutlineInputBorder(),
-                                                          contentPadding: EdgeInsets.symmetric(
-                                                              horizontal: 8, vertical: 4),
+                                              if (_showCreditMode && !_isVendeur() && widget.tousDepots) ...[
+                                                const SizedBox(height: 12),
+                                                Row(
+                                                  children: [
+                                                    const Text('Avance:', style: TextStyle(fontSize: 12)),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: SizedBox(
+                                                        height: 25,
+                                                        child: TextField(
+                                                          controller: _avanceController,
+                                                          decoration: const InputDecoration(
+                                                            border: OutlineInputBorder(),
+                                                            contentPadding: EdgeInsets.symmetric(
+                                                                horizontal: 8, vertical: 4),
+                                                          ),
+                                                          style: const TextStyle(fontSize: 12),
+                                                          onChanged: (value) => _calculerTotaux(),
                                                         ),
-                                                        style: const TextStyle(fontSize: 12),
-                                                        onChanged: (value) => _calculerTotaux(),
                                                       ),
                                                     ),
-                                                  ),
-                                                ],
-                                              ),
+                                                  ],
+                                                ),
+                                              ],
                                               const SizedBox(height: 8),
                                               Row(
                                                 children: [
@@ -2845,291 +3307,163 @@ class _VentesModalState extends State<VentesModal> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 12),
-                                              Row(
-                                                children: [
-                                                  const Text('Solde antérieur:',
-                                                      style: TextStyle(fontSize: 12)),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: SizedBox(
-                                                      height: 25,
-                                                      child: TextField(
-                                                        controller: _soldeAnterieurController,
-                                                        decoration: const InputDecoration(
-                                                          border: OutlineInputBorder(),
-                                                          contentPadding: EdgeInsets.symmetric(
-                                                              horizontal: 8, vertical: 4),
-                                                          fillColor: Color(0xFFF5F5F5),
-                                                          filled: true,
+                                              if (_showCreditMode && !_isVendeur() && widget.tousDepots) ...[
+                                                const SizedBox(height: 12),
+                                                Row(
+                                                  children: [
+                                                    const Text('Solde antérieur:',
+                                                        style: TextStyle(fontSize: 12)),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: SizedBox(
+                                                        height: 25,
+                                                        child: TextField(
+                                                          controller: _soldeAnterieurController,
+                                                          decoration: const InputDecoration(
+                                                            border: OutlineInputBorder(),
+                                                            contentPadding: EdgeInsets.symmetric(
+                                                                horizontal: 8, vertical: 4),
+                                                            fillColor: Color(0xFFF5F5F5),
+                                                            filled: true,
+                                                          ),
+                                                          style: const TextStyle(fontSize: 12),
+                                                          textAlign: TextAlign.right,
+                                                          readOnly: true,
                                                         ),
-                                                        style: const TextStyle(fontSize: 12),
-                                                        textAlign: TextAlign.right,
-                                                        readOnly: true,
                                                       ),
                                                     ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  Text(
-                                                    _selectedModePaiement == 'A crédit'
-                                                        ? 'Solde dû client:'
-                                                        : 'Nouveau solde:',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: _selectedModePaiement == 'A crédit'
-                                                          ? Colors.red
-                                                          : Colors.black,
-                                                      fontWeight: _selectedModePaiement == 'A crédit'
-                                                          ? FontWeight.w500
-                                                          : FontWeight.normal,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: SizedBox(
-                                                      height: 25,
-                                                      child: TextField(
-                                                        controller: _nouveauSoldeController,
-                                                        decoration: InputDecoration(
-                                                          border: const OutlineInputBorder(),
-                                                          contentPadding: const EdgeInsets.symmetric(
-                                                              horizontal: 8, vertical: 4),
-                                                          fillColor: _selectedModePaiement == 'A crédit'
-                                                              ? Colors.red.shade50
-                                                              : const Color(0xFFF5F5F5),
-                                                          filled: true,
-                                                        ),
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          color: _selectedModePaiement == 'A crédit'
-                                                              ? Colors.red
-                                                              : Colors.black,
-                                                          fontWeight: _selectedModePaiement == 'A crédit'
-                                                              ? FontWeight.w500
-                                                              : FontWeight.normal,
-                                                        ),
-                                                        readOnly: true,
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                Row(
+                                                  children: [
+                                                    Text(
+                                                      _selectedModePaiement == 'A crédit'
+                                                          ? 'Solde dû client:'
+                                                          : 'Nouveau solde:',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: _selectedModePaiement == 'A crédit'
+                                                            ? Colors.red
+                                                            : Colors.black,
+                                                        fontWeight: _selectedModePaiement == 'A crédit'
+                                                            ? FontWeight.w500
+                                                            : FontWeight.normal,
                                                       ),
                                                     ),
-                                                  ),
-                                                ],
-                                              ),
+                                                    const SizedBox(width: 8),
+                                                    Expanded(
+                                                      child: SizedBox(
+                                                        height: 25,
+                                                        child: TextField(
+                                                          controller: _nouveauSoldeController,
+                                                          decoration: InputDecoration(
+                                                            border: const OutlineInputBorder(),
+                                                            contentPadding: const EdgeInsets.symmetric(
+                                                                horizontal: 8, vertical: 4),
+                                                            fillColor: _selectedModePaiement == 'A crédit'
+                                                                ? Colors.red.shade50
+                                                                : const Color(0xFFF5F5F5),
+                                                            filled: true,
+                                                          ),
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: _selectedModePaiement == 'A crédit'
+                                                                ? Colors.red
+                                                                : Colors.black,
+                                                            fontWeight: _selectedModePaiement == 'A crédit'
+                                                                ? FontWeight.w500
+                                                                : FontWeight.normal,
+                                                          ),
+                                                          readOnly: true,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),
                                       ),
                                       const SizedBox(width: 16),
                                       // Right side - Invoice totals
-                                      Expanded(
-                                        flex: 2,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(color: Colors.grey.shade300),
-                                            borderRadius: BorderRadius.circular(4),
-                                            color: Colors.grey.shade50,
-                                          ),
-                                          child: Column(
-                                            children: [
-                                              const Text('RÉCAPITULATIF FACTURE',
-                                                  style:
-                                                      TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                              const SizedBox(height: 12),
-                                              // Total HT
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  const Text('Total HT:', style: TextStyle(fontSize: 12)),
-                                                  SizedBox(
-                                                    width: 100,
-                                                    height: 25,
-                                                    child: TextField(
-                                                      controller: _totalHTController,
-                                                      decoration: const InputDecoration(
-                                                        border: OutlineInputBorder(),
-                                                        contentPadding:
-                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                        fillColor: Colors.white,
-                                                        filled: true,
-                                                      ),
-                                                      style: const TextStyle(
-                                                          fontSize: 12, fontWeight: FontWeight.w500),
-                                                      textAlign: TextAlign.right,
-                                                      readOnly: true,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              // Remise
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      const Text('Remise:', style: TextStyle(fontSize: 12)),
-                                                      const SizedBox(width: 4),
-                                                      SizedBox(
-                                                        width: 50,
-                                                        height: 25,
-                                                        child: TextField(
-                                                          controller: _remiseController,
-                                                          decoration: const InputDecoration(
-                                                            border: OutlineInputBorder(),
-                                                            contentPadding: EdgeInsets.symmetric(
-                                                                horizontal: 4, vertical: 2),
-                                                            suffixText: '%',
-                                                          ),
-                                                          style: const TextStyle(fontSize: 12),
-                                                          textAlign: TextAlign.center,
-                                                          onChanged: (value) => _calculerTotaux(),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  SizedBox(
-                                                    width: 100,
-                                                    height: 25,
-                                                    child: TextField(
-                                                      controller: TextEditingController(
-                                                        text: _calculateRemiseAmount(),
-                                                      ),
-                                                      decoration: const InputDecoration(
-                                                        border: OutlineInputBorder(),
-                                                        contentPadding:
-                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                        fillColor: Colors.white,
-                                                        filled: true,
-                                                      ),
-                                                      style: const TextStyle(fontSize: 12),
-                                                      textAlign: TextAlign.right,
-                                                      readOnly: true,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              // TVA
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  Row(
-                                                    children: [
-                                                      const Text('TVA:', style: TextStyle(fontSize: 12)),
-                                                      const SizedBox(width: 4),
-                                                      SizedBox(
-                                                        width: 70,
-                                                        height: 25,
-                                                        child: TextField(
-                                                          controller: _tvaController,
-                                                          decoration: const InputDecoration(
-                                                            border: OutlineInputBorder(),
-                                                            contentPadding: EdgeInsets.symmetric(
-                                                                horizontal: 4, vertical: 2),
-                                                            suffixText: '%',
-                                                          ),
-                                                          style: const TextStyle(fontSize: 12),
-                                                          textAlign: TextAlign.center,
-                                                          onChanged: (value) => _calculerTotaux(),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  SizedBox(
-                                                    width: 100,
-                                                    height: 25,
-                                                    child: TextField(
-                                                      controller: TextEditingController(
-                                                        text: _calculateTvaAmount(),
-                                                      ),
-                                                      decoration: const InputDecoration(
-                                                        border: OutlineInputBorder(),
-                                                        contentPadding:
-                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                        fillColor: Colors.white,
-                                                        filled: true,
-                                                      ),
-                                                      style: const TextStyle(fontSize: 12),
-                                                      textAlign: TextAlign.right,
-                                                      readOnly: true,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const Divider(height: 16),
-                                              // Total TTC
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  const Text('TOTAL TTC:',
-                                                      style: TextStyle(
-                                                          fontSize: 13, fontWeight: FontWeight.bold)),
-                                                  SizedBox(
-                                                    width: 100,
-                                                    height: 30,
-                                                    child: TextField(
-                                                      controller: _totalTTCController,
-                                                      decoration: const InputDecoration(
-                                                        border: OutlineInputBorder(),
-                                                        contentPadding:
-                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                      ),
-                                                      style: const TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: Colors.blue,
-                                                      ),
-                                                      textAlign: TextAlign.right,
-                                                      readOnly: true,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 8),
-                                              // Reste à payer
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  const Text('Reste à payer:',
-                                                      style: TextStyle(fontSize: 12, color: Colors.red)),
-                                                  SizedBox(
-                                                    width: 100,
-                                                    height: 25,
-                                                    child: TextField(
-                                                      controller: _resteController,
-                                                      decoration: const InputDecoration(
-                                                        border: OutlineInputBorder(),
-                                                        contentPadding:
-                                                            EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                        fillColor: Colors.white,
-                                                        filled: true,
-                                                      ),
-                                                      style: const TextStyle(
-                                                          fontSize: 12,
-                                                          color: Colors.red,
-                                                          fontWeight: FontWeight.w500),
-                                                      textAlign: TextAlign.right,
-                                                      readOnly: true,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              if (_selectedModePaiement == 'Espèces') ...[
-                                                const SizedBox(height: 8),
+                                      if (!_isVendeur())
+                                        Expanded(
+                                          flex: 2,
+                                          child: Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              border: Border.all(color: Colors.grey.shade300),
+                                              borderRadius: BorderRadius.circular(4),
+                                              color: Colors.grey.shade50,
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                const Text('RÉCAPITULATIF FACTURE',
+                                                    style:
+                                                        TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                const SizedBox(height: 12),
+                                                // Total HT
                                                 Row(
                                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                   children: [
-                                                    const Text('Montant reçu:',
-                                                        style: TextStyle(fontSize: 12)),
+                                                    const Text('Total HT:', style: TextStyle(fontSize: 12)),
                                                     SizedBox(
                                                       width: 100,
                                                       height: 25,
                                                       child: TextField(
-                                                        controller: _montantRecuController,
+                                                        controller: _totalHTController,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 4, vertical: 2),
+                                                          fillColor: Colors.white,
+                                                          filled: true,
+                                                        ),
+                                                        style: const TextStyle(
+                                                            fontSize: 12, fontWeight: FontWeight.w500),
+                                                        textAlign: TextAlign.right,
+                                                        readOnly: true,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                // Remise
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        const Text('Remise:', style: TextStyle(fontSize: 12)),
+                                                        const SizedBox(width: 4),
+                                                        SizedBox(
+                                                          width: 50,
+                                                          height: 25,
+                                                          child: TextField(
+                                                            controller: _remiseController,
+                                                            decoration: const InputDecoration(
+                                                              border: OutlineInputBorder(),
+                                                              contentPadding: EdgeInsets.symmetric(
+                                                                  horizontal: 4, vertical: 2),
+                                                              suffixText: '%',
+                                                            ),
+                                                            style: const TextStyle(fontSize: 12),
+                                                            textAlign: TextAlign.center,
+                                                            onChanged: (value) => _calculerTotaux(),
+                                                            readOnly: _selectedVerification == 'JOURNAL',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    SizedBox(
+                                                      width: 100,
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: TextEditingController(
+                                                          text: _calculateRemiseAmount(),
+                                                        ),
                                                         decoration: const InputDecoration(
                                                           border: OutlineInputBorder(),
                                                           contentPadding: EdgeInsets.symmetric(
@@ -3139,32 +3473,111 @@ class _VentesModalState extends State<VentesModal> {
                                                         ),
                                                         style: const TextStyle(fontSize: 12),
                                                         textAlign: TextAlign.right,
-                                                        onChanged: (value) => _calculerMonnaie(),
+                                                        readOnly: true,
                                                       ),
                                                     ),
                                                   ],
                                                 ),
                                                 const SizedBox(height: 8),
+                                                // TVA
                                                 Row(
                                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                   children: [
-                                                    const Text('Monnaie à rendre:',
-                                                        style: TextStyle(fontSize: 12, color: Colors.green)),
+                                                    Row(
+                                                      children: [
+                                                        const Text('TVA:', style: TextStyle(fontSize: 12)),
+                                                        const SizedBox(width: 4),
+                                                        SizedBox(
+                                                          width: 70,
+                                                          height: 25,
+                                                          child: TextField(
+                                                            controller: _tvaController,
+                                                            decoration: const InputDecoration(
+                                                              border: OutlineInputBorder(),
+                                                              contentPadding: EdgeInsets.symmetric(
+                                                                  horizontal: 4, vertical: 2),
+                                                              suffixText: '%',
+                                                            ),
+                                                            style: const TextStyle(fontSize: 12),
+                                                            textAlign: TextAlign.center,
+                                                            onChanged: (value) => _calculerTotaux(),
+                                                            readOnly: _selectedVerification == 'JOURNAL',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
                                                     SizedBox(
                                                       width: 100,
                                                       height: 25,
                                                       child: TextField(
-                                                        controller: _montantARendreController,
+                                                        controller: TextEditingController(
+                                                          text: _calculateTvaAmount(),
+                                                        ),
                                                         decoration: const InputDecoration(
                                                           border: OutlineInputBorder(),
                                                           contentPadding: EdgeInsets.symmetric(
                                                               horizontal: 4, vertical: 2),
-                                                          fillColor: Color(0xFFF0F8FF),
+                                                          fillColor: Colors.white,
+                                                          filled: true,
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                        textAlign: TextAlign.right,
+                                                        readOnly: true,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const Divider(height: 16),
+                                                // Total TTC
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    const Text('TOTAL TTC:',
+                                                        style: TextStyle(
+                                                            fontSize: 13, fontWeight: FontWeight.bold)),
+                                                    SizedBox(
+                                                      width: 100,
+                                                      height: 30,
+                                                      child: TextField(
+                                                        controller: _totalTTCController,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 4, vertical: 2),
+                                                        ),
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.blue,
+                                                        ),
+                                                        textAlign: TextAlign.right,
+                                                        readOnly: true,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 8),
+                                                // Reste à payer
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    const Text('Reste à payer:',
+                                                        style: TextStyle(fontSize: 12, color: Colors.red)),
+                                                    SizedBox(
+                                                      width: 100,
+                                                      height: 25,
+                                                      child: TextField(
+                                                        controller: _resteController,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                              horizontal: 4, vertical: 2),
+                                                          fillColor: Colors.white,
                                                           filled: true,
                                                         ),
                                                         style: const TextStyle(
                                                             fontSize: 12,
-                                                            color: Colors.green,
+                                                            color: Colors.red,
                                                             fontWeight: FontWeight.w500),
                                                         textAlign: TextAlign.right,
                                                         readOnly: true,
@@ -3172,158 +3585,387 @@ class _VentesModalState extends State<VentesModal> {
                                                     ),
                                                   ],
                                                 ),
-                                              ]
-                                            ],
+                                                if (_selectedModePaiement == 'Espèces') ...[
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    children: [
+                                                      const Text('Montant reçu:',
+                                                          style: TextStyle(fontSize: 12)),
+                                                      SizedBox(
+                                                        width: 100,
+                                                        height: 25,
+                                                        child: TextField(
+                                                          controller: _montantRecuController,
+                                                          decoration: const InputDecoration(
+                                                            border: OutlineInputBorder(),
+                                                            contentPadding: EdgeInsets.symmetric(
+                                                                horizontal: 4, vertical: 2),
+                                                            fillColor: Colors.white,
+                                                            filled: true,
+                                                          ),
+                                                          style: const TextStyle(fontSize: 12),
+                                                          textAlign: TextAlign.right,
+                                                          onChanged: (value) => _calculerMonnaie(),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Row(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    children: [
+                                                      const Text('Monnaie à rendre:',
+                                                          style:
+                                                              TextStyle(fontSize: 12, color: Colors.green)),
+                                                      SizedBox(
+                                                        width: 100,
+                                                        height: 25,
+                                                        child: TextField(
+                                                          controller: _montantARendreController,
+                                                          decoration: const InputDecoration(
+                                                            border: OutlineInputBorder(),
+                                                            contentPadding: EdgeInsets.symmetric(
+                                                                horizontal: 4, vertical: 2),
+                                                            fillColor: Color(0xFFF0F8FF),
+                                                            filled: true,
+                                                          ),
+                                                          style: const TextStyle(
+                                                              fontSize: 12,
+                                                              color: Colors.green,
+                                                              fontWeight: FontWeight.w500),
+                                                          textAlign: TextAlign.right,
+                                                          readOnly: true,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ]
+                                              ],
+                                            ),
                                           ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                 ),
 
                                 // Action buttons
                                 Container(
+                                  width: double.infinity,
+                                  decoration: const BoxDecoration(
+                                    borderRadius: BorderRadius.only(
+                                        bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
+                                    color: Color(0xFFFFB6C1),
+                                  ),
                                   padding: const EdgeInsets.all(8),
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: [
-                                      Tooltip(
-                                        message: 'Valider vente (Ctrl+S)',
-                                        child: ElevatedButton(
-                                          onPressed: _lignesVente.isNotEmpty ? _validerVente : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: _statutVente == StatutVente.brouillard
-                                                ? Colors.orange
-                                                : Colors.green,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(80, 32),
+                                  child: SingleChildScrollView(
+                                    child: Row(
+                                      spacing: 4,
+                                      children: [
+                                        if (_isExistingPurchase) ...[
+                                          Tooltip(
+                                            message: 'Créer nouveau (Ctrl+N)',
+                                            child: ElevatedButton(
+                                              onPressed: _creerNouvelleVente,
+                                              style:
+                                                  ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
+                                              child: const Text('Créer', style: TextStyle(fontSize: 12)),
+                                            ),
                                           ),
-                                          child: Text(
-                                              _statutVente == StatutVente.brouillard
-                                                  ? 'Brouillard'
-                                                  : 'Valider',
-                                              style: const TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                      Tooltip(
-                                        message: 'Contre-passer (Ctrl+D)',
-                                        child: ElevatedButton(
-                                          onPressed: _isExistingPurchase ? _contrePasserVente : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.red,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(100, 32),
-                                          ),
-                                          child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                      Tooltip(
-                                        message: 'Valider brouillard (F3)',
-                                        child: ElevatedButton(
-                                          onPressed:
-                                              _peutValiderBrouillard() ? _validerBrouillardVersJournal : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.purple,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(120, 32),
-                                          ),
-                                          child: const Text('Valider Brouillard',
-                                              style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                      Tooltip(
-                                        message: 'Créer nouvelle vente (Ctrl+N)',
-                                        child: ElevatedButton(
-                                          onPressed: () => _creerNouvelleVente(),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.blue,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(80, 32),
-                                          ),
-                                          child: const Text('Créer', style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                      Tooltip(
-                                        message: 'Aperçu facture (Ctrl+P)',
-                                        child: ElevatedButton(
-                                          onPressed: _lignesVente.isNotEmpty ? _apercuFacture : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.orange,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(100, 32),
-                                          ),
-                                          child: const Text('Aperçu Facture', style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                      Tooltip(
-                                        message: 'Aperçu BL (Ctrl+B)',
-                                        child: ElevatedButton(
-                                          onPressed: _lignesVente.isNotEmpty ? _apercuBL : null,
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.teal,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(80, 32),
-                                          ),
-                                          child: const Text('Aperçu BL', style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                      PopupMenuButton<String>(
-                                        initialValue: _selectedFormat,
-                                        onSelected: (String format) {
-                                          setState(() {
-                                            _selectedFormat = format;
-                                          });
-                                        },
-                                        itemBuilder: (BuildContext context) => [
-                                          const PopupMenuItem(
-                                            value: 'A4',
-                                            child: Text('Format A4', style: TextStyle(fontSize: 12)),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'A5',
-                                            child: Text('Format A5', style: TextStyle(fontSize: 12)),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'A6',
-                                            child: Text('Format A6', style: TextStyle(fontSize: 12)),
+                                          if (_peutValiderBrouillard()) ...[
+                                            Tooltip(
+                                              message: 'Valider brouillard (F3)',
+                                              child: ElevatedButton(
+                                                onPressed: _validerBrouillardVersJournal,
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.green,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(80, 30),
+                                                ),
+                                                child: const Text('Valider Brouillard',
+                                                    style: TextStyle(fontSize: 12)),
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                        if (_isExistingPurchase) ...[
+                                          Tooltip(
+                                            message: 'Contre-passer (Ctrl+D)',
+                                            child: ElevatedButton(
+                                              onPressed: _contrePasserVente,
+                                              style:
+                                                  ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
+                                              child:
+                                                  const Text('Contre Passer', style: TextStyle(fontSize: 12)),
+                                            ),
                                           ),
                                         ],
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.brown,
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Icon(Icons.format_size, color: Colors.white, size: 16),
-                                              const SizedBox(width: 4),
-                                              Text(_selectedFormat,
-                                                  style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                              const SizedBox(width: 4),
-                                              const Icon(Icons.arrow_drop_down,
-                                                  color: Colors.white, size: 16),
-                                            ],
+                                        Tooltip(
+                                          message:
+                                              _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
+                                          child: ElevatedButton(
+                                            onPressed: _selectedVerification == 'JOURNAL'
+                                                ? null
+                                                : (_isExistingPurchase ? _modifierVente : _validerVente),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                                  _isExistingPurchase ? Colors.blue : Colors.green,
+                                              foregroundColor: Colors.white,
+                                              minimumSize: const Size(60, 30),
+                                            ),
+                                            child: Text(_isExistingPurchase ? 'Modifier' : 'Valider',
+                                                style: const TextStyle(fontSize: 12)),
                                           ),
                                         ),
-                                      ),
-                                      Tooltip(
-                                        message: 'Fermer (Escape)',
-                                        child: ElevatedButton(
-                                          onPressed: () => Navigator.of(context).pop(),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.grey,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(80, 32),
+                                        const Spacer(),
+                                        PopupMenuButton<String>(
+                                          initialValue: _selectedFormat,
+                                          itemBuilder: (BuildContext context) => [
+                                            const PopupMenuItem(
+                                              value: 'facture',
+                                              child: Text('Aperçu Facture', style: TextStyle(fontSize: 12)),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'bl',
+                                              child: Text('Aperçu BL', style: TextStyle(fontSize: 12)),
+                                            ),
+                                            const PopupMenuDivider(),
+                                            const PopupMenuItem(
+                                              value: 'A4',
+                                              child: Text('Format A4', style: TextStyle(fontSize: 12)),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'A5',
+                                              child: Text('Format A5', style: TextStyle(fontSize: 12)),
+                                            ),
+                                            const PopupMenuItem(
+                                              value: 'A6',
+                                              child: Text('Format A6', style: TextStyle(fontSize: 12)),
+                                            ),
+                                          ],
+                                          onSelected: (value) {
+                                            if (value == 'facture') {
+                                              _apercuFacture();
+                                            } else if (value == 'bl') {
+                                              _apercuBL();
+                                            } else {
+                                              setState(() {
+                                                _selectedFormat = value;
+                                              });
+                                            }
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange,
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.print, color: Colors.white, size: 16),
+                                                const SizedBox(width: 4),
+                                                Text(_selectedFormat,
+                                                    style:
+                                                        const TextStyle(color: Colors.white, fontSize: 12)),
+                                                const SizedBox(width: 4),
+                                                const Icon(Icons.arrow_drop_down,
+                                                    color: Colors.white, size: 16),
+                                              ],
+                                            ),
                                           ),
-                                          child: const Text('Fermer', style: TextStyle(fontSize: 12)),
                                         ),
+                                        const Spacer(),
+                                        Tooltip(
+                                          message: 'Fermer (Escape)',
+                                          child: ElevatedButton(
+                                            onPressed: () => Navigator.of(context).pop(),
+                                            style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
+                                            child: const Text('Fermer', style: TextStyle(fontSize: 12)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          // Right sidebar - Article details
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: _isRightSidebarCollapsed ? 40 : 280,
+                            decoration: const BoxDecoration(
+                              border: Border(left: BorderSide(color: Colors.grey, width: 1)),
+                              color: Colors.white,
+                            ),
+                            child: Column(
+                              children: [
+                                // Header with toggle button
+                                Container(
+                                  height: 35,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue[50],
+                                    border: const Border(bottom: BorderSide(color: Colors.grey, width: 1)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      if (!_isRightSidebarCollapsed) ...[
+                                        const Expanded(
+                                          child: Text(
+                                            'Détails Article',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                          ),
+                                        ),
+                                      ],
+                                      IconButton(
+                                        onPressed: () {
+                                          setState(() {
+                                            _isRightSidebarCollapsed = !_isRightSidebarCollapsed;
+                                          });
+                                        },
+                                        icon: Icon(
+                                          _isRightSidebarCollapsed ? Icons.chevron_left : Icons.chevron_right,
+                                          size: 16,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
                                       ),
                                     ],
                                   ),
                                 ),
+                                // Content
+                                if (!_isRightSidebarCollapsed)
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        // Champ de recherche d'article
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          child: EnhancedAutocomplete<Article>(
+                                            options: _articles,
+                                            displayStringForOption: (article) => article.designation,
+                                            onSelected: (article) {
+                                              setState(() {
+                                                _searchedArticle = article;
+                                              });
+                                            },
+                                            hintText: 'Nom de l\'article...',
+                                            controller: _searchArticleController,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Rechercher article',
+                                              border: OutlineInputBorder(),
+                                              contentPadding:
+                                                  EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                                              isDense: true,
+                                            ),
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
+                                        ),
+                                        // Détails de l'article
+                                        Expanded(
+                                          child: _searchedArticle == null
+                                              ? const Center(
+                                                  child: Text(
+                                                    'Saisissez le nom d\'un article\npour voir ses détails',
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                                                  ),
+                                                )
+                                              : SingleChildScrollView(
+                                                  padding: const EdgeInsets.all(8),
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      // Article name
+                                                      Container(
+                                                        width: double.infinity,
+                                                        padding: const EdgeInsets.all(8),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.blue[50],
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          border: Border.all(color: Colors.blue[200]!),
+                                                        ),
+                                                        child: Text(
+                                                          _searchedArticle!.designation,
+                                                          style: const TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                          maxLines: 2,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 12),
+                                                      // Prix de vente
+                                                      const Text(
+                                                        'PRIX DE VENTE',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.green,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      _buildPriceRow(
+                                                          _searchedArticle!.u1, _searchedArticle!.pvu1),
+                                                      _buildPriceRow(
+                                                          _searchedArticle!.u2, _searchedArticle!.pvu2),
+                                                      _buildPriceRow(
+                                                          _searchedArticle!.u3, _searchedArticle!.pvu3),
+                                                      const SizedBox(height: 12),
+                                                      // Conversions
+                                                      const Text(
+                                                        'CONVERSIONS',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.orange,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 4),
+
+                                                      _buildConversionRow(_searchedArticle!.u1,
+                                                          _searchedArticle!.u2, _searchedArticle!.tu2u1),
+                                                      _buildConversionRow(_searchedArticle!.u2,
+                                                          _searchedArticle!.u3, _searchedArticle!.tu3u2),
+                                                      const SizedBox(height: 12),
+                                                      // Prix d'achat
+                                                      const Text(
+                                                        'PRIX D\'ACHAT',
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.red,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Container(
+                                                        width: double.infinity,
+                                                        padding: const EdgeInsets.all(6),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.red[50],
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          border: Border.all(color: Colors.red[200]!),
+                                                        ),
+                                                        child: Text(
+                                                          'CMUP: ${_formatNumber(_searchedArticle!.cmup ?? 0)}',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.red[700],
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
