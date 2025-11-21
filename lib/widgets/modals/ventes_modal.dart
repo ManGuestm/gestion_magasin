@@ -67,7 +67,7 @@ class _VentesModalState extends State<VentesModal> {
   String? _selectedDepot;
   String? _selectedModePaiement = 'A crédit';
   String? _selectedClient;
-  String? _selectedCommercial;
+  // String? _selectedCommercial;
   int? _selectedRowIndex;
   bool _isExistingPurchase = false;
   String _defaultDepot = 'MAG';
@@ -134,13 +134,16 @@ class _VentesModalState extends State<VentesModal> {
       }
     });
     _ajouterFocusNode.addListener(() {
-      setState(() {}); // Rebuild to update elevation
+      // Ne pas déclencher setState() pour éviter la réinitialisation du prix
     });
 
     // Position cursor in client field after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _keyboardFocusNode.requestFocus();
-      _clientFocusNode.requestFocus();
+      // Délai plus long pour s'assurer que le focus reste
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _clientFocusNode.requestFocus();
+      });
     });
   }
 
@@ -391,6 +394,11 @@ class _VentesModalState extends State<VentesModal> {
     return client.categorie == null || client.categorie == ClientCategory.tousDepots.label;
   }
 
+  bool _shouldFocusOnClient() {
+    // Pour vente dépôt seulement (MAG) et utilisateur vendeur
+    return !widget.tousDepots && _isVendeur();
+  }
+
   @override
   void dispose() {
     _numVentesController.dispose();
@@ -486,6 +494,11 @@ class _VentesModalState extends State<VentesModal> {
     _nouveauSoldeController.text = '0';
     _commissionController.text = '0';
     _selectedVerification = 'BROUILLARD';
+
+    // Focus sur client après initialisation
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _clientFocusNode.requestFocus();
+    });
   }
 
   Future<void> _loadData() async {
@@ -636,8 +649,10 @@ class _VentesModalState extends State<VentesModal> {
           stockU3: stockDepart?.stocksu3 ?? 0.0,
         );
 
-        // Recalculer le prix pour l'unité sélectionnée
-        _calculerPrixPourUnite(article, _selectedUnite ?? article.u1!);
+        // Recalculer le prix pour l'unité sélectionnée seulement si le champ prix est vide
+        if (_prixController.text.isEmpty) {
+          _calculerPrixPourUnite(article, _selectedUnite ?? article.u1!);
+        }
       });
 
       if (_stockInsuffisant) {
@@ -778,6 +793,16 @@ class _VentesModalState extends State<VentesModal> {
   }
 
   Future<void> _loadDefaultDepot() async {
+    if (!widget.tousDepots) {
+      // Pour vente MAG seulement, forcer le dépôt MAG
+      setState(() {
+        _defaultDepot = 'MAG';
+        _selectedDepot = 'MAG';
+        _depotController.text = 'MAG';
+      });
+      return;
+    }
+
     try {
       final derniereVente = await (_databaseService.database.select(_databaseService.database.detventes)
             ..orderBy([(d) => drift.OrderingTerm.desc(d.daty)])
@@ -1174,6 +1199,9 @@ class _VentesModalState extends State<VentesModal> {
 
     try {
       // Préparer les données de la vente
+      final currentUser = AuthService().currentUser;
+      final commercialName = currentUser?.nom ?? '';
+
       final lignesVenteData = _lignesVente
           .map((ligne) => {
                 'designation': ligne['designation'],
@@ -1197,7 +1225,7 @@ class _VentesModalState extends State<VentesModal> {
           totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
           tva: double.tryParse(_tvaController.text) ?? 0,
           avance: double.tryParse(_avanceController.text) ?? 0,
-          commercial: _selectedCommercial,
+          commercial: commercialName,
           commission: double.tryParse(_commissionController.text) ?? 0,
           remise: double.tryParse(_remiseController.text) ?? 0,
           lignesVente: lignesVenteData,
@@ -1216,7 +1244,7 @@ class _VentesModalState extends State<VentesModal> {
           totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
           tva: double.tryParse(_tvaController.text) ?? 0,
           avance: double.tryParse(_avanceController.text) ?? 0,
-          commercial: _selectedCommercial,
+          commercial: commercialName,
           commission: double.tryParse(_commissionController.text) ?? 0,
           remise: double.tryParse(_remiseController.text) ?? 0,
           lignesVente: lignesVenteData,
@@ -1709,10 +1737,14 @@ class _VentesModalState extends State<VentesModal> {
               }
             });
             _chargerSoldeClient(nouveauClient.rsoc);
-            
-            // Positionner le curseur dans le champ désignation article
+
+            // Positionner le curseur selon le type d'utilisateur
             Future.delayed(const Duration(milliseconds: 100), () {
-              _designationFocusNode.requestFocus();
+              if (_shouldFocusOnClient()) {
+                _clientFocusNode.requestFocus();
+              } else {
+                _designationFocusNode.requestFocus();
+              }
             });
           }
         }
@@ -2319,8 +2351,9 @@ class _VentesModalState extends State<VentesModal> {
                                                 style: const TextStyle(fontSize: 12),
                                                 onSubmitted: (value) async {
                                                   await _verifierEtCreerClient(value);
+                                                  _designationFocusNode.requestFocus();
                                                 },
-                                                // TAB pressed in Client field goes to Désignation
+                                                // TAB pressed in Client field goes to Designation
                                                 onTabPressed: () => _designationFocusNode.requestFocus(),
                                                 enabled: _selectedVerification != 'JOURNAL',
                                               ),
@@ -2460,7 +2493,9 @@ class _VentesModalState extends State<VentesModal> {
                                                   ),
                                                   onChanged: _validerQuantite,
                                                   // ENTER/TAB in Quantités goes to Prix
-                                                  onSubmitted: (value) => _prixFocusNode.requestFocus(),
+                                                  onSubmitted: (value) => widget.tousDepots
+                                                      ? _prixFocusNode.requestFocus()
+                                                      : _prixFocusNode.requestFocus(),
                                                   readOnly: _selectedVerification == 'JOURNAL',
                                                 ),
                                               ),
@@ -2491,7 +2526,9 @@ class _VentesModalState extends State<VentesModal> {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    _depotFocusNode.requestFocus();
+                                                    widget.tousDepots
+                                                        ? _depotFocusNode.requestFocus()
+                                                        : _ajouterFocusNode.requestFocus();
                                                     return KeyEventResult.handled;
                                                   }
                                                   return KeyEventResult.ignored;
@@ -2508,9 +2545,11 @@ class _VentesModalState extends State<VentesModal> {
                                                     ),
                                                   ),
                                                   style: const TextStyle(fontSize: 12),
-                                                  onChanged: (value) => _calculerMontant(),
+                                                  // onChanged: (value) => _calculerMontant(),
                                                   // ENTER in Prix goes to Dépôts
-                                                  onSubmitted: (value) => _depotFocusNode.requestFocus(),
+                                                  onSubmitted: (value) => widget.tousDepots
+                                                      ? _depotFocusNode.requestFocus()
+                                                      : _ajouterFocusNode.requestFocus(),
                                                   readOnly: _selectedVerification == 'JOURNAL',
                                                 ),
                                               ),
@@ -2522,45 +2561,47 @@ class _VentesModalState extends State<VentesModal> {
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('Dépôts', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(height: 4),
-                                            SizedBox(
-                                              height: 25,
-                                              child: EnhancedAutocomplete<String>(
-                                                options: _depots.map((depot) => depot.depots).toList(),
-                                                displayStringForOption: (depot) => depot,
-                                                controller: _depotController,
-                                                focusNode: _depotFocusNode,
-                                                onSelected: (depot) {
-                                                  _onDepotChanged(depot);
-                                                  _ajouterFocusNode.requestFocus();
-                                                },
-                                                onSubmitted: (_) => _ajouterFocusNode.requestFocus(),
-                                                hintText: 'Dépôt...',
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  focusedBorder: OutlineInputBorder(
-                                                    borderSide: BorderSide(color: Colors.blue, width: 2),
+                                      if (widget.tousDepots) ...[
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          flex: 2,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text('Dépôts', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(height: 4),
+                                              SizedBox(
+                                                height: 25,
+                                                child: EnhancedAutocomplete<String>(
+                                                  options: _depots.map((depot) => depot.depots).toList(),
+                                                  displayStringForOption: (depot) => depot,
+                                                  controller: _depotController,
+                                                  focusNode: _depotFocusNode,
+                                                  onSelected: (depot) {
+                                                    _onDepotChanged(depot);
+                                                    _ajouterFocusNode.requestFocus();
+                                                  },
+                                                  onSubmitted: (_) => _ajouterFocusNode.requestFocus(),
+                                                  hintText: 'Dépôt...',
+                                                  decoration: const InputDecoration(
+                                                    border: OutlineInputBorder(),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    focusedBorder: OutlineInputBorder(
+                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                    ),
                                                   ),
+                                                  style: const TextStyle(fontSize: 11),
                                                 ),
-                                                style: const TextStyle(fontSize: 11),
                                               ),
-                                            ),
-                                            if (_selectedArticle != null)
-                                              const SizedBox(
-                                                height: 16,
-                                              )
-                                          ],
+                                              if (_selectedArticle != null)
+                                                const SizedBox(
+                                                  height: 16,
+                                                )
+                                            ],
+                                          ),
                                         ),
-                                      ),
+                                      ],
                                       if (_shouldShowAddButton()) ...[
                                         const SizedBox(width: 8),
                                         Column(

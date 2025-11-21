@@ -107,10 +107,7 @@ class MenuData {
       'Grand livre des autres comptes',
       'Balance des autres comptes',
     ],
-    'Statistiques de ventes': [
-      'C.A Par Articles',
-      'C.A Par Clients',
-    ],
+    'Statistiques de ventes': ['C.A Par Articles', 'C.A Par Clients', 'Suivi de différence de Prix de vente'],
     'Statistiques d\'achats': [
       'C.A Par Articles',
     ],

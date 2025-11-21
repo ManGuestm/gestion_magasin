@@ -936,6 +936,278 @@ class AppDatabase extends _$AppDatabase {
   Future<Depot?> getDepotByName(String name) =>
       (select(depots)..where((tbl) => tbl.depots.equals(name))).getSingleOrNull();
 
+  // ========== MÉTHODES STATISTIQUES ==========
+  /// Compte le nombre de ventes en brouillard en attente
+  Future<int> getVentesBrouillardCount() async {
+    final query = selectOnly(ventes)
+      ..addColumns([ventes.numventes.count()])
+      ..where(ventes.verification.equals('BROUILLARD'));
+
+    final result = await query.getSingle();
+    return result.read(ventes.numventes.count()) ?? 0;
+  }
+
+  /// Récupère un dépôt par nom (suite)
+  Future<Depot?> getDepotByNameContinued(String name) =>
+      (select(depots)..where((tbl) => tbl.depots.equals(name))).getSingleOrNull();
+
+  // ========== MÉTHODES STATISTIQUES POUR TABLEAU DE BORD ==========
+  /// Calcule la valeur totale du stock
+  Future<double> getTotalStockValue() async {
+    final query = select(articles);
+    final allArticles = await query.get();
+    double total = 0;
+    for (final article in allArticles) {
+      final prix = article.pvu1 ?? 0;
+      final stock = article.stocksu1 ?? 0;
+      total += prix * stock;
+    }
+    return total;
+  }
+
+  /// Calcule le total des achats
+  Future<double> getTotalAchats() async {
+    final query = select(achats);
+    final result = await query.get();
+    return result.fold<double>(
+      0.0,
+      (sum, achat) => sum + (achat.totalttc ?? 0.0),
+    );
+  }
+
+  /// Calcule le total des ventes
+  Future<double> getTotalVentes() async {
+    final query = select(ventes);
+    final result = await query.get();
+    return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0.0));
+  }
+
+  /// Calcule les ventes du jour
+  Future<double> getVentesToday() async {
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    final query = select(ventes)..where((tbl) => tbl.daty.isBetweenValues(startOfDay, endOfDay));
+    final result = await query.get();
+    return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
+  }
+
+  /// Compte le nombre total de clients
+  Future<int> getTotalClients() async {
+    final query = select(clt);
+    final result = await query.get();
+    return result.length;
+  }
+
+  /// Compte le nombre total d'articles
+  Future<int> getTotalArticles() async {
+    final query = select(articles);
+    final result = await query.get();
+    return result.length;
+  }
+
+  /// Compte le nombre total de fournisseurs
+  Future<int> getTotalFournisseurs() async {
+    final query = select(frns);
+    final result = await query.get();
+    return result.length;
+  }
+
+  /// Calcule le total des encaissements
+  Future<double> getTotalEncaissements() async {
+    final query = select(caisse);
+    final result = await query.get();
+    return result.fold<double>(0.0, (sum, operation) => sum + (operation.credit ?? 0));
+  }
+
+  /// Compte le nombre total de transactions
+  Future<int> getTotalTransactions() async {
+    final ventesQuery = select(ventes);
+    final achatsQuery = select(achats);
+    final ventesCount = (await ventesQuery.get()).length;
+    final achatsCount = (await achatsQuery.get()).length;
+    return ventesCount + achatsCount;
+  }
+
+  /// Calcule les ventes du jour par utilisateur
+  Future<double> getVentesTodayByUser(String userName) async {
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+    final endOfDay = startOfDay.add(const Duration(days: 1));
+
+    final query = select(ventes)
+      ..where((tbl) => tbl.daty.isBetweenValues(startOfDay, endOfDay) & tbl.commerc.equals(userName));
+    final result = await query.get();
+    return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
+  }
+
+  /// Récupère les ventes récentes
+  Future<List<Map<String, dynamic>>> getRecentSales(int limit) async {
+    final query = select(ventes)
+      ..orderBy([(tbl) => OrderingTerm.desc(tbl.daty)])
+      ..limit(limit);
+    final result = await query.get();
+    return result
+        .map((vente) => {
+              'id': vente.num,
+              'numventes': vente.numventes,
+              'nfact': vente.nfact,
+              'client': vente.clt ?? 'Client inconnu',
+              'date': vente.daty?.toString() ?? DateTime.now().toString(),
+              'total': vente.totalttc ?? 0,
+              'commerc': vente.commerc ?? 'Commercial inconnu',
+            })
+        .toList();
+  }
+
+  /// Récupère les 5 derniers achats
+  Future<List<Map<String, dynamic>>> getRecentPurchases(int limit) async {
+    final query = select(achats)
+      ..orderBy([(tbl) => OrderingTerm.desc(tbl.numachats)])
+      ..limit(limit);
+    final result = await query.get();
+    return result
+        .map((achat) => {
+              'id': achat.num,
+              'numachats': achat.numachats,
+              'nfact': achat.nfact,
+              'fournisseur': achat.frns ?? 'Fournisseur inconnu',
+              'date': achat.daty?.toString() ?? DateTime.now().toString(),
+              'total': achat.totalttc ?? 0,
+            })
+        .toList();
+  }
+
+  /// Calcule les ventes du mois par utilisateur
+  Future<double> getVentesThisMonthByUser(String userName) async {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    final endOfMonth = DateTime(now.year, now.month + 1, 1);
+
+    final query = select(ventes)
+      ..where((tbl) => tbl.daty.isBetweenValues(startOfMonth, endOfMonth) & tbl.commerc.equals(userName));
+    final result = await query.get();
+    return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
+  }
+
+  /// Compte les clients par utilisateur
+  Future<int> getClientsByUser(String userName) async {
+    final query = select(clt)..where((tbl) => tbl.commercial.equals(userName));
+    final result = await query.get();
+    return result.length;
+  }
+
+  /// Calcule le bénéfice réel des articles vendus (Prix de vente - Prix d'achat des articles vendus)
+  Future<double> getBeneficesReels() async {
+    try {
+      // Debug: vérifier les données
+      final debug = await customSelect('''
+        SELECT 
+          COUNT(*) as total_lignes,
+          COUNT(CASE WHEN v.verification = 'Journal' THEN 1 END) as lignes_journal,
+          COUNT(CASE WHEN a.cmup IS NOT NULL THEN 1 END) as lignes_avec_cmup
+        FROM detventes dv
+        LEFT JOIN ventes v ON dv.numventes = v.numventes
+        LEFT JOIN articles a ON dv.designation = a.designation
+      ''').getSingle();
+
+      debugPrint(
+          'Debug bénéfices - Total: ${debug.data['total_lignes']}, Journal: ${debug.data['lignes_journal']}, CMUP: ${debug.data['lignes_avec_cmup']}');
+
+      final result = await customSelect('''
+        SELECT 
+          COALESCE(SUM(dv.q * dv.pu), 0) as chiffre_affaires,
+          COALESCE(SUM(dv.q * COALESCE(a.cmup, 0)), 0) as cout_marchandises
+        FROM detventes dv
+        INNER JOIN ventes v ON dv.numventes = v.numventes
+        INNER JOIN articles a ON dv.designation = a.designation
+        WHERE v.verification = 'JOURNAL'
+          AND dv.q > 0 
+          AND dv.pu > 0
+      ''').getSingleOrNull();
+
+      if (result == null) return 0.0;
+
+      final chiffreAffaires = (result.data['chiffre_affaires'] as num?)?.toDouble() ?? 0.0;
+      final coutMarchandises = (result.data['cout_marchandises'] as num?)?.toDouble() ?? 0.0;
+
+      debugPrint(
+          'Bénéfices - CA: $chiffreAffaires, Coût: $coutMarchandises, Bénéfice: ${chiffreAffaires - coutMarchandises}');
+
+      return chiffreAffaires - coutMarchandises;
+    } catch (e) {
+      debugPrint('Erreur calcul bénéfices réels: $e');
+      return 0.0;
+    }
+  }
+
+  /// Calcule les bénéfices du jour
+  Future<double> getBeneficesJour() async {
+    final today = DateTime.now();
+    final startOfDay = DateTime(today.year, today.month, today.day);
+
+    final result = await customSelect(
+      '''
+      SELECT 
+        SUM((dv.q * dv.pu) - (dv.q * a.cmup)) as benefice
+      FROM detventes dv
+      INNER JOIN ventes v ON dv.numventes = v.numventes
+      INNER JOIN articles a ON dv.designation = a.designation
+      WHERE v.verification = 'JOURNAL'
+        AND v.daty >= ?
+      ''',
+      variables: [
+        Variable.withDateTime(startOfDay),
+      ],
+    ).getSingleOrNull();
+
+    return result?.data['benefice']?.toDouble() ?? 0.0;
+  }
+
+  /// Récupère les différences de prix de vente par rapport aux prix standards
+  Future<List<Map<String, dynamic>>> getDifferencesPrixVente(DateTime? dateDebut, DateTime? dateFin) async {
+    String whereClause = "WHERE v.verification = 'JOURNAL'";
+    List<Variable> variables = [];
+    
+    if (dateDebut != null) {
+      whereClause += " AND v.daty >= ?";
+      variables.add(Variable.withDateTime(dateDebut));
+    }
+    
+    if (dateFin != null) {
+      whereClause += " AND v.daty <= ?";
+      variables.add(Variable.withDateTime(dateFin));
+    }
+    
+    final result = await customSelect(
+      '''
+      SELECT 
+        v.daty as date_vente,
+        v.numventes as numero_vente,
+        dv.designation as nom_article,
+        a.pvu1 as prix_standard,
+        dv.pu as prix_vendu,
+        v.clt as nom_client
+      FROM detventes dv
+      INNER JOIN ventes v ON dv.numventes = v.numventes
+      INNER JOIN articles a ON dv.designation = a.designation
+      $whereClause
+      ORDER BY v.daty DESC, v.numventes DESC
+      ''',
+      variables: variables,
+    ).get();
+
+    return result.map((row) => {
+      'date_vente': row.readNullable<String>('date_vente'),
+      'numero_vente': row.readNullable<String>('numero_vente'),
+      'nom_article': row.readNullable<String>('nom_article'),
+      'prix_standard': row.readNullable<double>('prix_standard') ?? 0.0,
+      'prix_vendu': row.readNullable<double>('prix_vendu') ?? 0.0,
+      'nom_client': row.readNullable<String>('nom_client'),
+    }).toList();
+  }
+
   /// Insère un nouveau dépôt
   Future<int> insertDepot(DepotsCompanion entry) => into(depots).insert(entry);
 
@@ -968,47 +1240,51 @@ class AppDatabase extends _$AppDatabase {
   Future<List<CltData>> getAllClients() async {
     try {
       final result = await customSelect('SELECT * FROM clt').get();
-      return result.map((row) {
-        try {
-          DateTime? datedernop;
-          final dateStr = row.readNullable<String>('datedernop');
-          if (dateStr != null) {
+      return result
+          .map((row) {
             try {
-              datedernop = DateTime.parse(dateStr);
+              DateTime? datedernop;
+              final dateStr = row.readNullable<String>('datedernop');
+              if (dateStr != null) {
+                try {
+                  datedernop = DateTime.parse(dateStr);
+                } catch (e) {
+                  datedernop = null;
+                }
+              }
+
+              return CltData(
+                rsoc: row.read<String>('rsoc'),
+                adr: row.readNullable<String>('adr'),
+                capital: row.readNullable<double>('capital'),
+                rcs: row.readNullable<String>('rcs'),
+                nif: row.readNullable<String>('nif'),
+                stat: row.readNullable<String>('stat'),
+                tel: row.readNullable<String>('tel'),
+                port: row.readNullable<String>('port'),
+                email: row.readNullable<String>('email'),
+                site: row.readNullable<String>('site'),
+                fax: row.readNullable<String>('fax'),
+                telex: row.readNullable<String>('telex'),
+                soldes: row.readNullable<double>('soldes'),
+                datedernop: datedernop,
+                delai: row.readNullable<int>('delai'),
+                soldesa: row.readNullable<double>('soldesa'),
+                action: row.readNullable<String>('action'),
+                commercial: row.readNullable<String>('commercial'),
+                plafon: row.readNullable<double>('plafon'),
+                taux: row.readNullable<double>('taux'),
+                categorie: row.readNullable<String>('categorie'),
+                plafonbl: row.readNullable<double>('plafonbl'),
+              );
             } catch (e) {
-              datedernop = null;
+              debugPrint('Erreur lecture client: $e');
+              return null;
             }
-          }
-          
-          return CltData(
-            rsoc: row.read<String>('rsoc'),
-            adr: row.readNullable<String>('adr'),
-            capital: row.readNullable<double>('capital'),
-            rcs: row.readNullable<String>('rcs'),
-            nif: row.readNullable<String>('nif'),
-            stat: row.readNullable<String>('stat'),
-            tel: row.readNullable<String>('tel'),
-            port: row.readNullable<String>('port'),
-            email: row.readNullable<String>('email'),
-            site: row.readNullable<String>('site'),
-            fax: row.readNullable<String>('fax'),
-            telex: row.readNullable<String>('telex'),
-            soldes: row.readNullable<double>('soldes'),
-            datedernop: datedernop,
-            delai: row.readNullable<int>('delai'),
-            soldesa: row.readNullable<double>('soldesa'),
-            action: row.readNullable<String>('action'),
-            commercial: row.readNullable<String>('commercial'),
-            plafon: row.readNullable<double>('plafon'),
-            taux: row.readNullable<double>('taux'),
-            categorie: row.readNullable<String>('categorie'),
-            plafonbl: row.readNullable<double>('plafonbl'),
-          );
-        } catch (e) {
-          debugPrint('Erreur lecture client: $e');
-          return null;
-        }
-      }).where((client) => client != null).cast<CltData>().toList();
+          })
+          .where((client) => client != null)
+          .cast<CltData>()
+          .toList();
     } catch (e) {
       debugPrint('Erreur getAllClients: $e');
       return [];
@@ -1243,18 +1519,19 @@ class AppDatabase extends _$AppDatabase {
           final montantVente = vente.totalttc.value ?? 0.0;
           final avance = vente.avance.value ?? 0.0;
           final montantCredit = montantVente - avance;
-          
-          if (vente.modepai.value == 'A crédit' && montantCredit > 0 && vente.verification.value == 'Journal') {
+
+          if (vente.modepai.value == 'A crédit' &&
+              montantCredit > 0 &&
+              vente.verification.value == 'Journal') {
             // Vente à crédit validée : augmenter le solde client
             final nouveauSolde = (client.soldes ?? 0.0) + montantCredit;
-            
+
             // Mettre à jour le solde dans la table clients
-            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!)))
-                .write(CltCompanion(
-                  soldes: Value(nouveauSolde),
-                  datedernop: vente.daty,
-                ));
-            
+            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!))).write(CltCompanion(
+              soldes: Value(nouveauSolde),
+              datedernop: vente.daty,
+            ));
+
             // Insérer l'écriture dans compteclt
             await insererEcritureCompteClient(
               rsocClient: vente.clt.value!,
@@ -1268,18 +1545,17 @@ class AppDatabase extends _$AppDatabase {
               verification: vente.verification.value ?? 'JOURNAL',
             );
           }
-          
+
           if (avance > 0) {
             // Avance reçue : diminuer le solde client
             final nouveauSolde = (client.soldes ?? 0.0) - avance;
-            
+
             // Mettre à jour le solde dans la table clients
-            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!)))
-                .write(CltCompanion(
-                  soldes: Value(nouveauSolde),
-                  datedernop: vente.daty,
-                ));
-            
+            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!))).write(CltCompanion(
+              soldes: Value(nouveauSolde),
+              datedernop: vente.daty,
+            ));
+
             // Insérer l'écriture dans compteclt
             await insererEcritureCompteClient(
               rsocClient: vente.clt.value!,
@@ -1350,7 +1626,6 @@ class AppDatabase extends _$AppDatabase {
       numVente: numVente,
     );
   }
-
 
   /// Insère une écriture dans le compte client
   Future<void> insererEcritureCompteClient({
@@ -1545,15 +1820,13 @@ class AppDatabase extends _$AppDatabase {
   /// Calcule le solde d'un fournisseur
   Future<double> calculerSoldeFournisseur(String fournisseur) async {
     try {
-      final comptes = await (select(comptefrns)
-            ..where((f) => f.frns.equals(fournisseur)))
-          .get();
-      
+      final comptes = await (select(comptefrns)..where((f) => f.frns.equals(fournisseur))).get();
+
       double solde = 0.0;
       for (final compte in comptes) {
         solde += (compte.entres ?? 0) - (compte.sortie ?? 0);
       }
-      
+
       return solde;
     } catch (e) {
       return 0.0;
@@ -1777,12 +2050,12 @@ class AppDatabase extends _$AppDatabase {
     final client = await getClientByRsoc(rsocClient);
     if (client != null) {
       final nouveauSolde = (client.soldes ?? 0) - montantVente;
-      
+
       await (update(clt)..where((c) => c.rsoc.equals(rsocClient))).write(CltCompanion(
         soldes: Value(nouveauSolde),
         datedernop: Value(DateTime.now()),
       ));
-      
+
       // Insérer l'écriture de contre-passage dans compteclt
       await insererEcritureCompteClient(
         rsocClient: rsocClient,
@@ -1826,6 +2099,28 @@ class AppDatabase extends _$AppDatabase {
     return {'possible': true, 'raison': 'Vente peut être contre passée'};
   }
 
+  /// Récupère les détails d'une vente
+  Future<List<Map<String, dynamic>>> getVenteDetails(String numVentes) async {
+    final details = await (select(detventes)..where((d) => d.numventes.equals(numVentes))).get();
+    return details.map((d) => {
+      'designation': d.designation,
+      'unites': d.unites,
+      'q': d.q,
+      'pu': d.pu,
+    }).toList();
+  }
+
+  /// Récupère les détails d'un achat
+  Future<List<Map<String, dynamic>>> getAchatDetails(String numAchats) async {
+    final details = await (select(detachats)..where((d) => d.numachats.equals(numAchats))).get();
+    return details.map((d) => {
+      'designation': d.designation,
+      'unites': d.unites,
+      'q': d.q,
+      'pu': d.pu,
+    }).toList();
+  }
+
   // ========== MÉTHODES RÉGULARISATION ==========
 
   /// Enregistre une régularisation de compte tiers
@@ -1843,16 +2138,13 @@ class AppDatabase extends _$AppDatabase {
       // Calculer le nouveau solde client
       final client = await getClientByRsoc(raisonSociale);
       final soldeActuel = client?.soldes ?? 0.0;
-      final nouveauSolde = affectation == 'Débit' 
-          ? soldeActuel + montant 
-          : soldeActuel - montant;
+      final nouveauSolde = affectation == 'Débit' ? soldeActuel + montant : soldeActuel - montant;
 
       // Mettre à jour le solde dans la table clients
-      await (update(clt)..where((c) => c.rsoc.equals(raisonSociale)))
-          .write(CltCompanion(
-            soldes: Value(nouveauSolde),
-            datedernop: Value(date),
-          ));
+      await (update(clt)..where((c) => c.rsoc.equals(raisonSociale))).write(CltCompanion(
+        soldes: Value(nouveauSolde),
+        datedernop: Value(date),
+      ));
 
       // Insérer l'écriture dans compteclt
       await insererEcritureCompteClient(

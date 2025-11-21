@@ -60,6 +60,7 @@ import '../widgets/modals/reinitialiser_donnees_modal.dart';
 import '../widgets/modals/users_management_modal.dart';
 import '../widgets/modals/profil_modal.dart';
 import '../widgets/modals/ventes_modal.dart';
+import '../widgets/modals/suivi_difference_prix_modal.dart';
 
 class ModalLoader {
   static final Map<String, Widget Function()> _factories = _createFactories();
@@ -130,6 +131,7 @@ class ModalLoader {
       'Profil': () => const ProfilModal(),
       'ventes_tous_depots': () => const VentesModal(tousDepots: true),
       'ventes_magasin': () => const VentesModal(tousDepots: false),
+      'Suivi de différence de Prix de vente': () => const SuiviDifferencePrixModal(),
     };
   }
 

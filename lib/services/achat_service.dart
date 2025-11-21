@@ -607,8 +607,9 @@ class AchatService {
 
     if (achat == null) throw Exception('Achat non trouvé');
     if (achat.contre == '1') throw Exception('Achat déjà contre-passé');
-    if (achat.verification != 'JOURNAL')
+    if (achat.verification != 'JOURNAL') {
       throw Exception('Seuls les achats journalisés peuvent être contre-passés');
+    }
 
     await _databaseService.database.transaction(() async {
       // 1. Marquer comme contre-passé
