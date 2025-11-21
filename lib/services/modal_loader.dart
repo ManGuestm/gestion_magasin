@@ -1,66 +1,66 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/modals/achats_modal.dart';
+import '../widgets/modals/amortissement_immobilisations_modal.dart';
+import '../widgets/modals/approximation_stocks_modal.dart';
+import '../widgets/modals/articles_modal.dart';
+import '../widgets/modals/banques_modal.dart';
+import '../widgets/modals/bilan_compte_resultat_modal.dart';
+import '../widgets/modals/cheques_modal.dart';
+import '../widgets/modals/clients_modal.dart';
 // Imports statiques pour tous les modals
 import '../widgets/modals/company_info_modal.dart';
-import '../widgets/modals/depots_modal.dart';
-import '../widgets/modals/articles_modal.dart';
-import '../widgets/modals/clients_modal.dart';
-import '../widgets/modals/fournisseurs_modal.dart';
-import '../widgets/modals/banques_modal.dart';
-import '../widgets/modals/plan_comptes_modal.dart';
-import '../widgets/modals/achats_modal.dart';
-import '../widgets/modals/sur_ventes_modal.dart';
-import '../widgets/modals/retours_achats_modal.dart';
 import '../widgets/modals/comptes_fournisseurs_modal.dart';
+import '../widgets/modals/decaissements_modal.dart';
+import '../widgets/modals/depots_modal.dart';
+import '../widgets/modals/echeance_fournisseurs_modal.dart';
+import '../widgets/modals/effet_a_recevoir_modal.dart';
+import '../widgets/modals/encaissements_modal.dart';
+import '../widgets/modals/estimation_valeur_articles_modal.dart';
+import '../widgets/modals/etat_stocks_modal.dart';
+import '../widgets/modals/etat_tarifaire_modal.dart';
+import '../widgets/modals/etats_articles_modal.dart';
+import '../widgets/modals/etats_autres_comptes_modal.dart';
+import '../widgets/modals/etats_clients_modal.dart';
+import '../widgets/modals/etats_commerciaux_modal.dart';
+import '../widgets/modals/etats_fournisseurs_modal.dart';
+import '../widgets/modals/etats_immobilisations_modal.dart';
+import '../widgets/modals/etiquettes_prix_modal.dart';
+import '../widgets/modals/fiche_stocks_modal.dart';
+import '../widgets/modals/fournisseurs_modal.dart';
+import '../widgets/modals/gestion_emballages_modal.dart';
+import '../widgets/modals/journal_banques_modal.dart';
+import '../widgets/modals/journal_caisse_modal.dart';
 import '../widgets/modals/liste_achats_modal.dart';
 import '../widgets/modals/liste_ventes_modal.dart';
-import '../widgets/modals/mouvements_clients_modal.dart';
-import '../widgets/modals/approximation_stocks_modal.dart';
-import '../widgets/modals/moyen_paiement_modal.dart';
-import '../widgets/modals/transferts_modal.dart';
-import '../widgets/modals/gestion_emballages_modal.dart';
-import '../widgets/modals/productions_modal.dart';
-import '../widgets/modals/regularisation_modal.dart';
-import '../widgets/modals/encaissements_modal.dart';
-import '../widgets/modals/decaissements_modal.dart';
-import '../widgets/modals/journal_caisse_modal.dart';
-import '../widgets/modals/cheques_modal.dart';
-import '../widgets/modals/journal_banques_modal.dart';
-import '../widgets/modals/etats_fournisseurs_modal.dart';
-import '../widgets/modals/etats_clients_modal.dart';
-import '../widgets/modals/etats_articles_modal.dart';
-import '../widgets/modals/etiquettes_prix_modal.dart';
-import '../widgets/modals/etat_tarifaire_modal.dart';
-import '../widgets/modals/etat_stocks_modal.dart';
-import '../widgets/modals/mouvement_stocks_journalieres_modal.dart';
-import '../widgets/modals/fiche_stocks_modal.dart';
-import '../widgets/modals/estimation_valeur_articles_modal.dart';
-import '../widgets/modals/regularisation_compte_commerciaux_modal.dart';
-import '../widgets/modals/relance_clients_modal.dart';
-import '../widgets/modals/echeance_fournisseurs_modal.dart';
-import '../widgets/modals/variation_stocks_modal.dart';
-import '../widgets/modals/mise_a_jour_valeurs_stocks_modal.dart';
-import '../widgets/modals/niveau_stocks_modal.dart';
-import '../widgets/modals/amortissement_immobilisations_modal.dart';
-import '../widgets/modals/reactualisation_base_donnees_modal.dart';
-import '../widgets/modals/effet_a_recevoir_modal.dart';
-import '../widgets/modals/virements_internes_modal.dart';
-import '../widgets/modals/operations_caisses_modal.dart';
-import '../widgets/modals/operations_banques_modal.dart';
-import '../widgets/modals/etats_commerciaux_modal.dart';
-import '../widgets/modals/etats_immobilisations_modal.dart';
-import '../widgets/modals/etats_autres_comptes_modal.dart';
-import '../widgets/modals/statistiques_ventes_modal.dart';
-import '../widgets/modals/statistiques_achats_modal.dart';
 import '../widgets/modals/marges_modal.dart';
-import '../widgets/modals/tableau_bord_modal.dart';
-import '../widgets/modals/bilan_compte_resultat_modal.dart';
-import '../widgets/modals/statistiques_fournisseurs_modal.dart';
-import '../widgets/modals/reinitialiser_donnees_modal.dart';
-import '../widgets/modals/users_management_modal.dart';
+import '../widgets/modals/mise_a_jour_valeurs_stocks_modal.dart';
+import '../widgets/modals/mouvement_stocks_journalieres_modal.dart';
+import '../widgets/modals/mouvements_clients_modal.dart';
+import '../widgets/modals/moyen_paiement_modal.dart';
+import '../widgets/modals/niveau_stocks_modal.dart';
+import '../widgets/modals/operations_banques_modal.dart';
+import '../widgets/modals/operations_caisses_modal.dart';
+import '../widgets/modals/plan_comptes_modal.dart';
+import '../widgets/modals/productions_modal.dart';
 import '../widgets/modals/profil_modal.dart';
-import '../widgets/modals/ventes_modal.dart';
+import '../widgets/modals/reactualisation_base_donnees_modal.dart';
+import '../widgets/modals/regularisation_compte_commerciaux_modal.dart';
+import '../widgets/modals/regularisation_compte_tiers_modal.dart';
+import '../widgets/modals/reinitialiser_donnees_modal.dart';
+import '../widgets/modals/relance_clients_modal.dart';
+import '../widgets/modals/retours_achats_modal.dart';
+import '../widgets/modals/statistiques_achats_modal.dart';
+import '../widgets/modals/statistiques_fournisseurs_modal.dart';
+import '../widgets/modals/statistiques_ventes_modal.dart';
 import '../widgets/modals/suivi_difference_prix_modal.dart';
+import '../widgets/modals/sur_ventes_modal.dart';
+import '../widgets/modals/tableau_bord_modal.dart';
+import '../widgets/modals/transferts_modal.dart';
+import '../widgets/modals/users_management_modal.dart';
+import '../widgets/modals/variation_stocks_modal.dart';
+import '../widgets/modals/ventes_modal.dart';
+import '../widgets/modals/virements_internes_modal.dart';
 
 class ModalLoader {
   static final Map<String, Widget Function()> _factories = _createFactories();
@@ -90,7 +90,7 @@ class ModalLoader {
       'Transfert de Marchandises': () => const TransfertsModal(),
       'Gestion Emballages': () => const GestionEmballagesModal(),
       'Productions': () => const ProductionsModal(),
-      'Régularisation compte tiers': () => const RegularisationModal(),
+      'Régularisation compte tiers': () => const RegularisationCompteTiersModal(),
       'Encaissements': () => const EncaissementsModal(),
       'Décaissements': () => const DecaissementsModal(),
       'Journal de caisse': () => const JournalCaisseModal(),
@@ -143,21 +143,21 @@ class ModalLoader {
 
     final factory = _factories[item];
     if (factory == null) return null;
-    
+
     final modal = factory();
-    
+
     // Gérer la taille du cache
     if (_isFrequentModal(item)) {
       _manageCache(item, modal);
     }
-    
+
     return modal;
   }
-  
+
   static bool _isFrequentModal(String item) {
     const frequentModals = {
       'Articles',
-      'Clients', 
+      'Clients',
       'Fournisseurs',
       'Achats',
       'Ventes',
@@ -166,7 +166,6 @@ class ModalLoader {
     };
     return frequentModals.contains(item);
   }
-
 
   static void _manageCache(String item, Widget modal) {
     if (_cache.length >= _maxCacheSize) {
@@ -181,7 +180,7 @@ class ModalLoader {
 
   static void preloadFrequentModals() {
     const frequentModals = ['Articles', 'Clients', 'Fournisseurs', 'Achats'];
-    
+
     Future.microtask(() async {
       for (final modal in frequentModals) {
         try {
@@ -190,8 +189,8 @@ class ModalLoader {
       }
     });
   }
-  
+
   static int getCacheSize() => _cache.length;
-  
+
   static List<String> getCachedModals() => _cache.keys.toList();
 }

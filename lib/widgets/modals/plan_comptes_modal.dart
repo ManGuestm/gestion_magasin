@@ -15,6 +15,7 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
   List<CaData> _comptes = [];
   List<CaData> _filteredComptes = [];
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   CaData? _selectedCompte;
   bool _isLoading = false;
 
@@ -22,6 +23,9 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
   void initState() {
     super.initState();
     _loadComptes();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _searchFocusNode.requestFocus();
+    });
   }
 
   @override
@@ -29,20 +33,27 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
     return PopScope(
       canPop: false,
       child: Dialog(
-        backgroundColor: Colors.grey[100],
+        backgroundColor: Colors.transparent,
         child: GestureDetector(
           onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
           child: Container(
-            width: 800,
-            height: 500,
+            width: 900,
+            height: 600,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey, width: 1),
-              borderRadius: BorderRadius.circular(8),
               color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
             ),
             child: Column(
               children: [
                 _buildHeader(),
+                _buildSearchBar(),
                 _buildContent(),
                 _buildFooter(),
                 _buildButtons(),
@@ -56,25 +67,49 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
 
   Widget _buildHeader() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       decoration: BoxDecoration(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
+        gradient: LinearGradient(
+          colors: [Colors.indigo[600]!, Colors.indigo[500]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        border: Border.all(color: Colors.grey, width: 1),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
       ),
       child: Row(
         children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.account_tree, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 16),
           const Text(
             'PLAN DE COMPTES',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              letterSpacing: 0.5,
+            ),
           ),
           const Spacer(),
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.close, color: Colors.white, size: 24),
+              padding: const EdgeInsets.all(8),
+            ),
           ),
         ],
       ),
@@ -84,109 +119,96 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
   Widget _buildContent() {
     return Expanded(
       child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey, width: 1),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           children: [
             _buildTableHeader(),
             Expanded(
-              child: ListView.builder(
-                itemCount: _filteredComptes.length,
-                itemExtent: 18,
-                itemBuilder: (context, index) {
-                  final compte = _filteredComptes[index];
-                  final isSelected = _selectedCompte?.code == compte.code;
-                  return GestureDetector(
-                    onTap: () => _selectCompte(compte),
-                    child: Container(
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color:
-                            isSelected ? Colors.blue[600] : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 80,
-                            padding: const EdgeInsets.only(left: 4),
-                            alignment: Alignment.centerLeft,
-                            decoration: const BoxDecoration(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView.builder(
+                      itemCount: _filteredComptes.length,
+                      itemBuilder: (context, index) {
+                        final compte = _filteredComptes[index];
+                        final isSelected = _selectedCompte?.code == compte.code;
+                        return InkWell(
+                          onTap: () => _selectCompte(compte),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.indigo[50]
+                                  : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
                               border: Border(
-                                right: BorderSide(color: Colors.grey, width: 1),
-                                bottom: BorderSide(color: Colors.grey, width: 1),
+                                left: isSelected
+                                    ? BorderSide(color: Colors.indigo[600]!, width: 4)
+                                    : BorderSide.none,
+                                bottom: BorderSide(color: Colors.grey[200]!, width: 1),
                               ),
                             ),
-                            child: Text(
-                              compte.code,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected ? Colors.white : Colors.black,
-                              ),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 100,
+                                  child: Text(
+                                    compte.code,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: isSelected ? Colors.indigo[700] : Colors.grey[800],
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 3,
+                                  child: Text(
+                                    compte.intitule ?? '',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: isSelected ? Colors.indigo[700] : Colors.grey[700],
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(
+                                    compte.compte ?? '',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isSelected ? Colors.indigo[600] : Colors.grey[600],
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  width: 120,
+                                  alignment: Alignment.centerRight,
+                                  child: Text(
+                                    '${compte.soldes?.toStringAsFixed(2) ?? '0.00'} Ar',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: (compte.soldes ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Expanded(
-                            flex: 2,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              alignment: Alignment.centerLeft,
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Colors.grey, width: 1),
-                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                ),
-                              ),
-                              child: Text(
-                                compte.intitule ?? '',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              alignment: Alignment.centerLeft,
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  right: BorderSide(color: Colors.grey, width: 1),
-                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                ),
-                              ),
-                              child: Text(
-                                compte.compte ?? '',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isSelected ? Colors.white : Colors.black,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            width: 100,
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 4),
-                            decoration: const BoxDecoration(
-                              border: Border(
-                                bottom: BorderSide(color: Colors.grey, width: 1),
-                              ),
-                            ),
-                            child: Text(
-                              compte.soldes?.toStringAsFixed(2) ?? '0.00',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected ? Colors.white : Colors.black,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
             ),
           ],
         ),
@@ -196,68 +218,108 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
 
   Widget _buildTableHeader() {
     return Container(
-      height: 25,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.orange[300],
+        color: Colors.grey[100],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[300]!, width: 2),
+        ),
       ),
       child: Row(
         children: [
-          Container(
-            width: 80,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              border: Border(
-                right: BorderSide(color: Colors.grey, width: 1),
-                bottom: BorderSide(color: Colors.grey, width: 1),
+          SizedBox(
+            width: 100,
+            child: Text(
+              'CODE',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[700],
+                letterSpacing: 0.5,
               ),
             ),
-            child: const Text(
-              'CODE',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              'INTITULÉ',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[700],
+                letterSpacing: 0.5,
+              ),
             ),
           ),
           Expanded(
             flex: 2,
-            child: Container(
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey, width: 1),
-                  bottom: BorderSide(color: Colors.grey, width: 1),
-                ),
-              ),
-              child: const Text(
-                'INTITULE',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              alignment: Alignment.center,
-              decoration: const BoxDecoration(
-                border: Border(
-                  right: BorderSide(color: Colors.grey, width: 1),
-                  bottom: BorderSide(color: Colors.grey, width: 1),
-                ),
-              ),
-              child: const Text(
-                'CLASSE',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+            child: Text(
+              'CLASSE',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[700],
+                letterSpacing: 0.5,
               ),
             ),
           ),
           Container(
-            width: 100,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey, width: 1),
+            width: 120,
+            alignment: Alignment.centerRight,
+            child: Text(
+              'MONTANT',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[700],
+                letterSpacing: 0.5,
               ),
             ),
-            child: const Text(
-              'MONTANT',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.all(24),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: TextField(
+                controller: _searchController,
+                focusNode: _searchFocusNode,
+                onChanged: _filterComptes,
+                decoration: InputDecoration(
+                  hintText: 'Rechercher par code ou intitulé...',
+                  prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: _showAllComptes,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: const Text('Tout afficher'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.grey[100],
+              foregroundColor: Colors.grey[700],
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
         ],
@@ -273,126 +335,119 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
         _filteredComptes.where((c) => c.compte == 'Charges').fold(0.0, (sum, c) => sum + (c.soldes ?? 0.0));
 
     return Container(
-      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
-        border: Border.all(color: Colors.grey, width: 1),
+        color: Colors.indigo[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.indigo[200]!),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Text(
-            'TOTAL DES PRODUITS:',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red[700]),
+          _buildTotalCard('PRODUITS', totalProduits, Colors.green),
+          Container(
+            width: 1,
+            height: 40,
+            color: Colors.grey[300],
           ),
-          const SizedBox(width: 20),
-          Text(
-            totalProduits.toStringAsFixed(2),
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red[700]),
-          ),
-          const SizedBox(width: 40),
-          Text(
-            'TOTAL DES CHARGES:',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red[700]),
-          ),
-          const SizedBox(width: 20),
-          Text(
-            totalCharges.toStringAsFixed(2),
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red[700]),
-          ),
+          _buildTotalCard('CHARGES', totalCharges, Colors.red),
         ],
       ),
+    );
+  }
+
+  Widget _buildTotalCard(String label, double amount, MaterialColor color) {
+    return Column(
+      children: [
+        Text(
+          'TOTAL $label',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[600],
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          '${amount.toStringAsFixed(2)} Ar',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: color[700],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildButtons() {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16),
+        ),
+      ),
       child: Row(
         children: [
-          _buildNavButton(Icons.first_page, _goToFirst),
-          _buildNavButton(Icons.chevron_left, _goToPrevious),
-          _buildNavButton(Icons.chevron_right, _goToNext),
-          _buildNavButton(Icons.last_page, _goToLast),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(
-              height: 20,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[400]!),
-                color: Colors.white,
-              ),
-              child: TextFormField(
-                controller: _searchController,
-                style: const TextStyle(fontSize: 11),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  isDense: true,
+          Row(
+            children: [
+              _buildNavButton(Icons.first_page, _goToFirst, 'Premier'),
+              const SizedBox(width: 8),
+              _buildNavButton(Icons.chevron_left, _goToPrevious, 'Précédent'),
+              const SizedBox(width: 8),
+              _buildNavButton(Icons.chevron_right, _goToNext, 'Suivant'),
+              const SizedBox(width: 8),
+              _buildNavButton(Icons.last_page, _goToLast, 'Dernier'),
+            ],
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _showAddCompteModal(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Nouveau'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo[600],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 ),
-                onChanged: _filterComptes,
               ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Container(
-            height: 20,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[600]!),
-            ),
-            child: TextButton(
-              onPressed: _showAllComptes,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              const SizedBox(width: 12),
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                child: const Text('Fermer'),
               ),
-              child: const Text(
-                'Afficher tous',
-                style: TextStyle(fontSize: 9, color: Colors.black),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            height: 24,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[600]!),
-            ),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Fermer',
-                style: TextStyle(fontSize: 12, color: Colors.black),
-              ),
-            ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNavButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      width: 20,
-      height: 20,
-      margin: const EdgeInsets.only(right: 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
-        color: Colors.grey[200],
-      ),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 12),
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(),
+  Widget _buildNavButton(IconData icon, VoidCallback onPressed, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: IconButton(
+          onPressed: onPressed,
+          icon: Icon(icon, size: 18, color: Colors.grey[700]),
+          padding: const EdgeInsets.all(8),
+          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        ),
       ),
     );
   }
@@ -538,6 +593,7 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 }

@@ -698,71 +698,75 @@ class _FournisseursModalState extends State<FournisseursModal> with FormNavigati
                     itemExtent: 18,
                     itemBuilder: (context, index) {
                       final mouvement = _historiqueFournisseur[index];
-                      return Container(
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  mouvement.daty?.toString().substring(0, 10) ?? '',
-                                  style: const TextStyle(fontSize: 9),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  mouvement.lib ?? '',
-                                  style: const TextStyle(fontSize: 9),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  (mouvement.sortie ?? 0) > 0 ? _formatMontant(mouvement.sortie!) : '',
-                                  style: const TextStyle(fontSize: 9),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  (mouvement.entres ?? 0) > 0 ? _formatMontant(mouvement.entres!) : '',
-                                  style: const TextStyle(fontSize: 9),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  _formatMontant(mouvement.solde ?? 0),
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w500,
-                                    color: (mouvement.solde ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+                      return GestureDetector(
+                        onTap: () => _showMovementDetails(mouvement),
+                        child: Container(
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                            border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    mouvement.daty?.toString().substring(0, 10) ?? '',
+                                    style: const TextStyle(fontSize: 9),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  textAlign: TextAlign.right,
                                 ),
                               ),
-                            ),
-                          ],
+                              Expanded(
+                                flex: 3,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    mouvement.lib ?? '',
+                                    style: const TextStyle(fontSize: 9),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    (mouvement.sortie ?? 0) > 0 ? _formatMontant(mouvement.sortie!) : '',
+                                    style: const TextStyle(fontSize: 9),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    (mouvement.entres ?? 0) > 0 ? _formatMontant(mouvement.entres!) : '',
+                                    style: const TextStyle(fontSize: 9),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    _formatMontant(mouvement.solde ?? 0),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          (mouvement.solde ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -777,9 +781,367 @@ class _FournisseursModalState extends State<FournisseursModal> with FormNavigati
     return _numberFormat.format(montant.round());
   }
 
+  void _showMovementDetails(Comptefrn mouvement) {
+    showDialog(
+      context: context,
+      builder: (context) => _MovementDetailsDialog(mouvement: mouvement),
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+}
+
+class _MovementDetailsDialog extends StatefulWidget {
+  final Comptefrn mouvement;
+
+  const _MovementDetailsDialog({required this.mouvement});
+
+  @override
+  State<_MovementDetailsDialog> createState() => _MovementDetailsDialogState();
+}
+
+class _MovementDetailsDialogState extends State<_MovementDetailsDialog> {
+  List<Map<String, dynamic>> _articles = [];
+  bool _isLoadingArticles = false;
+  final NumberFormat _numberFormat = NumberFormat('#,##0', 'fr_FR');
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.mouvement.numachats?.isNotEmpty == true) {
+      _loadArticles();
+    }
+  }
+
+  Future<void> _loadArticles() async {
+    setState(() => _isLoadingArticles = true);
+    try {
+      debugPrint('Loading articles for numachats: ${widget.mouvement.numachats}');
+      final result = await DatabaseService().database.customSelect(
+        'SELECT * FROM achats WHERE numachats = ?',
+        variables: [Variable(widget.mouvement.numachats!)],
+      ).get();
+
+      debugPrint('Found ${result.length} articles');
+
+      setState(() {
+        _articles = result
+            .map((row) => {
+                  'refart': row.read<String?>('refart') ?? '',
+                  'design': row.read<String?>('design') ?? '',
+                  'qte': row.read<double?>('qte') ?? 0.0,
+                  'pu': row.read<double?>('pu') ?? 0.0,
+                  'montant': row.read<double?>('montant') ?? 0.0,
+                })
+            .toList();
+        _isLoadingArticles = false;
+      });
+
+      debugPrint('Articles loaded: $_articles');
+    } catch (e) {
+      debugPrint('Error loading articles: $e');
+      setState(() => _isLoadingArticles = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: 600,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.8,
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.receipt_long, color: Colors.blue[600], size: 24),
+                const SizedBox(width: 12),
+                const Text(
+                  'DÉTAILS DU MOUVEMENT',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const Divider(),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    _buildDetailRow('Référence', widget.mouvement.ref),
+                    _buildDetailRow('Date', widget.mouvement.daty?.toString().substring(0, 10) ?? ''),
+                    _buildDetailRow('Libellé', widget.mouvement.lib ?? ''),
+                    if (widget.mouvement.numachats?.isNotEmpty == true)
+                      _buildDetailRow('N° Achat', widget.mouvement.numachats!),
+                    if (widget.mouvement.nfact?.isNotEmpty == true)
+                      _buildDetailRow('N° Facture', widget.mouvement.nfact!),
+                    if (widget.mouvement.refart?.isNotEmpty == true)
+                      _buildDetailRow('Référence Article', widget.mouvement.refart!),
+                    if ((widget.mouvement.qe ?? 0) > 0)
+                      _buildDetailRow('Quantité', widget.mouvement.qe!.toString()),
+                    if ((widget.mouvement.pu ?? 0) > 0)
+                      _buildDetailRow('Prix Unitaire', _formatMontant(widget.mouvement.pu!)),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Débit:', style: TextStyle(fontWeight: FontWeight.w500)),
+                              Text(
+                                (widget.mouvement.sortie ?? 0) > 0
+                                    ? _formatMontant(widget.mouvement.sortie!)
+                                    : '0',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.red[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Crédit:', style: TextStyle(fontWeight: FontWeight.w500)),
+                              Text(
+                                (widget.mouvement.entres ?? 0) > 0
+                                    ? _formatMontant(widget.mouvement.entres!)
+                                    : '0',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Solde:', style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text(
+                                _formatMontant(widget.mouvement.solde ?? 0),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: (widget.mouvement.solde ?? 0) >= 0
+                                      ? Colors.green[700]
+                                      : Colors.red[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (widget.mouvement.verification?.isNotEmpty == true) ...[
+                      const SizedBox(height: 12),
+                      _buildDetailRow('Vérification', widget.mouvement.verification!),
+                    ],
+                    if (widget.mouvement.numachats?.isNotEmpty == true) ...[
+                      const SizedBox(height: 20),
+                      const Text(
+                        'ARTICLES ACHETÉS',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildArticlesSection(),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Fermer'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArticlesSection() {
+    debugPrint(
+        'Building articles section. Loading: $_isLoadingArticles, Articles count: ${_articles.length}');
+
+    if (_isLoadingArticles) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_articles.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'Aucun article trouvé pour l\'achat ${widget.mouvement.numachats}',
+          style: const TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.blue[50],
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(8),
+                topRight: Radius.circular(8),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Expanded(
+                    flex: 2,
+                    child: Text('RÉFÉRENCE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                Expanded(
+                    flex: 3,
+                    child: Text('DÉSIGNATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                Expanded(
+                    child: Text('QTÉ',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        textAlign: TextAlign.center)),
+                Expanded(
+                    child: Text('P.U.',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        textAlign: TextAlign.right)),
+                Expanded(
+                    child: Text('MONTANT',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        textAlign: TextAlign.right)),
+              ],
+            ),
+          ),
+          ...List.generate(_articles.length, (index) {
+            final article = _articles[index];
+            return Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      article['refart'],
+                      style: const TextStyle(fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Expanded(
+                    flex: 3,
+                    child: Text(
+                      article['design'],
+                      style: const TextStyle(fontSize: 11),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      article['qte'].toString(),
+                      style: const TextStyle(fontSize: 11),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      _formatMontant(article['pu']),
+                      style: const TextStyle(fontSize: 11),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      _formatMontant(article['montant']),
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                      textAlign: TextAlign.right,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.black87),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatMontant(double montant) {
+    return _numberFormat.format(montant.round());
   }
 }

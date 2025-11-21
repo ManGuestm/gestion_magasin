@@ -1166,29 +1166,38 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Récupère les différences de prix de vente par rapport aux prix standards
-  Future<List<Map<String, dynamic>>> getDifferencesPrixVente(DateTime? dateDebut, DateTime? dateFin) async {
+  Future<List<Map<String, dynamic>>> getDifferencesPrixVente(DateTime? dateDebut, DateTime? dateFin,
+      [String? blNumero]) async {
     String whereClause = "WHERE v.verification = 'JOURNAL'";
     List<Variable> variables = [];
-    
+
     if (dateDebut != null) {
       whereClause += " AND v.daty >= ?";
       variables.add(Variable.withDateTime(dateDebut));
     }
-    
+
     if (dateFin != null) {
       whereClause += " AND v.daty <= ?";
       variables.add(Variable.withDateTime(dateFin));
     }
-    
+
+    if (blNumero != null && blNumero.isNotEmpty) {
+      whereClause += " AND v.nfact LIKE ?";
+      variables.add(Variable('%$blNumero%'));
+    }
+
     final result = await customSelect(
       '''
       SELECT 
         v.daty as date_vente,
         v.numventes as numero_vente,
+        v.nfact as bl_numero,
         dv.designation as nom_article,
+        dv.q as quantite,
         a.pvu1 as prix_standard,
         dv.pu as prix_vendu,
-        v.clt as nom_client
+        v.clt as nom_client,
+        v.commerc as commerciale
       FROM detventes dv
       INNER JOIN ventes v ON dv.numventes = v.numventes
       INNER JOIN articles a ON dv.designation = a.designation
@@ -1198,14 +1207,19 @@ class AppDatabase extends _$AppDatabase {
       variables: variables,
     ).get();
 
-    return result.map((row) => {
-      'date_vente': row.readNullable<String>('date_vente'),
-      'numero_vente': row.readNullable<String>('numero_vente'),
-      'nom_article': row.readNullable<String>('nom_article'),
-      'prix_standard': row.readNullable<double>('prix_standard') ?? 0.0,
-      'prix_vendu': row.readNullable<double>('prix_vendu') ?? 0.0,
-      'nom_client': row.readNullable<String>('nom_client'),
-    }).toList();
+    return result
+        .map((row) => {
+              'date_vente': row.readNullable<String>('date_vente'),
+              'numero_vente': row.readNullable<String>('numero_vente'),
+              'bl_numero': row.readNullable<String>('bl_numero'),
+              'nom_article': row.readNullable<String>('nom_article'),
+              'quantite': row.readNullable<double>('quantite') ?? 0.0,
+              'prix_standard': row.readNullable<double>('prix_standard') ?? 0.0,
+              'prix_vendu': row.readNullable<double>('prix_vendu') ?? 0.0,
+              'nom_client': row.readNullable<String>('nom_client'),
+              'commerciale': row.readNullable<String>('commerciale'),
+            })
+        .toList();
   }
 
   /// Insère un nouveau dépôt
@@ -2102,23 +2116,27 @@ class AppDatabase extends _$AppDatabase {
   /// Récupère les détails d'une vente
   Future<List<Map<String, dynamic>>> getVenteDetails(String numVentes) async {
     final details = await (select(detventes)..where((d) => d.numventes.equals(numVentes))).get();
-    return details.map((d) => {
-      'designation': d.designation,
-      'unites': d.unites,
-      'q': d.q,
-      'pu': d.pu,
-    }).toList();
+    return details
+        .map((d) => {
+              'designation': d.designation,
+              'unites': d.unites,
+              'q': d.q,
+              'pu': d.pu,
+            })
+        .toList();
   }
 
   /// Récupère les détails d'un achat
   Future<List<Map<String, dynamic>>> getAchatDetails(String numAchats) async {
     final details = await (select(detachats)..where((d) => d.numachats.equals(numAchats))).get();
-    return details.map((d) => {
-      'designation': d.designation,
-      'unites': d.unites,
-      'q': d.q,
-      'pu': d.pu,
-    }).toList();
+    return details
+        .map((d) => {
+              'designation': d.designation,
+              'unites': d.unites,
+              'q': d.q,
+              'pu': d.pu,
+            })
+        .toList();
   }
 
   // ========== MÉTHODES RÉGULARISATION ==========
