@@ -319,19 +319,17 @@ class _AchatsModalState extends State<AchatsModal> {
 
   void _onArticleSelected(Article? article) async {
     if (article == null) return;
-    
-    final lastDepot = await _getLastUsedDepot();
-    
+
     setState(() {
       _selectedArticle = article;
       // Unité u1 par défaut
       _selectedUnite = article.u1;
-      // Dernier dépôt utilisé
-      _selectedDepot = lastDepot;
+      // Dépôt de l'article par défaut
+      _selectedDepot = article.dep ?? 'MAG';
 
       // Remplir automatiquement les champs
       _uniteController.text = article.u1 ?? '';
-      _depotController.text = lastDepot;
+      _depotController.text = article.dep ?? 'MAG';
 
       // Prix selon CMUP (0 si CMUP = 0)
       if ((article.cmup ?? 0.0) == 0.0) {
@@ -1418,6 +1416,20 @@ class _AchatsModalState extends State<AchatsModal> {
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyJ) {
         _echeanceJoursFocusNode.requestFocus();
       }
+      // Ctrl+B : Aller au premier achat Brouillard
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyB) {
+        final brouillardAchats = _getBrouillardAchats();
+        if (brouillardAchats.isNotEmpty) {
+          _chargerAchatExistant(brouillardAchats.first);
+        }
+      }
+      // Ctrl+L : Aller au premier achat Journal
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyL) {
+        final journalAchats = _getJournalAchats();
+        if (journalAchats.isNotEmpty) {
+          _chargerAchatExistant(journalAchats.first);
+        }
+      }
       // F1 : Achat précédent
       else if (event.logicalKey == LogicalKeyboardKey.f1) {
         if (_achatsNumbers.isNotEmpty) _naviguerAchat(false);
@@ -1517,7 +1529,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                       children: [
                                         Icon(Icons.edit_note, size: 14, color: Colors.orange.shade700),
                                         const SizedBox(width: 4),
-                                        Text('Brouillard',
+                                        Text('Brouillard (Ctrl + B)',
                                             style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.bold,
@@ -1561,7 +1573,7 @@ class _AchatsModalState extends State<AchatsModal> {
                                       children: [
                                         Icon(Icons.check_circle, size: 14, color: Colors.green.shade700),
                                         const SizedBox(width: 4),
-                                        Text('Journal',
+                                        Text('Journal (Ctrl + L)',
                                             style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.bold,
@@ -2111,7 +2123,11 @@ class _AchatsModalState extends State<AchatsModal> {
                                         onKeyEvent: (node, event) {
                                           if (event is KeyDownEvent &&
                                               event.logicalKey == LogicalKeyboardKey.tab) {
-                                            _depotFocusNode.requestFocus();
+                                            if (_isArticleFormValid() && _statutAchatActuel != 'JOURNAL') {
+                                              _validerFocusNode.requestFocus();
+                                            } else {
+                                              _nFactFocusNode.requestFocus();
+                                            }
                                             return KeyEventResult.handled;
                                           }
                                           return KeyEventResult.ignored;
