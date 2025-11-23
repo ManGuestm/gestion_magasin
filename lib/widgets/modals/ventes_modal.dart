@@ -165,20 +165,19 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
   Future<List<Map<String, dynamic>>> _getVentesAvecStatut() async {
     try {
-      var query = _databaseService.database.select(_databaseService.database.ventes)
+      // Récupérer les ventes journalées
+      var queryVentes = _databaseService.database.select(_databaseService.database.ventes)
         ..orderBy([(v) => drift.OrderingTerm.desc(v.daty)]);
 
-      // Si vendeur, filtrer par commercial et statut brouillard uniquement
       if (_isVendeur()) {
         final authService = AuthService();
         final currentUser = authService.currentUser?.nom ?? '';
-        query = query..where((v) => v.commerc.equals(currentUser) & v.verification.equals('BROUILLARD'));
+        queryVentes = queryVentes..where((v) => v.commerc.equals(currentUser));
       }
 
-      final ventes = await query.get();
-      final prefix = widget.tousDepots ? 'DEP' : 'MAG';
+      final ventesJournal = await queryVentes.get();
 
-      return ventes
+      List<Map<String, dynamic>> result = ventesJournal
           .map((v) => {
                 'numventes': v.numventes ?? '',
                 'verification': v.verification ?? 'JOURNAL',
@@ -186,8 +185,28 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                 'contre': v.contre ?? '',
                 'nfact': v.nfact ?? '',
               })
-          .where((v) => (v['numventes'] as String).isNotEmpty && (v['nfact'] as String).startsWith(prefix))
+          .where((v) => (v['numventes'] as String).isNotEmpty)
           .toList();
+
+      // Récupérer les ventes brouillard (depuis detventes)
+      final ventesBrouillard = await (_databaseService.database.select(_databaseService.database.detventes)
+            ..where((d) => d.designation.equals('__VENTE_METADATA__'))
+            ..orderBy([(d) => drift.OrderingTerm.desc(d.daty)]))
+          .get();
+
+      for (final brouillard in ventesBrouillard) {
+        if (brouillard.numventes != null) {
+          result.add({
+            'numventes': brouillard.numventes!,
+            'verification': 'BROUILLARD',
+            'daty': brouillard.daty,
+            'contre': '',
+            'nfact': '', // Pas de facture en brouillard
+          });
+        }
+      }
+
+      return result;
     } catch (e) {
       return [];
     }
@@ -217,7 +236,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         if (mounted) {
           _scaffoldMessengerKey.currentState?.showSnackBar(
             const SnackBar(
-              content: SelectableText('Impossible de valider: certains articles ont un stock insuffisant dans le dépôt MAG'),
+              content: SelectableText(
+                  'Impossible de valider: certains articles ont un stock insuffisant dans le dépôt MAG'),
               backgroundColor: Colors.red,
               duration: Duration(seconds: 5),
             ),
@@ -254,7 +274,21 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     if (confirm != true) return;
 
     try {
-      await _venteService.validerVenteBrouillard(_numVentesController.text);
+      // Passer les informations complètes pour la validation
+      await _venteService.validerVenteBrouillardAvecInfos(
+        numVentes: _numVentesController.text,
+        nFacture: _nFactureController.text,
+        client: _selectedClient,
+        modePaiement: _selectedModePaiement,
+        totalHT: double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0,
+        totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
+        tva: double.tryParse(_tvaController.text) ?? 0,
+        avance: double.tryParse(_avanceController.text) ?? 0,
+        remise: double.tryParse(_remiseController.text) ?? 0,
+        commission: double.tryParse(_commissionController.text) ?? 0,
+        montantRecu: double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0,
+        monnaieARendre: double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -298,24 +332,22 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
 
     try {
+      // Vérifier d'abord si c'est une vente journalée
       final vente = await (_databaseService.database.select(_databaseService.database.ventes)
             ..where((v) => v.numventes.equals(numVentes)))
           .getSingleOrNull();
 
-      setState(() {
-        _isExistingPurchase = vente != null;
-      });
-
       if (vente != null) {
+        // Vente journalée
         final details = await (_databaseService.database.select(_databaseService.database.detventes)
               ..where((d) => d.numventes.equals(numVentes)))
             .get();
 
         setState(() {
-          // Déterminer le statut de la vente
-          final verification = vente.verification ?? 'JOURNAL';
-          _selectedVerification = verification;
-          _statutVenteActuelle = verification == 'BROUILLARD' ? StatutVente.brouillard : StatutVente.journal;
+          _isExistingPurchase = true;
+          _selectedVerification = vente.verification ?? 'JOURNAL';
+          _statutVenteActuelle =
+              vente.verification == 'BROUILLARD' ? StatutVente.brouillard : StatutVente.journal;
 
           _nFactureController.text = vente.nfact ?? '';
           if (vente.daty != null) {
@@ -327,7 +359,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           _selectedModePaiement = vente.modepai ?? 'A crédit';
           _heureController.text = vente.heure ?? '';
 
-          // Déterminer l'affichage du mode crédit selon le client
           if (vente.clt != null && vente.clt!.isNotEmpty) {
             final client = _clients.where((c) => c.rsoc == vente.clt).firstOrNull;
             if (client != null) {
@@ -356,19 +387,64 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             });
           }
         });
+      } else {
+        // Vérifier si c'est une vente brouillard
+        final metadata = await (_databaseService.database.select(_databaseService.database.detventes)
+              ..where((d) => d.numventes.equals(numVentes) & d.designation.equals('__VENTE_METADATA__')))
+            .getSingleOrNull();
 
-        _calculerTotaux();
+        if (metadata != null) {
+          // Vente brouillard
+          final details = await (_databaseService.database.select(_databaseService.database.detventes)
+                ..where(
+                    (d) => d.numventes.equals(numVentes) & d.designation.isNotValue('__VENTE_METADATA__')))
+              .get();
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: SelectableText('Vente N° $numVentes chargée')),
-          );
+          setState(() {
+            _isExistingPurchase = true;
+            _selectedVerification = 'BROUILLARD';
+            _statutVenteActuelle = StatutVente.brouillard;
 
-          // Positionner le curseur dans le champ Désignation Articles
-          Future.delayed(const Duration(milliseconds: 100), () {
-            _designationFocusNode.requestFocus();
+            // Récupérer les infos depuis les métadonnées
+            if (metadata.daty != null) {
+              _dateController.text =
+                  '${metadata.daty!.day.toString().padLeft(2, '0')}/${metadata.daty!.month.toString().padLeft(2, '0')}/${metadata.daty!.year}';
+            }
+            _totalHTController.text = _formatNumber(metadata.pu ?? 0); // totalHT dans pu
+            _totalTTCController.text = _formatNumber(metadata.q ?? 0); // totalTTC dans q
+            _tvaController.text = (metadata.diffPrix ?? 0).toString(); // tva dans diffPrix
+
+            _lignesVente.clear();
+            for (var detail in details) {
+              _lignesVente.add({
+                'designation': detail.designation ?? '',
+                'unites': detail.unites ?? '',
+                'quantite': detail.q ?? 0.0,
+                'prixUnitaire': detail.pu ?? 0.0,
+                'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
+                'depot': detail.depots ?? '',
+                'diffPrix': detail.diffPrix ?? 0.0,
+              });
+            }
           });
+        } else {
+          setState(() {
+            _isExistingPurchase = false;
+          });
+          return;
         }
+      }
+
+      _calculerTotaux();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: SelectableText('Vente N° $numVentes chargée')),
+        );
+
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _designationFocusNode.requestFocus();
+        });
       }
     } catch (e) {
       setState(() {
@@ -400,11 +476,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   bool _isVendeur() {
     final authService = AuthService();
     return authService.currentUserRole == 'Vendeur';
-  }
-
-  bool _isAdmin() {
-    final authService = AuthService();
-    return authService.currentUserRole == 'Administrateur';
   }
 
   bool _shouldShowCreditMode(CltData? client) {
@@ -1292,7 +1363,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Stock insuffisant pour ${ligne['designation']} dans le dépôt MAG. Validation impossible.'),
+                  content: Text(
+                      'Stock insuffisant pour ${ligne['designation']} dans le dépôt MAG. Validation impossible.'),
                   backgroundColor: Colors.red,
                 ),
               );
