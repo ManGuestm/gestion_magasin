@@ -109,8 +109,11 @@ mixin TabNavigationMixin<T extends StatefulWidget> on State<T> {
   @override
   void dispose() {
     for (final node in _focusNodes) {
-      node.dispose();
+      if (!node.debugDisposed) {
+        node.dispose();
+      }
     }
+    _focusNodes.clear();
     super.dispose();
   }
 }

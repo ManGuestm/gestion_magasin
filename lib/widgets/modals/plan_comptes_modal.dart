@@ -600,7 +600,7 @@ class _PlanComptesModalState extends State<PlanComptesModal> with TabNavigationM
   @override
   void dispose() {
     _searchController.dispose();
-    _searchFocusNode.dispose();
+    // Ne pas disposer _searchFocusNode ici car il est géré par TabNavigationMixin
     super.dispose();
   }
 }
