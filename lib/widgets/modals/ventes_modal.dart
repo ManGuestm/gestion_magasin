@@ -208,20 +208,24 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   Future<void> _validerBrouillardVersJournal() async {
     if (!_isExistingPurchase || _numVentesController.text.isEmpty) return;
 
-    // Vérifier s'il y a des articles avec stock insuffisant (sauf pour admin)
+    // Vérifier s'il y a des articles avec stock insuffisant selon le type de dépôt
     bool hasStockInsuffisant = await _verifierStockPourValidation();
 
-    if (hasStockInsuffisant && !_isAdmin()) {
-      if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(
-            content: SelectableText('Impossible de valider: certains articles ont un stock insuffisant'),
-            backgroundColor: Colors.red,
-            duration: Duration(seconds: 5),
-          ),
-        );
+    if (hasStockInsuffisant) {
+      if (!widget.tousDepots) {
+        // MAG uniquement: bloquer la validation si stock insuffisant
+        if (mounted) {
+          _scaffoldMessengerKey.currentState?.showSnackBar(
+            const SnackBar(
+              content: SelectableText('Impossible de valider: certains articles ont un stock insuffisant dans le dépôt MAG'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
       }
-      return;
+      // Pour tous dépôts: permettre la validation même avec stock insuffisant
     }
 
     final confirm = mounted
@@ -894,15 +898,19 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
             // Si la quantité vendue dépasse le stock disponible
             if (detail.q! > stockPourUnite) {
-              return true; // Stock insuffisant détecté
+              // Pour MAG uniquement: considérer comme problématique
+              if (!widget.tousDepots) {
+                return true; // Stock insuffisant détecté pour MAG
+              }
+              // Pour tous dépôts: autoriser même avec stock insuffisant
             }
           }
         }
       }
 
-      return false; // Tous les stocks sont suffisants
+      return false; // Tous les stocks sont suffisants ou autorisés
     } catch (e) {
-      return true; // En cas d'erreur, considérer comme stock insuffisant
+      return !widget.tousDepots; // En cas d'erreur, bloquer seulement pour MAG
     }
   }
 
@@ -983,10 +991,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? 'Pce');
     String depot = _selectedDepot ?? _defaultDepot;
 
-    // Vérifier stock insuffisant
+    // Vérifier stock insuffisant selon le type de dépôt
     if (quantite > _stockDisponible) {
       if (widget.tousDepots) {
-        // Tous dépôts: afficher modal avec option continuer
+        // Tous dépôts: autoriser la vente avec stock insuffisant (Brouillard et Journal)
         final continuer = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
@@ -1008,13 +1016,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         );
         if (continuer != true) return;
       } else {
-        // MAG uniquement: vente impossible
+        // MAG uniquement: restreindre la vente avec stock insuffisant
         await showDialog(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Vente impossible'),
             content: Text(
-                'Stock insuffisant\n\nStock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite'),
+                'Stock insuffisant dans le dépôt MAG\n\nStock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\nLa vente avec stock insuffisant n\'est autorisée que pour "Tous dépôts".'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
@@ -1268,7 +1276,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       return;
     }
 
-    // Vérifier les stocks avant validation seulement pour mode JOURNAL
+    // Vérifier les stocks avant validation selon le type de dépôt
     if (_selectedVerification == 'JOURNAL') {
       for (final ligne in _lignesVente) {
         final stockDisponible = await _venteService.verifierDisponibiliteStock(
@@ -1279,16 +1287,19 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         );
 
         if (!stockDisponible) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content:
-                    Text('Stock insuffisant pour ${ligne['designation']} dans le dépôt ${ligne['depot']}'),
-                backgroundColor: Colors.red,
-              ),
-            );
+          // Pour MAG uniquement: bloquer la validation si stock insuffisant
+          if (!widget.tousDepots) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Stock insuffisant pour ${ligne['designation']} dans le dépôt MAG. Validation impossible.'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
           }
-          return;
+          // Pour tous dépôts: permettre la validation même avec stock insuffisant
         }
       }
     }
