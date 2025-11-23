@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../database/database_service.dart';
 import '../common/enhanced_autocomplete.dart';
+import '../common/tab_navigation_widget.dart';
 
 class DecaissementModal extends StatefulWidget {
   const DecaissementModal({super.key});
@@ -12,7 +13,7 @@ class DecaissementModal extends StatefulWidget {
   State<DecaissementModal> createState() => _DecaissementModalState();
 }
 
-class _DecaissementModalState extends State<DecaissementModal> {
+class _DecaissementModalState extends State<DecaissementModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
 
   final TextEditingController _amountController = TextEditingController();
@@ -129,96 +130,100 @@ class _DecaissementModalState extends State<DecaissementModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      child: Container(
-        width: 400,
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.remove_circle, color: Colors.red[600], size: 24),
-                const SizedBox(width: 8),
-                const Text(
-                  'DÉCAISSEMENT',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            TextFormField(
-              controller: _amountController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-              decoration: const InputDecoration(
-                labelText: 'Montant',
-                prefixIcon: Icon(Icons.euro),
-                border: OutlineInputBorder(),
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
+        child: Container(
+          width: 400,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.remove_circle, color: Colors.red[600], size: 24),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'DÉCAISSEMENT',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            EnhancedAutocomplete<String>(
-              controller: _paymentMethodController,
-              options: _paymentMethods,
-              displayStringForOption: (method) => method,
-              onSelected: (method) => setState(() => _paymentMethod = method),
-              decoration: const InputDecoration(
-                labelText: 'Mode de paiement',
-                prefixIcon: Icon(Icons.credit_card),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            InkWell(
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _date,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime.now().add(const Duration(days: 365)),
-                );
-                if (date != null) setState(() => _date = date);
-              },
-              child: InputDecorator(
+              const SizedBox(height: 24),
+              TextFormField(
+                controller: _amountController,
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                 decoration: const InputDecoration(
-                  labelText: 'Date',
-                  prefixIcon: Icon(Icons.calendar_today),
+                  labelText: 'Montant',
+                  prefixIcon: Icon(Icons.euro),
                   border: OutlineInputBorder(),
                 ),
-                child: Text(DateFormat('dd/MM/yyyy').format(_date)),
               ),
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _libelleController,
-              decoration: const InputDecoration(
-                labelText: 'Libellé',
-                prefixIcon: Icon(Icons.description),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _processDecaissement,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red[600],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+              const SizedBox(height: 16),
+              EnhancedAutocomplete<String>(
+                controller: _paymentMethodController,
+                options: _paymentMethods,
+                displayStringForOption: (method) => method,
+                onSelected: (method) => setState(() => _paymentMethod = method),
+                decoration: const InputDecoration(
+                  labelText: 'Mode de paiement',
+                  prefixIcon: Icon(Icons.credit_card),
+                  border: OutlineInputBorder(),
                 ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('ENREGISTRER'),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              InkWell(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: _date,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                  );
+                  if (date != null) setState(() => _date = date);
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Date',
+                    prefixIcon: Icon(Icons.calendar_today),
+                    border: OutlineInputBorder(),
+                  ),
+                  child: Text(DateFormat('dd/MM/yyyy').format(_date)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _libelleController,
+                decoration: const InputDecoration(
+                  labelText: 'Libellé',
+                  prefixIcon: Icon(Icons.description),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _processDecaissement,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[600],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('ENREGISTRER'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

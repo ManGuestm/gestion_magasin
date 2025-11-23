@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class AddPlanCompteModal extends StatefulWidget {
   final CaData? compte;
@@ -13,7 +14,7 @@ class AddPlanCompteModal extends StatefulWidget {
   State<AddPlanCompteModal> createState() => _AddPlanCompteModalState();
 }
 
-class _AddPlanCompteModalState extends State<AddPlanCompteModal> {
+class _AddPlanCompteModalState extends State<AddPlanCompteModal> with TabNavigationMixin {
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _intituleController = TextEditingController();
@@ -33,7 +34,10 @@ class _AddPlanCompteModalState extends State<AddPlanCompteModal> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: PopScope(
       canPop: false,
       child: Dialog(
         backgroundColor: Colors.grey[100],
@@ -54,7 +58,7 @@ class _AddPlanCompteModalState extends State<AddPlanCompteModal> {
           ),
         ),
       ),
-    );
+    ),);
   }
 
   Widget _buildHeader() {

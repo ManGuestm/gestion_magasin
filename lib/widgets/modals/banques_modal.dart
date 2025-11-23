@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import 'add_banque_modal.dart';
+import '../common/tab_navigation_widget.dart';
 
 class BanquesModal extends StatefulWidget {
   const BanquesModal({super.key});
@@ -11,7 +12,7 @@ class BanquesModal extends StatefulWidget {
   State<BanquesModal> createState() => _BanquesModalState();
 }
 
-class _BanquesModalState extends State<BanquesModal> {
+class _BanquesModalState extends State<BanquesModal> with TabNavigationMixin {
   List<BqData> _banques = [];
   List<BqData> _filteredBanques = [];
   final TextEditingController _searchController = TextEditingController();
@@ -26,7 +27,10 @@ class _BanquesModalState extends State<BanquesModal> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: PopScope(
       canPop: false,
       child: Dialog(
         backgroundColor: Colors.grey[100],
@@ -50,7 +54,7 @@ class _BanquesModalState extends State<BanquesModal> {
           ),
         ),
       ),
-    );
+    ),);
   }
 
   Widget _buildHeader() {

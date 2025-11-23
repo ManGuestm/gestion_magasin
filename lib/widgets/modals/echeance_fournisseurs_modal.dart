@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../database/database.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EchanceFournisseursModal extends StatefulWidget {
   const EchanceFournisseursModal({super.key});
@@ -10,7 +11,7 @@ class EchanceFournisseursModal extends StatefulWidget {
   State<EchanceFournisseursModal> createState() => _EchanceFournisseursModalState();
 }
 
-class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> {
+class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> with TabNavigationMixin {
   List<Achat> _achats = [];
   List<Achat> _filteredAchats = [];
   String? _selectedFournisseur;
@@ -60,21 +61,25 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: 1200,
-        height: 600,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey, width: 1),
-          color: Colors.white,
-        ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildTable(),
-            _buildFooter(),
-          ],
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: 1200,
+          height: 600,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey, width: 1),
+            color: Colors.white,
+          ),
+          child: Column(
+            children: [
+              _buildHeader(),
+              _buildTable(),
+              _buildFooter(),
+            ],
+          ),
         ),
       ),
     );
@@ -360,10 +365,5 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 }

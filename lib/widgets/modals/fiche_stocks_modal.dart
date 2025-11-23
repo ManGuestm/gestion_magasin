@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../database/database.dart';
+import '../common/tab_navigation_widget.dart';
 
 class FicheStocksModal extends StatefulWidget {
   const FicheStocksModal({super.key});
@@ -9,7 +10,7 @@ class FicheStocksModal extends StatefulWidget {
   State<FicheStocksModal> createState() => _FicheStocksModalState();
 }
 
-class _FicheStocksModalState extends State<FicheStocksModal> {
+class _FicheStocksModalState extends State<FicheStocksModal> with TabNavigationMixin {
   List<Stock> _mouvements = [];
   List<Article> _articles = [];
   String? _selectedArticle;

@@ -12,6 +12,7 @@ import '../../services/vente_service.dart';
 import '../../utils/stock_converter.dart';
 import '../../widgets/common/enhanced_autocomplete.dart';
 import '../../widgets/common/mode_paiement_dropdown.dart';
+import '../common/tab_navigation_widget.dart';
 import 'add_client_modal.dart';
 import 'bon_livraison_preview.dart';
 import 'facture_preview.dart';
@@ -25,7 +26,7 @@ class VentesModal extends StatefulWidget {
   State<VentesModal> createState() => _VentesModalState();
 }
 
-class _VentesModalState extends State<VentesModal> {
+class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   final VenteService _venteService = VenteService();
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
@@ -82,7 +83,7 @@ class _VentesModalState extends State<VentesModal> {
   // Stock management
   double _stockDisponible = 0.0;
   bool _stockInsuffisant = false;
-  String _stockAffichage = '';
+  String _uniteAffichage = '';
 
   // Client balance
   double _soldeAnterieur = 0.0;
@@ -97,19 +98,30 @@ class _VentesModalState extends State<VentesModal> {
   StatutVente? _statutVenteActuelle;
 
   // Focus nodes for tab navigation
-  final FocusNode _clientFocusNode = FocusNode();
-  final FocusNode _designationFocusNode = FocusNode();
-  final FocusNode _uniteFocusNode = FocusNode();
-  final FocusNode _quantiteFocusNode = FocusNode();
-  final FocusNode _prixFocusNode = FocusNode();
-  final FocusNode _depotFocusNode = FocusNode();
-  final FocusNode _ajouterFocusNode = FocusNode();
-  final FocusNode _annulerFocusNode = FocusNode();
+  late final FocusNode _clientFocusNode;
+  late final FocusNode _designationFocusNode;
+  late final FocusNode _uniteFocusNode;
+  late final FocusNode _quantiteFocusNode;
+  late final FocusNode _prixFocusNode;
+  late final FocusNode _depotFocusNode;
+  late final FocusNode _ajouterFocusNode;
+  late final FocusNode _annulerFocusNode;
   final FocusNode _keyboardFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize focus nodes with tab navigation
+    _clientFocusNode = createFocusNode();
+    _designationFocusNode = createFocusNode();
+    _uniteFocusNode = createFocusNode();
+    _quantiteFocusNode = createFocusNode();
+    _prixFocusNode = createFocusNode();
+    _depotFocusNode = createFocusNode();
+    _ajouterFocusNode = createFocusNode();
+    _annulerFocusNode = createFocusNode();
+
     _loadData();
     _loadVentesNumbers().then((_) => _initializeForm());
     _loadDefaultDepot();
@@ -164,6 +176,7 @@ class _VentesModalState extends State<VentesModal> {
       }
 
       final ventes = await query.get();
+      final prefix = widget.tousDepots ? 'DEP' : 'MAG';
 
       return ventes
           .map((v) => {
@@ -171,8 +184,9 @@ class _VentesModalState extends State<VentesModal> {
                 'verification': v.verification ?? 'JOURNAL',
                 'daty': v.daty,
                 'contre': v.contre ?? '',
+                'nfact': v.nfact ?? '',
               })
-          .where((v) => (v['numventes'] as String).isNotEmpty)
+          .where((v) => (v['numventes'] as String).isNotEmpty && (v['nfact'] as String).startsWith(prefix))
           .toList();
     } catch (e) {
       return [];
@@ -424,14 +438,6 @@ class _VentesModalState extends State<VentesModal> {
     _searchVentesController.dispose();
     _searchArticleController.dispose();
     _soldeAnterieurController.dispose();
-    _clientFocusNode.dispose();
-    _designationFocusNode.dispose();
-    _uniteFocusNode.dispose();
-    _quantiteFocusNode.dispose();
-    _prixFocusNode.dispose();
-    _depotFocusNode.dispose();
-    _ajouterFocusNode.dispose();
-    _annulerFocusNode.dispose();
     _keyboardFocusNode.dispose();
     super.dispose();
   }
@@ -531,7 +537,7 @@ class _VentesModalState extends State<VentesModal> {
       if (article != null) {
         _quantiteController.text = '';
         _montantController.text = '';
-        _stockAffichage = ''; // Reset stock display
+        _uniteAffichage = _formaterUniteAffichage(article);
       }
     });
 
@@ -596,6 +602,52 @@ class _VentesModalState extends State<VentesModal> {
         : units;
   }
 
+  Future<void> _verifierUniteArticle(String unite) async {
+    if (_selectedArticle == null || unite.trim().isEmpty) return;
+
+    // Vérifier si l'unité est valide pour cet article
+    final unitesValides = [_selectedArticle!.u1, _selectedArticle!.u2, _selectedArticle!.u3]
+        .where((u) => u != null && u.isNotEmpty)
+        .toList();
+
+    if (!unitesValides.contains(unite.trim())) {
+      // Afficher modal d'erreur
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Unité invalide'),
+            content: Text(
+                'L\'unité "${unite.trim()}" n\'est pas valide pour l\'article "${_selectedArticle!.designation}".\n\nUnités autorisées: ${unitesValides.join(", ")}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                autofocus: true,
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Remettre l'unité par défaut et réinitialiser le champ
+      setState(() {
+        _selectedUnite = _selectedArticle!.u1;
+      });
+
+      // Réinitialiser le champ unité et repositionner le curseur
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _uniteFocusNode.requestFocus();
+        }
+      });
+      return;
+    }
+
+    _onUniteChanged(unite.trim());
+  }
+
   void _onUniteChanged(String? unite) async {
     if (_selectedArticle == null || unite == null) return;
 
@@ -642,12 +694,6 @@ class _VentesModalState extends State<VentesModal> {
       setState(() {
         _stockDisponible = stockPourUniteSelectionnee;
         _stockInsuffisant = stockTotalU3 <= 0;
-        _stockAffichage = StockConverter.formaterAffichageStock(
-          article: article,
-          stockU1: stockDepart?.stocksu1 ?? 0.0,
-          stockU2: stockDepart?.stocksu2 ?? 0.0,
-          stockU3: stockDepart?.stocksu3 ?? 0.0,
-        );
 
         // Recalculer le prix pour l'unité sélectionnée seulement si le champ prix est vide
         if (_prixController.text.isEmpty) {
@@ -670,7 +716,6 @@ class _VentesModalState extends State<VentesModal> {
       setState(() {
         _stockDisponible = 0.0;
         _stockInsuffisant = true;
-        _stockAffichage = '0 Ctn / 0 Pqt';
       });
     }
   }
@@ -699,18 +744,11 @@ class _VentesModalState extends State<VentesModal> {
       setState(() {
         _stockDisponible = stockPourUniteSelectionnee;
         _stockInsuffisant = stockTotalU3 <= 0;
-        _stockAffichage = StockConverter.formaterAffichageStock(
-          article: article,
-          stockU1: stockDepart?.stocksu1 ?? 0.0,
-          stockU2: stockDepart?.stocksu2 ?? 0.0,
-          stockU3: stockDepart?.stocksu3 ?? 0.0,
-        );
       });
     } catch (e) {
       setState(() {
         _stockDisponible = 0.0;
         _stockInsuffisant = true;
-        _stockAffichage = '0 Ctn / 0 Pqt';
       });
     }
   }
@@ -872,35 +910,26 @@ class _VentesModalState extends State<VentesModal> {
     if (_selectedArticle == null) return;
 
     double quantite = double.tryParse(value) ?? 0.0;
-    // String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? '');
 
     // Si stock insuffisant et quantité > stock disponible, forcer le mode brouillard
     if (quantite > _stockDisponible && _stockDisponible <= 0) {
       setState(() {
         _statutVente = StatutVente.brouillard;
       });
-
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   const SnackBar(
-      //     content: Text('Stock insuffisant - Vente possible en brouillard uniquement'),
-      //     backgroundColor: Colors.orange,
-      //   ),
-      // );
     } else if (quantite > _stockDisponible && _stockDisponible > 0) {
       setState(() {
         _quantiteController.text = _stockDisponible.toStringAsFixed(0);
       });
-
-      // ScaffoldMessenger.of(context).showSnackBar(
-      //   SnackBar(
-      //     content: Text('Quantité maximale disponible: ${_stockDisponible.toStringAsFixed(0)} $unite'),
-      //     backgroundColor: Colors.orange,
-      //   ),
-      // );
     }
 
     _calculerMontant();
     setState(() {}); // Trigger rebuild to show/hide add button
+  }
+
+  bool _isQuantiteInsuffisante() {
+    if (_selectedArticle == null) return false;
+    double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
+    return quantite > _stockDisponible;
   }
 
   String _formatNumber(double number) {
@@ -913,6 +942,14 @@ class _VentesModalState extends State<VentesModal> {
       formatted += integerPart[i];
     }
     return formatted;
+  }
+
+  String _formaterUniteAffichage(Article article) {
+    final unites = <String>[];
+    if (article.u1?.isNotEmpty == true) unites.add(article.u1!);
+    if (article.u2?.isNotEmpty == true) unites.add(article.u2!);
+    if (article.u3?.isNotEmpty == true) unites.add(article.u3!);
+    return unites.join(' / ');
   }
 
   String _calculateRemiseAmount() {
@@ -943,9 +980,55 @@ class _VentesModalState extends State<VentesModal> {
 
     double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
     double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
-    double montant = quantite * prix;
     String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? 'Pce');
     String depot = _selectedDepot ?? _defaultDepot;
+
+    // Vérifier stock insuffisant
+    if (quantite > _stockDisponible) {
+      if (widget.tousDepots) {
+        // Tous dépôts: afficher modal avec option continuer
+        final continuer = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Stock insuffisant'),
+            content: Text(
+                'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\nVoulez-vous continuer quand même ?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Annuler'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                autofocus: true,
+                child: const Text('Continuer quand même'),
+              ),
+            ],
+          ),
+        );
+        if (continuer != true) return;
+      } else {
+        // MAG uniquement: vente impossible
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Vente impossible'),
+            content: Text(
+                'Stock insuffisant\n\nStock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                autofocus: true,
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
+    double montant = quantite * prix;
 
     // Si stock insuffisant, forcer le mode brouillard
     if (quantite > _stockDisponible) {
@@ -1011,17 +1094,10 @@ class _VentesModalState extends State<VentesModal> {
       _selectedArticle = article;
       _selectedUnite = ligne['unites'];
       _selectedDepot = ligne['depot'];
-
-      if (_autocompleteController != null) {
-        _autocompleteController!.text = ligne['designation'];
-      }
+      _depotController.text = ligne['depot'];
       _quantiteController.text = ligne['quantite'].toString();
       _prixController.text = _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
-    });
-
-    // Focus sur le champ quantité pour modification rapide
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _quantiteFocusNode.requestFocus();
+      _uniteAffichage = _formaterUniteAffichage(article!);
     });
 
     // Supprimer la ligne de la table pour éviter les doublons
@@ -1029,6 +1105,11 @@ class _VentesModalState extends State<VentesModal> {
 
     // Vérifier le stock pour l'article sélectionné
     _verifierStockEtBasculer(article);
+
+    // Focus sur le champ quantité pour modification rapide
+    Future.delayed(const Duration(milliseconds: 100), () {
+      _quantiteFocusNode.requestFocus();
+    });
   }
 
   Future<void> _chargerSoldeClient(String? client) async {
@@ -1119,7 +1200,7 @@ class _VentesModalState extends State<VentesModal> {
       _depotController.text = _defaultDepot; // Remplir avec le dernier dépôt utilisé
       _stockDisponible = 0.0;
       _stockInsuffisant = false;
-      _stockAffichage = '';
+      _uniteAffichage = '';
     });
 
     // Retourner le focus au champ désignation pour une nouvelle saisie
@@ -1137,6 +1218,46 @@ class _VentesModalState extends State<VentesModal> {
 
   bool _shouldShowAddButton() {
     return _selectedArticle != null && _quantiteController.text.isNotEmpty;
+  }
+
+  void _showContextMenu(BuildContext context, TapDownDetails details, int index) {
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        details.globalPosition.dx,
+        details.globalPosition.dy,
+        details.globalPosition.dx + 1,
+        details.globalPosition.dy + 1,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'modifier',
+          child: const Row(
+            children: [
+              Icon(Icons.edit, size: 16),
+              SizedBox(width: 8),
+              Text('Modifier'),
+            ],
+          ),
+        ),
+        PopupMenuItem(
+          value: 'supprimer',
+          child: const Row(
+            children: [
+              Icon(Icons.delete, size: 16, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Supprimer', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'modifier') {
+        _chargerLigneArticle(index);
+      } else if (value == 'supprimer') {
+        _supprimerLigne(index);
+      }
+    });
   }
 
   Future<void> _validerVente() async {
@@ -1816,6 +1937,12 @@ class _VentesModalState extends State<VentesModal> {
       else if (event.logicalKey == LogicalKeyboardKey.escape) {
         Navigator.of(context).pop();
       }
+
+      // Gestion de la navigation Tab/Shift+Tab
+      final tabResult = handleTabNavigation(event);
+      if (tabResult == KeyEventResult.handled) {
+        return;
+      }
     }
   }
 
@@ -1957,9 +2084,12 @@ class _VentesModalState extends State<VentesModal> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: KeyboardListener(
-        focusNode: _keyboardFocusNode,
-        onKeyEvent: _handleKeyboardShortcut,
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          _handleKeyboardShortcut(event);
+          return KeyEventResult.ignored;
+        },
         child: Dialog(
           constraints: BoxConstraints(
             minHeight: MediaQuery.of(context).size.height * 0.7,
@@ -2082,73 +2212,104 @@ class _VentesModalState extends State<VentesModal> {
                                       ),
                                     ],
                                   )
-                                : // Other users: Tabs
-                                DefaultTabController(
-                                    length: 2,
-                                    child: Column(
-                                      children: [
-                                        // Search field
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          child: TextField(
-                                            controller: _searchVentesController,
-                                            decoration: const InputDecoration(
-                                              hintText: 'Rechercher vente...',
-                                              border: OutlineInputBorder(),
-                                              contentPadding:
-                                                  EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              prefixIcon: Icon(Icons.search, size: 16),
+                                : // Other users: Column layout like achats_modal
+                                Column(
+                                    children: [
+                                      // Search field
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        child: TextField(
+                                          controller: _searchVentesController,
+                                          decoration: const InputDecoration(
+                                            hintText: 'Rechercher vente...',
+                                            border: OutlineInputBorder(),
+                                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            prefixIcon: Icon(Icons.search, size: 16),
+                                          ),
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                      // Two columns layout
+                                      Expanded(
+                                        child: Column(
+                                          children: [
+                                            // Brouillard column
+                                            Expanded(
+                                              child: Column(
+                                                children: [
+                                                  Container(
+                                                    height: 35,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                        bottom: BorderSide(color: Colors.grey, width: 1),
+                                                        right: BorderSide(color: Colors.grey, width: 1),
+                                                      ),
+                                                    ),
+                                                    child: const Center(
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          Icon(Icons.pending, size: 12, color: Colors.orange),
+                                                          SizedBox(width: 4),
+                                                          Text('Brouillard',
+                                                              style: TextStyle(
+                                                                  fontSize: 10,
+                                                                  fontWeight: FontWeight.w500,
+                                                                  color: Colors.orange)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: Container(
+                                                      decoration: const BoxDecoration(
+                                                        border: Border(
+                                                          right: BorderSide(color: Colors.grey, width: 1),
+                                                        ),
+                                                      ),
+                                                      child: _buildVentesListByStatus('BROUILLARD'),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                            style: const TextStyle(fontSize: 12),
-                                          ),
-                                        ),
-                                        // Tab bar
-                                        Container(
-                                          decoration: const BoxDecoration(
-                                            border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
-                                          ),
-                                          child: const TabBar(
-                                            labelColor: Colors.orange,
-                                            unselectedLabelColor: Colors.grey,
-                                            indicatorColor: Colors.orange,
-                                            labelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-                                            tabs: [
-                                              Tab(
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(Icons.pending, size: 12),
-                                                    SizedBox(width: 4),
-                                                    Text('Brouillard'),
-                                                  ],
-                                                ),
+                                            // Journal column
+                                            Expanded(
+                                              child: Column(
+                                                children: [
+                                                  Container(
+                                                    height: 35,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                        bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      ),
+                                                    ),
+                                                    child: const Center(
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          Icon(Icons.check_circle,
+                                                              size: 12, color: Colors.green),
+                                                          SizedBox(width: 4),
+                                                          Text('Journal',
+                                                              style: TextStyle(
+                                                                  fontSize: 10,
+                                                                  fontWeight: FontWeight.w500,
+                                                                  color: Colors.green)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: _buildVentesListByStatus('JOURNAL'),
+                                                  ),
+                                                ],
                                               ),
-                                              Tab(
-                                                child: Row(
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    Icon(Icons.check_circle, size: 12),
-                                                    SizedBox(width: 4),
-                                                    Text('Journal'),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
+                                            ),
+                                          ],
                                         ),
-                                        // Tab views
-                                        Expanded(
-                                          child: TabBarView(
-                                            children: [
-                                              // Brouillard tab
-                                              _buildVentesListByStatus('BROUILLARD'),
-                                              // Journal tab
-                                              _buildVentesListByStatus('JOURNAL'),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                           ),
 
@@ -2337,6 +2498,7 @@ class _VentesModalState extends State<VentesModal> {
                                                   // Navigate to next field on selection
                                                   _designationFocusNode.requestFocus();
                                                 },
+                                                // onTap: () => updateFocusIndex(_clientFocusNode),
                                                 controller: _clientController,
                                                 focusNode: _clientFocusNode,
                                                 hintText: 'Rechercher un client...',
@@ -2405,12 +2567,10 @@ class _VentesModalState extends State<VentesModal> {
                                               ),
                                             ),
                                             const SizedBox(height: 4),
-                                            if (_selectedArticle != null && _stockAffichage.isNotEmpty)
-                                              Text(
-                                                _stockAffichage,
-                                                style: const TextStyle(fontSize: 9, color: Colors.green),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
+                                            if (_selectedArticle != null)
+                                              const SizedBox(
+                                                height: 16,
+                                              )
                                           ],
                                         ),
                                       ),
@@ -2433,7 +2593,7 @@ class _VentesModalState extends State<VentesModal> {
                                                 displayStringForOption: (unit) => unit,
                                                 onSelected: (unit) {
                                                   if (_selectedArticle != null) {
-                                                    _onUniteChanged(unit);
+                                                    _verifierUniteArticle(unit);
                                                   }
                                                   _quantiteFocusNode.requestFocus();
                                                 },
@@ -2445,13 +2605,25 @@ class _VentesModalState extends State<VentesModal> {
                                                       EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                                 ),
                                                 style: const TextStyle(fontSize: 12),
-                                                onSubmitted: (_) => _quantiteFocusNode.requestFocus(),
+                                                onSubmitted: (value) {
+                                                  if (_selectedArticle != null && value.isNotEmpty) {
+                                                    _verifierUniteArticle(value);
+                                                  }
+                                                  _quantiteFocusNode.requestFocus();
+                                                },
+                                                onFocusLost: (value) {
+                                                  if (_selectedArticle != null && value.isNotEmpty) {
+                                                    _verifierUniteArticle(value);
+                                                  }
+                                                },
                                               ),
                                             ),
-                                            if (_selectedArticle != null)
-                                              const SizedBox(
-                                                height: 16,
-                                              )
+                                            if (_selectedArticle != null && _uniteAffichage.isNotEmpty)
+                                              Text(
+                                                _uniteAffichage,
+                                                style: const TextStyle(fontSize: 12, color: Colors.blue),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
                                           ],
                                         ),
                                       ),
@@ -2478,24 +2650,45 @@ class _VentesModalState extends State<VentesModal> {
                                                   controller: _quantiteController,
                                                   focusNode: _quantiteFocusNode,
                                                   decoration: InputDecoration(
-                                                    border: const OutlineInputBorder(),
+                                                    border: OutlineInputBorder(
+                                                      borderSide: BorderSide(
+                                                        color: _isQuantiteInsuffisante()
+                                                            ? Colors.red
+                                                            : Colors.grey,
+                                                        width: 1,
+                                                      ),
+                                                    ),
+                                                    enabledBorder: OutlineInputBorder(
+                                                      borderSide: BorderSide(
+                                                        color: _isQuantiteInsuffisante()
+                                                            ? Colors.red
+                                                            : Colors.grey,
+                                                        width: 1,
+                                                      ),
+                                                    ),
                                                     contentPadding: const EdgeInsets.symmetric(
                                                         horizontal: 4, vertical: 2),
-                                                    fillColor: _stockInsuffisant ? Colors.orange[100] : null,
-                                                    filled: _stockInsuffisant,
-                                                    focusedBorder: const OutlineInputBorder(
-                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                    focusedBorder: OutlineInputBorder(
+                                                      borderSide: BorderSide(
+                                                        color: _isQuantiteInsuffisante()
+                                                            ? Colors.red
+                                                            : Colors.blue,
+                                                        width: 2,
+                                                      ),
                                                     ),
                                                   ),
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    color: _stockInsuffisant ? Colors.orange[800] : null,
+                                                    color:
+                                                        _isQuantiteInsuffisante() ? Colors.red : Colors.black,
                                                   ),
-                                                  onChanged: _validerQuantite,
+                                                  onChanged: (value) {
+                                                    _validerQuantite(value);
+                                                    setState(() {}); // Refresh to update color
+                                                  },
                                                   // ENTER/TAB in Quantités goes to Prix
-                                                  onSubmitted: (value) => widget.tousDepots
-                                                      ? _prixFocusNode.requestFocus()
-                                                      : _prixFocusNode.requestFocus(),
+                                                  onSubmitted: (value) => _prixFocusNode.requestFocus(),
+                                                  onTap: () => updateFocusIndex(_quantiteFocusNode),
                                                   readOnly: _selectedVerification == 'JOURNAL',
                                                 ),
                                               ),
@@ -2786,9 +2979,10 @@ class _VentesModalState extends State<VentesModal> {
                                                   itemBuilder: (context, index) {
                                                     final ligne = _lignesVente[index];
                                                     return GestureDetector(
-                                                      onTap: _selectedVerification == 'JOURNAL'
+                                                      onSecondaryTapDown: _selectedVerification == 'JOURNAL'
                                                           ? null
-                                                          : () => _chargerLigneArticle(index),
+                                                          : (details) =>
+                                                              _showContextMenu(context, details, index),
                                                       child: Container(
                                                         height: 18,
                                                         decoration: BoxDecoration(

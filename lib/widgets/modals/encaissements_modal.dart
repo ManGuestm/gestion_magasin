@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EncaissementsModal extends StatefulWidget {
   const EncaissementsModal({super.key});
@@ -10,7 +11,7 @@ class EncaissementsModal extends StatefulWidget {
   State<EncaissementsModal> createState() => _EncaissementsModalState();
 }
 
-class _EncaissementsModalState extends State<EncaissementsModal> {
+class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<CaisseData> _encaissements = [];
   bool _isLoading = true;

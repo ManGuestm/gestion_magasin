@@ -5,6 +5,7 @@ import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class RetoursAchatsModal extends StatefulWidget {
   const RetoursAchatsModal({super.key});
@@ -13,7 +14,7 @@ class RetoursAchatsModal extends StatefulWidget {
   State<RetoursAchatsModal> createState() => _RetoursAchatsModalState();
 }
 
-class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTickerProviderStateMixin {
+class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTickerProviderStateMixin, TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   late TabController _tabController;
 
@@ -308,75 +309,79 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.95,
-        height: MediaQuery.of(context).size.height * 0.9,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          color: Colors.grey[100],
-          border: Border.all(color: Colors.blue, width: 2),
-        ),
-        child: Column(
-          children: [
-            // Title bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: const BoxDecoration(
-                color: Colors.blue,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(6),
-                  topRight: Radius.circular(6),
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.95,
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.grey[100],
+            border: Border.all(color: Colors.blue, width: 2),
+          ),
+          child: Column(
+            children: [
+              // Title bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: const BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(6),
+                    topRight: Radius.circular(6),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Text(
+                      'RETOUR SUR ACHATS',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white, size: 16),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                children: [
-                  const Text(
-                    'RETOUR SUR ACHATS',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white, size: 16),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
 
-            // Tab bar
-            Container(
-              color: Colors.blue.shade50,
-              child: TabBar(
-                controller: _tabController,
-                labelColor: Colors.blue,
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: Colors.blue,
-                tabs: const [
-                  Tab(text: 'Nouveau Retour'),
-                  Tab(text: 'Historique Retours'),
-                ],
+              // Tab bar
+              Container(
+                color: Colors.blue.shade50,
+                child: TabBar(
+                  controller: _tabController,
+                  labelColor: Colors.blue,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: Colors.blue,
+                  tabs: const [
+                    Tab(text: 'Nouveau Retour'),
+                    Tab(text: 'Historique Retours'),
+                  ],
+                ),
               ),
-            ),
 
-            // Tab content
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildNouveauRetourTab(),
-                  _buildHistoriqueTab(),
-                ],
+              // Tab content
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildNouveauRetourTab(),
+                    _buildHistoriqueTab(),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

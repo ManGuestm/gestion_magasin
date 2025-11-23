@@ -4,6 +4,7 @@ import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class ComptesFournisseursModal extends StatefulWidget {
   const ComptesFournisseursModal({super.key});
@@ -12,7 +13,7 @@ class ComptesFournisseursModal extends StatefulWidget {
   State<ComptesFournisseursModal> createState() => _ComptesFournisseursModalState();
 }
 
-class _ComptesFournisseursModalState extends State<ComptesFournisseursModal> {
+class _ComptesFournisseursModalState extends State<ComptesFournisseursModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
 
   List<Comptefrn> _comptes = [];
@@ -100,7 +101,10 @@ class _ComptesFournisseursModalState extends State<ComptesFournisseursModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
       backgroundColor: Colors.grey[100],
       child: Container(
         width: 1200,
@@ -382,7 +386,7 @@ class _ComptesFournisseursModalState extends State<ComptesFournisseursModal> {
           ],
         ),
       ),
-    );
+    ),);
   }
 
   Widget _buildSummaryCard(String title, double value, Color color) {

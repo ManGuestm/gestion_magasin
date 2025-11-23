@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class MargesModal extends StatefulWidget {
   const MargesModal({super.key});
@@ -10,7 +11,7 @@ class MargesModal extends StatefulWidget {
   State<MargesModal> createState() => _MargesModalState();
 }
 
-class _MargesModalState extends State<MargesModal> {
+class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<Vente> _ventes = [];
   List<Article> _articles = [];
@@ -85,179 +86,184 @@ class _MargesModalState extends State<MargesModal> {
     Map<String, double> marges =
         _selectedType == 'Par Articles' ? _calculerMargesParArticles() : _calculerMargesParClients();
 
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        height: MediaQuery.of(context).size.height * 0.9,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey[100],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Marges',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 20),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Text('Type d\'analyse: '),
-                  DropdownButton<String>(
-                    value: _selectedType,
-                    items: const [
-                      DropdownMenuItem(value: 'Par Articles', child: Text('Par Articles')),
-                      DropdownMenuItem(value: 'Par Clients', child: Text('Par Clients')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedType = value ?? 'Par Articles';
-                      });
-                    },
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Container(
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.grey[100],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Marges',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                       ),
-                      child: Column(
-                        children: [
-                          Container(
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.purple[100],
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(8),
-                                topRight: Radius.circular(8),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, size: 20),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Text('Type d\'analyse: '),
+                    DropdownButton<String>(
+                      value: _selectedType,
+                      items: const [
+                        DropdownMenuItem(value: 'Par Articles', child: Text('Par Articles')),
+                        DropdownMenuItem(value: 'Par Clients', child: Text('Par Clients')),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedType = value ?? 'Par Articles';
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : Container(
+                        margin: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              height: 40,
+                              decoration: BoxDecoration(
+                                color: Colors.purple[100],
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(8),
+                                  topRight: Radius.circular(8),
+                                ),
                               ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: Center(
-                                    child: Text(
-                                      _selectedType == 'Par Articles' ? 'Article' : 'Client',
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Center(
+                                      child: Text(
+                                        _selectedType == 'Par Articles' ? 'Article' : 'Client',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const Expanded(
-                                  child: Center(
-                                    child: Text('Marge %', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  const Expanded(
+                                    child: Center(
+                                      child: Text('Marge %', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
                                   ),
-                                ),
-                                const Expanded(
-                                  child: Center(
-                                    child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  const Expanded(
+                                    child: Center(
+                                      child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          Expanded(
-                            child: marges.isEmpty
-                                ? const Center(child: Text('Aucune donnée de marge disponible'))
-                                : ListView.builder(
-                                    itemCount: marges.length,
-                                    itemBuilder: (context, index) {
-                                      final entry = marges.entries.elementAt(index);
-                                      final nom = entry.key;
-                                      final marge = entry.value;
+                            Expanded(
+                              child: marges.isEmpty
+                                  ? const Center(child: Text('Aucune donnée de marge disponible'))
+                                  : ListView.builder(
+                                      itemCount: marges.length,
+                                      itemBuilder: (context, index) {
+                                        final entry = marges.entries.elementAt(index);
+                                        final nom = entry.key;
+                                        final marge = entry.value;
 
-                                      Color margeColor = Colors.red;
-                                      String statut = 'Faible';
-                                      if (marge > 30) {
-                                        margeColor = Colors.green;
-                                        statut = 'Excellente';
-                                      } else if (marge > 15) {
-                                        margeColor = Colors.orange;
-                                        statut = 'Bonne';
-                                      }
+                                        Color margeColor = Colors.red;
+                                        String statut = 'Faible';
+                                        if (marge > 30) {
+                                          margeColor = Colors.green;
+                                          statut = 'Excellente';
+                                        } else if (marge > 15) {
+                                          margeColor = Colors.orange;
+                                          statut = 'Bonne';
+                                        }
 
-                                      return Container(
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(
-                                              bottom: BorderSide(color: Colors.grey, width: 0.5)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              flex: 3,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                child: Text(
-                                                  nom,
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  '${marge.toStringAsFixed(1)}%',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: margeColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Container(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: margeColor,
-                                                    borderRadius: BorderRadius.circular(10),
-                                                  ),
+                                        return Container(
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                                            border: const Border(
+                                                bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                flex: 3,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
                                                   child: Text(
-                                                    statut,
-                                                    style: const TextStyle(fontSize: 9, color: Colors.white),
+                                                    nom,
+                                                    style: const TextStyle(fontSize: 11),
+                                                    overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    '${marge.toStringAsFixed(1)}%',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: margeColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: margeColor,
+                                                      borderRadius: BorderRadius.circular(10),
+                                                    ),
+                                                    child: Text(
+                                                      statut,
+                                                      style:
+                                                          const TextStyle(fontSize: 9, color: Colors.white),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );

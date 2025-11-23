@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../database/database.dart';
+import '../common/tab_navigation_widget.dart';
 
 class MouvementStocksJournalieresModal extends StatefulWidget {
   const MouvementStocksJournalieresModal({super.key});
@@ -9,7 +11,7 @@ class MouvementStocksJournalieresModal extends StatefulWidget {
   State<MouvementStocksJournalieresModal> createState() => _MouvementStocksJournalieresModalState();
 }
 
-class _MouvementStocksJournalieresModalState extends State<MouvementStocksJournalieresModal> {
+class _MouvementStocksJournalieresModalState extends State<MouvementStocksJournalieresModal> with TabNavigationMixin {
   List<Stock> _mouvements = [];
   bool _isLoading = false;
   DateTime _selectedDate = DateTime.now();
@@ -49,7 +51,10 @@ class _MouvementStocksJournalieresModalState extends State<MouvementStocksJourna
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
         width: 1200,
@@ -67,7 +72,7 @@ class _MouvementStocksJournalieresModalState extends State<MouvementStocksJourna
           ],
         ),
       ),
-    );
+    ),);
   }
 
   Widget _buildHeader() {

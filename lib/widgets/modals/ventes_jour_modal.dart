@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class VentesJourModal extends StatefulWidget {
   const VentesJourModal({super.key});
@@ -10,7 +11,7 @@ class VentesJourModal extends StatefulWidget {
   State<VentesJourModal> createState() => _VentesJourModalState();
 }
 
-class _VentesJourModalState extends State<VentesJourModal> {
+class _VentesJourModalState extends State<VentesJourModal> with TabNavigationMixin {
   List<Map<String, dynamic>> _ventesJour = [];
   bool _isLoading = true;
   double _totalJour = 0.0;
@@ -79,7 +80,10 @@ class _VentesJourModalState extends State<VentesJourModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
       child: Container(
         width: 900,
         height: 700,
@@ -202,7 +206,7 @@ class _VentesJourModalState extends State<VentesJourModal> {
           ],
         ),
       ),
-    );
+    ),);
   }
 
   Color _getStatusColor(String? status) {

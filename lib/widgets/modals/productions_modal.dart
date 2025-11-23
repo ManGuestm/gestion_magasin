@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class ProductionsModal extends StatefulWidget {
   const ProductionsModal({super.key});
@@ -11,7 +12,7 @@ class ProductionsModal extends StatefulWidget {
   State<ProductionsModal> createState() => _ProductionsModalState();
 }
 
-class _ProductionsModalState extends State<ProductionsModal> {
+class _ProductionsModalState extends State<ProductionsModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<ProdData> _productions = [];
   bool _isLoading = true;
@@ -27,23 +28,26 @@ class _ProductionsModalState extends State<ProductionsModal> {
       // Utiliser une requête SQL directe pour récupérer les productions
       final database = _databaseService.database;
       final productions = await database.customSelect('SELECT * FROM prod ORDER BY soc_daty DESC').get();
-      
+
       setState(() {
-        _productions = productions.map((row) => ProdData(
-          num: row.data['num'] as int? ?? 0,
-          numaprod: row.data['numaprod'] as String?,
-          obs: row.data['obs'] as String?,
-          socDaty: row.data['soc_daty'] != null ? DateTime.parse(row.data['soc_daty'] as String) : null,
-          produits: row.data['produits'] as String?,
-          depot: row.data['depot'] as String?,
-          cte: row.data['cte'] as String?,
-          totalttc: row.data['totalttc'] as double?,
-          cmup: row.data['cmup'] as double?,
-          verification: row.data['verification'] as String?,
-          type: row.data['type'] as String?,
-          unite: row.data['unite'] as String?,
-          contre: row.data['contre'] as String?,
-        )).toList();
+        _productions = productions
+            .map((row) => ProdData(
+                  num: row.data['num'] as int? ?? 0,
+                  numaprod: row.data['numaprod'] as String?,
+                  obs: row.data['obs'] as String?,
+                  socDaty:
+                      row.data['soc_daty'] != null ? DateTime.parse(row.data['soc_daty'] as String) : null,
+                  produits: row.data['produits'] as String?,
+                  depot: row.data['depot'] as String?,
+                  cte: row.data['cte'] as String?,
+                  totalttc: row.data['totalttc'] as double?,
+                  cmup: row.data['cmup'] as double?,
+                  verification: row.data['verification'] as String?,
+                  type: row.data['type'] as String?,
+                  unite: row.data['unite'] as String?,
+                  contre: row.data['contre'] as String?,
+                ))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -110,12 +114,28 @@ class _ProductionsModalState extends State<ProductionsModal> {
                             ),
                             child: const Row(
                               children: [
-                                Expanded(child: Center(child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('N° Prod.', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(flex: 2, child: Center(child: Text('Produit', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Dépôt', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Total TTC', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Type', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('N° Prod.', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                        child:
+                                            Text('Produit', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Dépôt', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Total TTC',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Type', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
@@ -135,66 +155,74 @@ class _ProductionsModalState extends State<ProductionsModal> {
                                     itemCount: _productions.length,
                                     itemBuilder: (context, index) {
                                       final production = _productions[index];
-                                      return Container(
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  production.socDaty?.toString().split(' ')[0] ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
+                                      return Focus(
+                                        autofocus: true,
+                                        onKeyEvent: (node, event) => handleTabNavigation(event),
+                                        child: Container(
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                                            border: const Border(
+                                                bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    production.socDaty?.toString().split(' ')[0] ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  production.numaprod ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    production.numaprod ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                child: Text(
-                                                  production.produits ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
+                                              Expanded(
+                                                flex: 2,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                  child: Text(
+                                                    production.produits ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  production.depot ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    production.depot ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(production.totalttc ?? 0),
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(production.totalttc ?? 0),
+                                                    style: const TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: Colors.green),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  production.type ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    production.type ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       );
                                     },

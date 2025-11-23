@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/stock_converter.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EtatStocksModal extends StatefulWidget {
   const EtatStocksModal({super.key});
@@ -15,7 +16,7 @@ class EtatStocksModal extends StatefulWidget {
   State<EtatStocksModal> createState() => _EtatStocksModalState();
 }
 
-class _EtatStocksModalState extends State<EtatStocksModal> {
+class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMixin {
   List<Article> _articles = [];
   bool _isLoading = false;
   final String _selectedDepot = 'Tous';

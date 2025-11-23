@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../database/database_service.dart';
 import '../common/enhanced_autocomplete.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EncaissementModal extends StatefulWidget {
   const EncaissementModal({super.key});
@@ -12,7 +13,7 @@ class EncaissementModal extends StatefulWidget {
   State<EncaissementModal> createState() => _EncaissementModalState();
 }
 
-class _EncaissementModalState extends State<EncaissementModal> {
+class _EncaissementModalState extends State<EncaissementModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
 
   final TextEditingController _amountController = TextEditingController();

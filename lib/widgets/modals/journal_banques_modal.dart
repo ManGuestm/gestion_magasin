@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class JournalBanquesModal extends StatefulWidget {
   const JournalBanquesModal({super.key});
@@ -11,7 +12,7 @@ class JournalBanquesModal extends StatefulWidget {
   State<JournalBanquesModal> createState() => _JournalBanquesModalState();
 }
 
-class _JournalBanquesModalState extends State<JournalBanquesModal> {
+class _JournalBanquesModalState extends State<JournalBanquesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<BanqueData> _mouvements = [];
   bool _isLoading = true;
@@ -93,12 +94,27 @@ class _JournalBanquesModalState extends State<JournalBanquesModal> {
                             ),
                             child: const Row(
                               children: [
-                                Expanded(child: Center(child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(flex: 2, child: Center(child: Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Débit', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Crédit', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Code', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                        child:
+                                            Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Débit', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Crédit', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Code', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
@@ -113,7 +129,8 @@ class _JournalBanquesModalState extends State<JournalBanquesModal> {
                                         height: 35,
                                         decoration: BoxDecoration(
                                           color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          border: const Border(
+                                              bottom: BorderSide(color: Colors.grey, width: 0.5)),
                                         ),
                                         child: Row(
                                           children: [
@@ -156,7 +173,8 @@ class _JournalBanquesModalState extends State<JournalBanquesModal> {
                                               child: Center(
                                                 child: Text(
                                                   NumberUtils.formatNumber(mouvement.soldes ?? 0),
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                                  style: const TextStyle(
+                                                      fontSize: 11, fontWeight: FontWeight.bold),
                                                 ),
                                               ),
                                             ),

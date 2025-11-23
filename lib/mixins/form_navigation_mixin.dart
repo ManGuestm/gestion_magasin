@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 mixin FormNavigationMixin<T extends StatefulWidget> on State<T> {
   final List<FocusNode> _focusNodes = [];
@@ -24,6 +25,21 @@ mixin FormNavigationMixin<T extends StatefulWidget> on State<T> {
     }
   }
 
+  KeyEventResult handleKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.tab) {
+        if (HardwareKeyboard.instance.isShiftPressed) {
+          previousField();
+          return KeyEventResult.handled;
+        } else {
+          nextField();
+          return KeyEventResult.handled;
+        }
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
   void focusFirstField() {
     if (_focusNodes.isNotEmpty) {
       _currentFocusIndex = 0;
@@ -44,32 +60,35 @@ mixin FormNavigationMixin<T extends StatefulWidget> on State<T> {
   }) {
     final node = focusNode ?? createFocusNode();
 
-    return SizedBox(
-      height: 30,
-      child: TextFormField(
-        cursorHeight: 15,
-        controller: controller,
-        focusNode: node,
-        enabled: enabled,
-        autofocus: autofocus,
-        keyboardType: keyboardType,
-        validator: validator,
-        onChanged: onChanged,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Focus(
+      onKeyEvent: (node, event) => handleKeyEvent(event),
+      child: SizedBox(
+        height: 30,
+        child: TextFormField(
+          cursorHeight: 15,
+          controller: controller,
+          focusNode: node,
+          enabled: enabled,
+          autofocus: autofocus,
+          keyboardType: keyboardType,
+          validator: validator,
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          ),
+          onFieldSubmitted: (_) {
+            if (onSubmitted != null) {
+              onSubmitted();
+            } else {
+              nextField();
+            }
+          },
+          onTap: () {
+            _currentFocusIndex = _focusNodes.indexOf(node);
+          },
         ),
-        onFieldSubmitted: (_) {
-          if (onSubmitted != null) {
-            onSubmitted();
-          } else {
-            nextField();
-          }
-        },
-        onTap: () {
-          _currentFocusIndex = _focusNodes.indexOf(node);
-        },
       ),
     );
   }

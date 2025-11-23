@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class StatistiquesFournisseursModal extends StatefulWidget {
   const StatistiquesFournisseursModal({super.key});
@@ -12,7 +13,8 @@ class StatistiquesFournisseursModal extends StatefulWidget {
   State<StatistiquesFournisseursModal> createState() => _StatistiquesFournisseursModalState();
 }
 
-class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseursModal> {
+class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseursModal>
+    with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
 
   List<Map<String, dynamic>> _statistiques = [];
@@ -340,43 +342,47 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
                                             ? (stat['totalTTC'] as double) / _totalGeneral * 100
                                             : 0.0;
 
-                                        return Container(
-                                          decoration: BoxDecoration(
-                                            color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
-                                            border: Border(
-                                              bottom: BorderSide(color: Colors.grey.shade200),
+                                        return Focus(
+                                          autofocus: true,
+                                          onKeyEvent: (node, event) => handleTabNavigation(event),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
+                                              border: Border(
+                                                bottom: BorderSide(color: Colors.grey.shade200),
+                                              ),
                                             ),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              _buildDataCell(stat['fournisseur'] ?? '', 200),
-                                              _buildDataCell(stat['nombreAchats'].toString(), 100,
-                                                  isNumber: true),
-                                              _buildDataCell(
-                                                  NumberUtils.formatNumber(stat['totalHT'] as double), 120,
-                                                  isNumber: true),
-                                              _buildDataCell(
-                                                  NumberUtils.formatNumber(stat['totalTTC'] as double), 120,
-                                                  isNumber: true),
-                                              _buildDataCell(
-                                                  NumberUtils.formatNumber(stat['moyenneAchat'] as double),
-                                                  120,
-                                                  isNumber: true),
-                                              _buildDataCell(
-                                                  stat['premierAchat'] != null
-                                                      ? app_date.AppDateUtils.formatDate(
-                                                          DateTime.parse(stat['premierAchat']))
-                                                      : '',
-                                                  120),
-                                              _buildDataCell(
-                                                  stat['dernierAchat'] != null
-                                                      ? app_date.AppDateUtils.formatDate(
-                                                          DateTime.parse(stat['dernierAchat']))
-                                                      : '',
-                                                  120),
-                                              _buildDataCell('${pourcentage.toStringAsFixed(1)}%', 100,
-                                                  isNumber: true),
-                                            ],
+                                            child: Row(
+                                              children: [
+                                                _buildDataCell(stat['fournisseur'] ?? '', 200),
+                                                _buildDataCell(stat['nombreAchats'].toString(), 100,
+                                                    isNumber: true),
+                                                _buildDataCell(
+                                                    NumberUtils.formatNumber(stat['totalHT'] as double), 120,
+                                                    isNumber: true),
+                                                _buildDataCell(
+                                                    NumberUtils.formatNumber(stat['totalTTC'] as double), 120,
+                                                    isNumber: true),
+                                                _buildDataCell(
+                                                    NumberUtils.formatNumber(stat['moyenneAchat'] as double),
+                                                    120,
+                                                    isNumber: true),
+                                                _buildDataCell(
+                                                    stat['premierAchat'] != null
+                                                        ? app_date.AppDateUtils.formatDate(
+                                                            DateTime.parse(stat['premierAchat']))
+                                                        : '',
+                                                    120),
+                                                _buildDataCell(
+                                                    stat['dernierAchat'] != null
+                                                        ? app_date.AppDateUtils.formatDate(
+                                                            DateTime.parse(stat['dernierAchat']))
+                                                        : '',
+                                                    120),
+                                                _buildDataCell('${pourcentage.toStringAsFixed(1)}%', 100,
+                                                    isNumber: true),
+                                              ],
+                                            ),
                                           ),
                                         );
                                       }).toList(),

@@ -24,7 +24,7 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
   List<CltData> _filteredClients = [];
   final TextEditingController _searchController = TextEditingController();
   late final FocusNode _searchFocus;
-  final FocusNode _keyboardFocusNode = FocusNode();
+  late final FocusNode _keyboardFocusNode;
   CltData? _selectedClient;
   List<ComptecltData> _historiqueClient = [];
   final int _pageSize = 100;
@@ -35,9 +35,11 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
   @override
   void initState() {
     super.initState();
+    // Initialize focus nodes with tab navigation
     _searchFocus = createFocusNode();
+    _keyboardFocusNode = createFocusNode();
 
-
+    _searchFocus = createFocusNode();
 
     _loadClients();
 
@@ -65,7 +67,8 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
           onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
           child: Column(
             children: [
-              if (AuthService().currentUser?.role == 'Administrateur' || AuthService().currentUser?.role == 'Caisse')
+              if (AuthService().currentUser?.role == 'Administrateur' ||
+                  AuthService().currentUser?.role == 'Caisse')
                 _buildFilterSection(),
               _buildContent(),
               _buildHistoriqueSection(),
@@ -251,7 +254,7 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       focusNode.requestFocus();
                     });
-                    
+
                     return TextField(
                       controller: controller,
                       focusNode: focusNode,
@@ -529,9 +532,9 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
 
   void _applyFilter() {
     List<CltData> filtered = _clients;
-    
+
     final userRole = AuthService().currentUser?.role ?? '';
-    
+
     if (userRole == 'Vendeur') {
       // Vendeur ne voit que les clients Magasin
       filtered = filtered.where((client) => client.categorie == ClientCategory.magasin.label).toList();
@@ -541,7 +544,7 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
         filtered = filtered.where((client) => client.categorie == _selectedCategoryFilter).toList();
       }
     }
-    
+
     setState(() {
       _filteredClients = filtered.take(_pageSize).toList();
     });
@@ -672,7 +675,7 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
                     daty = null;
                   }
                 }
-                
+
                 return ComptecltData(
                   ref: row.read<String>('ref'),
                   daty: daty,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class ChequesModal extends StatefulWidget {
   const ChequesModal({super.key});
@@ -11,7 +12,7 @@ class ChequesModal extends StatefulWidget {
   State<ChequesModal> createState() => _ChequesModalState();
 }
 
-class _ChequesModalState extends State<ChequesModal> {
+class _ChequesModalState extends State<ChequesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<ChequierData> _cheques = [];
   bool _isLoading = true;
@@ -106,13 +107,34 @@ class _ChequesModalState extends State<ChequesModal> {
                             ),
                             child: const Row(
                               children: [
-                                Expanded(child: Center(child: Text('N° Chèque', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(flex: 2, child: Center(child: Text('Tiré', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Banque', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Montant', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Date chèque', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Date réception', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('N° Chèque',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                        child: Text('Tiré', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Banque', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Montant', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date chèque',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date réception',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
@@ -123,82 +145,90 @@ class _ChequesModalState extends State<ChequesModal> {
                                     itemCount: _cheques.length,
                                     itemBuilder: (context, index) {
                                       final cheque = _cheques[index];
-                                      return Container(
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  cheque.ncheq ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                child: Text(
-                                                  cheque.tire ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  cheque.bqtire ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(cheque.montant ?? 0),
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  cheque.datechq?.toString().split(' ')[0] ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  cheque.daterecep?.toString().split(' ')[0] ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: _getStatutColor(cheque.action),
-                                                    borderRadius: BorderRadius.circular(10),
-                                                  ),
+                                      return Focus(
+                                        autofocus: true,
+                                        onKeyEvent: (node, event) => handleTabNavigation(event),
+                                        child: Container(
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                                            border: const Border(
+                                                bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Center(
                                                   child: Text(
-                                                    cheque.action ?? 'En cours',
-                                                    style: const TextStyle(fontSize: 9, color: Colors.white),
+                                                    cheque.ncheq ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                              Expanded(
+                                                flex: 2,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                  child: Text(
+                                                    cheque.tire ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    cheque.bqtire ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(cheque.montant ?? 0),
+                                                    style: const TextStyle(
+                                                        fontSize: 11, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    cheque.datechq?.toString().split(' ')[0] ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    cheque.daterecep?.toString().split(' ')[0] ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                        horizontal: 6, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: _getStatutColor(cheque.action),
+                                                      borderRadius: BorderRadius.circular(10),
+                                                    ),
+                                                    child: Text(
+                                                      cheque.action ?? 'En cours',
+                                                      style:
+                                                          const TextStyle(fontSize: 9, color: Colors.white),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
                                       );
                                     },

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import 'ajout_moyen_paiement_modal.dart';
+import '../common/tab_navigation_widget.dart';
 
 class MoyenPaiementModal extends StatefulWidget {
   const MoyenPaiementModal({super.key});
@@ -11,7 +12,7 @@ class MoyenPaiementModal extends StatefulWidget {
   State<MoyenPaiementModal> createState() => _MoyenPaiementModalState();
 }
 
-class _MoyenPaiementModalState extends State<MoyenPaiementModal> {
+class _MoyenPaiementModalState extends State<MoyenPaiementModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<MpData> _moyensPaiement = [];
   MpData? _selectedMoyenPaiement;
@@ -163,7 +164,10 @@ class _MoyenPaiementModalState extends State<MoyenPaiementModal> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: PopScope(
       canPop: false,
       child: Dialog(
         child: SizedBox(
@@ -305,6 +309,7 @@ class _MoyenPaiementModalState extends State<MoyenPaiementModal> {
           ),
         ),
       ),
+    ),
     );
   }
 }

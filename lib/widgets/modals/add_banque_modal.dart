@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class AddBanqueModal extends StatefulWidget {
   final BqData? banque;
@@ -13,15 +14,25 @@ class AddBanqueModal extends StatefulWidget {
   State<AddBanqueModal> createState() => _AddBanqueModalState();
 }
 
-class _AddBanqueModalState extends State<AddBanqueModal> {
+class _AddBanqueModalState extends State<AddBanqueModal> with TabNavigationMixin {
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
   final _intituleController = TextEditingController();
   final _ncompteController = TextEditingController();
+  
+  late final FocusNode _codeFocusNode;
+  late final FocusNode _intituleFocusNode;
+  late final FocusNode _ncompteFocusNode;
 
   @override
   void initState() {
     super.initState();
+    
+    // Initialize focus nodes with tab navigation
+    _codeFocusNode = createFocusNode();
+    _intituleFocusNode = createFocusNode();
+    _ncompteFocusNode = createFocusNode();
+    
     if (widget.banque != null) {
       _codeController.text = widget.banque!.code;
       _intituleController.text = widget.banque!.intitule ?? '';
@@ -31,24 +42,28 @@ class _AddBanqueModalState extends State<AddBanqueModal> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.grey[100],
-        child: Container(
-          width: 400,
-          height: 230,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey, width: 1),
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.white,
-          ),
-          child: Column(
-            children: [
-              _buildHeader(),
-              Expanded(child: _buildForm()),
-              _buildButtons(),
-            ],
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: Colors.grey[100],
+          child: Container(
+            width: 400,
+            height: 230,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey, width: 1),
+              borderRadius: BorderRadius.circular(8),
+              color: Colors.white,
+            ),
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(child: _buildForm()),
+                _buildButtons(),
+              ],
+            ),
           ),
         ),
       ),
@@ -92,6 +107,15 @@ class _AddBanqueModalState extends State<AddBanqueModal> {
   }
 
   Widget _buildFormField(String label, TextEditingController controller) {
+    FocusNode focusNode;
+    if (controller == _codeController) {
+      focusNode = _codeFocusNode;
+    } else if (controller == _intituleController) {
+      focusNode = _intituleFocusNode;
+    } else {
+      focusNode = _ncompteFocusNode;
+    }
+    
     return Row(
       children: [
         SizedBox(
@@ -110,6 +134,7 @@ class _AddBanqueModalState extends State<AddBanqueModal> {
             ),
             child: TextFormField(
               controller: controller,
+              focusNode: focusNode,
               style: const TextStyle(fontSize: 11),
               decoration: const InputDecoration(
                 border: InputBorder.none,
@@ -119,6 +144,7 @@ class _AddBanqueModalState extends State<AddBanqueModal> {
               validator: label == 'Code' || label == 'Intitulé'
                   ? (value) => value?.isEmpty == true ? 'Requis' : null
                   : null,
+              onTap: () => updateFocusIndex(focusNode),
             ),
           ),
         ),

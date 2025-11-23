@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class JournalCaisseModal extends StatefulWidget {
   const JournalCaisseModal({super.key});
@@ -11,7 +12,7 @@ class JournalCaisseModal extends StatefulWidget {
   State<JournalCaisseModal> createState() => _JournalCaisseModalState();
 }
 
-class _JournalCaisseModalState extends State<JournalCaisseModal> {
+class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<CaisseData> _mouvements = [];
   bool _isLoading = true;
@@ -93,11 +94,23 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> {
                             ),
                             child: const Row(
                               children: [
-                                Expanded(child: Center(child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Débit', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Crédit', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Débit', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Crédit', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
@@ -108,56 +121,62 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> {
                                     itemCount: _mouvements.length,
                                     itemBuilder: (context, index) {
                                       final mouvement = _mouvements[index];
-                                      return Container(
-                                        height: 35,
-                                        decoration: BoxDecoration(
-                                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  mouvement.daty?.toString().split(' ')[0] ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
+                                      return Focus(
+                                        autofocus: true,
+                                        onKeyEvent: (node, event) => handleTabNavigation(event),
+                                        child: Container(
+                                          height: 35,
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                                            border: const Border(
+                                                bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    mouvement.daty?.toString().split(' ')[0] ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  mouvement.lib ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    mouvement.lib ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(mouvement.debit ?? 0),
-                                                  style: const TextStyle(fontSize: 11, color: Colors.red),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(mouvement.debit ?? 0),
+                                                    style: const TextStyle(fontSize: 11, color: Colors.red),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(mouvement.credit ?? 0),
-                                                  style: const TextStyle(fontSize: 11, color: Colors.green),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(mouvement.credit ?? 0),
+                                                    style: const TextStyle(fontSize: 11, color: Colors.green),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(mouvement.soldes ?? 0),
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(mouvement.soldes ?? 0),
+                                                    style: const TextStyle(
+                                                        fontSize: 11, fontWeight: FontWeight.bold),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       );
                                     },

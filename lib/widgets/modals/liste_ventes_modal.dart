@@ -3,6 +3,7 @@ import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class ListeVentesModal extends StatefulWidget {
   const ListeVentesModal({super.key});
@@ -11,7 +12,7 @@ class ListeVentesModal extends StatefulWidget {
   State<ListeVentesModal> createState() => _ListeVentesModalState();
 }
 
-class _ListeVentesModalState extends State<ListeVentesModal> {
+class _ListeVentesModalState extends State<ListeVentesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<Vente> _ventes = [];
   List<Vente> _ventesFiltered = [];
@@ -190,7 +191,10 @@ class _ListeVentesModalState extends State<ListeVentesModal> {
                                     itemCount: _ventesFiltered.length,
                                     itemBuilder: (context, index) {
                                       final vente = _ventesFiltered[index];
-                                      return Container(
+                                      return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Container(
                                         height: 35,
                                         decoration: BoxDecoration(
                                           color: index % 2 == 0 ? Colors.white : Colors.grey[50],
@@ -273,7 +277,7 @@ class _ListeVentesModalState extends State<ListeVentesModal> {
                                             ),
                                           ],
                                         ),
-                                      );
+                                      ),);
                                     },
                                   ),
                           ),

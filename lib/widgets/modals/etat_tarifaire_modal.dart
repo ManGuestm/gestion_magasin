@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../database/database.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EtatTarifaireModal extends StatefulWidget {
   const EtatTarifaireModal({super.key});
@@ -9,7 +10,7 @@ class EtatTarifaireModal extends StatefulWidget {
   State<EtatTarifaireModal> createState() => _EtatTarifaireModalState();
 }
 
-class _EtatTarifaireModalState extends State<EtatTarifaireModal> {
+class _EtatTarifaireModalState extends State<EtatTarifaireModal> with TabNavigationMixin {
   List<Article> _articles = [];
   bool _isLoading = false;
 

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class MouvementsClientsModal extends StatefulWidget {
   const MouvementsClientsModal({super.key});
@@ -11,7 +12,7 @@ class MouvementsClientsModal extends StatefulWidget {
   State<MouvementsClientsModal> createState() => _MouvementsClientsModalState();
 }
 
-class _MouvementsClientsModalState extends State<MouvementsClientsModal> {
+class _MouvementsClientsModalState extends State<MouvementsClientsModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
 
   List<ComptecltData> _mouvements = [];
@@ -76,7 +77,10 @@ class _MouvementsClientsModalState extends State<MouvementsClientsModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
         width: 1200,
@@ -101,7 +105,7 @@ class _MouvementsClientsModalState extends State<MouvementsClientsModal> {
           ],
         ),
       ),
-    );
+    ),);
   }
 
   Widget _buildHeader() {

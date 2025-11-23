@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EtatsArticlesModal extends StatefulWidget {
   const EtatsArticlesModal({super.key});
@@ -11,7 +12,7 @@ class EtatsArticlesModal extends StatefulWidget {
   State<EtatsArticlesModal> createState() => _EtatsArticlesModalState();
 }
 
-class _EtatsArticlesModalState extends State<EtatsArticlesModal> {
+class _EtatsArticlesModalState extends State<EtatsArticlesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<Article> _articles = [];
   bool _isLoading = true;
@@ -93,11 +94,26 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> {
                             ),
                             child: const Row(
                               children: [
-                                Expanded(flex: 3, child: Center(child: Text('Désignation', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    flex: 3,
+                                    child: Center(
+                                        child: Text('Désignation',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
@@ -112,7 +128,8 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> {
                                         height: 35,
                                         decoration: BoxDecoration(
                                           color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          border: const Border(
+                                              bottom: BorderSide(color: Colors.grey, width: 0.5)),
                                         ),
                                         child: Row(
                                           children: [
@@ -155,7 +172,8 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> {
                                               child: Center(
                                                 child: Text(
                                                   NumberUtils.formatNumber(article.cmup ?? 0),
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                                  style: const TextStyle(
+                                                      fontSize: 11, fontWeight: FontWeight.bold),
                                                 ),
                                               ),
                                             ),

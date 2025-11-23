@@ -8,6 +8,7 @@ import '../../database/database_service.dart';
 import '../../mixins/form_navigation_mixin.dart';
 import '../../widgets/common/base_modal.dart';
 import 'add_fournisseur_modal.dart';
+import '../common/tab_navigation_widget.dart';
 
 class FournisseursModal extends StatefulWidget {
   const FournisseursModal({super.key});
@@ -30,6 +31,9 @@ class _FournisseursModalState extends State<FournisseursModal> with FormNavigati
   @override
   void initState() {
     super.initState();
+    // Initialize focus nodes with tab navigation
+    _searchFocus = createFocusNode();
+
     _searchFocus = createFocusNode();
     _loadFournisseurs();
   }
@@ -804,7 +808,7 @@ class _MovementDetailsDialog extends StatefulWidget {
   State<_MovementDetailsDialog> createState() => _MovementDetailsDialogState();
 }
 
-class _MovementDetailsDialogState extends State<_MovementDetailsDialog> {
+class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with TabNavigationMixin {
   List<Map<String, dynamic>> _articles = [];
   bool _isLoadingArticles = false;
   final NumberFormat _numberFormat = NumberFormat('#,##0', 'fr_FR');

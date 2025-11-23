@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class GestionEmballagesModal extends StatefulWidget {
   const GestionEmballagesModal({super.key});
@@ -11,7 +12,7 @@ class GestionEmballagesModal extends StatefulWidget {
   State<GestionEmballagesModal> createState() => _GestionEmballagesModalState();
 }
 
-class _GestionEmballagesModalState extends State<GestionEmballagesModal> {
+class _GestionEmballagesModalState extends State<GestionEmballagesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<EmblcltData> _emballages = [];
   bool _isLoading = true;
@@ -27,18 +28,20 @@ class _GestionEmballagesModalState extends State<GestionEmballagesModal> {
       // Utiliser une requête SQL directe pour récupérer les emballages clients
       final database = _databaseService.database;
       final emballages = await database.customSelect('SELECT * FROM emblclt ORDER BY daty DESC').get();
-      
+
       setState(() {
-        _emballages = emballages.map((row) => EmblcltData(
-          num: row.data['num'] as int? ?? 0,
-          numventes: row.data['numventes'] as String?,
-          nfact: row.data['nfact'] as String?,
-          daty: row.data['daty'] != null ? DateTime.parse(row.data['daty'] as String) : null,
-          clt: row.data['clt'] as String?,
-          emb: row.data['emb'] as String?,
-          q: row.data['q'] as double?,
-          verification: row.data['verification'] as String?,
-        )).toList();
+        _emballages = emballages
+            .map((row) => EmblcltData(
+                  num: row.data['num'] as int? ?? 0,
+                  numventes: row.data['numventes'] as String?,
+                  nfact: row.data['nfact'] as String?,
+                  daty: row.data['daty'] != null ? DateTime.parse(row.data['daty'] as String) : null,
+                  clt: row.data['clt'] as String?,
+                  emb: row.data['emb'] as String?,
+                  q: row.data['q'] as double?,
+                  verification: row.data['verification'] as String?,
+                ))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -105,12 +108,30 @@ class _GestionEmballagesModalState extends State<GestionEmballagesModal> {
                             ),
                             child: const Row(
                               children: [
-                                Expanded(child: Center(child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('N° Vente', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(flex: 2, child: Center(child: Text('Client', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Emballage', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Quantité', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('N° Vente', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                        child:
+                                            Text('Client', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Emballage',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Quantité', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
@@ -134,7 +155,8 @@ class _GestionEmballagesModalState extends State<GestionEmballagesModal> {
                                         height: 40,
                                         decoration: BoxDecoration(
                                           color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          border: const Border(
+                                              bottom: BorderSide(color: Colors.grey, width: 0.5)),
                                         ),
                                         child: Row(
                                           children: [
@@ -177,16 +199,20 @@ class _GestionEmballagesModalState extends State<GestionEmballagesModal> {
                                               child: Center(
                                                 child: Text(
                                                   NumberUtils.formatNumber(emballage.q ?? 0),
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                                  style: const TextStyle(
+                                                      fontSize: 11, fontWeight: FontWeight.bold),
                                                 ),
                                               ),
                                             ),
                                             Expanded(
                                               child: Center(
                                                 child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                   decoration: BoxDecoration(
-                                                    color: emballage.verification == 'OK' ? Colors.green : Colors.orange,
+                                                    color: emballage.verification == 'OK'
+                                                        ? Colors.green
+                                                        : Colors.orange,
                                                     borderRadius: BorderRadius.circular(10),
                                                   ),
                                                   child: Text(

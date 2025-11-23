@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 import 'bon_transfert_preview.dart';
 
 class TransfertsModal extends StatefulWidget {
@@ -13,7 +14,7 @@ class TransfertsModal extends StatefulWidget {
   State<TransfertsModal> createState() => _TransfertsModalState();
 }
 
-class _TransfertsModalState extends State<TransfertsModal> {
+class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
 
   // Controllers
@@ -635,31 +636,35 @@ class _TransfertsModalState extends State<TransfertsModal> {
                                       itemCount: _transfertsFiltres.length,
                                       itemBuilder: (context, index) {
                                         final transfert = _transfertsFiltres[index];
-                                        return InkWell(
-                                          onTap: () => _chargerTransfertExistant(transfert),
-                                          child: Container(
-                                            height: 55,
-                                            decoration: BoxDecoration(
-                                              color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                              border: const Border(
-                                                  bottom: BorderSide(color: Colors.grey, width: 0.5)),
-                                            ),
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(4),
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Text(transfert.numtransf ?? 'N/A',
-                                                      style: const TextStyle(
-                                                          fontSize: 11, fontWeight: FontWeight.bold)),
-                                                  Text('${transfert.de ?? ''} → ${transfert.au ?? ''}',
-                                                      style:
-                                                          const TextStyle(fontSize: 10, color: Colors.blue)),
-                                                  Text(_formatDate(transfert.daty),
-                                                      style:
-                                                          const TextStyle(fontSize: 9, color: Colors.grey)),
-                                                ],
+                                        return Focus(
+                                          autofocus: true,
+                                          onKeyEvent: (node, event) => handleTabNavigation(event),
+                                          child: InkWell(
+                                            onTap: () => _chargerTransfertExistant(transfert),
+                                            child: Container(
+                                              height: 55,
+                                              decoration: BoxDecoration(
+                                                color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                                                border: const Border(
+                                                    bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                              ),
+                                              child: Padding(
+                                                padding: const EdgeInsets.all(4),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Text(transfert.numtransf ?? 'N/A',
+                                                        style: const TextStyle(
+                                                            fontSize: 11, fontWeight: FontWeight.bold)),
+                                                    Text('${transfert.de ?? ''} → ${transfert.au ?? ''}',
+                                                        style: const TextStyle(
+                                                            fontSize: 10, color: Colors.blue)),
+                                                    Text(_formatDate(transfert.daty),
+                                                        style:
+                                                            const TextStyle(fontSize: 9, color: Colors.grey)),
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           ),

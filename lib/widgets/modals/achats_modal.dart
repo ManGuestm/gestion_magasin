@@ -12,6 +12,7 @@ import '../../utils/stock_converter.dart';
 import '../common/enhanced_autocomplete.dart';
 import 'add_fournisseur_modal.dart';
 import 'bon_reception_preview.dart';
+import '../common/tab_navigation_widget.dart';
 
 class AchatsModal extends StatefulWidget {
   const AchatsModal({super.key});
@@ -20,23 +21,23 @@ class AchatsModal extends StatefulWidget {
   State<AchatsModal> createState() => _AchatsModalState();
 }
 
-class _AchatsModalState extends State<AchatsModal> {
+class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   final AchatService _achatService = AchatService();
 
   // Focus nodes
-  final FocusNode _nFactFocusNode = FocusNode();
-  final FocusNode _fournisseurFocusNode = FocusNode();
-  final FocusNode _articleFocusNode = FocusNode();
-  final FocusNode _uniteFocusNode = FocusNode();
-  final FocusNode _quantiteFocusNode = FocusNode();
-  final FocusNode _prixFocusNode = FocusNode();
-  final FocusNode _depotFocusNode = FocusNode();
-  final FocusNode _validerFocusNode = FocusNode();
-  final FocusNode _annulerFocusNode = FocusNode();
-  final FocusNode _keyboardFocusNode = FocusNode();
-  final FocusNode _searchAchatsFocusNode = FocusNode();
-  final FocusNode _echeanceJoursFocusNode = FocusNode();
+  late final FocusNode _nFactFocusNode;
+  late final FocusNode _fournisseurFocusNode;
+  late final FocusNode _articleFocusNode;
+  late final FocusNode _uniteFocusNode;
+  late final FocusNode _quantiteFocusNode;
+  late final FocusNode _prixFocusNode;
+  late final FocusNode _depotFocusNode;
+  late final FocusNode _validerFocusNode;
+  late final FocusNode _annulerFocusNode;
+  late final FocusNode _keyboardFocusNode;
+  late final FocusNode _searchAchatsFocusNode;
+  late final FocusNode _echeanceJoursFocusNode;
 
   // Controllers
   final TextEditingController _numAchatsController = TextEditingController();
@@ -103,6 +104,20 @@ class _AchatsModalState extends State<AchatsModal> {
   @override
   void initState() {
     super.initState();
+    // Initialize focus nodes with tab navigation
+    _nFactFocusNode = createFocusNode();
+    _fournisseurFocusNode = createFocusNode();
+    _articleFocusNode = createFocusNode();
+    _uniteFocusNode = createFocusNode();
+    _quantiteFocusNode = createFocusNode();
+    _prixFocusNode = createFocusNode();
+    _depotFocusNode = createFocusNode();
+    _validerFocusNode = createFocusNode();
+    _annulerFocusNode = createFocusNode();
+    _keyboardFocusNode = createFocusNode();
+    _searchAchatsFocusNode = createFocusNode();
+    _echeanceJoursFocusNode = createFocusNode();
+
     _autocompleteController = TextEditingController();
     _loadData();
     _loadAchatsNumbers().then((_) => _initializeForm());
@@ -3065,16 +3080,6 @@ class _AchatsModalState extends State<AchatsModal> {
 
   @override
   void dispose() {
-    _nFactFocusNode.dispose();
-    _fournisseurFocusNode.dispose();
-    _articleFocusNode.dispose();
-    _uniteFocusNode.dispose();
-    _quantiteFocusNode.dispose();
-    _prixFocusNode.dispose();
-    _depotFocusNode.dispose();
-    _validerFocusNode.dispose();
-    _annulerFocusNode.dispose();
-    _keyboardFocusNode.dispose();
     _numAchatsController.dispose();
     _nFactController.dispose();
     _dateController.dispose();
@@ -3092,9 +3097,7 @@ class _AchatsModalState extends State<AchatsModal> {
     _prixController.dispose();
     _totalFMGController.dispose();
     _searchAchatsController.dispose();
-    _searchAchatsFocusNode.dispose();
     _echeanceJoursController.dispose();
-    _echeanceJoursFocusNode.dispose();
     super.dispose();
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../common/tab_navigation_widget.dart';
+
 class ReactualisationBaseDonneesModal extends StatefulWidget {
   const ReactualisationBaseDonneesModal({super.key});
 
@@ -7,7 +9,8 @@ class ReactualisationBaseDonneesModal extends StatefulWidget {
   State<ReactualisationBaseDonneesModal> createState() => _ReactualisationBaseDonneesModalState();
 }
 
-class _ReactualisationBaseDonneesModalState extends State<ReactualisationBaseDonneesModal> {
+class _ReactualisationBaseDonneesModalState extends State<ReactualisationBaseDonneesModal>
+    with TabNavigationMixin {
   bool _isProcessing = false;
   List<String> _operations = [];
   int _currentOperation = 0;
@@ -66,158 +69,162 @@ class _ReactualisationBaseDonneesModalState extends State<ReactualisationBaseDon
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.8,
-        height: MediaQuery.of(context).size.height * 0.8,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey[100],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Réactualisation de la base de données',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.grey[100],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Réactualisation de la base de données',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: _isProcessing ? null : () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 20),
-                  ),
-                ],
+                    IconButton(
+                      onPressed: _isProcessing ? null : () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, size: 20),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const Divider(height: 1),
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Cette opération va :',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('• Vérifier l\'intégrité des données'),
-                  const Text('• Recalculer tous les stocks et valeurs'),
-                  const Text('• Mettre à jour les soldes des comptes'),
-                  const Text('• Optimiser les performances'),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: _isProcessing ? null : _startReactualisation,
-                        icon: _isProcessing
-                            ? const SizedBox(
-                                width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.refresh),
-                        label: Text(_isProcessing ? 'En cours...' : 'Démarrer la réactualisation'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.teal,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                      if (_isProcessing) ...[
-                        const SizedBox(width: 16),
-                        Text(
-                          '${_currentOperation + 1}/${_allOperations.length}',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            if (_isProcessing || _operations.isNotEmpty)
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.black87,
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Journal des opérations:',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: _operations.length,
-                          itemBuilder: (context, index) {
-                            final operation = _operations[index];
-                            final isCompleted = operation.contains('✓');
-                            return Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Text(
-                                operation,
-                                style: TextStyle(
-                                  color: isCompleted ? Colors.green : Colors.white,
-                                  fontFamily: 'monospace',
-                                  fontSize: 12,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      if (_isProcessing)
-                        Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          child: LinearProgressIndicator(
-                            value: (_currentOperation + 1) / _allOperations.length,
-                            backgroundColor: Colors.grey[600],
-                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.teal),
+              const Divider(height: 1),
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Cette opération va :',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('• Vérifier l\'intégrité des données'),
+                    const Text('• Recalculer tous les stocks et valeurs'),
+                    const Text('• Mettre à jour les soldes des comptes'),
+                    const Text('• Optimiser les performances'),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _isProcessing ? null : _startReactualisation,
+                          icon: _isProcessing
+                              ? const SizedBox(
+                                  width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.refresh),
+                          label: Text(_isProcessing ? 'En cours...' : 'Démarrer la réactualisation'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
                           ),
                         ),
-                    ],
-                  ),
+                        if (_isProcessing) ...[
+                          const SizedBox(width: 16),
+                          Text(
+                            '${_currentOperation + 1}/${_allOperations.length}',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
-              )
-            else
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    border: Border.all(color: Colors.grey),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
+              ),
+              if (_isProcessing || _operations.isNotEmpty)
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.refresh, size: 64, color: Colors.teal),
-                        SizedBox(height: 16),
-                        Text(
-                          'Réactualisation de la base de données',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        const Text(
+                          'Journal des opérations:',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Cliquez sur "Démarrer" pour lancer la réactualisation',
-                          style: TextStyle(color: Colors.grey),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: _operations.length,
+                            itemBuilder: (context, index) {
+                              final operation = _operations[index];
+                              final isCompleted = operation.contains('✓');
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: Text(
+                                  operation,
+                                  style: TextStyle(
+                                    color: isCompleted ? Colors.green : Colors.white,
+                                    fontFamily: 'monospace',
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
+                        if (_isProcessing)
+                          Container(
+                            margin: const EdgeInsets.only(top: 8),
+                            child: LinearProgressIndicator(
+                              value: (_currentOperation + 1) / _allOperations.length,
+                              backgroundColor: Colors.grey[600],
+                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.teal),
+                            ),
+                          ),
                       ],
                     ),
                   ),
+                )
+              else
+                Expanded(
+                  child: Container(
+                    margin: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.refresh, size: 64, color: Colors.teal),
+                          SizedBox(height: 16),
+                          Text(
+                            'Réactualisation de la base de données',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Cliquez sur "Démarrer" pour lancer la réactualisation',
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

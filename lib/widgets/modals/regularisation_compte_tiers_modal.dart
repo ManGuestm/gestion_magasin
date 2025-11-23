@@ -36,13 +36,13 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
   final TextEditingController _clientController = TextEditingController();
   final TextEditingController _supplierController = TextEditingController();
   final TextEditingController _paymentMethodController = TextEditingController();
-  final FocusNode _clientFocusNode = FocusNode();
-  final FocusNode _supplierFocusNode = FocusNode();
-  final FocusNode _amountFocusNode = FocusNode();
-  final FocusNode _paymentMethodFocusNode = FocusNode();
-  final FocusNode _dateFocusNode = FocusNode();
-  final FocusNode _referenceFocusNode = FocusNode();
-  final FocusNode _noteFocusNode = FocusNode();
+  late final FocusNode _clientFocusNode;
+  late final FocusNode _supplierFocusNode;
+  late final FocusNode _amountFocusNode;
+  late final FocusNode _paymentMethodFocusNode;
+  late final FocusNode _dateFocusNode;
+  late final FocusNode _referenceFocusNode;
+  late final FocusNode _noteFocusNode;
   DateTime _paymentDate = DateTime.now();
   String _paymentMethod = 'Espèces';
   double _clientBalance = 0.0;
@@ -56,6 +56,15 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
   @override
   void initState() {
     super.initState();
+    // Initialize focus nodes with tab navigation
+    _clientFocusNode = createFocusNode();
+    _supplierFocusNode = createFocusNode();
+    _amountFocusNode = createFocusNode();
+    _paymentMethodFocusNode = createFocusNode();
+    _dateFocusNode = createFocusNode();
+    _referenceFocusNode = createFocusNode();
+    _noteFocusNode = createFocusNode();
+
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(_onTabChanged);
     _loadData();
@@ -81,6 +90,10 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
     _referenceFocusNode.dispose();
     _noteFocusNode.dispose();
     super.dispose();
+  }
+
+  FocusNode createFocusNode() {
+    return FocusNode();
   }
 
   void _onTabChanged() {

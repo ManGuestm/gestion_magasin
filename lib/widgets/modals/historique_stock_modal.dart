@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/stock_management_service.dart';
 import '../common/base_modal.dart';
+import '../common/tab_navigation_widget.dart';
 
 class HistoriqueStockModal extends StatefulWidget {
   final String refArticle;
@@ -15,7 +16,7 @@ class HistoriqueStockModal extends StatefulWidget {
   State<HistoriqueStockModal> createState() => _HistoriqueStockModalState();
 }
 
-class _HistoriqueStockModalState extends State<HistoriqueStockModal> {
+class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNavigationMixin {
   List<Map<String, dynamic>> _mouvements = [];
   bool _isLoading = true;
 

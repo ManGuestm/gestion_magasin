@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class CompanyInfoModal extends StatefulWidget {
   const CompanyInfoModal({super.key});
@@ -14,7 +15,7 @@ class CompanyInfoModal extends StatefulWidget {
   State<CompanyInfoModal> createState() => _CompanyInfoModalState();
 }
 
-class _CompanyInfoModalState extends State<CompanyInfoModal> {
+class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationMixin {
   SocData? _socData;
   final Map<String, TextEditingController> _controllers = {};
 
@@ -28,7 +29,10 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> {
   Widget build(BuildContext context) {
     final bool isNewCompany = _socData == null;
 
-    return PopScope(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: PopScope(
       canPop: false,
       child: Dialog(
         backgroundColor: Colors.grey[100],
@@ -99,7 +103,7 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> {
           ),
         ),
       ),
-    );
+    ),);
   }
 
   Widget _buildHeader(bool isNewCompany) {

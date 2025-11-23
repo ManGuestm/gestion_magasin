@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class DepotsModal extends StatefulWidget {
   const DepotsModal({super.key});
@@ -11,17 +12,20 @@ class DepotsModal extends StatefulWidget {
   State<DepotsModal> createState() => _DepotsModalState();
 }
 
-class _DepotsModalState extends State<DepotsModal> {
+class _DepotsModalState extends State<DepotsModal> with TabNavigationMixin {
   List<Depot> _depots = [];
   List<Depot> _filteredDepots = [];
   final TextEditingController _controller = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
+  late final FocusNode _focusNode;
   Depot? _selectedDepot;
 
   @override
   void initState() {
     super.initState();
+    // Initialize focus nodes with tab navigation
+    _focusNode = createFocusNode();
+
     _loadDepots();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -30,32 +34,36 @@ class _DepotsModalState extends State<DepotsModal> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        child: GestureDetector(
-          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-            ),
-            width: 600,
-            height: 500,
-            child: Column(
-              children: [
-                _buildHeader(),
-                _buildContent(),
-                _buildButtons(),
-              ],
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: GestureDetector(
+            onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              width: 600,
+              height: 500,
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  _buildContent(),
+                  _buildButtons(),
+                ],
+              ),
             ),
           ),
         ),

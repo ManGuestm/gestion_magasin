@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class AddFournisseurModal extends StatefulWidget {
   final Frn? fournisseur;
@@ -15,10 +16,10 @@ class AddFournisseurModal extends StatefulWidget {
   State<AddFournisseurModal> createState() => _AddFournisseurModalState();
 }
 
-class _AddFournisseurModalState extends State<AddFournisseurModal> {
+class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavigationMixin {
   final _formKey = GlobalKey<FormState>();
   final _rsocController = TextEditingController();
-  final _rsocFocusNode = FocusNode();
+  late final FocusNode _rsocFocusNode;
   final _adrController = TextEditingController();
   final _capitalController = TextEditingController();
   final _rcsController = TextEditingController();
@@ -36,6 +37,10 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
   @override
   void initState() {
     super.initState();
+    
+    // Initialize focus nodes with tab navigation
+    _rsocFocusNode = createFocusNode();
+    
     if (_isEditing) {
       _loadFournisseurData();
     } else if (widget.nomFournisseur != null) {
@@ -67,14 +72,17 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: KeyboardListener(
-        focusNode: FocusNode(),
-        onKeyEvent: (KeyEvent event) {
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
           if (event is KeyDownEvent &&
               event.logicalKey == LogicalKeyboardKey.enter &&
               HardwareKeyboard.instance.isControlPressed) {
             _saveFournisseur();
+            return KeyEventResult.handled;
           }
+          // Gestion de la navigation Tab/Shift+Tab
+          return handleTabNavigation(event);
         },
         child: Dialog(
           constraints: BoxConstraints(
@@ -299,6 +307,8 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
 
   Widget _buildLabeledField(String label, TextEditingController controller,
       {bool required = false, FocusNode? focusNode}) {
+    final fieldFocusNode = focusNode ?? createFocusNode();
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -324,7 +334,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
         TextFormField(
           controller: controller,
           style: const TextStyle(fontSize: 12),
-          focusNode: focusNode,
+          focusNode: fieldFocusNode,
           decoration: InputDecoration(
             constraints: const BoxConstraints(minHeight: 18, maxHeight: 30),
             border: OutlineInputBorder(
@@ -351,12 +361,15 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
                   return null;
                 }
               : null,
+          onTap: () => updateFocusIndex(fieldFocusNode),
         ),
       ],
     );
   }
 
   Widget _buildTextAreaField(String label, TextEditingController controller) {
+    final focusNode = createFocusNode();
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -371,6 +384,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
         const SizedBox(height: 4),
         TextFormField(
           controller: controller,
+          focusNode: focusNode,
           style: const TextStyle(fontSize: 12),
           maxLines: 3,
           decoration: InputDecoration(
@@ -390,6 +404,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
             filled: true,
             fillColor: Colors.grey.shade50,
           ),
+          onTap: () => updateFocusIndex(focusNode),
         ),
       ],
     );
@@ -490,7 +505,6 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> {
 
   @override
   void dispose() {
-    _rsocFocusNode.dispose();
     _rsocController.dispose();
     _adrController.dispose();
     _capitalController.dispose();

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../database/database.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EtiquettesPrixModal extends StatefulWidget {
   const EtiquettesPrixModal({super.key});
@@ -9,7 +10,7 @@ class EtiquettesPrixModal extends StatefulWidget {
   State<EtiquettesPrixModal> createState() => _EtiquettesPrixModalState();
 }
 
-class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> {
+class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavigationMixin {
   List<Article> _articles = [];
   bool _isLoading = false;
 

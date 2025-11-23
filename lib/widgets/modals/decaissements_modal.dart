@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class DecaissementsModal extends StatefulWidget {
   const DecaissementsModal({super.key});
@@ -10,7 +11,7 @@ class DecaissementsModal extends StatefulWidget {
   State<DecaissementsModal> createState() => _DecaissementsModalState();
 }
 
-class _DecaissementsModalState extends State<DecaissementsModal> {
+class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<CaisseData> _decaissements = [];
   bool _isLoading = true;
@@ -88,12 +89,17 @@ class _DecaissementsModalState extends State<DecaissementsModal> {
                               itemCount: _decaissements.length,
                               itemBuilder: (context, index) {
                                 final decaissement = _decaissements[index];
-                                return ListTile(
-                                  title: Text(decaissement.lib ?? 'N/A'),
-                                  subtitle: Text('Date: ${decaissement.daty?.toString().split(' ')[0] ?? 'N/A'}'),
-                                  trailing: Text(
-                                    '${decaissement.debit?.toStringAsFixed(2) ?? '0.00'} Ar',
-                                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                                return Focus(
+                                  autofocus: true,
+                                  onKeyEvent: (node, event) => handleTabNavigation(event),
+                                  child: ListTile(
+                                    title: Text(decaissement.lib ?? 'N/A'),
+                                    subtitle:
+                                        Text('Date: ${decaissement.daty?.toString().split(' ')[0] ?? 'N/A'}'),
+                                    trailing: Text(
+                                      '${decaissement.debit?.toStringAsFixed(2) ?? '0.00'} Ar',
+                                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                                    ),
                                   ),
                                 );
                               },

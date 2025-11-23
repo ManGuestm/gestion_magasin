@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import 'add_plan_compte_modal.dart';
+import '../common/tab_navigation_widget.dart';
 
 class PlanComptesModal extends StatefulWidget {
   const PlanComptesModal({super.key});
@@ -11,17 +12,20 @@ class PlanComptesModal extends StatefulWidget {
   State<PlanComptesModal> createState() => _PlanComptesModalState();
 }
 
-class _PlanComptesModalState extends State<PlanComptesModal> {
+class _PlanComptesModalState extends State<PlanComptesModal> with TabNavigationMixin {
   List<CaData> _comptes = [];
   List<CaData> _filteredComptes = [];
   final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
+  late final FocusNode _searchFocusNode;
   CaData? _selectedCompte;
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    // Initialize focus nodes with tab navigation
+    _searchFocusNode = createFocusNode();
+
     _loadComptes();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocusNode.requestFocus();
@@ -30,7 +34,10 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: PopScope(
       canPop: false,
       child: Dialog(
         backgroundColor: Colors.transparent,
@@ -62,7 +69,7 @@ class _PlanComptesModalState extends State<PlanComptesModal> {
           ),
         ),
       ),
-    );
+    ),);
   }
 
   Widget _buildHeader() {

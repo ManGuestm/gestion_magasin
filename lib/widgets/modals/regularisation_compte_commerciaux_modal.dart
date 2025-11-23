@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class RegularisationCompteCommerciauxModal extends StatefulWidget {
   const RegularisationCompteCommerciauxModal({super.key});
@@ -11,7 +12,8 @@ class RegularisationCompteCommerciauxModal extends StatefulWidget {
   State<RegularisationCompteCommerciauxModal> createState() => _RegularisationCompteCommerciauxModalState();
 }
 
-class _RegularisationCompteCommerciauxModalState extends State<RegularisationCompteCommerciauxModal> {
+class _RegularisationCompteCommerciauxModalState extends State<RegularisationCompteCommerciauxModal>
+    with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<ComptecomData> _comptes = [];
   bool _isLoading = true;
@@ -93,12 +95,29 @@ class _RegularisationCompteCommerciauxModalState extends State<RegularisationCom
                             ),
                             child: const Row(
                               children: [
-                                Expanded(child: Center(child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(flex: 2, child: Center(child: Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Commercial', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Entrées', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Sorties', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                        child:
+                                            Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Commercial',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Entrées', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Sorties', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
@@ -109,67 +128,73 @@ class _RegularisationCompteCommerciauxModalState extends State<RegularisationCom
                                     itemCount: _comptes.length,
                                     itemBuilder: (context, index) {
                                       final compte = _comptes[index];
-                                      return Container(
-                                        height: 35,
-                                        decoration: BoxDecoration(
-                                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  compte.daty?.toString().split(' ')[0] ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
+                                      return Focus(
+                                        autofocus: true,
+                                        onKeyEvent: (node, event) => handleTabNavigation(event),
+                                        child: Container(
+                                          height: 35,
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                                            border: const Border(
+                                                bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    compte.daty?.toString().split(' ')[0] ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                child: Text(
-                                                  compte.lib ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
+                                              Expanded(
+                                                flex: 2,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                  child: Text(
+                                                    compte.lib ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  compte.com ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    compte.com ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(compte.entres ?? 0),
-                                                  style: const TextStyle(fontSize: 11, color: Colors.green),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(compte.entres ?? 0),
+                                                    style: const TextStyle(fontSize: 11, color: Colors.green),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(compte.sorties ?? 0),
-                                                  style: const TextStyle(fontSize: 11, color: Colors.red),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(compte.sorties ?? 0),
+                                                    style: const TextStyle(fontSize: 11, color: Colors.red),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(compte.solde ?? 0),
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(compte.solde ?? 0),
+                                                    style: const TextStyle(
+                                                        fontSize: 11, fontWeight: FontWeight.bold),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       );
                                     },

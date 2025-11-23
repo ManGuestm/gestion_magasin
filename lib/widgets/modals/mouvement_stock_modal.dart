@@ -6,6 +6,7 @@ import '../../database/database_service.dart';
 import '../../mixins/form_navigation_mixin.dart';
 import '../../services/stock_management_service.dart';
 import '../common/base_modal.dart';
+import '../common/tab_navigation_widget.dart';
 
 class MouvementStockModal extends StatefulWidget {
   final String? refArticle;
@@ -21,7 +22,8 @@ class MouvementStockModal extends StatefulWidget {
   State<MouvementStockModal> createState() => _MouvementStockModalState();
 }
 
-class _MouvementStockModalState extends State<MouvementStockModal> with FormNavigationMixin {
+class _MouvementStockModalState extends State<MouvementStockModal>
+    with FormNavigationMixin, TabNavigationMixin {
   final _formKey = GlobalKey<FormState>();
   final _refArticleController = TextEditingController();
   final _depotController = TextEditingController();
@@ -189,9 +191,8 @@ class _MouvementStockModalState extends State<MouvementStockModal> with FormNavi
 
     // Calculer le nouveau stock global
     final stockActuel = article.stocksu1 ?? 0;
-    final nouveauStock = _typeMouvement == TypeMouvement.entree 
-        ? stockActuel + quantite 
-        : stockActuel - quantite;
+    final nouveauStock =
+        _typeMouvement == TypeMouvement.entree ? stockActuel + quantite : stockActuel - quantite;
 
     // Calculer le nouveau CMUP si c'est une entrée
     double? nouveauCmup;
@@ -213,8 +214,7 @@ class _MouvementStockModalState extends State<MouvementStockModal> with FormNavi
 
   Future<void> _mettreAJourFicheStock(String designation, double quantite) async {
     // Vérifier si une fiche stock existe
-    final ficheStock = await _databaseService.database.customSelect(
-        'SELECT * FROM fstocks WHERE art = ?',
+    final ficheStock = await _databaseService.database.customSelect('SELECT * FROM fstocks WHERE art = ?',
         variables: [Variable(designation)]).getSingleOrNull();
 
     if (ficheStock != null) {
@@ -224,12 +224,10 @@ class _MouvementStockModalState extends State<MouvementStockModal> with FormNavi
       final qstActuel = ficheStock.read<double?>('qst') ?? 0;
 
       if (_typeMouvement == TypeMouvement.entree) {
-        await _databaseService.database.customStatement(
-            'UPDATE fstocks SET qe = ?, qst = ? WHERE art = ?',
+        await _databaseService.database.customStatement('UPDATE fstocks SET qe = ?, qst = ? WHERE art = ?',
             [qeActuel + quantite, qstActuel + quantite, designation]);
       } else {
-        await _databaseService.database.customStatement(
-            'UPDATE fstocks SET qs = ?, qst = ? WHERE art = ?',
+        await _databaseService.database.customStatement('UPDATE fstocks SET qs = ?, qst = ? WHERE art = ?',
             [qsActuel + quantite, qstActuel - quantite, designation]);
       }
     }

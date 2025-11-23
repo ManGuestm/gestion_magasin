@@ -12,6 +12,8 @@ class FormShortcutsWidget extends StatelessWidget {
   final VoidCallback? onCtrlS;
   final VoidCallback? onCtrlN;
   final VoidCallback? onDelete;
+  final VoidCallback? onTab;
+  final VoidCallback? onShiftTab;
 
   const FormShortcutsWidget({
     super.key,
@@ -25,6 +27,8 @@ class FormShortcutsWidget extends StatelessWidget {
     this.onCtrlS,
     this.onCtrlN,
     this.onDelete,
+    this.onTab,
+    this.onShiftTab,
   });
 
   @override
@@ -40,6 +44,8 @@ class FormShortcutsWidget extends StatelessWidget {
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS): _CtrlSIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN): _CtrlNIntent(),
         LogicalKeySet(LogicalKeyboardKey.delete): _DeleteIntent(),
+        LogicalKeySet(LogicalKeyboardKey.tab): _TabIntent(),
+        LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.tab): _ShiftTabIntent(),
       },
       child: Actions(
         actions: {
@@ -52,6 +58,8 @@ class FormShortcutsWidget extends StatelessWidget {
           _CtrlSIntent: CallbackAction<_CtrlSIntent>(onInvoke: (_) => onCtrlS?.call()),
           _CtrlNIntent: CallbackAction<_CtrlNIntent>(onInvoke: (_) => onCtrlN?.call()),
           _DeleteIntent: CallbackAction<_DeleteIntent>(onInvoke: (_) => onDelete?.call()),
+          _TabIntent: CallbackAction<_TabIntent>(onInvoke: (_) => onTab?.call()),
+          _ShiftTabIntent: CallbackAction<_ShiftTabIntent>(onInvoke: (_) => onShiftTab?.call()),
         },
         child: child,
       ),
@@ -68,3 +76,5 @@ class _EscapeIntent extends Intent {}
 class _CtrlSIntent extends Intent {}
 class _CtrlNIntent extends Intent {}
 class _DeleteIntent extends Intent {}
+class _TabIntent extends Intent {}
+class _ShiftTabIntent extends Intent {}

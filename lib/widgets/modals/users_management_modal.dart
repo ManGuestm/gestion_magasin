@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class UsersManagementModal extends StatefulWidget {
   const UsersManagementModal({super.key});
@@ -13,7 +14,7 @@ class UsersManagementModal extends StatefulWidget {
   State<UsersManagementModal> createState() => _UsersManagementModalState();
 }
 
-class _UsersManagementModalState extends State<UsersManagementModal> {
+class _UsersManagementModalState extends State<UsersManagementModal> with TabNavigationMixin {
   List<User> _users = [];
   bool _isLoading = false;
 
@@ -39,22 +40,26 @@ class _UsersManagementModalState extends State<UsersManagementModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        width: 900,
-        height: 700,
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.black, width: 3),
-          color: Colors.white,
-        ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildToolbar(),
-            _buildTable(),
-            _buildFooter(),
-          ],
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: 900,
+          height: 700,
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.black, width: 3),
+            color: Colors.white,
+          ),
+          child: Column(
+            children: [
+              _buildHeader(),
+              _buildToolbar(),
+              _buildTable(),
+              _buildFooter(),
+            ],
+          ),
         ),
       ),
     );

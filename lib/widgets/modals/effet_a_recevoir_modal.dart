@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EffetARecevoirModal extends StatefulWidget {
   const EffetARecevoirModal({super.key});
@@ -11,7 +12,7 @@ class EffetARecevoirModal extends StatefulWidget {
   State<EffetARecevoirModal> createState() => _EffetARecevoirModalState();
 }
 
-class _EffetARecevoirModalState extends State<EffetARecevoirModal> {
+class _EffetARecevoirModalState extends State<EffetARecevoirModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<Effet> _effets = [];
   bool _isLoading = true;

@@ -15,6 +15,7 @@ class EnhancedAutocomplete<T> extends StatefulWidget {
   final bool enabled;
   final void Function(String)? onTextChanged;
   final VoidCallback? onTabPressed;
+  final void Function(String)? onFocusLost;
 
   const EnhancedAutocomplete({
     super.key,
@@ -31,6 +32,7 @@ class EnhancedAutocomplete<T> extends StatefulWidget {
     this.enabled = true,
     this.onTextChanged,
     this.onTabPressed,
+    this.onFocusLost,
   });
 
   @override
@@ -125,6 +127,9 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
       setState(() {
         _showSuggestion = false;
       });
+      if (widget.onFocusLost != null) {
+        widget.onFocusLost!(_controller.text);
+      }
     }
   }
 

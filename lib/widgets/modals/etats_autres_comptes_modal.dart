@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EtatsAutresComptesModal extends StatefulWidget {
   const EtatsAutresComptesModal({super.key});
@@ -11,7 +12,7 @@ class EtatsAutresComptesModal extends StatefulWidget {
   State<EtatsAutresComptesModal> createState() => _EtatsAutresComptesModalState();
 }
 
-class _EtatsAutresComptesModalState extends State<EtatsAutresComptesModal> {
+class _EtatsAutresComptesModalState extends State<EtatsAutresComptesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<AutrescompteData> _comptes = [];
   bool _isLoading = true;

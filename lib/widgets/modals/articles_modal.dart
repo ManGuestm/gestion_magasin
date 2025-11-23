@@ -11,6 +11,7 @@ import '../../widgets/common/base_modal.dart';
 import 'add_article_modal.dart';
 import 'historique_stock_modal.dart';
 import 'mouvement_stock_modal.dart';
+import '../common/tab_navigation_widget.dart';
 
 class ArticlesModal extends StatefulWidget {
   const ArticlesModal({super.key});
@@ -19,7 +20,7 @@ class ArticlesModal extends StatefulWidget {
   State<ArticlesModal> createState() => _ArticlesModalState();
 }
 
-class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin {
+class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin, TabNavigationMixin {
   List<Article> _articles = [];
   List<Article> _filteredArticles = [];
   List<Depot> _depots = [];
@@ -59,7 +60,7 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin 
             }
           }
         }
-        return KeyEventResult.ignored;
+        return handleTabNavigation(event);
       },
       child: BaseModal(
         title: 'Articles',
@@ -256,6 +257,7 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin 
                     controller: _searchController,
                     focusNode: _searchFocus,
                     style: const TextStyle(fontSize: 12),
+                    onTap: () => updateFocusIndex(_searchFocus),
                     decoration: InputDecoration(
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -882,6 +884,7 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 }

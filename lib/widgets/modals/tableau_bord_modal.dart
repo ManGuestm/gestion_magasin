@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class TableauBordModal extends StatefulWidget {
   const TableauBordModal({super.key});
@@ -10,7 +11,7 @@ class TableauBordModal extends StatefulWidget {
   State<TableauBordModal> createState() => _TableauBordModalState();
 }
 
-class _TableauBordModalState extends State<TableauBordModal> {
+class _TableauBordModalState extends State<TableauBordModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   bool _isLoading = true;
 
@@ -105,7 +106,10 @@ class _TableauBordModalState extends State<TableauBordModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
       backgroundColor: Colors.grey[100],
       child: Container(
         width: MediaQuery.of(context).size.width * 0.95,
@@ -284,6 +288,7 @@ class _TableauBordModalState extends State<TableauBordModal> {
           ],
         ),
       ),
+    ),
     );
   }
 }

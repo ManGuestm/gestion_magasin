@@ -11,6 +11,8 @@ class KeyboardService {
     VoidCallback? onSearch,
     VoidCallback? onRefresh,
     VoidCallback? onPrint,
+    VoidCallback? onNextField,
+    VoidCallback? onPreviousField,
   }) {
     return Shortcuts(
       shortcuts: {
@@ -21,6 +23,8 @@ class KeyboardService {
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyF): SearchIntent(),
         LogicalKeySet(LogicalKeyboardKey.f5): RefreshIntent(),
         LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyP): PrintIntent(),
+        LogicalKeySet(LogicalKeyboardKey.tab): NextFieldIntent(),
+        LogicalKeySet(LogicalKeyboardKey.shift, LogicalKeyboardKey.tab): PreviousFieldIntent(),
       },
       child: Actions(
         actions: {
@@ -31,6 +35,8 @@ class KeyboardService {
           SearchIntent: CallbackAction<SearchIntent>(onInvoke: (_) => onSearch?.call()),
           RefreshIntent: CallbackAction<RefreshIntent>(onInvoke: (_) => onRefresh?.call()),
           PrintIntent: CallbackAction<PrintIntent>(onInvoke: (_) => onPrint?.call()),
+          NextFieldIntent: CallbackAction<NextFieldIntent>(onInvoke: (_) => onNextField?.call()),
+          PreviousFieldIntent: CallbackAction<PreviousFieldIntent>(onInvoke: (_) => onPreviousField?.call()),
         },
         child: child,
       ),
@@ -51,3 +57,7 @@ class SearchIntent extends Intent {}
 class RefreshIntent extends Intent {}
 
 class PrintIntent extends Intent {}
+
+class NextFieldIntent extends Intent {}
+
+class PreviousFieldIntent extends Intent {}

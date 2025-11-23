@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../database/database.dart';
 import '../../utils/stock_converter.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EstimationValeurArticlesModal extends StatefulWidget {
   const EstimationValeurArticlesModal({super.key});
@@ -10,7 +11,7 @@ class EstimationValeurArticlesModal extends StatefulWidget {
   State<EstimationValeurArticlesModal> createState() => _EstimationValeurArticlesModalState();
 }
 
-class _EstimationValeurArticlesModalState extends State<EstimationValeurArticlesModal> {
+class _EstimationValeurArticlesModalState extends State<EstimationValeurArticlesModal> with TabNavigationMixin {
   List<Article> _articles = [];
   bool _isLoading = false;
   double _totalValeur = 0;

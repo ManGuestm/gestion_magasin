@@ -4,8 +4,9 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../database/database.dart';
+import '../common/tab_navigation_widget.dart';
 
-class BonReceptionPreview extends StatelessWidget {
+class BonReceptionPreview extends StatefulWidget {
   final String numAchats;
   final String? nFact;
   final DateTime date;
@@ -33,8 +34,13 @@ class BonReceptionPreview extends StatelessWidget {
     this.societe,
   });
 
+  @override
+  State<BonReceptionPreview> createState() => _BonReceptionPreviewState();
+}
+
+class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavigationMixin {
   double get _pageWidth {
-    switch (format) {
+    switch (widget.format) {
       case 'A4':
         return 800;
       case 'A6':
@@ -45,7 +51,7 @@ class BonReceptionPreview extends StatelessWidget {
   }
 
   double get _pageHeight {
-    switch (format) {
+    switch (widget.format) {
       case 'A4':
         return 1100;
       case 'A6':
@@ -56,7 +62,7 @@ class BonReceptionPreview extends StatelessWidget {
   }
 
   double get _fontSize {
-    switch (format) {
+    switch (widget.format) {
       case 'A6':
         return 9;
       case 'A5':
@@ -67,7 +73,7 @@ class BonReceptionPreview extends StatelessWidget {
   }
 
   double get _headerFontSize {
-    switch (format) {
+    switch (widget.format) {
       case 'A6':
         return 10;
       case 'A5':
@@ -78,7 +84,7 @@ class BonReceptionPreview extends StatelessWidget {
   }
 
   double get _padding {
-    switch (format) {
+    switch (widget.format) {
       case 'A6':
         return 8;
       case 'A5':
@@ -89,7 +95,7 @@ class BonReceptionPreview extends StatelessWidget {
   }
 
   PdfPageFormat get _pdfPageFormat {
-    switch (format) {
+    switch (widget.format) {
       case 'A4':
         return PdfPageFormat.a4;
       case 'A6':
@@ -101,76 +107,80 @@ class BonReceptionPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          // Window title bar
-          Container(
-            height: 32,
-            color: const Color(0xFF2D2D30),
-            child: Row(
-              children: [
-                const SizedBox(width: 8),
-                const Icon(Icons.receipt, color: Colors.white, size: 16),
-                const SizedBox(width: 8),
-                Text(
-                  'Aperçu BR N° $numAchats - Format $format',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          // Toolbar
-          Container(
-            padding: const EdgeInsets.all(8),
-            color: Colors.grey[200],
-            child: Row(
-              children: [
-                ElevatedButton.icon(
-                  onPressed: () => _imprimer(context),
-                  icon: const Icon(Icons.print, size: 16),
-                  label: const Text('Imprimer'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Fermer'),
-                ),
-                const Spacer(),
-                Text('Format: $format', style: const TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-          // Preview
-          Expanded(
-            child: Container(
-              color: Colors.grey[300],
-              child: Center(
-                child: Container(
-                  width: _pageWidth,
-                  height: _pageHeight,
-                  margin: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Scaffold(
+        body: Column(
+          children: [
+            // Window title bar
+            Container(
+              height: 32,
+              color: const Color(0xFF2D2D30),
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  const Icon(Icons.receipt, color: Colors.white, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Aperçu BR N° ${widget.numAchats} - Format ${widget.format}',
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
-                  child: SingleChildScrollView(
-                    child: Container(
-                      padding: EdgeInsets.all(_padding),
-                      child: _buildReceiptContent(),
+                ],
+              ),
+            ),
+            // Toolbar
+            Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.grey[200],
+              child: Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => _imprimer(context),
+                    icon: const Icon(Icons.print, size: 16),
+                    label: const Text('Imprimer'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Fermer'),
+                  ),
+                  const Spacer(),
+                  Text('Format: ${widget.format}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+            // Preview
+            Expanded(
+              child: Container(
+                color: Colors.grey[300],
+                child: Center(
+                  child: Container(
+                    width: _pageWidth,
+                    height: _pageHeight,
+                    margin: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: SingleChildScrollView(
+                      child: Container(
+                        padding: EdgeInsets.all(_padding),
+                        child: _buildReceiptContent(),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -224,17 +234,17 @@ class BonReceptionPreview extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: _fontSize - 1),
                         ),
                         Text(
-                          societe?.rsoc ?? 'SOCIÉTÉ',
+                          widget.societe?.rsoc ?? 'SOCIÉTÉ',
                           style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.w600),
                         ),
-                        if (societe?.activites != null)
+                        if (widget.societe?.activites != null)
                           Text(
-                            societe!.activites!,
+                            widget.societe!.activites!,
                             style: TextStyle(fontSize: _fontSize - 1),
                           ),
-                        if (societe?.adr != null)
+                        if (widget.societe?.adr != null)
                           Text(
-                            societe!.adr!,
+                            widget.societe!.adr!,
                             style: TextStyle(fontSize: _fontSize - 1),
                           ),
                       ],
@@ -245,11 +255,11 @@ class BonReceptionPreview extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildInfoRow('N° DOCUMENT:', numAchats),
+                        _buildInfoRow('N° DOCUMENT:', widget.numAchats),
                         _buildInfoRow('DATE:',
-                            '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}'),
-                        if (nFact?.isNotEmpty == true) _buildInfoRow('N° FACTURE:', nFact!),
-                        _buildInfoRow('FOURNISSEUR:', fournisseur),
+                            '${widget.date.day.toString().padLeft(2, '0')}/${widget.date.month.toString().padLeft(2, '0')}/${widget.date.year}'),
+                        if (widget.nFact?.isNotEmpty == true) _buildInfoRow('N° FACTURE:', widget.nFact!),
+                        _buildInfoRow('FOURNISSEUR:', widget.fournisseur),
                       ],
                     ),
                   ),
@@ -316,7 +326,7 @@ class BonReceptionPreview extends StatelessWidget {
                   6: FlexColumnWidth(1.5),
                 },
                 children: [
-                  ...lignesAchat.asMap().entries.map((entry) {
+                  ...widget.lignesAchat.asMap().entries.map((entry) {
                     final index = entry.key + 1;
                     final ligne = entry.value;
                     return TableRow(
@@ -353,13 +363,13 @@ class BonReceptionPreview extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _buildTotalRow('TOTAL HT:', _formatNumber(totalHT)),
-                      _buildTotalRow('TVA:', _formatNumber(tva)),
+                      _buildTotalRow('TOTAL HT:', _formatNumber(widget.totalHT)),
+                      _buildTotalRow('TVA:', _formatNumber(widget.tva)),
                       Container(
                         decoration: const BoxDecoration(
                           border: Border(top: BorderSide(color: Colors.black)),
                         ),
-                        child: _buildTotalRow('TOTAL TTC:', _formatNumber(totalTTC), isBold: true),
+                        child: _buildTotalRow('TOTAL TTC:', _formatNumber(widget.totalTTC), isBold: true),
                       ),
                     ],
                   ),
@@ -374,7 +384,7 @@ class BonReceptionPreview extends StatelessWidget {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  'Arrêté à la somme de ${_numberToWords(totalTTC.round())} Ariary',
+                  'Arrêté à la somme de ${_numberToWords(widget.totalTTC.round())} Ariary',
                   style: TextStyle(
                     fontSize: _fontSize - 1,
                     fontWeight: FontWeight.bold,
@@ -389,7 +399,7 @@ class BonReceptionPreview extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: _fontSize - 1),
                   ),
                   Text(
-                    modePaiement ?? 'A crédit',
+                    widget.modePaiement ?? 'A crédit',
                     style: TextStyle(fontSize: _fontSize - 1),
                   ),
                 ],
@@ -525,7 +535,7 @@ class BonReceptionPreview extends StatelessWidget {
 
   Widget _buildTableCell(String text, {bool isHeader = false, bool isAmount = false}) {
     return Container(
-      padding: EdgeInsets.all(format == 'A6' ? 3 : 6),
+      padding: EdgeInsets.all(widget.format == 'A6' ? 3 : 6),
       decoration: isHeader
           ? BoxDecoration(
               color: Colors.grey[200],
@@ -534,7 +544,7 @@ class BonReceptionPreview extends StatelessWidget {
       child: Text(
         text,
         style: TextStyle(
-          fontSize: format == 'A6' ? 8 : (format == 'A5' ? 9 : 10),
+          fontSize: widget.format == 'A6' ? 8 : (widget.format == 'A5' ? 9 : 10),
           fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
         ),
         textAlign: isHeader
@@ -676,18 +686,18 @@ class BonReceptionPreview extends StatelessWidget {
   // Générer le document PDF
   Future<pw.Document> _generatePdf() async {
     final pdf = pw.Document();
-    final pdfFontSize = format == 'A6' ? 7.0 : (format == 'A5' ? 9.0 : 10.0);
-    final pdfHeaderFontSize = format == 'A6' ? 8.0 : (format == 'A5' ? 10.0 : 12.0);
-    final pdfPadding = format == 'A6' ? 8.0 : (format == 'A5' ? 10.0 : 12.0);
+    final pdfFontSize = widget.format == 'A6' ? 7.0 : (widget.format == 'A5' ? 9.0 : 10.0);
+    final pdfHeaderFontSize = widget.format == 'A6' ? 8.0 : (widget.format == 'A5' ? 10.0 : 12.0);
+    final pdfPadding = widget.format == 'A6' ? 8.0 : (widget.format == 'A5' ? 10.0 : 12.0);
 
     // Calculer le nombre de lignes par page
-    final int maxLinesPerPage = format == 'A6' ? 15 : (format == 'A5' ? 20 : 25);
-    final int totalPages = (lignesAchat.length / maxLinesPerPage).ceil();
+    final int maxLinesPerPage = widget.format == 'A6' ? 15 : (widget.format == 'A5' ? 20 : 25);
+    final int totalPages = (widget.lignesAchat.length / maxLinesPerPage).ceil();
 
     for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
       final int startIndex = pageIndex * maxLinesPerPage;
-      final int endIndex = (startIndex + maxLinesPerPage).clamp(0, lignesAchat.length);
-      final List<Map<String, dynamic>> pageLines = lignesAchat.sublist(startIndex, endIndex);
+      final int endIndex = (startIndex + maxLinesPerPage).clamp(0, widget.lignesAchat.length);
+      final List<Map<String, dynamic>> pageLines = widget.lignesAchat.sublist(startIndex, endIndex);
       final bool isLastPage = pageIndex == totalPages - 1;
 
       pdf.addPage(
@@ -745,18 +755,18 @@ class BonReceptionPreview extends StatelessWidget {
                                         fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
                                   ),
                                   pw.Text(
-                                    societe?.rsoc ?? 'SOCIÉTÉ',
+                                    widget.societe?.rsoc ?? 'SOCIÉTÉ',
                                     style:
                                         pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                                   ),
-                                  if (societe?.activites != null)
+                                  if (widget.societe?.activites != null)
                                     pw.Text(
-                                      societe!.activites!,
+                                      widget.societe!.activites!,
                                       style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                     ),
-                                  if (societe?.adr != null)
+                                  if (widget.societe?.adr != null)
                                     pw.Text(
-                                      societe!.adr!,
+                                      widget.societe!.adr!,
                                       style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                     ),
                                 ],
@@ -767,14 +777,14 @@ class BonReceptionPreview extends StatelessWidget {
                               child: pw.Column(
                                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                                 children: [
-                                  _buildPdfInfoRow('N° DOCUMENT:', numAchats, pdfFontSize),
+                                  _buildPdfInfoRow('N° DOCUMENT:', widget.numAchats, pdfFontSize),
                                   _buildPdfInfoRow(
                                       'DATE:',
-                                      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}',
+                                      '${widget.date.day.toString().padLeft(2, '0')}/${widget.date.month.toString().padLeft(2, '0')}/${widget.date.year}',
                                       pdfFontSize),
-                                  if (nFact?.isNotEmpty == true)
-                                    _buildPdfInfoRow('N° FACTURE:', nFact!, pdfFontSize),
-                                  _buildPdfInfoRow('FOURNISSEUR:', fournisseur, pdfFontSize),
+                                  if (widget.nFact?.isNotEmpty == true)
+                                    _buildPdfInfoRow('N° FACTURE:', widget.nFact!, pdfFontSize),
+                                  _buildPdfInfoRow('FOURNISSEUR:', widget.fournisseur, pdfFontSize),
                                   if (totalPages > 1)
                                     _buildPdfInfoRow('PAGE:', '${pageIndex + 1}/$totalPages', pdfFontSize),
                                 ],
@@ -886,14 +896,14 @@ class BonReceptionPreview extends StatelessWidget {
                               pw.Column(
                                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                                 children: [
-                                  _buildPdfTotalRow('TOTAL HT:', _formatNumber(totalHT), pdfFontSize),
-                                  _buildPdfTotalRow('TVA:', _formatNumber(tva), pdfFontSize),
+                                  _buildPdfTotalRow('TOTAL HT:', _formatNumber(widget.totalHT), pdfFontSize),
+                                  _buildPdfTotalRow('TVA:', _formatNumber(widget.tva), pdfFontSize),
                                   pw.Container(
                                     decoration: const pw.BoxDecoration(
                                       border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
                                     ),
                                     child: _buildPdfTotalRow(
-                                        'TOTAL TTC:', _formatNumber(totalTTC), pdfFontSize,
+                                        'TOTAL TTC:', _formatNumber(widget.totalTTC), pdfFontSize,
                                         isBold: true),
                                   ),
                                 ],
@@ -909,7 +919,7 @@ class BonReceptionPreview extends StatelessWidget {
                             ),
                             alignment: pw.Alignment.center,
                             child: pw.Text(
-                              'Arrêté à la somme de ${_numberToWords(totalTTC.round())} Ariary',
+                              'Arrêté à la somme de ${_numberToWords(widget.totalTTC.round())} Ariary',
                               style: pw.TextStyle(
                                 fontSize: pdfFontSize - 1,
                                 fontWeight: pw.FontWeight.bold,
@@ -925,7 +935,7 @@ class BonReceptionPreview extends StatelessWidget {
                                     pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
                               ),
                               pw.Text(
-                                modePaiement ?? 'A crédit',
+                                widget.modePaiement ?? 'A crédit',
                                 style: pw.TextStyle(fontSize: pdfFontSize - 1),
                               ),
                             ],
@@ -1014,7 +1024,7 @@ class BonReceptionPreview extends StatelessWidget {
 
   pw.Widget _buildPdfTableCell(String text, double fontSize, {bool isHeader = false, bool isAmount = false}) {
     return pw.Container(
-      padding: pw.EdgeInsets.all(format == 'A6' ? 3 : 5),
+      padding: pw.EdgeInsets.all(widget.format == 'A6' ? 3 : 5),
       child: pw.Text(
         text,
         style: pw.TextStyle(
@@ -1093,7 +1103,7 @@ class BonReceptionPreview extends StatelessWidget {
       // Ouvrir directement la boîte de dialogue d'impression Windows
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => bytes,
-        name: 'BR_${numAchats}_${date.day}-${date.month}-${date.year}.pdf',
+        name: 'BR_${widget.numAchats}_${widget.date.day}-${widget.date.month}-${widget.date.year}.pdf',
         format: _pdfPageFormat,
       );
     } catch (e) {

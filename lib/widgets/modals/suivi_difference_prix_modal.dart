@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class SuiviDifferencePrixModal extends StatefulWidget {
   const SuiviDifferencePrixModal({super.key});
@@ -13,7 +14,7 @@ class SuiviDifferencePrixModal extends StatefulWidget {
   State<SuiviDifferencePrixModal> createState() => _SuiviDifferencePrixModalState();
 }
 
-class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> {
+class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> with TabNavigationMixin {
   List<Map<String, dynamic>> _differences = [];
   bool _isLoading = true;
   DateTime? _dateDebut;
@@ -590,7 +591,10 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
       child: Container(
         width: MediaQuery.of(context).size.width * 0.8,
         height: 700,
@@ -800,7 +804,7 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> {
           ],
         ),
       ),
-    );
+    ),);
   }
 
   @override

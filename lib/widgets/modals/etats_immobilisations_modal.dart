@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class EtatsImmobilisationsModal extends StatefulWidget {
   const EtatsImmobilisationsModal({super.key});
@@ -11,7 +12,7 @@ class EtatsImmobilisationsModal extends StatefulWidget {
   State<EtatsImmobilisationsModal> createState() => _EtatsImmobilisationsModalState();
 }
 
-class _EtatsImmobilisationsModalState extends State<EtatsImmobilisationsModal> {
+class _EtatsImmobilisationsModalState extends State<EtatsImmobilisationsModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<EmbData> _immobilisations = [];
   bool _isLoading = true;
@@ -26,18 +27,20 @@ class _EtatsImmobilisationsModalState extends State<EtatsImmobilisationsModal> {
     try {
       final database = _databaseService.database;
       final immobilisations = await database.customSelect('SELECT * FROM emb ORDER BY daty DESC').get();
-      
+
       setState(() {
-        _immobilisations = immobilisations.map((row) => EmbData(
-          designation: row.data['designation'] as String,
-          vo: row.data['vo'] as double?,
-          action: row.data['action'] as String?,
-          categorie: row.data['categorie'] as String?,
-          amt: row.data['amt'] as double?,
-          daty: row.data['daty'] != null ? DateTime.parse(row.data['daty'] as String) : null,
-          description: row.data['description'] as String?,
-          taux: row.data['taux'] as double?,
-        )).toList();
+        _immobilisations = immobilisations
+            .map((row) => EmbData(
+                  designation: row.data['designation'] as String,
+                  vo: row.data['vo'] as double?,
+                  action: row.data['action'] as String?,
+                  categorie: row.data['categorie'] as String?,
+                  amt: row.data['amt'] as double?,
+                  daty: row.data['daty'] != null ? DateTime.parse(row.data['daty'] as String) : null,
+                  description: row.data['description'] as String?,
+                  taux: row.data['taux'] as double?,
+                ))
+            .toList();
         _isLoading = false;
       });
     } catch (e) {
@@ -104,13 +107,34 @@ class _EtatsImmobilisationsModalState extends State<EtatsImmobilisationsModal> {
                             ),
                             child: const Row(
                               children: [
-                                Expanded(flex: 2, child: Center(child: Text('Désignation', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Catégorie', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Date acq.', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('V.O.', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Amort.', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Taux %', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Action', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                        child: Text('Désignation',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Catégorie',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date acq.',
+                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('V.O.', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Amort.', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Taux %', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Action', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
@@ -125,7 +149,8 @@ class _EtatsImmobilisationsModalState extends State<EtatsImmobilisationsModal> {
                                         height: 40,
                                         decoration: BoxDecoration(
                                           color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          border: const Border(
+                                              bottom: BorderSide(color: Colors.grey, width: 0.5)),
                                         ),
                                         child: Row(
                                           children: [

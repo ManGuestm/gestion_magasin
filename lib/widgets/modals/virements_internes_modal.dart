@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class VirementsInternesModal extends StatefulWidget {
   const VirementsInternesModal({super.key});
@@ -11,7 +12,7 @@ class VirementsInternesModal extends StatefulWidget {
   State<VirementsInternesModal> createState() => _VirementsInternesModalState();
 }
 
-class _VirementsInternesModalState extends State<VirementsInternesModal> {
+class _VirementsInternesModalState extends State<VirementsInternesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   List<BanqueData> _virements = [];
   bool _isLoading = true;
@@ -95,12 +96,28 @@ class _VirementsInternesModalState extends State<VirementsInternesModal> {
                             ),
                             child: const Row(
                               children: [
-                                Expanded(child: Center(child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(flex: 2, child: Center(child: Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Débit', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Crédit', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Compte', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                        child:
+                                            Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Débit', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Crédit', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                Expanded(
+                                    child: Center(
+                                        child:
+                                            Text('Compte', style: TextStyle(fontWeight: FontWeight.bold)))),
                               ],
                             ),
                           ),
@@ -120,66 +137,72 @@ class _VirementsInternesModalState extends State<VirementsInternesModal> {
                                     itemCount: _virements.length,
                                     itemBuilder: (context, index) {
                                       final virement = _virements[index];
-                                      return Container(
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  virement.daty?.toString().split(' ')[0] ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
+                                      return Focus(
+                                        autofocus: true,
+                                        onKeyEvent: (node, event) => handleTabNavigation(event),
+                                        child: Container(
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                                            border: const Border(
+                                                bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    virement.daty?.toString().split(' ')[0] ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                child: Text(
-                                                  virement.lib ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
+                                              Expanded(
+                                                flex: 2,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                  child: Text(
+                                                    virement.lib ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(virement.debit ?? 0),
-                                                  style: const TextStyle(fontSize: 11, color: Colors.red),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(virement.debit ?? 0),
+                                                    style: const TextStyle(fontSize: 11, color: Colors.red),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(virement.credit ?? 0),
-                                                  style: const TextStyle(fontSize: 11, color: Colors.green),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(virement.credit ?? 0),
+                                                    style: const TextStyle(fontSize: 11, color: Colors.green),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(virement.soldes ?? 0),
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(virement.soldes ?? 0),
+                                                    style: const TextStyle(
+                                                        fontSize: 11, fontWeight: FontWeight.bold),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  virement.comptes ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
+                                              Expanded(
+                                                child: Center(
+                                                  child: Text(
+                                                    virement.comptes ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 11),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
                                       );
                                     },

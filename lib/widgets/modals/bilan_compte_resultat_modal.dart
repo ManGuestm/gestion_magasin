@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database_service.dart';
 import '../../utils/number_utils.dart';
+import '../common/tab_navigation_widget.dart';
 
 class BilanCompteResultatModal extends StatefulWidget {
   const BilanCompteResultatModal({super.key});
@@ -10,7 +11,7 @@ class BilanCompteResultatModal extends StatefulWidget {
   State<BilanCompteResultatModal> createState() => _BilanCompteResultatModalState();
 }
 
-class _BilanCompteResultatModalState extends State<BilanCompteResultatModal> {
+class _BilanCompteResultatModalState extends State<BilanCompteResultatModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   bool _isLoading = true;
   String _selectedType = 'Bilan';
@@ -237,63 +238,67 @@ class _BilanCompteResultatModalState extends State<BilanCompteResultatModal> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.95,
-        height: MediaQuery.of(context).size.height * 0.9,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey[100],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Bilan / Compte de Résultat',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+    return Focus(
+      autofocus: true,
+      onKeyEvent: (node, event) => handleTabNavigation(event),
+      child: Dialog(
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.95,
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.grey[100],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Bilan / Compte de Résultat',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 20),
-                  ),
-                ],
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, size: 20),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            const Divider(height: 1),
-            Container(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  const Text('Type de rapport: '),
-                  DropdownButton<String>(
-                    value: _selectedType,
-                    items: const [
-                      DropdownMenuItem(value: 'Bilan', child: Text('Bilan')),
-                      DropdownMenuItem(value: 'Compte de Résultat', child: Text('Compte de Résultat')),
-                    ],
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedType = value ?? 'Bilan';
-                      });
-                    },
-                  ),
-                ],
+              const Divider(height: 1),
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    const Text('Type de rapport: '),
+                    DropdownButton<String>(
+                      value: _selectedType,
+                      items: const [
+                        DropdownMenuItem(value: 'Bilan', child: Text('Bilan')),
+                        DropdownMenuItem(value: 'Compte de Résultat', child: Text('Compte de Résultat')),
+                      ],
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedType = value ?? 'Bilan';
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _selectedType == 'Bilan'
-                      ? _buildBilan()
-                      : _buildCompteResultat(),
-            ),
-          ],
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _selectedType == 'Bilan'
+                        ? _buildBilan()
+                        : _buildCompteResultat(),
+              ),
+            ],
+          ),
         ),
       ),
     );

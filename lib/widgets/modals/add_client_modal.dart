@@ -6,6 +6,7 @@ import '../../constants/client_categories.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
+import '../common/tab_navigation_widget.dart';
 
 class AddClientModal extends StatefulWidget {
   final CltData? client;
@@ -19,7 +20,7 @@ class AddClientModal extends StatefulWidget {
   State<AddClientModal> createState() => _AddClientModalState();
 }
 
-class _AddClientModalState extends State<AddClientModal> {
+class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin {
   final _formKey = GlobalKey<FormState>();
   final _rsocController = TextEditingController();
   final _adrController = TextEditingController();
@@ -30,12 +31,14 @@ class _AddClientModalState extends State<AddClientModal> {
   final _soldesController = TextEditingController();
   final _categorieController = TextEditingController();
   final _commercialController = TextEditingController();
-  final _rsocFocusNode = FocusNode();
+  late final FocusNode _rsocFocusNode;
   String? _selectedCategorie;
 
   @override
   void initState() {
     super.initState();
+    _rsocFocusNode = createFocusNode();
+    
     if (widget.client != null) {
       _rsocController.text = widget.client!.rsoc;
       _adrController.text = widget.client!.adr ?? '';
@@ -78,6 +81,11 @@ class _AddClientModalState extends State<AddClientModal> {
             } else if (event.logicalKey == LogicalKeyboardKey.escape) {
               Navigator.of(context).pop();
               return KeyEventResult.handled;
+            }
+            // Gestion de la navigation Tab/Shift+Tab
+            final tabResult = handleTabNavigation(event);
+            if (tabResult == KeyEventResult.handled) {
+              return tabResult;
             }
           }
           return KeyEventResult.ignored;
@@ -396,6 +404,8 @@ class _AddClientModalState extends State<AddClientModal> {
 
   Widget _buildLabeledField(String label, TextEditingController controller,
       {bool required = false, double? width, bool readOnly = false}) {
+    final focusNode = controller == _rsocController ? _rsocFocusNode : createFocusNode();
+    
     return Row(
       children: [
         SizedBox(
@@ -423,7 +433,7 @@ class _AddClientModalState extends State<AddClientModal> {
           ),
           child: TextFormField(
             controller: controller,
-            focusNode: controller == _rsocController ? _rsocFocusNode : null,
+            focusNode: focusNode,
             readOnly: readOnly,
             style: TextStyle(fontSize: 12, color: readOnly ? Colors.grey[600] : Colors.black),
             decoration: InputDecoration(
@@ -441,6 +451,7 @@ class _AddClientModalState extends State<AddClientModal> {
                     return null;
                   }
                 : null,
+            onTap: () => updateFocusIndex(focusNode),
           ),
         ),
       ],
@@ -448,6 +459,8 @@ class _AddClientModalState extends State<AddClientModal> {
   }
 
   Widget _buildTextAreaField(String label, TextEditingController controller) {
+    final focusNode = createFocusNode();
+    
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -476,6 +489,7 @@ class _AddClientModalState extends State<AddClientModal> {
           ),
           child: TextFormField(
             controller: controller,
+            focusNode: focusNode,
             style: const TextStyle(fontSize: 12),
             maxLines: 3,
             decoration: const InputDecoration(
@@ -483,6 +497,7 @@ class _AddClientModalState extends State<AddClientModal> {
               contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               isDense: true,
             ),
+            onTap: () => updateFocusIndex(focusNode),
           ),
         ),
       ],
@@ -656,7 +671,6 @@ class _AddClientModalState extends State<AddClientModal> {
     _soldesController.dispose();
     _categorieController.dispose();
     _commercialController.dispose();
-    _rsocFocusNode.dispose();
     super.dispose();
   }
 }
