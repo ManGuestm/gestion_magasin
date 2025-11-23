@@ -39,8 +39,6 @@ class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
     _searchFocus = createFocusNode();
     _keyboardFocusNode = createFocusNode();
 
-    _searchFocus = createFocusNode();
-
     _loadClients();
 
     // Focus automatique sur le KeyboardListener
