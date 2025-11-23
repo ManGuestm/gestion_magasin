@@ -33,8 +33,6 @@ class _FournisseursModalState extends State<FournisseursModal> with FormNavigati
     super.initState();
     // Initialize focus nodes with tab navigation
     _searchFocus = createFocusNode();
-
-    _searchFocus = createFocusNode();
     _loadFournisseurs();
   }
 
