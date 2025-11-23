@@ -545,25 +545,52 @@ class VenteService {
             ..where((d) => d.numventes.equals(numVentes) & d.designation.equals('__VENTE_METADATA__')))
           .go();
 
-      // 3. Traiter chaque ligne pour créer les mouvements de stock
+      // 3. Traiter chaque ligne pour créer les mouvements de stock (sans réinsérer dans detventes)
       for (final detail in lignesVente) {
         if (detail.designation != null &&
             detail.depots != null &&
             detail.unites != null &&
             detail.q != null) {
-          await _traiterLigneVente(
-            numVentes: numVentes,
-            ligne: {
-              'designation': detail.designation!,
-              'unite': detail.unites!,
-              'depot': detail.depots!,
-              'quantite': detail.q!,
-              'prixUnitaire': detail.pu ?? 0.0,
-              'diffPrix': detail.diffPrix ?? 0.0,
-            },
-            date: metadata.daty ?? DateTime.now(),
-            client: client,
-          );
+          // Récupérer l'article pour les conversions
+          final article = await (_databaseService.database.select(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(detail.designation!)))
+              .getSingleOrNull();
+
+          if (article != null) {
+            // Réduire stocks par dépôt
+            await _reduireStockDepot(
+              article: article,
+              depot: detail.depots!,
+              unite: detail.unites!,
+              quantite: detail.q!,
+            );
+
+            // Créer mouvement stock de sortie
+            await _creerMouvementStock(
+              numVentes: numVentes,
+              article: article,
+              depot: detail.depots!,
+              unite: detail.unites!,
+              quantite: detail.q!,
+              prixUnitaire: detail.pu ?? 0.0,
+              client: client,
+              date: metadata.daty ?? DateTime.now(),
+            );
+
+            // Ajuster stock global article
+            await _ajusterStockGlobalArticle(
+              article: article,
+              unite: detail.unites!,
+              quantite: detail.q!,
+            );
+
+            // Mettre à jour fiche stock
+            await _mettreAJourFicheStock(
+              designation: detail.designation!,
+              unite: detail.unites!,
+              quantite: detail.q!,
+            );
+          }
         }
       }
 
