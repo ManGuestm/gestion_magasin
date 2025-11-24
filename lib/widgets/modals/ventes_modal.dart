@@ -2,6 +2,9 @@ import 'package:collection/collection.dart';
 import 'package:drift/drift.dart' as drift hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../../constants/client_categories.dart';
 import '../../constants/vente_types.dart';
@@ -61,6 +64,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   List<CltData> _clients = [];
   List<Depot> _depots = [];
   final List<Map<String, dynamic>> _lignesVente = [];
+  // Ajouter une propriété pour stocker le Future
+  Future<List<Map<String, dynamic>>>? _ventesFuture;
+
+  List<Map<String, dynamic>>? _cachedVentes;
+  DateTime? _lastVentesLoad;
+  static const _cacheDuration = Duration(seconds: 30);
 
   // Selected values
   Article? _selectedArticle;
@@ -122,9 +131,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     _ajouterFocusNode = createFocusNode();
     _annulerFocusNode = createFocusNode();
 
-    _loadData();
-    _loadVentesNumbers().then((_) => _initializeForm());
-    _loadDefaultDepot();
+    // Charger les données de manière optimisée
+    _initializeAsync();
+
     _searchVentesController.addListener(() {
       setState(() {
         _searchVentesText = _searchVentesController.text.toLowerCase();
@@ -137,7 +146,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
     _depotFocusNode.addListener(() {
       if (_depotFocusNode.hasFocus) {
-        // Force focus on the depot field's text field
         Future.delayed(const Duration(milliseconds: 50), () {
           if (_depotFocusNode.hasFocus) {
             _depotFocusNode.requestFocus();
@@ -145,27 +153,48 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         });
       }
     });
-    _ajouterFocusNode.addListener(() {
-      // Ne pas déclencher setState() pour éviter la réinitialisation du prix
-    });
 
     // Position cursor in client field after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _keyboardFocusNode.requestFocus();
-      // Délai plus long pour s'assurer que le focus reste
       Future.delayed(const Duration(milliseconds: 200), () {
         _clientFocusNode.requestFocus();
       });
     });
+    // Créer le Future une seule fois
+    _ventesFuture = _getVentesAvecStatut();
   }
 
-  Future<void> _loadVentesNumbers() async {
-    // Method kept for compatibility but no longer uses _ventesNumbers field
+  void _reloadVentesList() {
+    setState(() {
+      _invalidateVentesCache();
+      _ventesFuture = _getVentesAvecStatut(); // Recréer le Future
+    });
   }
 
+// Nouvelle méthode pour initialisation asynchrone optimisée
+  Future<void> _initializeAsync() async {
+    // Charger en parallèle pour gagner du temps
+    await Future.wait([
+      _loadData(),
+      _loadDefaultDepot(),
+    ]);
+
+    _initializeForm();
+  }
+
+// Remplacer la méthode _getVentesAvecStatut() par :
   Future<List<Map<String, dynamic>>> _getVentesAvecStatut() async {
+    // Vérifier si le cache est encore valide
+    final now = DateTime.now();
+    if (_cachedVentes != null &&
+        _lastVentesLoad != null &&
+        now.difference(_lastVentesLoad!) < _cacheDuration) {
+      return _cachedVentes!;
+    }
+
     try {
-      // Récupérer les ventes journalées
+      // Code existant - récupérer les ventes journalées
       var queryVentes = _databaseService.database.select(_databaseService.database.ventes)
         ..orderBy([(v) => drift.OrderingTerm.desc(v.daty)]);
 
@@ -201,15 +230,29 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             'verification': 'BROUILLARD',
             'daty': brouillard.daty,
             'contre': '',
-            'nfact': '', // Pas de facture en brouillard
+            'nfact': '',
           });
         }
       }
 
+      // Trier par date décroissante
+      result.sort((a, b) => (b['daty'] ?? DateTime(0)).compareTo(a['daty'] ?? DateTime(0)));
+
+      // Mettre à jour le cache
+      _cachedVentes = result;
+      _lastVentesLoad = now;
+
       return result;
     } catch (e) {
+      debugPrint('Erreur lors du chargement des ventes: $e');
       return [];
     }
+  }
+
+  // Ajouter une méthode pour invalider le cache quand nécessaire :
+  void _invalidateVentesCache() {
+    _cachedVentes = null;
+    _lastVentesLoad = null;
   }
 
   bool _peutValiderBrouillard() {
@@ -222,6 +265,20 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   bool _isVenteBrouillard() {
     // Cette méthode sera mise à jour lors du chargement de la vente
     return _statutVenteActuelle == StatutVente.brouillard;
+  }
+
+  Future<bool> _isVenteContrePassee() async {
+    if (!_isExistingPurchase || _numVentesController.text.isEmpty) return false;
+
+    try {
+      final vente = await (_databaseService.database.select(_databaseService.database.ventes)
+            ..where((v) => v.numventes.equals(_numVentesController.text)))
+          .getSingleOrNull();
+
+      return vente?.contre == '1';
+    } catch (e) {
+      return false;
+    }
   }
 
   Future<void> _validerBrouillardVersJournal() async {
@@ -274,7 +331,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     if (confirm != true) return;
 
     try {
-      // Passer les informations complètes pour la validation
+      // Passer les informations complètes pour la validation avec modifications
       await _venteService.validerVenteBrouillardAvecInfos(
         numVentes: _numVentesController.text,
         nFacture: _nFactureController.text,
@@ -291,12 +348,15 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(
             content: SelectableText('Vente validée vers le journal avec succès'),
             backgroundColor: Colors.green,
           ),
         );
+
+        // RELEVANT: Recharger la liste des ventes immédiatement
+        _reloadVentesList();
 
         // Recharger la vente pour afficher le nouveau statut
         await _chargerVenteExistante(_numVentesController.text);
@@ -306,14 +366,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           _selectedVerification = 'JOURNAL';
           _statutVente = StatutVente.journal;
         });
-
-        // Rafraîchir la liste des ventes
-        await _loadVentesNumbers();
-        setState(() {});
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
             content: SelectableText('Erreur lors de la validation: $e'),
             backgroundColor: Colors.red,
@@ -390,7 +446,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       } else {
         // Vérifier si c'est une vente brouillard
         final metadata = await (_databaseService.database.select(_databaseService.database.detventes)
-              ..where((d) => d.numventes.equals(numVentes) & d.designation.equals('__VENTE_METADATA__')))
+              ..where((d) => d.numventes.equals(numVentes) & d.designation.equals('__VENTE_METADATA__'))
+              ..orderBy([(d) => drift.OrderingTerm.desc(d.daty)])
+              ..limit(1))
             .getSingleOrNull();
 
         if (metadata != null) {
@@ -438,10 +496,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       _calculerTotaux();
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: SelectableText('Vente N° $numVentes chargée')),
-        );
-
         Future.delayed(const Duration(milliseconds: 100), () {
           _designationFocusNode.requestFocus();
         });
@@ -450,11 +504,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       setState(() {
         _isExistingPurchase = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement: $e')),
-        );
-      }
     }
   }
 
@@ -490,6 +539,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
   @override
   void dispose() {
+    _autocompleteController?.dispose();
     _numVentesController.dispose();
     _dateController.dispose();
     _nFactureController.dispose();
@@ -1031,6 +1081,122 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     return unites.join(' / ');
   }
 
+  String _numberToWords(int number) {
+    if (number == 0) return 'zéro';
+
+    final units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
+    final teens = [
+      'dix',
+      'onze',
+      'douze',
+      'treize',
+      'quatorze',
+      'quinze',
+      'seize',
+      'dix-sept',
+      'dix-huit',
+      'dix-neuf'
+    ];
+    final tens = [
+      '',
+      '',
+      'vingt',
+      'trente',
+      'quarante',
+      'cinquante',
+      'soixante',
+      'soixante-dix',
+      'quatre-vingt',
+      'quatre-vingt-dix'
+    ];
+
+    String convertHundreds(int n) {
+      String result = '';
+
+      if (n >= 100) {
+        int hundreds = n ~/ 100;
+        if (hundreds == 1) {
+          result += 'cent';
+        } else {
+          result += '${units[hundreds]} cent';
+        }
+        if (n % 100 == 0) result += 's';
+        n %= 100;
+        if (n > 0) result += ' ';
+      }
+
+      if (n >= 20) {
+        int tensDigit = n ~/ 10;
+        int unitsDigit = n % 10;
+
+        if (tensDigit == 7) {
+          result += 'soixante';
+          if (unitsDigit == 1) {
+            result += ' et onze';
+          } else if (unitsDigit > 1) {
+            result += '-${teens[unitsDigit]}';
+          } else {
+            result += '-dix';
+          }
+        } else if (tensDigit == 9) {
+          result += 'quatre-vingt';
+          if (unitsDigit == 1) {
+            result += ' et onze';
+          } else if (unitsDigit > 1) {
+            result += '-${teens[unitsDigit]}';
+          } else {
+            result += '-dix';
+          }
+        } else {
+          result += tens[tensDigit];
+          if (unitsDigit == 1 &&
+              (tensDigit == 2 || tensDigit == 3 || tensDigit == 4 || tensDigit == 5 || tensDigit == 6)) {
+            result += ' et un';
+          } else if (unitsDigit > 1) {
+            result += '-${units[unitsDigit]}';
+          }
+        }
+      } else if (n >= 10) {
+        result += teens[n - 10];
+      } else if (n > 0) {
+        result += units[n];
+      }
+
+      return result;
+    }
+
+    String result = '';
+
+    if (number >= 1000000) {
+      int millions = number ~/ 1000000;
+      if (millions == 1) {
+        result += 'un million';
+      } else {
+        result += '${convertHundreds(millions)} million';
+      }
+      if (millions > 1) result += 's';
+      number %= 1000000;
+      if (number > 0) result += ' ';
+    }
+
+    if (number >= 1000) {
+      int thousands = number ~/ 1000;
+      if (thousands == 1) {
+        result += 'mille';
+      } else {
+        result += '${convertHundreds(thousands)} mille';
+      }
+      number %= 1000;
+      if (number > 0) result += ' ';
+    }
+
+    if (number > 0) {
+      result += convertHundreds(number);
+    }
+
+    return result.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
   String _calculateRemiseAmount() {
     double totalHT = double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0;
     double remise = double.tryParse(_remiseController.text) ?? 0;
@@ -1062,48 +1228,58 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? 'Pce');
     String depot = _selectedDepot ?? _defaultDepot;
 
-    // Vérifier stock insuffisant selon le type de dépôt
+    // Vérifier stock selon le type de dépôt
     if (quantite > _stockDisponible) {
-      if (widget.tousDepots) {
-        // Tous dépôts: autoriser la vente avec stock insuffisant (Brouillard et Journal)
-        final continuer = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Stock insuffisant'),
-            content: Text(
-                'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\nVoulez-vous continuer quand même ?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Annuler'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                autofocus: true,
-                child: const Text('Continuer quand même'),
-              ),
-            ],
-          ),
-        );
-        if (continuer != true) return;
-      } else {
-        // MAG uniquement: restreindre la vente avec stock insuffisant
-        await showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Vente impossible'),
-            content: Text(
-                'Stock insuffisant dans le dépôt MAG\n\nStock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\nLa vente avec stock insuffisant n\'est autorisée que pour "Tous dépôts".'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                autofocus: true,
-                child: const Text('OK'),
-              ),
-            ],
-          ),
-        );
-        return;
+      final validation = await _venteService.verifierStockSelonDepot(
+        designation: _selectedArticle!.designation,
+        depot: depot,
+        unite: unite,
+        quantite: quantite,
+        tousDepots: widget.tousDepots,
+      );
+
+      if (!validation['autorise'] && mounted) {
+        if (validation['typeDialog'] == 'confirmation') {
+          // Tous dépôts: dialog de confirmation
+          final continuer = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Stock insuffisant'),
+              content: Text(
+                  'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\nVoulez-vous continuer quand même ?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Annuler'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  autofocus: true,
+                  child: const Text('Continuer quand même'),
+                ),
+              ],
+            ),
+          );
+          if (continuer != true) return;
+        } else if (validation['typeDialog'] == 'restriction') {
+          // MAG uniquement: dialog de restriction
+          await showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Vente impossible'),
+              content: Text(
+                  'Stock insuffisant dans le dépôt MAG\n\nStock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\nLa vente avec stock insuffisant n\'est autorisée que pour "Tous dépôts".'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  autofocus: true,
+                  child: const Text('Annuler'),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
       }
     }
 
@@ -1357,21 +1533,16 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           quantite: ligne['quantite'],
         );
 
-        if (!stockDisponible) {
-          // Pour MAG uniquement: bloquer la validation si stock insuffisant
-          if (!widget.tousDepots) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                      'Stock insuffisant pour ${ligne['designation']} dans le dépôt MAG. Validation impossible.'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-            return;
+        if (!stockDisponible && !widget.tousDepots) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Stock insuffisant pour certains articles'),
+                backgroundColor: Colors.red,
+              ),
+            );
           }
-          // Pour tous dépôts: permettre la validation même avec stock insuffisant
+          return;
         }
       }
     }
@@ -1435,15 +1606,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           lignesVente: lignesVenteData,
         );
       } else {
-        await _venteService.traiterVenteJournal(
+        await _venteService.enregistrerVenteBrouillardVersJournal(
           numVentes: _numVentesController.text,
           nFacture: _nFactureController.text.isEmpty ? null : _nFactureController.text,
           date: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
           client: _selectedClient,
           modePaiement: _selectedModePaiement,
-          echeance: _selectedModePaiement == 'A crédit'
-              ? (DateTime.tryParse(_echeanceController.text) ?? DateTime.now().add(const Duration(days: 30)))
-              : null,
           totalHT: double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0,
           totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
           tva: double.tryParse(_tvaController.text) ?? 0,
@@ -1461,6 +1629,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vente validée avec succès'), backgroundColor: Colors.green),
         );
+
+        // RELEVANT: Recharger la liste des ventes immédiatement
+        _reloadVentesList();
 
         // Réinitialiser le formulaire
         _reinitialiserFormulaire();
@@ -1557,30 +1728,51 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       double montantRecu = double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0;
       double monnaieARendre = double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0;
 
-      await _databaseService.database.transaction(() async {
-        // Supprimer les anciennes lignes
-        await (_databaseService.database.delete(_databaseService.database.detventes)
-              ..where((d) => d.numventes.equals(_numVentesController.text)))
-            .go();
+      // Vérifier si c'est une vente brouillard pour mettre à jour les métadonnées
+      if (_statutVenteActuelle == StatutVente.brouillard) {
+        await _venteService.mettreAJourMetadonneesBrouillard(
+          numVentes: _numVentesController.text,
+          totalHT: totalApresRemise,
+          totalTTC: totalTTC,
+          tva: tva,
+          date: DateTime.now(),
+        );
+      }
 
-        // Mettre à jour la vente principale
-        await (_databaseService.database.update(_databaseService.database.ventes)
-              ..where((v) => v.numventes.equals(_numVentesController.text)))
-            .write(VentesCompanion(
-          nfact: drift.Value(_nFactureController.text),
-          daty: drift.Value(DateTime.now()),
-          clt: drift.Value(_selectedClient ?? ''),
-          modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
-          totalnt: drift.Value(totalApresRemise),
-          totalttc: drift.Value(totalTTC),
-          tva: drift.Value(tva),
-          avance: drift.Value(avance),
-          commission: drift.Value(commission),
-          remise: drift.Value(remise),
-          heure: drift.Value(_heureController.text),
-          montantRecu: drift.Value(montantRecu),
-          monnaieARendre: drift.Value(monnaieARendre),
-        ));
+      await _databaseService.database.transaction(() async {
+        // Supprimer les anciennes lignes (sauf métadonnées pour brouillard)
+        if (_statutVenteActuelle == StatutVente.brouillard) {
+          await (_databaseService.database.delete(_databaseService.database.detventes)
+                ..where((d) =>
+                    d.numventes.equals(_numVentesController.text) &
+                    d.designation.isNotValue('__VENTE_METADATA__')))
+              .go();
+        } else {
+          await (_databaseService.database.delete(_databaseService.database.detventes)
+                ..where((d) => d.numventes.equals(_numVentesController.text)))
+              .go();
+        }
+
+        if (_statutVenteActuelle != StatutVente.brouillard) {
+          // Mettre à jour la vente principale (seulement pour ventes journalées)
+          await (_databaseService.database.update(_databaseService.database.ventes)
+                ..where((v) => v.numventes.equals(_numVentesController.text)))
+              .write(VentesCompanion(
+            nfact: drift.Value(_nFactureController.text),
+            daty: drift.Value(DateTime.now()),
+            clt: drift.Value(_selectedClient ?? ''),
+            modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
+            totalnt: drift.Value(totalApresRemise),
+            totalttc: drift.Value(totalTTC),
+            tva: drift.Value(tva),
+            avance: drift.Value(avance),
+            commission: drift.Value(commission),
+            remise: drift.Value(remise),
+            heure: drift.Value(_heureController.text),
+            montantRecu: drift.Value(montantRecu),
+            monnaieARendre: drift.Value(monnaieARendre),
+          ));
+        }
 
         // Insérer les nouvelles lignes
         for (var ligne in _lignesVente) {
@@ -1603,6 +1795,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Vente modifiée avec succès'), backgroundColor: Colors.green),
         );
+
+        // RELEVANT: Recharger la liste des ventes immédiatement
+        _reloadVentesList();
       }
     } catch (e) {
       if (mounted) {
@@ -1613,7 +1808,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
   }
 
-  Future<void> _creerNouvelleVente() async {
+  void _creerNouvelleVente() async {
+    // Recharger la liste des ventes pour s'assurer qu'elle est à jour
+    _reloadVentesList();
+
     setState(() {
       _isExistingPurchase = false;
       _selectedRowIndex = null;
@@ -1623,7 +1821,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       _statutVenteActuelle = null;
       _selectedVerification = 'BROUILLARD';
       _statutVente = StatutVente.brouillard;
-      _showCreditMode = _shouldShowCreditMode(null); // Réinitialiser l'affichage du mode crédit
+      _showCreditMode = _shouldShowCreditMode(null);
       if (_autocompleteController != null) {
         _autocompleteController!.clear();
       }
@@ -1658,7 +1856,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       builder: (context) => AlertDialog(
         title: const Text('Confirmation'),
         content: Text(
-            'Voulez-vous vraiment contre-passer la vente N° ${_numVentesController.text} ?\n\nLes stocks seront automatiquement restaurés.'),
+            'Voulez-vous vraiment contre-passer la vente N° ${_numVentesController.text} ?\n\nLes stocks seront restaurés et les comptes ajustés.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Confirmer')),
@@ -1669,137 +1867,22 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     if (confirm != true) return;
 
     try {
-      // Récupérer les détails de la vente pour restaurer les stocks
-      final detailsVente = await (_databaseService.database.select(_databaseService.database.detventes)
-            ..where((d) => d.numventes.equals(_numVentesController.text)))
-          .get();
-
-      // Récupérer les informations de la vente pour ajuster le compte client
-      final venteInfo = await (_databaseService.database.select(_databaseService.database.ventes)
-            ..where((v) => v.numventes.equals(_numVentesController.text)))
-          .getSingleOrNull();
-
-      await _databaseService.database.transaction(() async {
-        // 1. Marquer la vente comme contre-passée
-        await (_databaseService.database.update(_databaseService.database.ventes)
-              ..where((v) => v.numventes.equals(_numVentesController.text)))
-            .write(const VentesCompanion(
-          contre: drift.Value('1'),
-        ));
-
-        // 2. Restaurer les stocks pour chaque ligne de vente
-        for (var detail in detailsVente) {
-          if (detail.designation != null &&
-              detail.depots != null &&
-              detail.unites != null &&
-              detail.q != null) {
-            // Trouver l'article correspondant
-            final article = _articles.where((a) => a.designation == detail.designation).firstOrNull;
-            if (article == null) continue;
-
-            // Récupérer le stock actuel du dépôt
-            final stockActuel = await (_databaseService.database.select(_databaseService.database.depart)
-                  ..where((d) => d.designation.equals(detail.designation!) & d.depots.equals(detail.depots!)))
-                .getSingleOrNull();
-
-            if (stockActuel != null) {
-              // Convertir la quantité vendue vers les unités de stock
-              final ajoutStock = StockConverter.convertirQuantiteAchat(
-                article: article,
-                uniteAchat: detail.unites!,
-                quantiteAchat: detail.q!,
-              );
-
-              // Ajouter les quantités au stock existant
-              final nouveauStockU1 = (stockActuel.stocksu1 ?? 0) + ajoutStock['u1']!;
-              final nouveauStockU2 = (stockActuel.stocksu2 ?? 0) + ajoutStock['u2']!;
-              final nouveauStockU3 = (stockActuel.stocksu3 ?? 0) + ajoutStock['u3']!;
-
-              // Mettre à jour le stock dans la base
-              await (_databaseService.database.update(_databaseService.database.depart)
-                    ..where(
-                        (d) => d.designation.equals(detail.designation!) & d.depots.equals(detail.depots!)))
-                  .write(DepartCompanion(
-                stocksu1: drift.Value(nouveauStockU1),
-                stocksu2: drift.Value(nouveauStockU2),
-                stocksu3: drift.Value(nouveauStockU3),
-              ));
-            }
-
-            // 3. Créer mouvement de stock de restauration
-            final refStock = 'CP-${DateTime.now().millisecondsSinceEpoch}-${detail.designation}';
-            await _databaseService.database.into(_databaseService.database.stocks).insert(
-                  StocksCompanion.insert(
-                    ref: drift.Value(refStock).toString(),
-                    daty: drift.Value(DateTime.now()),
-                    lib: drift.Value('Contre-passement vente N° ${_numVentesController.text}'),
-                    numventes: drift.Value(_numVentesController.text),
-                    refart: drift.Value(detail.designation!),
-                    qe: drift.Value(detail.q!),
-                    entres: drift.Value((detail.q! * (detail.pu ?? 0))),
-                    depots: drift.Value(detail.depots!),
-                    verification: const drift.Value('JOURNAL'),
-                    marq: const drift.Value('CP'),
-                  ),
-                );
-          }
-        }
-
-        // 4. Ajuster le compte client si la vente était à crédit
-        if (venteInfo != null &&
-            venteInfo.modepai == 'A crédit' &&
-            venteInfo.clt != null &&
-            venteInfo.clt!.isNotEmpty) {
-          final montantAnnule = (venteInfo.totalttc ?? 0) - (venteInfo.avance ?? 0);
-          if (montantAnnule > 0) {
-            final refCompte = 'CP-${DateTime.now().millisecondsSinceEpoch}';
-            await _databaseService.database.into(_databaseService.database.compteclt).insert(
-                  ComptecltCompanion.insert(
-                    ref: drift.Value(refCompte).toString(),
-                    clt: drift.Value(venteInfo.clt!),
-                    daty: drift.Value(DateTime.now()),
-                    lib: drift.Value('Contre-passement vente N° ${venteInfo.numventes}'),
-                    entres: const drift.Value(0.0),
-                    sorties: drift.Value(montantAnnule),
-                    solde: const drift.Value(0.0),
-                  ),
-                );
-          }
-        }
-
-        // 5. Mouvement caisse si paiement espèces
-        if (venteInfo != null && venteInfo.modepai == 'Espèces') {
-          final montantCaisse = venteInfo.totalttc ?? 0;
-          if (montantCaisse > 0) {
-            final refCaisse = 'CP-${DateTime.now().millisecondsSinceEpoch}';
-            await _databaseService.database.into(_databaseService.database.caisse).insert(
-                  CaisseCompanion.insert(
-                    ref: drift.Value(refCaisse).toString(),
-                    daty: drift.Value(DateTime.now()),
-                    lib: drift.Value('Contre-passement vente N° ${venteInfo.numventes}'),
-                    credit: drift.Value(montantCaisse),
-                    clt: drift.Value(venteInfo.clt ?? ''),
-                    verification: const drift.Value('JOURNAL'),
-                  ),
-                );
-          }
-        }
-      });
+      await _venteService.contrePasserVente(_numVentesController.text);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Vente contre-passée avec succès - Stocks restaurés'),
-              backgroundColor: Colors.green),
+          const SnackBar(content: Text('Vente contre-passée avec succès'), backgroundColor: Colors.green),
         );
 
-        // Recharger la vente pour afficher le statut contre-passé
+        // RELEVANT: Recharger la liste des ventes immédiatement
+        _reloadVentesList();
+
         await _chargerVenteExistante(_numVentesController.text);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du contre-passement: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -1844,6 +1927,679 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           SnackBar(content: Text('Erreur lors de l\'ouverture de l\'aperçu: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _imprimerFacture() async {
+    if (_lignesVente.isEmpty) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('Aucun article à imprimer')),
+      );
+      return;
+    }
+
+    try {
+      final societe =
+          await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
+      final pdf = await _generateFacturePdf(societe);
+      final bytes = await pdf.save();
+
+      // Obtenir la liste des imprimantes et trouver celle par défaut
+      final printers = await Printing.listPrinters();
+      final defaultPrinter = printers.where((p) => p.isDefault).firstOrNull;
+
+      if (defaultPrinter != null) {
+        await Printing.directPrintPdf(
+          printer: defaultPrinter,
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: 'Facture_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
+          format: _selectedFormat == 'A4'
+              ? PdfPageFormat.a4
+              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
+        );
+      } else {
+        // Fallback vers la boîte de dialogue si aucune imprimante par défaut
+        await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: 'Facture_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
+          format: _selectedFormat == 'A4'
+              ? PdfPageFormat.a4
+              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
+        );
+      }
+
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('Facture envoyée à l\'imprimante par défaut')),
+      );
+    } catch (e) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Erreur d\'impression: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  pw.Widget _buildPdfTotalRow(String label, String value, double fontSize, {bool isBold = false}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2),
+      child: pw.Row(
+        children: [
+          pw.Text(
+            label,
+            style: pw.TextStyle(
+              fontSize: fontSize - 1,
+              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
+          ),
+          pw.SizedBox(width: 20),
+          pw.Text(
+            value,
+            style: pw.TextStyle(
+              fontSize: fontSize - 1,
+              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<pw.Document> _generateFacturePdf(SocData? societe) async {
+    final pdf = pw.Document();
+    final pdfFontSize = _selectedFormat == 'A6' ? 9.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
+    final pdfHeaderFontSize = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
+    final pdfPadding = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
+    final pageFormat = _selectedFormat == 'A4'
+        ? PdfPageFormat.a4
+        : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: pageFormat,
+        margin: const pw.EdgeInsets.all(3),
+        build: (context) {
+          return pw.Container(
+            padding: pw.EdgeInsets.all(pdfPadding),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Container(
+                    padding: pw.EdgeInsets.symmetric(vertical: pdfPadding / 2),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                        top: pw.BorderSide(color: PdfColors.black, width: 2),
+                        bottom: pw.BorderSide(color: PdfColors.black, width: 2),
+                      ),
+                    ),
+                    child: pw.Text('FACTURE',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize + 2)),
+                  ),
+                ),
+                pw.SizedBox(height: pdfPadding),
+                pw.Container(
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+                  padding: pw.EdgeInsets.all(pdfPadding / 2),
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Expanded(
+                        flex: 3,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('SOCIÉTÉ:',
+                                style:
+                                    pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1)),
+                            pw.Text(societe?.rsoc ?? 'SOCIÉTÉ',
+                                style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
+                            if (societe?.adr != null)
+                              pw.Text(societe!.adr!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
+                            if (societe?.activites != null)
+                              pw.Text(
+                                societe!.activites!,
+                                style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                              ),
+                            if (societe?.adr != null)
+                              pw.Text(
+                                societe!.adr!,
+                                style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                              ),
+                            if (societe?.rcs != null)
+                              pw.Text(
+                                'RCS: ${societe!.rcs!}',
+                                style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                              ),
+                            if (societe?.nif != null)
+                              pw.Text(
+                                'NIF: ${societe!.nif!}',
+                                style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                              ),
+                            if (societe?.stat != null)
+                              pw.Text(
+                                'STAT: ${societe!.stat!}',
+                                style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                              ),
+                            if (societe?.cif != null)
+                              pw.Text(
+                                'CIF: ${societe!.cif!}',
+                                style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                              ),
+                            if (societe?.email != null)
+                              pw.Text(
+                                'Email: ${societe!.email!}',
+                                style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                              ),
+                            if (societe?.port != null)
+                              pw.Text(
+                                'Tél: ${societe!.port!}',
+                                style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                              ),
+                          ],
+                        ),
+                      ),
+                      pw.Expanded(
+                        flex: 2,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('N° FACTURE: ${_nFactureController.text}',
+                                style:
+                                    pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('DATE: ${_dateController.text}',
+                                style:
+                                    pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('CLIENT: ${_selectedClient ?? ""}',
+                                style:
+                                    pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('MODE DE PAIEMENT: ${_selectedModePaiement ?? ""}',
+                                style:
+                                    pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: pdfPadding),
+                pw.Container(
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+                  child: pw.Table(
+                    border: const pw.TableBorder(
+                        horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                        verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5)),
+                    children: [
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                        children: [
+                          pw.Container(
+                              padding: pw.EdgeInsets.all(3),
+                              child: pw.Text('DÉSIGNATION',
+                                  style:
+                                      pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                  textAlign: pw.TextAlign.center)),
+                          pw.Container(
+                              padding: pw.EdgeInsets.all(3),
+                              child: pw.Text('QTÉ',
+                                  style:
+                                      pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                  textAlign: pw.TextAlign.center)),
+                          pw.Container(
+                              padding: pw.EdgeInsets.all(3),
+                              child: pw.Text('PU HT',
+                                  style:
+                                      pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                  textAlign: pw.TextAlign.center)),
+                          pw.Container(
+                              padding: pw.EdgeInsets.all(3),
+                              child: pw.Text('MONTANT',
+                                  style:
+                                      pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                  textAlign: pw.TextAlign.center)),
+                        ],
+                      ),
+                      ..._lignesVente.map((ligne) => pw.TableRow(
+                            children: [
+                              pw.Container(
+                                  padding: pw.EdgeInsets.all(3),
+                                  child: pw.Text(ligne['designation'] ?? '',
+                                      style: pw.TextStyle(fontSize: pdfFontSize - 1))),
+                              pw.Container(
+                                  padding: pw.EdgeInsets.all(3),
+                                  child: pw.Text(_formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                      style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                      textAlign: pw.TextAlign.center)),
+                              pw.Container(
+                                  padding: pw.EdgeInsets.all(3),
+                                  child: pw.Text(_formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                      style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                      textAlign: pw.TextAlign.right)),
+                              pw.Container(
+                                  padding: pw.EdgeInsets.all(3),
+                                  child: pw.Text(_formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                      style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                      textAlign: pw.TextAlign.right)),
+                            ],
+                          )),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: pdfPadding),
+                pw.Container(
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+                  padding: pw.EdgeInsets.all(pdfPadding / 2),
+                  child: pw.Row(
+                    children: [
+                      pw.Spacer(),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Text(
+                              'TOTAL TTC: ${_formatNumber(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0)}',
+                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Totals section
+                pw.Container(
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.black, width: 1),
+                  ),
+                  padding: pw.EdgeInsets.all(pdfPadding / 2),
+                  child: pw.Column(
+                    children: [
+                      pw.Row(
+                        children: [
+                          pw.Spacer(),
+                          pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.end,
+                            children: [
+                              _buildPdfTotalRow(
+                                  'TOTAL HT:',
+                                  _formatNumber(
+                                      double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0),
+                                  pdfFontSize),
+                              if ((double.tryParse(_remiseController.text) ?? 0) > 0)
+                                _buildPdfTotalRow(
+                                    'REMISE:',
+                                    _formatNumber(
+                                        double.tryParse(_remiseController.text.replaceAll(' ', '')) ?? 0),
+                                    pdfFontSize),
+                              if ((double.tryParse(_tvaController.text) ?? 0) > 0)
+                                _buildPdfTotalRow(
+                                    'TVA:',
+                                    _formatNumber(
+                                        double.tryParse(_tvaController.text.replaceAll(' ', '')) ?? 0),
+                                    pdfFontSize),
+                              pw.Container(
+                                decoration: const pw.BoxDecoration(
+                                  border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
+                                ),
+                                child: _buildPdfTotalRow(
+                                    'TOTAL TTC:',
+                                    _formatNumber(
+                                        double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0),
+                                    pdfFontSize,
+                                    isBold: true),
+                              ),
+                              pw.SizedBox(height: pdfPadding / 2),
+                              _buildPdfTotalRow(
+                                  'MONTANT REÇU:',
+                                  _formatNumber(
+                                      double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0),
+                                  pdfFontSize),
+                              _buildPdfTotalRow(
+                                  'MONNAIE À RENDRE:',
+                                  _formatNumber(
+                                      double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ??
+                                          0),
+                                  pdfFontSize),
+                            ],
+                          ),
+                        ],
+                      ),
+                      pw.SizedBox(height: pdfPadding / 2),
+                      pw.Container(
+                        width: double.infinity,
+                        padding: pw.EdgeInsets.all(pdfPadding / 2),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(color: PdfColors.black, width: 0.5),
+                        ),
+                        alignment: pw.Alignment.center,
+                        child: pw.Text(
+                          'Arrêté à la somme de ${_numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
+                          style: pw.TextStyle(
+                            fontSize: pdfFontSize - 1,
+                            fontWeight: pw.FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                pw.SizedBox(height: pdfPadding * 2),
+
+                // Signatures section
+                pw.Container(
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.black, width: 1),
+                  ),
+                  padding: pw.EdgeInsets.all(pdfPadding),
+                  child: pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: pw.Column(
+                          children: [
+                            pw.Text(
+                              'CLIENT',
+                              style: pw.TextStyle(
+                                fontSize: pdfFontSize,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            pw.SizedBox(height: pdfPadding * 2),
+                            pw.Container(
+                              height: 1,
+                              color: PdfColors.black,
+                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
+                            ),
+                            pw.SizedBox(height: pdfPadding / 2),
+                            pw.Text(
+                              'Nom et signature',
+                              style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                      pw.Container(
+                        width: 1,
+                        height: 60,
+                        color: PdfColors.black,
+                      ),
+                      pw.Expanded(
+                        child: pw.Column(
+                          children: [
+                            pw.Text(
+                              'VENDEUR',
+                              style: pw.TextStyle(
+                                fontSize: pdfFontSize,
+                                fontWeight: pw.FontWeight.bold,
+                              ),
+                            ),
+                            pw.SizedBox(height: pdfPadding * 2),
+                            pw.Container(
+                              height: 1,
+                              color: PdfColors.black,
+                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
+                            ),
+                            pw.SizedBox(height: pdfPadding / 2),
+                            pw.Text(
+                              'Nom et signature',
+                              style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    return pdf;
+  }
+
+  // Dans la méthode _generateFacturePdf, ajouter une méthode similaire pour le BL
+  Future<pw.Document> _generateBLPdf(SocData? societe) async {
+    final pdf = pw.Document();
+    final pdfFontSize = _selectedFormat == 'A6' ? 9.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
+    final pdfHeaderFontSize = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
+    final pdfPadding = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
+    final pageFormat = _selectedFormat == 'A4'
+        ? PdfPageFormat.a4
+        : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5);
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: pageFormat,
+        margin: const pw.EdgeInsets.all(3),
+        build: (context) {
+          return pw.Container(
+            padding: pw.EdgeInsets.all(pdfPadding),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Center(
+                  child: pw.Container(
+                    padding: pw.EdgeInsets.symmetric(vertical: pdfPadding / 2),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(
+                        top: pw.BorderSide(color: PdfColors.black, width: 2),
+                        bottom: pw.BorderSide(color: PdfColors.black, width: 2),
+                      ),
+                    ),
+                    child: pw.Text('BON DE LIVRAISON',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize + 2)),
+                  ),
+                ),
+                pw.SizedBox(height: pdfPadding),
+                pw.Container(
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+                  padding: pw.EdgeInsets.all(pdfPadding / 2),
+                  child: pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Expanded(
+                        flex: 3,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('SOCIÉTÉ:',
+                                style:
+                                    pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1)),
+                            pw.Text(societe?.rsoc ?? 'SOCIÉTÉ',
+                                style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
+                            if (societe?.adr != null)
+                              pw.Text(societe!.adr!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
+                            if (societe?.activites != null)
+                              pw.Text(societe!.activites!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
+                            if (societe?.port != null)
+                              pw.Text('Tél: ${societe!.port!}',
+                                  style: pw.TextStyle(fontSize: pdfFontSize - 2)),
+                          ],
+                        ),
+                      ),
+                      pw.Expanded(
+                        flex: 2,
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('N° BL: ${_nFactureController.text}',
+                                style:
+                                    pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('DATE: ${_dateController.text}',
+                                style:
+                                    pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('CLIENT: ${_selectedClient ?? ""}',
+                                style:
+                                    pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: pdfPadding),
+                pw.Container(
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+                  child: pw.Table(
+                    border: const pw.TableBorder(
+                        horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                        verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5)),
+                    children: [
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                        children: [
+                          pw.Container(
+                              padding: pw.EdgeInsets.all(3),
+                              child: pw.Text('DÉSIGNATION',
+                                  style:
+                                      pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                  textAlign: pw.TextAlign.center)),
+                          pw.Container(
+                              padding: pw.EdgeInsets.all(3),
+                              child: pw.Text('UNITÉ',
+                                  style:
+                                      pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                  textAlign: pw.TextAlign.center)),
+                          pw.Container(
+                              padding: pw.EdgeInsets.all(3),
+                              child: pw.Text('QUANTITÉ',
+                                  style:
+                                      pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                  textAlign: pw.TextAlign.center)),
+                          if (widget.tousDepots)
+                            pw.Container(
+                                padding: pw.EdgeInsets.all(3),
+                                child: pw.Text('DÉPÔT',
+                                    style: pw.TextStyle(
+                                        fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                    textAlign: pw.TextAlign.center)),
+                        ],
+                      ),
+                      ..._lignesVente.map((ligne) => pw.TableRow(
+                            children: [
+                              pw.Container(
+                                  padding: pw.EdgeInsets.all(3),
+                                  child: pw.Text(ligne['designation'] ?? '',
+                                      style: pw.TextStyle(fontSize: pdfFontSize - 1))),
+                              pw.Container(
+                                  padding: pw.EdgeInsets.all(3),
+                                  child: pw.Text(ligne['unites'] ?? '',
+                                      style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                      textAlign: pw.TextAlign.center)),
+                              pw.Container(
+                                  padding: pw.EdgeInsets.all(3),
+                                  child: pw.Text(_formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                      style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                      textAlign: pw.TextAlign.center)),
+                              if (widget.tousDepots)
+                                pw.Container(
+                                    padding: pw.EdgeInsets.all(3),
+                                    child: pw.Text(ligne['depot'] ?? '',
+                                        style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                        textAlign: pw.TextAlign.center)),
+                            ],
+                          )),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: pdfPadding * 2),
+                // Signatures section
+                pw.Container(
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.black, width: 1),
+                  ),
+                  padding: pw.EdgeInsets.all(pdfPadding),
+                  child: pw.Row(
+                    children: [
+                      pw.Expanded(
+                        child: pw.Column(
+                          children: [
+                            pw.Text('CLIENT',
+                                style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
+                            pw.SizedBox(height: pdfPadding * 2),
+                            pw.Container(
+                              height: 1,
+                              color: PdfColors.black,
+                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
+                            ),
+                            pw.SizedBox(height: pdfPadding / 2),
+                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
+                          ],
+                        ),
+                      ),
+                      pw.Container(width: 1, height: 60, color: PdfColors.black),
+                      pw.Expanded(
+                        child: pw.Column(
+                          children: [
+                            pw.Text('LIVREUR',
+                                style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
+                            pw.SizedBox(height: pdfPadding * 2),
+                            pw.Container(
+                              height: 1,
+                              color: PdfColors.black,
+                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
+                            ),
+                            pw.SizedBox(height: pdfPadding / 2),
+                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    return pdf;
+  }
+
+// Ajouter la méthode pour imprimer le BL
+  Future<void> _imprimerBL() async {
+    if (_lignesVente.isEmpty) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('Aucun article à imprimer')),
+      );
+      return;
+    }
+
+    try {
+      final societe =
+          await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
+      final pdf = await _generateBLPdf(societe);
+      final bytes = await pdf.save();
+
+      // Obtenir la liste des imprimantes et trouver celle par défaut
+      final printers = await Printing.listPrinters();
+      final defaultPrinter = printers.where((p) => p.isDefault).firstOrNull;
+
+      if (defaultPrinter != null) {
+        await Printing.directPrintPdf(
+          printer: defaultPrinter,
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: 'BL_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
+          format: _selectedFormat == 'A4'
+              ? PdfPageFormat.a4
+              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
+        );
+      } else {
+        // Fallback vers la boîte de dialogue si aucune imprimante par défaut
+        await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: 'BL_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
+          format: _selectedFormat == 'A4'
+              ? PdfPageFormat.a4
+              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
+        );
+      }
+
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('Bon de livraison envoyé à l\'imprimante par défaut')),
+      );
+    } catch (e) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text('Erreur d\'impression: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
@@ -2031,22 +2787,65 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
   Widget _buildVentesListByStatus(String statut) {
     return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _getVentesAvecStatut(),
+      future: _ventesFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            ),
+          );
         }
 
-        final ventes = snapshot.data!.where((v) => (v['verification'] ?? 'JOURNAL') == statut).toList();
+        if (snapshot.hasError) {
+          return Center(
+            child: Text(
+              'Erreur: ${snapshot.error}',
+              style: const TextStyle(fontSize: 11, color: Colors.red),
+            ),
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(
+            child: Text(
+              'Aucune donnée',
+              style: TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          );
+        }
+
+        List<Map<String, dynamic>> ventes;
+        if (statut == 'CONTRE_PASSE') {
+          ventes = snapshot.data!
+              .where((v) => (v['verification'] ?? 'JOURNAL') == 'JOURNAL' && (v['contre'] ?? '') == '1')
+              .toList();
+        } else {
+          ventes = snapshot.data!
+              .where((v) => (v['verification'] ?? 'JOURNAL') == statut && (v['contre'] ?? '') != '1')
+              .toList();
+        }
 
         final filteredVentes = _searchVentesText.isEmpty
             ? ventes
             : ventes.where((v) => v['numventes'].toLowerCase().contains(_searchVentesText)).toList();
 
         if (filteredVentes.isEmpty) {
+          String message;
+          switch (statut) {
+            case 'BROUILLARD':
+              message = 'Aucune vente en brouillard';
+              break;
+            case 'CONTRE_PASSE':
+              message = 'Aucune vente contre-passée';
+              break;
+            default:
+              message = 'Aucune vente validée';
+          }
           return Center(
             child: Text(
-              statut == 'BROUILLARD' ? 'Aucune vente en brouillard' : 'Aucune vente validée',
+              message,
               style: const TextStyle(fontSize: 11, color: Colors.grey),
             ),
           );
@@ -2059,6 +2858,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             final numVente = vente['numventes'];
             final isSelected = numVente == _numVentesController.text;
             final isBrouillard = statut == 'BROUILLARD';
+            final isContrePassee = statut == 'CONTRE_PASSE';
 
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
@@ -2073,7 +2873,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                         'En attente de validation',
                         style: TextStyle(fontSize: 9, color: Colors.orange),
                       )
-                    : null,
+                    : isContrePassee
+                        ? const Text(
+                            'Contre-passée',
+                            style: TextStyle(fontSize: 9, color: Colors.red),
+                          )
+                        : null,
                 selected: isSelected,
                 selectedTileColor: Colors.blue[100],
                 onTap: () {
@@ -2209,21 +3014,29 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ),
                                   if (_isExistingPurchase && _statutVenteActuelle != null) ...[
                                     const SizedBox(width: 16),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: _statutVenteActuelle == StatutVente.brouillard
-                                            ? Colors.orange
-                                            : Colors.green,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        _statutVenteActuelle == StatutVente.brouillard
-                                            ? 'BROUILLARD'
-                                            : 'JOURNALÉ',
-                                        style: const TextStyle(
-                                            color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                                      ),
+                                    FutureBuilder<bool>(
+                                      future: _isVenteContrePassee(),
+                                      builder: (context, snapshot) {
+                                        final isContrePassee = snapshot.data ?? false;
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            color: _statutVenteActuelle == StatutVente.brouillard
+                                                ? Colors.orange
+                                                : (isContrePassee ? Colors.red : Colors.green),
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                          child: Text(
+                                            _statutVenteActuelle == StatutVente.brouillard
+                                                ? 'BROUILLARD'
+                                                : (isContrePassee ? 'CP' : 'JOURNALÉ'),
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        );
+                                      },
                                     ),
                                   ],
                                 ],
@@ -2295,7 +3108,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       ),
                                     ],
                                   )
-                                : // Other users: Column layout like achats_modal
+                                : // Other users: Three columns layout
                                 Column(
                                     children: [
                                       // Search field
@@ -2312,7 +3125,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                           style: const TextStyle(fontSize: 12),
                                         ),
                                       ),
-                                      // Two columns layout
+                                      // Three columns layout
                                       Expanded(
                                         child: Column(
                                           children: [
@@ -2365,6 +3178,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     decoration: const BoxDecoration(
                                                       border: Border(
                                                         bottom: BorderSide(color: Colors.grey, width: 1),
+                                                        right: BorderSide(color: Colors.grey, width: 1),
                                                       ),
                                                     ),
                                                     child: const Center(
@@ -2384,7 +3198,46 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     ),
                                                   ),
                                                   Expanded(
-                                                    child: _buildVentesListByStatus('JOURNAL'),
+                                                    child: Container(
+                                                      decoration: const BoxDecoration(
+                                                        border: Border(
+                                                          right: BorderSide(color: Colors.grey, width: 1),
+                                                        ),
+                                                      ),
+                                                      child: _buildVentesListByStatus('JOURNAL'),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            // Contre-passé column
+                                            Expanded(
+                                              child: Column(
+                                                children: [
+                                                  Container(
+                                                    height: 35,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                        bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      ),
+                                                    ),
+                                                    child: const Center(
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          Icon(Icons.cancel, size: 12, color: Colors.red),
+                                                          SizedBox(width: 4),
+                                                          Text('Contre-passé',
+                                                              style: TextStyle(
+                                                                  fontSize: 10,
+                                                                  fontWeight: FontWeight.w500,
+                                                                  color: Colors.red)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Expanded(
+                                                    child: _buildVentesListByStatus('CONTRE_PASSE'),
                                                   ),
                                                 ],
                                               ),
@@ -3664,6 +4517,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                     child: Row(
                                       spacing: 4,
                                       children: [
+                                        //Bouton Nouvel vente
                                         if (_isExistingPurchase) ...[
                                           Tooltip(
                                             message: 'Créer nouveau (Ctrl+N)',
@@ -3690,18 +4544,30 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                             ),
                                           ],
                                         ],
+                                        //Bouton Contre passer
                                         if (_isExistingPurchase) ...[
-                                          Tooltip(
-                                            message: 'Contre-passer (Ctrl+D)',
-                                            child: ElevatedButton(
-                                              onPressed: _contrePasserVente,
-                                              style:
-                                                  ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
-                                              child:
-                                                  const Text('Contre Passer', style: TextStyle(fontSize: 12)),
-                                            ),
+                                          FutureBuilder<bool>(
+                                            future: _isVenteContrePassee(),
+                                            builder: (context, snapshot) {
+                                              final isContrePassee = snapshot.data ?? false;
+                                              return Tooltip(
+                                                message: isContrePassee
+                                                    ? 'Vente déjà contre-passée'
+                                                    : 'Contre-passer (Ctrl+D)',
+                                                child: ElevatedButton(
+                                                  onPressed: isContrePassee ? null : _contrePasserVente,
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize: const Size(80, 30),
+                                                    backgroundColor: isContrePassee ? Colors.grey : null,
+                                                  ),
+                                                  child: const Text('Contre Passer',
+                                                      style: TextStyle(fontSize: 12)),
+                                                ),
+                                              );
+                                            },
                                           ),
                                         ],
+                                        //Bouton Modifier/ Valider
                                         Tooltip(
                                           message:
                                               _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
@@ -3715,23 +4581,18 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               foregroundColor: Colors.white,
                                               minimumSize: const Size(60, 30),
                                             ),
-                                            child: Text(_isExistingPurchase ? 'Modifier' : 'Valider',
+                                            child: Text(
+                                                _isExistingPurchase
+                                                    ? 'Modifier (Ctrl+S)'
+                                                    : 'Valider (Ctrl+S)',
                                                 style: const TextStyle(fontSize: 12)),
                                           ),
                                         ),
                                         const Spacer(),
+                                        //Popup menu format papier d'impression
                                         PopupMenuButton<String>(
                                           initialValue: _selectedFormat,
                                           itemBuilder: (BuildContext context) => [
-                                            const PopupMenuItem(
-                                              value: 'facture',
-                                              child: Text('Aperçu Facture', style: TextStyle(fontSize: 12)),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'bl',
-                                              child: Text('Aperçu BL', style: TextStyle(fontSize: 12)),
-                                            ),
-                                            const PopupMenuDivider(),
                                             const PopupMenuItem(
                                               value: 'A4',
                                               child: Text('Format A4', style: TextStyle(fontSize: 12)),
@@ -3767,17 +4628,110 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               children: [
                                                 const Icon(Icons.print, color: Colors.white, size: 16),
                                                 const SizedBox(width: 4),
-                                                Text(_selectedFormat,
-                                                    style:
-                                                        const TextStyle(color: Colors.white, fontSize: 12)),
+                                                Text(
+                                                  _selectedFormat,
+                                                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                                                ),
                                                 const SizedBox(width: 4),
-                                                const Icon(Icons.arrow_drop_down,
-                                                    color: Colors.white, size: 16),
+                                                const Icon(
+                                                  Icons.arrow_drop_down,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                ),
                                               ],
                                             ),
                                           ),
                                         ),
+                                        //Bouton d'impression facture
+                                        FutureBuilder<bool>(
+                                          future: _isVenteContrePassee(),
+                                          builder: (context, snapshot) {
+                                            final isContrePassee = snapshot.data ?? false;
+                                            return Tooltip(
+                                              message: 'Imprimer Facture',
+                                              child: ElevatedButton(
+                                                onPressed: isContrePassee ? null : _imprimerFacture,
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: _selectedVerification != 'JOURNAL'
+                                                      ? Colors.grey
+                                                      : Colors.teal,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(60, 30),
+                                                ),
+                                                child: const Text('Imprimer Facture',
+                                                    style: TextStyle(fontSize: 12)),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        // Bouton d'Aperçu Facture
+                                        FutureBuilder<bool>(
+                                          future: _isVenteContrePassee(),
+                                          builder: (context, snapshot) {
+                                            final isContrePassee = snapshot.data ?? false;
+                                            return Tooltip(
+                                              message: 'Aperçu Facture',
+                                              child: ElevatedButton(
+                                                onPressed: isContrePassee ? null : _apercuFacture,
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: _selectedVerification != 'JOURNAL'
+                                                      ? Colors.grey
+                                                      : Colors.orange,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(60, 30),
+                                                ),
+                                                child: const Text('Aperçu Facture',
+                                                    style: TextStyle(fontSize: 12)),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        // Bouton d'impression BL
+                                        FutureBuilder<bool>(
+                                          future: _isVenteContrePassee(),
+                                          builder: (context, snapshot) {
+                                            final isContrePassee = snapshot.data ?? false;
+                                            return Tooltip(
+                                              message: 'Imprimer Bon de Livraison',
+                                              child: ElevatedButton(
+                                                onPressed: isContrePassee ? null : _imprimerBL,
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: _selectedVerification != 'JOURNAL'
+                                                      ? Colors.grey
+                                                      : Colors.teal,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(60, 30),
+                                                ),
+                                                child:
+                                                    const Text('Imprimer BL', style: TextStyle(fontSize: 12)),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        //Bouton aperçus BL
+                                        FutureBuilder<bool>(
+                                          future: _isVenteContrePassee(),
+                                          builder: (context, snapshot) {
+                                            final isContrePassee = snapshot.data ?? false;
+                                            return Tooltip(
+                                              message: 'Aperçu Bon de Livraison',
+                                              child: ElevatedButton(
+                                                onPressed: isContrePassee ? null : _apercuBL,
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: _selectedVerification != 'JOURNAL'
+                                                      ? Colors.grey
+                                                      : Colors.orange,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(60, 30),
+                                                ),
+                                                child:
+                                                    const Text('Aperçu BL', style: TextStyle(fontSize: 12)),
+                                              ),
+                                            );
+                                          },
+                                        ),
                                         const Spacer(),
+                                        //Bouton de fermeture du modal de vente
                                         Tooltip(
                                           message: 'Fermer (Escape)',
                                           child: ElevatedButton(

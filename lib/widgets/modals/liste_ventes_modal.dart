@@ -1,4 +1,6 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
+
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
@@ -28,7 +30,9 @@ class _ListeVentesModalState extends State<ListeVentesModal> with TabNavigationM
 
   Future<void> _loadVentes() async {
     try {
-      final ventes = await _databaseService.database.select(_databaseService.database.ventes).get();
+      final ventes = await (_databaseService.database.select(_databaseService.database.ventes)
+            ..where((v) => Expression.or([v.contre.isNull(), v.contre.equals("0")])))
+          .get();
       setState(() {
         _ventes = ventes;
         _ventesFiltered = ventes;
@@ -53,8 +57,8 @@ class _ListeVentesModalState extends State<ListeVentesModal> with TabNavigationM
       } else {
         _ventesFiltered = _ventes.where((vente) {
           return (vente.numventes?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
-                 (vente.clt?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
-                 (vente.nfact?.toLowerCase().contains(query.toLowerCase()) ?? false);
+              (vente.clt?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
+              (vente.nfact?.toLowerCase().contains(query.toLowerCase()) ?? false);
         }).toList();
       }
     });
@@ -192,92 +196,94 @@ class _ListeVentesModalState extends State<ListeVentesModal> with TabNavigationM
                                     itemBuilder: (context, index) {
                                       final vente = _ventesFiltered[index];
                                       return Focus(
-      autofocus: true,
-      onKeyEvent: (node, event) => handleTabNavigation(event),
-      child: Container(
-                                        height: 35,
-                                        decoration: BoxDecoration(
-                                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(
-                                            bottom: BorderSide(color: Colors.grey, width: 0.5),
+                                        autofocus: true,
+                                        onKeyEvent: (node, event) => handleTabNavigation(event),
+                                        child: Container(
+                                          height: 35,
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                                            border: const Border(
+                                              bottom: BorderSide(color: Colors.grey, width: 0.5),
+                                            ),
                                           ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  vente.numventes ?? '',
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  vente.nfact ?? '',
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  vente.daty != null
-                                                      ? app_date.AppDateUtils.formatDate(vente.daty!)
-                                                      : '',
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 3,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                child: Text(
-                                                  vente.clt ?? '',
-                                                  style: const TextStyle(fontSize: 12),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(vente.totalnt ?? 0),
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                            ),
-                                            Expanded(
-                                              flex: 2,
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(vente.totalttc ?? 0),
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              flex: 1,
-                                              child: Center(
-                                                child: Text(
-                                                  (vente.contre == '1') ? 'CP' : 'OK',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: (vente.contre == '1') ? Colors.red : Colors.green,
-                                                    fontWeight: FontWeight.bold,
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                flex: 2,
+                                                child: Center(
+                                                  child: Text(
+                                                    vente.numventes ?? '',
+                                                    style: const TextStyle(fontSize: 12),
                                                   ),
                                                 ),
                                               ),
-                                            ),
-                                          ],
+                                              Expanded(
+                                                flex: 2,
+                                                child: Center(
+                                                  child: Text(
+                                                    vente.nfact ?? '',
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Center(
+                                                  child: Text(
+                                                    vente.daty != null
+                                                        ? app_date.AppDateUtils.formatDate(vente.daty!)
+                                                        : '',
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 3,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                  child: Text(
+                                                    vente.clt ?? '',
+                                                    style: const TextStyle(fontSize: 12),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(vente.totalnt ?? 0),
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 2,
+                                                child: Center(
+                                                  child: Text(
+                                                    NumberUtils.formatNumber(vente.totalttc ?? 0),
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                flex: 1,
+                                                child: Center(
+                                                  child: Text(
+                                                    (vente.contre == '1') ? 'CP' : 'OK',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      color:
+                                                          (vente.contre == '1') ? Colors.red : Colors.green,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                      ),);
+                                      );
                                     },
                                   ),
                           ),

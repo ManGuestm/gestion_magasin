@@ -166,7 +166,7 @@ class VenteService {
             commerc: Value(commercial),
             commission: Value(commission),
             remise: Value(remise),
-            verification: const Value('JOURNAL'),
+            verification: Value('JOURNAL'),
             montantRecu: Value(montantRecu),
             monnaieARendre: Value(monnaieARendre),
           ),
@@ -279,7 +279,16 @@ class VenteService {
         stocksu3: Value(nouveauStockU3),
       ));
     } else {
-      throw Exception('Stock non trouvé pour ${article.designation} dans le dépôt $depot');
+      // Créer l'entrée de stock avec des valeurs négatives (vente à découvert)
+      await _databaseService.database.into(_databaseService.database.depart).insert(
+            DepartCompanion.insert(
+              designation: Value(article.designation).toString(),
+              depots: Value(depot).toString(),
+              stocksu1: Value(-conversions['u1']!),
+              stocksu2: Value(-conversions['u2']!),
+              stocksu3: Value(-conversions['u3']!),
+            ),
+          );
     }
   }
 
@@ -317,7 +326,7 @@ class VenteService {
             stocksu3: Value(conversions['u3']),
             depots: Value(depot),
             clt: Value(client),
-            verification: const Value('JOURNAL'),
+            verification: Value('JOURNAL'),
             us: Value(unite),
             pus: Value(prixUnitaire),
           ),
@@ -408,10 +417,10 @@ class VenteService {
             numventes: Value(numVentes),
             nfact: Value(nFacture),
             entres: Value(montant),
-            sorties: const Value(0.0),
+            sorties: Value(0.0),
             solde: Value(montant),
             clt: Value(client),
-            verification: const Value('JOURNAL'),
+            verification: Value('JOURNAL'),
           ),
         );
 
@@ -449,7 +458,7 @@ class VenteService {
             lib: Value('Vente N° $numVentes'),
             debit: Value(montant),
             clt: Value(client ?? ''),
-            verification: const Value('JOURNAL'),
+            verification: Value('JOURNAL'),
           ),
         );
   }
@@ -484,6 +493,63 @@ class VenteService {
     return (stockDepot.stocksu1 ?? 0) >= conversions['u1']!;
   }
 
+  /// Vérifie le stock selon le type de dépôt et retourne le type de validation
+  Future<Map<String, dynamic>> verifierStockSelonDepot({
+    required String designation,
+    required String depot,
+    required String unite,
+    required double quantite,
+    required bool tousDepots,
+  }) async {
+    final stockSuffisant = await verifierDisponibiliteStock(
+      designation: designation,
+      depot: depot,
+      unite: unite,
+      quantite: quantite,
+    );
+
+    if (stockSuffisant) {
+      return {'autorise': true, 'typeDialog': null};
+    }
+
+    // Stock insuffisant
+    if (tousDepots) {
+      // Tous dépôts: autoriser avec confirmation
+      return {'autorise': false, 'typeDialog': 'confirmation'};
+    } else {
+      // MAG uniquement: bloquer
+      return {'autorise': false, 'typeDialog': 'restriction'};
+    }
+  }
+
+  /// Met à jour les métadonnées d'une vente brouillard existante
+  Future<void> mettreAJourMetadonneesBrouillard({
+    required String numVentes,
+    required double totalHT,
+    required double totalTTC,
+    required double tva,
+    required DateTime date,
+  }) async {
+    // Supprimer les anciennes métadonnées
+    await (_databaseService.database.delete(_databaseService.database.detventes)
+          ..where((d) => d.numventes.equals(numVentes) & d.designation.equals('__VENTE_METADATA__')))
+        .go();
+
+    // Créer les nouvelles métadonnées avec les totaux mis à jour
+    await _databaseService.database.into(_databaseService.database.detventes).insert(
+          DetventesCompanion.insert(
+            numventes: Value(numVentes),
+            designation: Value('__VENTE_METADATA__'),
+            unites: Value('BROUILLARD'),
+            depots: Value('TEMP'),
+            q: Value(totalTTC),
+            pu: Value(totalHT),
+            daty: Value(date),
+            diffPrix: Value(tva),
+          ),
+        );
+  }
+
   /// Valide une vente brouillard vers journal avec informations complètes
   Future<void> validerVenteBrouillardAvecInfos({
     required String numVentes,
@@ -499,6 +565,14 @@ class VenteService {
     required double? montantRecu,
     required double? monnaieARendre,
   }) async {
+    // Mettre à jour les métadonnées avant validation
+    await mettreAJourMetadonneesBrouillard(
+      numVentes: numVentes,
+      totalHT: totalHT,
+      totalTTC: totalTTC,
+      tva: tva,
+      date: DateTime.now(),
+    );
     // Récupérer les détails (y compris métadonnées)
     final details = await (_databaseService.database.select(_databaseService.database.detventes)
           ..where((d) => d.numventes.equals(numVentes)))
@@ -508,11 +582,14 @@ class VenteService {
       throw Exception('Vente brouillard non trouvée');
     }
 
-    // Récupérer les métadonnées de la vente
-    final metadata = details.where((d) => d.designation == '__VENTE_METADATA__').firstOrNull;
-    if (metadata == null) {
+    // Récupérer les métadonnées de la vente (prendre la plus récente si plusieurs)
+    final metadataList = details.where((d) => d.designation == '__VENTE_METADATA__').toList();
+    if (metadataList.isEmpty) {
       throw Exception('Métadonnées de vente non trouvées');
     }
+    // Trier par date et prendre la plus récente
+    metadataList.sort((a, b) => (b.daty ?? DateTime(0)).compareTo(a.daty ?? DateTime(0)));
+    final metadata = metadataList.first;
 
     final lignesVente = details.where((d) => d.designation != '__VENTE_METADATA__').toList();
     final currentUser = AuthService().currentUser;
@@ -534,7 +611,7 @@ class VenteService {
               remise: Value(remise),
               commission: Value(commission),
               commerc: Value(commercialName),
-              verification: const Value('JOURNAL'),
+              verification: Value('JOURNAL'),
               montantRecu: Value(montantRecu),
               monnaieARendre: Value(monnaieARendre),
             ),
@@ -617,6 +694,283 @@ class VenteService {
     });
   }
 
+  /// Enregistre une vente Brouillard -> Journal avec gestion complète
+  Future<void> enregistrerVenteBrouillardVersJournal({
+    required String numVentes,
+    required String? nFacture,
+    required DateTime date,
+    required String? client,
+    required String? modePaiement,
+    required double totalHT,
+    required double totalTTC,
+    required double tva,
+    required double? avance,
+    required String? commercial,
+    required double? commission,
+    required double? remise,
+    required List<Map<String, dynamic>> lignesVente,
+    required double? montantRecu,
+    required double? monnaieARendre,
+  }) async {
+    await _databaseService.database.transaction(() async {
+      // 1. Traiter la vente en mode brouillard d'abord
+      await traiterVenteBrouillard(
+        numVentes: numVentes,
+        nFacture: nFacture,
+        date: date,
+        client: client,
+        modePaiement: modePaiement,
+        totalHT: totalHT,
+        totalTTC: totalTTC,
+        tva: tva,
+        avance: avance,
+        commercial: commercial,
+        commission: commission,
+        remise: remise,
+        lignesVente: lignesVente,
+      );
+
+      // 2. Valider immédiatement vers journal
+      await validerVenteBrouillardAvecInfos(
+        numVentes: numVentes,
+        nFacture: nFacture,
+        client: client,
+        modePaiement: modePaiement,
+        totalHT: totalHT,
+        totalTTC: totalTTC,
+        tva: tva,
+        avance: avance,
+        remise: remise,
+        commission: commission,
+        montantRecu: montantRecu,
+        monnaieARendre: monnaieARendre,
+      );
+    });
+  }
+
+  /// Contre-passe une vente avec restauration complète
+  Future<void> contrePasserVente(String numVentes) async {
+    final vente = await (_databaseService.database.select(_databaseService.database.ventes)
+          ..where((v) => v.numventes.equals(numVentes)))
+        .getSingleOrNull();
+
+    if (vente == null) throw Exception('Vente non trouvée');
+
+    final details = await (_databaseService.database.select(_databaseService.database.detventes)
+          ..where((d) => d.numventes.equals(numVentes)))
+        .get();
+
+    await _databaseService.database.transaction(() async {
+      // 1. Restaurer stocks
+      for (final detail in details) {
+        if (detail.designation != null &&
+            detail.depots != null &&
+            detail.unites != null &&
+            detail.q != null) {
+          final article = await (_databaseService.database.select(_databaseService.database.articles)
+                ..where((a) => a.designation.equals(detail.designation!)))
+              .getSingleOrNull();
+
+          if (article != null) {
+            await _restaurerStockDepot(
+              article: article,
+              depot: detail.depots!,
+              unite: detail.unites!,
+              quantite: detail.q!,
+            );
+
+            await _restaurerStockGlobal(
+              article: article,
+              unite: detail.unites!,
+              quantite: detail.q!,
+            );
+
+            await _creerMouvementStockRestauration(
+              numVentes: numVentes,
+              article: article,
+              depot: detail.depots!,
+              unite: detail.unites!,
+              quantite: detail.q!,
+              prixUnitaire: detail.pu ?? 0.0,
+              client: vente.clt,
+            );
+          }
+        }
+      }
+
+      // 2. Ajuster compte client si crédit
+      if (vente.modepai == 'A crédit' && vente.clt != null && vente.clt!.isNotEmpty) {
+        final montant = (vente.totalttc ?? 0) - (vente.avance ?? 0);
+        if (montant > 0) {
+          await _ajusterCompteClientContrePassement(
+            client: vente.clt!,
+            numVentes: numVentes,
+            montant: montant,
+          );
+        }
+      }
+
+      // 3. Décaissement si espèces
+      if (vente.modepai == 'Espèces') {
+        await _decaissement(
+          numVentes: numVentes,
+          montant: vente.totalttc ?? 0,
+          client: vente.clt,
+        );
+      }
+
+      // 4. Marquer la vente comme contre-passée
+      await (_databaseService.database.update(_databaseService.database.ventes)
+            ..where((v) => v.numventes.equals(numVentes)))
+          .write(VentesCompanion(
+        contre: Value("1"),
+      ));
+    });
+  }
+
+  /// Récupère les ventes en Journal (non contre-passées)
+  Future<List<Vente>> getVentesJournal() async {
+    return await (_databaseService.database.select(_databaseService.database.ventes)
+          ..where((v) => v.verification.equals('JOURNAL') & (v.contre.isNull() | v.contre.equals("0"))))
+        .get();
+  }
+
+  Future<void> _restaurerStockDepot({
+    required Article article,
+    required String depot,
+    required String unite,
+    required double quantite,
+  }) async {
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    final stockActuel = await (_databaseService.database.select(_databaseService.database.depart)
+          ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+        .getSingleOrNull();
+
+    if (stockActuel != null) {
+      await (_databaseService.database.update(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+          .write(DepartCompanion(
+        stocksu1: Value((stockActuel.stocksu1 ?? 0) + conversions['u1']!),
+        stocksu2: Value((stockActuel.stocksu2 ?? 0) + conversions['u2']!),
+        stocksu3: Value((stockActuel.stocksu3 ?? 0) + conversions['u3']!),
+      ));
+    }
+  }
+
+  Future<void> _restaurerStockGlobal({
+    required Article article,
+    required String unite,
+    required double quantite,
+  }) async {
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    await (_databaseService.database.update(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(article.designation)))
+        .write(ArticlesCompanion(
+      stocksu1: Value((article.stocksu1 ?? 0) + conversions['u1']!),
+      stocksu2: Value((article.stocksu2 ?? 0) + conversions['u2']!),
+      stocksu3: Value((article.stocksu3 ?? 0) + conversions['u3']!),
+    ));
+  }
+
+  Future<void> _creerMouvementStockRestauration({
+    required String numVentes,
+    required Article article,
+    required String depot,
+    required String unite,
+    required double quantite,
+    required double prixUnitaire,
+    required String? client,
+  }) async {
+    final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}-${article.designation}';
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    await _databaseService.database.into(_databaseService.database.stocks).insert(
+          StocksCompanion.insert(
+            ref: Value(ref).toString(),
+            daty: Value(DateTime.now()),
+            lib: Value('Contre-passement vente N° $numVentes'),
+            numventes: Value(numVentes),
+            refart: Value(article.designation),
+            qe: Value(quantite),
+            entres: Value(quantite * prixUnitaire),
+            stocksu1: Value(conversions['u1']),
+            stocksu2: Value(conversions['u2']),
+            stocksu3: Value(conversions['u3']),
+            depots: Value(depot),
+            clt: Value(client),
+            verification: Value('JOURNAL'),
+            ue: Value(unite),
+          ),
+        );
+  }
+
+  Future<void> _ajusterCompteClientContrePassement({
+    required String client,
+    required String numVentes,
+    required double montant,
+  }) async {
+    final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
+
+    await _databaseService.database.into(_databaseService.database.compteclt).insert(
+          ComptecltCompanion.insert(
+            ref: Value(ref).toString(),
+            clt: Value(client),
+            daty: Value(DateTime.now()),
+            lib: Value('Contre-passement vente N° $numVentes'),
+            entres: Value(0.0),
+            sorties: Value(montant),
+            solde: Value(-montant),
+            verification: Value('JOURNAL'),
+          ),
+        );
+
+    final clientData = await (_databaseService.database.select(_databaseService.database.clt)
+          ..where((c) => c.rsoc.equals(client)))
+        .getSingleOrNull();
+
+    if (clientData != null) {
+      await (_databaseService.database.update(_databaseService.database.clt)
+            ..where((c) => c.rsoc.equals(client)))
+          .write(CltCompanion(
+        soldes: Value((clientData.soldes ?? 0) - montant),
+        datedernop: Value(DateTime.now()),
+      ));
+    }
+  }
+
+  Future<void> _decaissement({
+    required String numVentes,
+    required double montant,
+    required String? client,
+  }) async {
+    final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
+
+    await _databaseService.database.into(_databaseService.database.caisse).insert(
+          CaisseCompanion.insert(
+            ref: Value(ref).toString(),
+            daty: Value(DateTime.now()),
+            lib: Value('Contre-passement vente N° $numVentes'),
+            credit: Value(montant),
+            clt: Value(client ?? ''),
+            verification: const Value('JOURNAL'),
+          ),
+        );
+  }
+
   /// Valide une vente brouillard vers journal (ancienne méthode)
   Future<void> validerVenteBrouillard(String numVentes) async {
     // Récupérer les détails (y compris métadonnées)
@@ -628,11 +982,14 @@ class VenteService {
       throw Exception('Vente brouillard non trouvée');
     }
 
-    // Récupérer les métadonnées de la vente
-    final metadata = details.where((d) => d.designation == '__VENTE_METADATA__').firstOrNull;
-    if (metadata == null) {
+    // Récupérer les métadonnées de la vente (prendre la plus récente si plusieurs)
+    final metadataList = details.where((d) => d.designation == '__VENTE_METADATA__').toList();
+    if (metadataList.isEmpty) {
       throw Exception('Métadonnées de vente non trouvées');
     }
+    // Trier par date et prendre la plus récente
+    metadataList.sort((a, b) => (b.daty ?? DateTime(0)).compareTo(a.daty ?? DateTime(0)));
+    final metadata = metadataList.first;
 
     final lignesVente = details.where((d) => d.designation != '__VENTE_METADATA__').toList();
 

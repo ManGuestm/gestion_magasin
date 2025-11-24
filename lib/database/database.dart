@@ -936,6 +936,16 @@ class AppDatabase extends _$AppDatabase {
   Future<Depot?> getDepotByName(String name) =>
       (select(depots)..where((tbl) => tbl.depots.equals(name))).getSingleOrNull();
 
+  /// Récupère le dernier dépôt utilisé dans les détails de ventes
+  Future<String?> getDernierDepotUtilise() async {
+    final result = await (select(detventes)
+          ..where((d) => d.depots.isNotNull())
+          ..orderBy([(d) => OrderingTerm.desc(d.daty)])
+          ..limit(1))
+        .getSingleOrNull();
+    return result?.depots;
+  }
+
   // ========== MÉTHODES STATISTIQUES ==========
   /// Compte le nombre de ventes en brouillard en attente
   Future<int> getVentesBrouillardCount() async {
@@ -975,20 +985,22 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Calcule le total des ventes
+  /// Calcule le total des ventes (non contre-passées)
   Future<double> getTotalVentes() async {
-    final query = select(ventes);
+    final query = select(ventes)..where((v) => v.contre.isNull() | v.contre.equals("0"));
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0.0));
   }
 
-  /// Calcule les ventes du jour
+  /// Calcule les ventes du jour (non contre-passées)
   Future<double> getVentesToday() async {
     final today = DateTime.now();
     final startOfDay = DateTime(today.year, today.month, today.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
-    final query = select(ventes)..where((tbl) => tbl.daty.isBetweenValues(startOfDay, endOfDay));
+    final query = select(ventes)
+      ..where((tbl) =>
+          tbl.daty.isBetweenValues(startOfDay, endOfDay) & (tbl.contre.isNull() | tbl.contre.equals("0")));
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
   }
@@ -1030,21 +1042,25 @@ class AppDatabase extends _$AppDatabase {
     return ventesCount + achatsCount;
   }
 
-  /// Calcule les ventes du jour par utilisateur
+  /// Calcule les ventes du jour par utilisateur (non contre-passées)
   Future<double> getVentesTodayByUser(String userName) async {
     final today = DateTime.now();
     final startOfDay = DateTime(today.year, today.month, today.day);
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     final query = select(ventes)
-      ..where((tbl) => tbl.daty.isBetweenValues(startOfDay, endOfDay) & tbl.commerc.equals(userName));
+      ..where((tbl) =>
+          tbl.daty.isBetweenValues(startOfDay, endOfDay) &
+          tbl.commerc.equals(userName) &
+          (tbl.contre.isNull() | tbl.contre.equals("0")));
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
   }
 
-  /// Récupère les ventes récentes
+  /// Récupère les ventes récentes (non contre-passées)
   Future<List<Map<String, dynamic>>> getRecentSales(int limit) async {
     final query = select(ventes)
+      ..where((v) => v.contre.isNull() | v.contre.equals("0"))
       ..orderBy([(tbl) => OrderingTerm.desc(tbl.daty)])
       ..limit(limit);
     final result = await query.get();
@@ -1079,14 +1095,17 @@ class AppDatabase extends _$AppDatabase {
         .toList();
   }
 
-  /// Calcule les ventes du mois par utilisateur
+  /// Calcule les ventes du mois par utilisateur (non contre-passées)
   Future<double> getVentesThisMonthByUser(String userName) async {
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
     final endOfMonth = DateTime(now.year, now.month + 1, 1);
 
     final query = select(ventes)
-      ..where((tbl) => tbl.daty.isBetweenValues(startOfMonth, endOfMonth) & tbl.commerc.equals(userName));
+      ..where((tbl) =>
+          tbl.daty.isBetweenValues(startOfMonth, endOfMonth) &
+          tbl.commerc.equals(userName) &
+          (tbl.contre.isNull() | tbl.contre.equals("0")));
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
   }
@@ -1123,6 +1142,7 @@ class AppDatabase extends _$AppDatabase {
         INNER JOIN ventes v ON dv.numventes = v.numventes
         INNER JOIN articles a ON dv.designation = a.designation
         WHERE v.verification = 'JOURNAL'
+          AND (v.contre IS NULL OR v.contre = 0)
           AND dv.q > 0 
           AND dv.pu > 0
       ''').getSingleOrNull();
@@ -1155,6 +1175,7 @@ class AppDatabase extends _$AppDatabase {
       INNER JOIN ventes v ON dv.numventes = v.numventes
       INNER JOIN articles a ON dv.designation = a.designation
       WHERE v.verification = 'JOURNAL'
+        AND (v.contre IS NULL OR v.contre = 0)
         AND v.daty >= ?
       ''',
       variables: [
@@ -1202,6 +1223,7 @@ class AppDatabase extends _$AppDatabase {
       INNER JOIN ventes v ON dv.numventes = v.numventes
       INNER JOIN articles a ON dv.designation = a.designation
       $whereClause
+        AND (v.contre IS NULL OR v.contre = 0)
       ORDER BY v.daty DESC, v.numventes DESC
       ''',
       variables: variables,
@@ -1355,8 +1377,9 @@ class AppDatabase extends _$AppDatabase {
   Future<int> deleteCommercial(String nom) => (delete(com)..where((tbl) => tbl.nom.equals(nom))).go();
 
   // ========== MÉTHODES VENTES ==========
-  /// Récupère toutes les ventes
-  Future<List<Vente>> getAllVentes() => select(ventes).get();
+  /// Récupère toutes les ventes (non contre-passées)
+  Future<List<Vente>> getAllVentes() =>
+      (select(ventes)..where((v) => v.contre.isNull() | v.contre.equals("0"))).get();
 
   /// Insère une nouvelle vente
   Future<int> insertVente(VentesCompanion entry) => into(ventes).insert(entry);
@@ -1770,9 +1793,10 @@ class AppDatabase extends _$AppDatabase {
 
   // ========== MÉTHODES SPÉCIALISÉES RAPPORTS ==========
 
-  /// Récupère les statistiques de vente par période
+  /// Récupère les statistiques de vente par période (non contre-passées)
   Future<Map<String, dynamic>> getStatistiquesVentes(DateTime debut, DateTime fin) async {
-    final ventesQuery = select(ventes)..where((v) => v.daty.isBetweenValues(debut, fin));
+    final ventesQuery = select(ventes)
+      ..where((v) => v.daty.isBetweenValues(debut, fin) & (v.contre.isNull() | v.contre.equals("0")));
 
     final ventesListe = await ventesQuery.get();
 

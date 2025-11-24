@@ -41,7 +41,7 @@ class _VentesJourModalState extends State<VentesJourModal> with TabNavigationMix
           v.modepai,
           v.verification
         FROM ventes v
-        WHERE v.daty >= ? AND v.daty < ?
+        WHERE v.daty >= ? AND v.daty < ? AND (v.contre IS NULL OR v.contre = 0)
         ORDER BY v.daty DESC
       ''', variables: [
         Variable.withDateTime(startOfDay),

@@ -5,6 +5,7 @@ Application de gestion de magasin développée avec Flutter pour desktop Windows
 ## Fonctionnalités
 
 ### Modules principaux
+
 - **Commerces** : Gestion des opérations commerciales
 - **Gestions** : Administration et gestion générale
 - **Trésorerie** : Gestion financière et comptable
@@ -13,6 +14,7 @@ Application de gestion de magasin développée avec Flutter pour desktop Windows
 - **Aide** : Documentation et support
 
 ### Module États
+
 - Articles
 - Clients
 - Commerciaux
@@ -50,6 +52,7 @@ lib/
 ## Développement
 
 L'application utilise une architecture modulaire avec :
+
 - Navigation par cartes sur l'écran principal
 - Sous-menu contextuel pour les États
 - Interface adaptée pour desktop Windows
