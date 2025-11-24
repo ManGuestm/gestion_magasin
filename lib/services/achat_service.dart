@@ -384,9 +384,10 @@ class AchatService {
           CaisseCompanion.insert(
             ref: ref,
             daty: Value(date),
-            lib: Value('Achat N° $numAchats'),
+            lib: Value('Achat N° $numAchats | Fournisseur: $fournisseur'),
             credit: Value(montant),
             frns: Value(fournisseur ?? ''),
+            type: Value("Règlement Fournisseur"),
             verification: const Value('JOURNAL'),
           ),
         );

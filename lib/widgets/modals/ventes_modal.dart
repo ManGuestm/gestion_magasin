@@ -16,7 +16,6 @@ import '../../utils/stock_converter.dart';
 import '../../widgets/common/enhanced_autocomplete.dart';
 import '../../widgets/common/mode_paiement_dropdown.dart';
 import '../common/tab_navigation_widget.dart';
-import 'add_client_modal.dart';
 import 'bon_livraison_preview.dart';
 import 'facture_preview.dart';
 
@@ -217,24 +216,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           .where((v) => (v['numventes'] as String).isNotEmpty)
           .toList();
 
-      // Récupérer les ventes brouillard (depuis detventes)
-      final ventesBrouillard = await (_databaseService.database.select(_databaseService.database.detventes)
-            ..where((d) => d.designation.equals('__VENTE_METADATA__'))
-            ..orderBy([(d) => drift.OrderingTerm.desc(d.daty)]))
-          .get();
-
-      for (final brouillard in ventesBrouillard) {
-        if (brouillard.numventes != null) {
-          result.add({
-            'numventes': brouillard.numventes!,
-            'verification': 'BROUILLARD',
-            'daty': brouillard.daty,
-            'contre': '',
-            'nfact': '',
-          });
-        }
-      }
-
       // Trier par date décroissante
       result.sort((a, b) => (b['daty'] ?? DateTime(0)).compareTo(a['daty'] ?? DateTime(0)));
 
@@ -279,6 +260,65 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     } catch (e) {
       return false;
     }
+  }
+
+  Future<void> _sauvegarderModificationsBrouillard() async {
+    if (!_isExistingPurchase || _numVentesController.text.isEmpty) return;
+
+    double totalHT = 0;
+    for (var ligne in _lignesVente) {
+      totalHT += ligne['montant'] ?? 0;
+    }
+
+    double remise = double.tryParse(_remiseController.text) ?? 0;
+    double totalApresRemise = totalHT - (totalHT * remise / 100);
+    double tva = double.tryParse(_tvaController.text) ?? 0;
+    double totalTTC = totalApresRemise + (totalApresRemise * tva / 100);
+    double avance = double.tryParse(_avanceController.text) ?? 0;
+    double commission = double.tryParse(_commissionController.text) ?? 0;
+    double montantRecu = double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0;
+    double monnaieARendre = double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0;
+
+    await _databaseService.database.transaction(() async {
+      // Supprimer toutes les anciennes lignes
+      await (_databaseService.database.delete(_databaseService.database.detventes)
+            ..where((d) => d.numventes.equals(_numVentesController.text)))
+          .go();
+
+      // Mettre à jour la vente principale
+      await (_databaseService.database.update(_databaseService.database.ventes)
+            ..where((v) => v.numventes.equals(_numVentesController.text)))
+          .write(VentesCompanion(
+        nfact: drift.Value(_nFactureController.text),
+        clt: drift.Value(_selectedClient ?? ''),
+        modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
+        totalnt: drift.Value(totalApresRemise),
+        totalttc: drift.Value(totalTTC),
+        tva: drift.Value(tva),
+        avance: drift.Value(avance),
+        commission: drift.Value(commission),
+        remise: drift.Value(remise),
+        heure: drift.Value(_heureController.text),
+        montantRecu: drift.Value(montantRecu),
+        monnaieARendre: drift.Value(monnaieARendre),
+      ));
+
+      // Insérer les nouvelles lignes
+      for (var ligne in _lignesVente) {
+        await _databaseService.database.into(_databaseService.database.detventes).insert(
+              DetventesCompanion.insert(
+                numventes: drift.Value(_numVentesController.text),
+                designation: drift.Value(ligne['designation']),
+                unites: drift.Value(ligne['unites']),
+                depots: drift.Value(ligne['depot']),
+                q: drift.Value(ligne['quantite']),
+                pu: drift.Value(ligne['prixUnitaire']),
+                daty: drift.Value(DateTime.now()),
+                diffPrix: drift.Value(ligne['diffPrix'] ?? 0.0),
+              ),
+            );
+      }
+    });
   }
 
   Future<void> _validerBrouillardVersJournal() async {
@@ -331,8 +371,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     if (confirm != true) return;
 
     try {
-      // Passer les informations complètes pour la validation avec modifications
-      await _venteService.validerVenteBrouillardAvecInfos(
+      // Sauvegarder d'abord les modifications actuelles
+      await _sauvegarderModificationsBrouillard();
+
+      await _venteService.validerVenteBrouillardVersJournal(
         numVentes: _numVentesController.text,
         nFacture: _nFactureController.text,
         client: _selectedClient,
@@ -444,53 +486,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           }
         });
       } else {
-        // Vérifier si c'est une vente brouillard
-        final metadata = await (_databaseService.database.select(_databaseService.database.detventes)
-              ..where((d) => d.numventes.equals(numVentes) & d.designation.equals('__VENTE_METADATA__'))
-              ..orderBy([(d) => drift.OrderingTerm.desc(d.daty)])
-              ..limit(1))
-            .getSingleOrNull();
-
-        if (metadata != null) {
-          // Vente brouillard
-          final details = await (_databaseService.database.select(_databaseService.database.detventes)
-                ..where(
-                    (d) => d.numventes.equals(numVentes) & d.designation.isNotValue('__VENTE_METADATA__')))
-              .get();
-
-          setState(() {
-            _isExistingPurchase = true;
-            _selectedVerification = 'BROUILLARD';
-            _statutVenteActuelle = StatutVente.brouillard;
-
-            // Récupérer les infos depuis les métadonnées
-            if (metadata.daty != null) {
-              _dateController.text =
-                  '${metadata.daty!.day.toString().padLeft(2, '0')}/${metadata.daty!.month.toString().padLeft(2, '0')}/${metadata.daty!.year}';
-            }
-            _totalHTController.text = _formatNumber(metadata.pu ?? 0); // totalHT dans pu
-            _totalTTCController.text = _formatNumber(metadata.q ?? 0); // totalTTC dans q
-            _tvaController.text = (metadata.diffPrix ?? 0).toString(); // tva dans diffPrix
-
-            _lignesVente.clear();
-            for (var detail in details) {
-              _lignesVente.add({
-                'designation': detail.designation ?? '',
-                'unites': detail.unites ?? '',
-                'quantite': detail.q ?? 0.0,
-                'prixUnitaire': detail.pu ?? 0.0,
-                'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
-                'depot': detail.depots ?? '',
-                'diffPrix': detail.diffPrix ?? 0.0,
-              });
-            }
-          });
-        } else {
-          setState(() {
-            _isExistingPurchase = false;
-          });
-          return;
-        }
+        setState(() {
+          _isExistingPurchase = false;
+        });
+        return;
       }
 
       _calculerTotaux();
@@ -1590,7 +1589,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
       // Traiter la vente avec le service selon le mode
       if (_selectedVerification == 'BROUILLARD') {
-        await _venteService.traiterVenteBrouillard(
+        await _venteService.enregistrerVenteBrouillard(
           numVentes: _numVentesController.text,
           nFacture: _nFactureController.text.isEmpty ? null : _nFactureController.text,
           date: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
@@ -1604,9 +1603,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           commission: double.tryParse(_commissionController.text) ?? 0,
           remise: double.tryParse(_remiseController.text) ?? 0,
           lignesVente: lignesVenteData,
+          montantRecu: double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0,
+          monnaieARendre: double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0,
         );
       } else {
-        await _venteService.enregistrerVenteBrouillardVersJournal(
+        await _venteService.enregistrerVenteDirecteJournal(
           numVentes: _numVentesController.text,
           nFacture: _nFactureController.text.isEmpty ? null : _nFactureController.text,
           date: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
@@ -1728,51 +1729,30 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       double montantRecu = double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0;
       double monnaieARendre = double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0;
 
-      // Vérifier si c'est une vente brouillard pour mettre à jour les métadonnées
-      if (_statutVenteActuelle == StatutVente.brouillard) {
-        await _venteService.mettreAJourMetadonneesBrouillard(
-          numVentes: _numVentesController.text,
-          totalHT: totalApresRemise,
-          totalTTC: totalTTC,
-          tva: tva,
-          date: DateTime.now(),
-        );
-      }
-
       await _databaseService.database.transaction(() async {
-        // Supprimer les anciennes lignes (sauf métadonnées pour brouillard)
-        if (_statutVenteActuelle == StatutVente.brouillard) {
-          await (_databaseService.database.delete(_databaseService.database.detventes)
-                ..where((d) =>
-                    d.numventes.equals(_numVentesController.text) &
-                    d.designation.isNotValue('__VENTE_METADATA__')))
-              .go();
-        } else {
-          await (_databaseService.database.delete(_databaseService.database.detventes)
-                ..where((d) => d.numventes.equals(_numVentesController.text)))
-              .go();
-        }
+        // Supprimer toutes les anciennes lignes
+        await (_databaseService.database.delete(_databaseService.database.detventes)
+              ..where((d) => d.numventes.equals(_numVentesController.text)))
+            .go();
 
-        if (_statutVenteActuelle != StatutVente.brouillard) {
-          // Mettre à jour la vente principale (seulement pour ventes journalées)
-          await (_databaseService.database.update(_databaseService.database.ventes)
-                ..where((v) => v.numventes.equals(_numVentesController.text)))
-              .write(VentesCompanion(
-            nfact: drift.Value(_nFactureController.text),
-            daty: drift.Value(DateTime.now()),
-            clt: drift.Value(_selectedClient ?? ''),
-            modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
-            totalnt: drift.Value(totalApresRemise),
-            totalttc: drift.Value(totalTTC),
-            tva: drift.Value(tva),
-            avance: drift.Value(avance),
-            commission: drift.Value(commission),
-            remise: drift.Value(remise),
-            heure: drift.Value(_heureController.text),
-            montantRecu: drift.Value(montantRecu),
-            monnaieARendre: drift.Value(monnaieARendre),
-          ));
-        }
+        // Mettre à jour la vente principale
+        await (_databaseService.database.update(_databaseService.database.ventes)
+              ..where((v) => v.numventes.equals(_numVentesController.text)))
+            .write(VentesCompanion(
+          nfact: drift.Value(_nFactureController.text),
+          daty: drift.Value(DateTime.now()),
+          clt: drift.Value(_selectedClient ?? ''),
+          modepai: drift.Value(_selectedModePaiement ?? 'A crédit'),
+          totalnt: drift.Value(totalApresRemise),
+          totalttc: drift.Value(totalTTC),
+          tva: drift.Value(tva),
+          avance: drift.Value(avance),
+          commission: drift.Value(commission),
+          remise: drift.Value(remise),
+          heure: drift.Value(_heureController.text),
+          montantRecu: drift.Value(montantRecu),
+          monnaieARendre: drift.Value(monnaieARendre),
+        ));
 
         // Insérer les nouvelles lignes
         for (var ligne in _lignesVente) {
@@ -2672,40 +2652,43 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       );
 
       if (confirmer == true) {
-        // Ouvrir le modal d'ajout de client avec le nom pré-rempli
-        if (mounted) {
-          final nouveauClient = await showDialog<CltData>(
-            context: context,
-            builder: (context) => AddClientModal(
-              nomClient: nomClient,
-              tousDepots: widget.tousDepots,
-            ),
-          );
+        // Créer directement le client avec le nom saisi
+        try {
+          await _databaseService.database.into(_databaseService.database.clt).insert(
+                CltCompanion.insert(
+                  rsoc: nomClient,
+                  categorie: drift.Value(
+                      widget.tousDepots ? ClientCategory.tousDepots.label : ClientCategory.magasin.label),
+                ),
+              );
 
-          if (nouveauClient != null) {
-            // Recharger la liste des clients
-            await _loadData();
+          // Recharger la liste des clients
+          await _loadData();
 
-            setState(() {
-              _selectedClient = nouveauClient.rsoc;
-              _clientController.text = nouveauClient.rsoc;
-              // Déterminer si on affiche le mode crédit selon la catégorie
-              _showCreditMode = _shouldShowCreditMode(nouveauClient);
-              // Ajuster le mode de paiement si nécessaire
-              if ((!_showCreditMode || _isVendeur()) && _selectedModePaiement == 'A crédit') {
-                _selectedModePaiement = 'Espèces';
-              }
-            });
-            _chargerSoldeClient(nouveauClient.rsoc);
+          setState(() {
+            _selectedClient = nomClient;
+            _clientController.text = nomClient;
+            _showCreditMode = widget.tousDepots;
+            if ((!_showCreditMode || _isVendeur()) && _selectedModePaiement == 'A crédit') {
+              _selectedModePaiement = 'Espèces';
+            }
+          });
+          _chargerSoldeClient(nomClient);
 
-            // Positionner le curseur selon le type d'utilisateur
-            Future.delayed(const Duration(milliseconds: 100), () {
-              if (_shouldFocusOnClient()) {
-                _clientFocusNode.requestFocus();
-              } else {
-                _designationFocusNode.requestFocus();
-              }
-            });
+          // Positionner le curseur selon le type d'utilisateur
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (_shouldFocusOnClient()) {
+              _clientFocusNode.requestFocus();
+            } else {
+              _designationFocusNode.requestFocus();
+            }
+          });
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content: Text('Erreur lors de la création du client: $e'), backgroundColor: Colors.red),
+            );
           }
         }
       } else {

@@ -153,6 +153,7 @@ class MenuData {
     IconButtonData(Icons.balance, 'Relance Clients'),
     IconButtonData(Icons.sync_alt, 'Echéance Fournisseurs'),
     IconButtonData(Icons.shopping_basket, 'Articles à commander'),
+    IconButtonData(Icons.account_balance_wallet, 'Régularisation compte tiers'),
   ];
 
   static const Map<String, double> menuPositions = {

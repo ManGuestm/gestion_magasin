@@ -494,7 +494,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            flex: 2,
+            flex: 1,
             child: _buildClientSelectionPanel(),
           ),
           const SizedBox(width: 24),
@@ -514,7 +514,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            flex: 2,
+            flex: 1,
             child: _buildSupplierSelectionPanel(),
           ),
           const SizedBox(width: 24),
@@ -887,104 +887,106 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
               ],
             ),
           ),
-          Expanded(
+          Flexible(
             child: Padding(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  _buildTextField(
-                    controller: _amountController,
-                    focusNode: _amountFocusNode,
-                    label: 'Montant',
-                    icon: Icons.euro,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                    onFieldSubmitted: (_) => _paymentMethodFocusNode.requestFocus(),
-                  ),
-                  const SizedBox(height: 16),
-                  Focus(
-                    focusNode: _paymentMethodFocusNode,
-                    onFocusChange: (hasFocus) {
-                      if (hasFocus) {
-                        _paymentMethodController.selection = TextSelection(
-                          baseOffset: 0,
-                          extentOffset: _paymentMethodController.text.length,
-                        );
-                      }
-                    },
-                    child: EnhancedAutocomplete<String>(
-                      controller: _paymentMethodController,
-                      options: _paymentMethods,
-                      displayStringForOption: (method) => method,
-                      onSelected: (method) {
-                        setState(() => _paymentMethod = method);
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    _buildTextField(
+                      controller: _amountController,
+                      focusNode: _amountFocusNode,
+                      label: 'Montant',
+                      icon: Icons.euro,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                      onFieldSubmitted: (_) => _paymentMethodFocusNode.requestFocus(),
+                    ),
+                    const SizedBox(height: 16),
+                    Focus(
+                      focusNode: _paymentMethodFocusNode,
+                      onFocusChange: (hasFocus) {
+                        if (hasFocus) {
+                          _paymentMethodController.selection = TextSelection(
+                            baseOffset: 0,
+                            extentOffset: _paymentMethodController.text.length,
+                          );
+                        }
                       },
-                      onTabPressed: () => _dateFocusNode.requestFocus(),
-                      decoration: InputDecoration(
-                        labelText: 'Mode de paiement',
-                        prefixIcon: Icon(Icons.credit_card, color: Colors.purple[600]),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                      child: EnhancedAutocomplete<String>(
+                        controller: _paymentMethodController,
+                        options: _paymentMethods,
+                        displayStringForOption: (method) => method,
+                        onSelected: (method) {
+                          setState(() => _paymentMethod = method);
+                        },
+                        onTabPressed: () => _dateFocusNode.requestFocus(),
+                        decoration: InputDecoration(
+                          labelText: 'Mode de paiement',
+                          prefixIcon: Icon(Icons.credit_card, color: Colors.purple[600]),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Colors.purple[600]!, width: 2),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.purple[600]!, width: 2),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildDateField(),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    controller: _referenceController,
-                    focusNode: _referenceFocusNode,
-                    label: 'Référence',
-                    icon: Icons.receipt,
-                    onFieldSubmitted: (_) => _noteFocusNode.requestFocus(),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    controller: _noteController,
-                    focusNode: _noteFocusNode,
-                    label: 'Note',
-                    icon: Icons.note,
-                    maxLines: 3,
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _processPayment,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple[600],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const Text(
-                              'ENREGISTRER LE RÈGLEMENT',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                    const SizedBox(height: 16),
+                    _buildDateField(),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _referenceController,
+                      focusNode: _referenceFocusNode,
+                      label: 'Référence',
+                      icon: Icons.receipt,
+                      onFieldSubmitted: (_) => _noteFocusNode.requestFocus(),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      controller: _noteController,
+                      focusNode: _noteFocusNode,
+                      label: 'Note',
+                      icon: Icons.note,
+                      maxLines: 3,
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _processPayment,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.purple[600],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                ),
+                              )
+                            : const Text(
+                                'ENREGISTRER LE RÈGLEMENT',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -79,34 +79,36 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
       widget.onTextChanged!(text);
     }
 
-    setState(() {
-      _filteredOptions = _userInput.isEmpty
-          ? widget.options
-          : widget.options
-              .where((option) =>
-                  widget.displayStringForOption(option).toLowerCase().startsWith(_userInput.toLowerCase()))
-              .toList();
+    if (mounted) {
+      setState(() {
+        _filteredOptions = _userInput.isEmpty
+            ? widget.options
+            : widget.options
+                .where((option) =>
+                    widget.displayStringForOption(option).toLowerCase().startsWith(_userInput.toLowerCase()))
+                .toList();
 
-      _selectedIndex = _filteredOptions.isNotEmpty ? 0 : -1;
-      _showSuggestion = _userInput.isNotEmpty && _filteredOptions.isNotEmpty;
+        _selectedIndex = _filteredOptions.isNotEmpty ? 0 : -1;
+        _showSuggestion = _userInput.isNotEmpty && _filteredOptions.isNotEmpty;
 
-      // Auto-complete first match when user types
-      if (_showSuggestion &&
-          _focusNode.hasFocus &&
-          selection.baseOffset == selection.extentOffset &&
-          _userInput.isNotEmpty) {
-        final firstMatch = widget.displayStringForOption(_filteredOptions[0]);
-        if (firstMatch.toLowerCase().startsWith(_userInput.toLowerCase()) && _userInput != firstMatch) {
-          _controller.value = TextEditingValue(
-            text: firstMatch,
-            selection: TextSelection(
-              baseOffset: _userInput.length,
-              extentOffset: firstMatch.length,
-            ),
-          );
+        // Auto-complete first match when user types
+        if (_showSuggestion &&
+            _focusNode.hasFocus &&
+            selection.baseOffset == selection.extentOffset &&
+            _userInput.isNotEmpty) {
+          final firstMatch = widget.displayStringForOption(_filteredOptions[0]);
+          if (firstMatch.toLowerCase().startsWith(_userInput.toLowerCase()) && _userInput != firstMatch) {
+            _controller.value = TextEditingValue(
+              text: firstMatch,
+              selection: TextSelection(
+                baseOffset: _userInput.length,
+                extentOffset: firstMatch.length,
+              ),
+            );
+          }
         }
-      }
-    });
+      });
+    }
   }
 
   /// Méthode publique pour vider le champ

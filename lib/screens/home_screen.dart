@@ -915,9 +915,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showVenteDetails(Map<String, dynamic> sale) async {
     final details = await DatabaseService().database.getVenteDetails(sale['numventes']);
-    
+
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -956,10 +956,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Text(item['designation'] ?? '', style: const TextStyle(fontSize: 12)),
                           ),
                           Expanded(
-                            child: Text('${item['q']} ${item['unites']}', style: const TextStyle(fontSize: 12)),
+                            child:
+                                Text('${item['q']} ${item['unites']}', style: const TextStyle(fontSize: 12)),
                           ),
                           Expanded(
-                            child: Text('${_formatNumber(item['pu'])} Ar', style: const TextStyle(fontSize: 12)),
+                            child:
+                                Text('${_formatNumber(item['pu'])} Ar', style: const TextStyle(fontSize: 12)),
                           ),
                         ],
                       ),
@@ -984,9 +986,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showAchatDetails(Map<String, dynamic> achat) async {
     final details = await DatabaseService().database.getAchatDetails(achat['numachats']);
-    
+
     if (!mounted) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1023,10 +1025,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Text(item['designation'] ?? '', style: const TextStyle(fontSize: 12)),
                           ),
                           Expanded(
-                            child: Text('${item['q']} ${item['unites']}', style: const TextStyle(fontSize: 12)),
+                            child:
+                                Text('${item['q']} ${item['unites']}', style: const TextStyle(fontSize: 12)),
                           ),
                           Expanded(
-                            child: Text('${_formatNumber(item['pu'])} Ar', style: const TextStyle(fontSize: 12)),
+                            child:
+                                Text('${_formatNumber(item['pu'])} Ar', style: const TextStyle(fontSize: 12)),
                           ),
                         ],
                       ),
