@@ -1060,7 +1060,7 @@ class AppDatabase extends _$AppDatabase {
   /// Récupère les ventes récentes (non contre-passées)
   Future<List<Map<String, dynamic>>> getRecentSales(int limit) async {
     final query = select(ventes)
-      ..where((v) => v.contre.isNull() | v.contre.equals("0"))
+      ..where((v) => v.verification.equals('JOURNAL') & v.contre.isNull() | v.contre.equals("0"))
       ..orderBy([(tbl) => OrderingTerm.desc(tbl.daty)])
       ..limit(limit);
     final result = await query.get();
@@ -1120,8 +1120,6 @@ class AppDatabase extends _$AppDatabase {
   /// Calcule le bénéfice réel des articles vendus (Prix de vente - Prix d'achat des articles vendus)
   Future<double> getBeneficesReels() async {
     try {
-
-
       final result = await customSelect('''
         SELECT 
           COALESCE(SUM(dv.q * dv.pu), 0) as chiffre_affaires,
@@ -1139,8 +1137,6 @@ class AppDatabase extends _$AppDatabase {
 
       final chiffreAffaires = (result.data['chiffre_affaires'] as num?)?.toDouble() ?? 0.0;
       final coutMarchandises = (result.data['cout_marchandises'] as num?)?.toDouble() ?? 0.0;
-
-
 
       return chiffreAffaires - coutMarchandises;
     } catch (e) {

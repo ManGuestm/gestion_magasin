@@ -478,9 +478,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           _remiseController.text = (vente.remise ?? 0).toString();
           _avanceController.text = (vente.avance ?? 0).toString();
           _commissionController.text = (vente.commission ?? 0).toString();
-          _montantRecuController.text = (vente.montantRecu ?? 0) > 0 ? _formatNumber(vente.montantRecu!) : '';
+          _montantRecuController.text =
+              (vente.montantRecu ?? 0) > 0 ? AppFunctions.formatNumber(vente.montantRecu!) : '';
           _montantARendreController.text =
-              (vente.monnaieARendre ?? 0) > 0 ? _formatNumber(vente.monnaieARendre!) : '';
+              (vente.monnaieARendre ?? 0) > 0 ? AppFunctions.formatNumber(vente.monnaieARendre!) : '';
 
           _lignesVente.clear();
           for (var detail in details) {
@@ -899,7 +900,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   void _calculerPrixPourUnite(Article article, String unite) async {
     final prixStandard = await _getPrixVenteStandard(article, unite);
     setState(() {
-      _prixController.text = prixStandard > 0 ? _formatNumber(prixStandard) : '';
+      _prixController.text = prixStandard > 0 ? AppFunctions.formatNumber(prixStandard) : '';
     });
   }
 
@@ -1079,18 +1080,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     return quantite > _stockDisponible;
   }
 
-  String _formatNumber(double number) {
-    String integerPart = number.round().toString();
-    String formatted = '';
-    for (int i = 0; i < integerPart.length; i++) {
-      if (i > 0 && (integerPart.length - i) % 3 == 0) {
-        formatted += ' ';
-      }
-      formatted += integerPart[i];
-    }
-    return formatted;
-  }
-
   String _formaterUniteAffichage(Article article) {
     final unites = <String>[];
     if (article.u1?.isNotEmpty == true) unites.add(article.u1!);
@@ -1103,7 +1092,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     double totalHT = double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0;
     double remise = double.tryParse(_remiseController.text) ?? 0;
     double remiseAmount = totalHT * remise / 100;
-    return _formatNumber(remiseAmount);
+    return AppFunctions.formatNumber(remiseAmount);
   }
 
   double _calculateTotalDiffPrix() {
@@ -1130,7 +1119,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
     double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
     double montant = quantite * prix;
-    _montantController.text = montant > 0 ? _formatNumber(montant) : '';
+    _montantController.text = montant > 0 ? AppFunctions.formatNumber(montant) : '';
   }
 
   void _calculerTotaux() {
@@ -1152,10 +1141,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
 
     setState(() {
-      _totalHTController.text = _formatNumber(totalHT);
-      _totalTTCController.text = _formatNumber(totalTTC);
-      _resteController.text = _formatNumber(reste);
-      _nouveauSoldeController.text = _formatNumber(nouveauSolde);
+      _totalHTController.text = AppFunctions.formatNumber(totalHT);
+      _totalTTCController.text = AppFunctions.formatNumber(totalTTC);
+      _resteController.text = AppFunctions.formatNumber(reste);
+      _nouveauSoldeController.text = AppFunctions.formatNumber(nouveauSolde);
     });
   }
 
@@ -1165,7 +1154,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     double totalApresRemise = totalHT - (totalHT * remise / 100);
     double tva = double.tryParse(_tvaController.text) ?? 0;
     double tvaAmount = totalApresRemise * tva / 100;
-    return _formatNumber(tvaAmount);
+    return AppFunctions.formatNumber(tvaAmount);
   }
 
   void _ajouterLigne() async {
@@ -1294,7 +1283,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       _selectedDepot = ligne['depot'];
       _depotController.text = ligne['depot'];
       _quantiteController.text = ligne['quantite'].toString();
-      _prixController.text = _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
+      _prixController.text = AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
       _uniteAffichage = _formaterUniteAffichage(article!);
     });
 
@@ -1336,7 +1325,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
       setState(() {
         _soldeAnterieur = solde;
-        _soldeAnterieurController.text = _formatNumber(solde);
+        _soldeAnterieurController.text = AppFunctions.formatNumber(solde);
       });
       _calculerTotaux();
     } catch (e) {
@@ -1351,7 +1340,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     double totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0;
     double montantRecu = double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0;
     double monnaie = montantRecu - totalTTC;
-    _montantARendreController.text = _formatNumber(monnaie > 0 ? monnaie : 0);
+    _montantARendreController.text = AppFunctions.formatNumber(monnaie > 0 ? monnaie : 0);
   }
 
   void _resetArticleForm() {
@@ -2121,17 +2110,19 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       style: pw.TextStyle(fontSize: pdfFontSize - 1))),
                               pw.Container(
                                   padding: pw.EdgeInsets.all(3),
-                                  child: pw.Text(_formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                  child: pw.Text(
+                                      AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
                                       style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                       textAlign: pw.TextAlign.center)),
                               pw.Container(
                                   padding: pw.EdgeInsets.all(3),
-                                  child: pw.Text(_formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                  child: pw.Text(
+                                      AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
                                       style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                       textAlign: pw.TextAlign.right)),
                               pw.Container(
                                   padding: pw.EdgeInsets.all(3),
-                                  child: pw.Text(_formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                  child: pw.Text(AppFunctions.formatNumber(ligne['montant']?.toDouble() ?? 0),
                                       style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                       textAlign: pw.TextAlign.right)),
                             ],
@@ -2150,7 +2141,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                         crossAxisAlignment: pw.CrossAxisAlignment.end,
                         children: [
                           pw.Text(
-                              'TOTAL TTC: ${_formatNumber(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0)}',
+                              'TOTAL TTC: ${AppFunctions.formatNumber(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0)}',
                               style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
                         ],
                       ),
@@ -2174,19 +2165,19 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                             children: [
                               _buildPdfTotalRow(
                                   'TOTAL HT:',
-                                  _formatNumber(
+                                  AppFunctions.formatNumber(
                                       double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0),
                                   pdfFontSize),
                               if ((double.tryParse(_remiseController.text) ?? 0) > 0)
                                 _buildPdfTotalRow(
                                     'REMISE:',
-                                    _formatNumber(
+                                    AppFunctions.formatNumber(
                                         double.tryParse(_remiseController.text.replaceAll(' ', '')) ?? 0),
                                     pdfFontSize),
                               if ((double.tryParse(_tvaController.text) ?? 0) > 0)
                                 _buildPdfTotalRow(
                                     'TVA:',
-                                    _formatNumber(
+                                    AppFunctions.formatNumber(
                                         double.tryParse(_tvaController.text.replaceAll(' ', '')) ?? 0),
                                     pdfFontSize),
                               pw.Container(
@@ -2195,7 +2186,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                 ),
                                 child: _buildPdfTotalRow(
                                     'TOTAL TTC:',
-                                    _formatNumber(
+                                    AppFunctions.formatNumber(
                                         double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0),
                                     pdfFontSize,
                                     isBold: true),
@@ -2203,12 +2194,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                               pw.SizedBox(height: pdfPadding / 2),
                               _buildPdfTotalRow(
                                   'MONTANT REÇU:',
-                                  _formatNumber(
+                                  AppFunctions.formatNumber(
                                       double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0),
                                   pdfFontSize),
                               _buildPdfTotalRow(
                                   'MONNAIE À RENDRE:',
-                                  _formatNumber(
+                                  AppFunctions.formatNumber(
                                       double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ??
                                           0),
                                   pdfFontSize),
@@ -2442,7 +2433,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       textAlign: pw.TextAlign.center)),
                               pw.Container(
                                   padding: pw.EdgeInsets.all(3),
-                                  child: pw.Text(_formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                  child: pw.Text(
+                                      AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
                                       style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                       textAlign: pw.TextAlign.center)),
                               if (widget.tousDepots)
@@ -2946,7 +2938,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             ),
           ),
           Text(
-            "${_formatNumber(prix)} Ar",
+            "${AppFunctions.formatNumber(prix)} Ar",
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -4079,7 +4071,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                                   ),
                                                                 ),
                                                                 child: Text(
-                                                                    _formatNumber(
+                                                                    AppFunctions.formatNumber(
                                                                         ligne['prixUnitaire']?.toDouble() ??
                                                                             0),
                                                                     style: const TextStyle(fontSize: 11)),
@@ -4102,7 +4094,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                                   ),
                                                                 ),
                                                                 child: Text(
-                                                                    _formatNumber(
+                                                                    AppFunctions.formatNumber(
                                                                         ligne['montant']?.toDouble() ?? 0),
                                                                     style: const TextStyle(fontSize: 11)),
                                                               ),
@@ -4997,7 +4989,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                           border: Border.all(color: Colors.red[200]!),
                                                         ),
                                                         child: Text(
-                                                          'CMUP: ${_formatNumber(_searchedArticle!.cmup ?? 0)}',
+                                                          'CMUP: ${AppFunctions.formatNumber(_searchedArticle!.cmup ?? 0)}',
                                                           style: TextStyle(
                                                             fontSize: 12,
                                                             color: Colors.red[700],
@@ -5053,7 +5045,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                                   ),
                                                                 ),
                                                                 Text(
-                                                                  _formatNumber(
+                                                                  AppFunctions.formatNumber(
                                                                     (ligne['diffPrix'] ?? 0) *
                                                                         (ligne['quantite'] ?? 0),
                                                                   ),
@@ -5070,7 +5062,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                             Padding(
                                                               padding: const EdgeInsets.only(left: 8, top: 1),
                                                               child: Text(
-                                                                '${_formatNumber(ligne['quantite'] ?? 0)} ${ligne['unites'] ?? ''} x ${_formatNumber(ligne['diffPrix'] ?? 0)} Ar',
+                                                                '${AppFunctions.formatNumber(ligne['quantite'] ?? 0)} ${ligne['unites'] ?? ''} x ${AppFunctions.formatNumber(ligne['diffPrix'] ?? 0)} Ar',
                                                                 style: TextStyle(
                                                                   fontSize: 10,
                                                                   color: Colors.grey[600],
@@ -5097,7 +5089,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         ),
                                                       ),
                                                       Text(
-                                                        _formatNumber(_calculateTotalDiffPrix()),
+                                                        AppFunctions.formatNumber(_calculateTotalDiffPrix()),
                                                         style: TextStyle(
                                                           fontSize: 12,
                                                           fontWeight: FontWeight.bold,

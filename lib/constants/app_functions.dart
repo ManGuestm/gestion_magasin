@@ -85,6 +85,18 @@ class AppFunctions {
 
     String result = '';
 
+    if (number >= 1000000000) {
+      int billions = number ~/ 1000000000;
+      if (billions == 1) {
+        result += 'un milliard';
+      } else {
+        result += '${convertHundreds(billions)} milliard';
+      }
+      if (billions > 1) result += 's';
+      number %= 1000000000;
+      if (number > 0) result += ' ';
+    }
+
     if (number >= 1000000) {
       int millions = number ~/ 1000000;
       if (millions == 1) {
@@ -113,5 +125,17 @@ class AppFunctions {
     }
 
     return result.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  static String formatNumber(double number) {
+    String integerPart = number.round().toString();
+    String formatted = '';
+    for (int i = 0; i < integerPart.length; i++) {
+      if (i > 0 && (integerPart.length - i) % 3 == 0) {
+        formatted += ' ';
+      }
+      formatted += integerPart[i];
+    }
+    return formatted;
   }
 }

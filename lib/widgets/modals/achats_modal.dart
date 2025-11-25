@@ -1070,13 +1070,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       builder: (context) => AlertDialog(
         title: const Text('Validation'),
         content: Text(
-            'Valider l\'achat N° ${_numAchatsController.text} vers le journal ?\n\nCette action créera les mouvements de stock.'),
+            'Enregistrer l\'achat N° ${_numAchatsController.text} vers le journal ?\n\nCette action créera les mouvements de stock.'),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           TextButton(
               autofocus: true,
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Valider')),
+              child: const Text('Enregistrer')),
         ],
       ),
     );
@@ -1396,14 +1396,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (event is KeyDownEvent) {
       final isCtrl = HardwareKeyboard.instance.isControlPressed;
 
-      // F3 : Valider brouillard (priorité absolue, fonctionne sans focus)
+      // F3 : Enregistrer brouillard (priorité absolue, fonctionne sans focus)
       if (event.logicalKey == LogicalKeyboardKey.f3) {
         if (_isExistingPurchase && _statutAchatActuel == 'BROUILLARD') {
           _validerAchatBrouillard();
         }
         return; // Empêcher d'autres traitements
       }
-      // Ctrl+S : Valider/Modifier
+      // Ctrl+S : Enregistrer/Modifier
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyS) {
         if (_isExistingPurchase && _statutAchatActuel != 'JOURNAL') {
           _modifierAchat();
@@ -2294,7 +2294,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                 elevation: _validerFocusNode.hasFocus ? 4 : 2,
                                               ),
                                               child: Text(
-                                                _validerFocusNode.hasFocus ? 'Valider ↵' : 'Valider',
+                                                _validerFocusNode.hasFocus ? 'Ajouter ↵' : 'Modifier',
                                                 style: TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: _validerFocusNode.hasFocus
@@ -2962,7 +2962,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                   ),
                                   if (_statutAchatActuel == 'BROUILLARD') ...[
                                     Tooltip(
-                                      message: 'Valider brouillard (F3)',
+                                      message: 'Enregistrer brouillard (F3)',
                                       child: ElevatedButton(
                                         onPressed: _validerAchatBrouillard,
                                         style: ElevatedButton.styleFrom(
@@ -2970,8 +2970,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           foregroundColor: Colors.white,
                                           minimumSize: const Size(80, 30),
                                         ),
-                                        child:
-                                            const Text('Valider Brouillard', style: TextStyle(fontSize: 12)),
+                                        child: const Text('Enregistrer Brouillard',
+                                            style: TextStyle(fontSize: 12)),
                                       ),
                                     ),
                                   ],
@@ -2988,7 +2988,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                   ),
                                 ],
                                 Tooltip(
-                                  message: _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
+                                  message: _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Enregistrer (Ctrl+S)',
                                   child: ElevatedButton(
                                     onPressed: _isExistingPurchase &&
                                             (_statutAchatActuel == 'JOURNAL' ||
@@ -3000,7 +3000,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                       foregroundColor: Colors.white,
                                       minimumSize: const Size(60, 30),
                                     ),
-                                    child: Text(_isExistingPurchase ? 'Modifier' : 'Valider',
+                                    child: Text(_isExistingPurchase ? 'Modifier' : 'Enregistrer',
                                         style: const TextStyle(fontSize: 12)),
                                   ),
                                 ),

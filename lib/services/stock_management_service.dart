@@ -197,12 +197,12 @@ class StockManagementService {
     final database = _db.database;
     List<Map<String, dynamic>> mouvements = [];
 
-    // 1. Mouvements de stock directs (table stocks)
+    // 1. Mouvements de stock directs (table stocks) - exclure ventes et achats pour éviter duplication
     const stocksQuery = '''
       SELECT 'STOCK' as source, ref, daty, lib, depots, qe as entree, qs as sortie, 
-             pus, cmup, clt, frns, numventes, numachats, verification
+             pus, cmup, clt, frns, numventes, numachats, verification, ue, us
       FROM stocks 
-      WHERE refart = ?
+      WHERE refart = ? AND numventes IS NULL AND numachats IS NULL
     ''';
 
     // 2. Ventes (table detventes + ventes)
@@ -210,7 +210,8 @@ class StockManagementService {
       SELECT 'VENTE' as source, dv.numventes as ref, v.daty, 
              ('Vente - ' || dv.designation) as lib, dv.depots, 
              0 as entree, dv.q as sortie, dv.pu as pus, 0 as cmup,
-             v.clt, null as frns, dv.numventes, null as numachats, v.verification
+             v.clt, null as frns, dv.numventes, null as numachats, v.verification,
+             null as ue, dv.unites as us
       FROM detventes dv
       JOIN ventes v ON dv.numventes = v.numventes
       WHERE dv.designation = ?
@@ -221,7 +222,8 @@ class StockManagementService {
       SELECT 'ACHAT' as source, da.numachats as ref, a.daty,
              ('Achat - ' || da.designation) as lib, da.depots,
              da.q as entree, 0 as sortie, da.pu as pus, 0 as cmup,
-             null as clt, a.frns, null as numventes, da.numachats, a.verification
+             null as clt, a.frns, null as numventes, da.numachats, a.verification,
+             da.unites as ue, null as us
       FROM detachats da
       JOIN achats a ON da.numachats = a.numachats
       WHERE da.designation = ?
@@ -232,7 +234,8 @@ class StockManagementService {
       SELECT 'RETOUR_VENTE' as source, rdv.numventes as ref, rv.daty,
              ('Retour vente - ' || rdv.designation) as lib, rdv.depots,
              rdv.q as entree, 0 as sortie, rdv.pu as pus, 0 as cmup,
-             rv.clt, null as frns, rdv.numventes, null as numachats, rv.verification
+             rv.clt, null as frns, rdv.numventes, null as numachats, rv.verification,
+             rdv.unites as ue, null as us
       FROM retdeventes rdv
       JOIN retventes rv ON rdv.numventes = rv.numventes
       WHERE rdv.designation = ?
@@ -243,7 +246,8 @@ class StockManagementService {
       SELECT 'RETOUR_ACHAT' as source, rda.numachats as ref, ra.daty,
              ('Retour achat - ' || rda.designation) as lib, rda.depots,
              0 as entree, rda.q as sortie, rda.pu as pus, 0 as cmup,
-             null as clt, ra.frns, null as numventes, rda.numachats, ra.verification
+             null as clt, ra.frns, null as numventes, rda.numachats, ra.verification,
+             null as ue, rda.unite as us
       FROM retdetachats rda
       JOIN retachats ra ON rda.numachats = ra.numachats
       WHERE rda.designation = ?
@@ -276,6 +280,8 @@ class StockManagementService {
             'clt': row.readNullable<String>('clt'),
             'frns': row.readNullable<String>('frns'),
             'verification': row.readNullable<String>('verification') ?? '',
+            'unite_entree': row.readNullable<String>('ue'),
+            'unite_sortie': row.readNullable<String>('us'),
           });
         }
       }
