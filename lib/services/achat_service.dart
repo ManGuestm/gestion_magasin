@@ -183,7 +183,15 @@ class AchatService {
       quantite: quantite,
     );
 
-    // 4. Créer mouvement stock d'entrée
+    // 4. Calculer et mettre à jour le CMUP
+    final nouveauCMUP = await _calculerEtMettreAJourCMUP(
+      article: article,
+      unite: unite,
+      quantite: quantite,
+      prixUnitaire: prixUnitaire,
+    );
+
+    // 5. Créer mouvement stock d'entrée avec le CMUP calculé
     await _creerMouvementStockAchat(
       numAchats: numAchats,
       article: article,
@@ -193,14 +201,7 @@ class AchatService {
       prixUnitaire: prixUnitaire,
       fournisseur: fournisseur,
       date: date,
-    );
-
-    // 5. Calculer et mettre à jour le CMUP
-    await _calculerEtMettreAJourCMUP(
-      article: article,
-      unite: unite,
-      quantite: quantite,
-      prixUnitaire: prixUnitaire,
+      cmup: nouveauCMUP,
     );
 
     // 6. Ajuster stock global article
@@ -271,6 +272,7 @@ class AchatService {
     required double prixUnitaire,
     required String? fournisseur,
     required DateTime date,
+    required double cmup,
   }) async {
     final ref = 'A-${DateTime.now().millisecondsSinceEpoch}-${article.designation}';
 
@@ -297,6 +299,7 @@ class AchatService {
             verification: const Value('JOURNAL'),
             ue: Value(unite),
             pus: Value(prixUnitaire),
+            cmup: Value(cmup),
           ),
         );
   }
@@ -489,7 +492,15 @@ class AchatService {
       quantite: quantite,
     );
 
-    // Créer mouvement stock d'entrée
+    // Calculer et mettre à jour le CMUP
+    final nouveauCMUP = await _calculerEtMettreAJourCMUP(
+      article: article,
+      unite: unite,
+      quantite: quantite,
+      prixUnitaire: prixUnitaire,
+    );
+
+    // Créer mouvement stock d'entrée avec le CMUP calculé
     await _creerMouvementStockAchat(
       numAchats: numAchats,
       article: article,
@@ -499,14 +510,7 @@ class AchatService {
       prixUnitaire: prixUnitaire,
       fournisseur: fournisseur,
       date: date,
-    );
-
-    // Calculer et mettre à jour le CMUP
-    await _calculerEtMettreAJourCMUP(
-      article: article,
-      unite: unite,
-      quantite: quantite,
-      prixUnitaire: prixUnitaire,
+      cmup: nouveauCMUP,
     );
 
     // Ajuster stock global article
@@ -525,7 +529,7 @@ class AchatService {
   }
 
   /// Calcule et met à jour le CMUP de l'article
-  Future<void> _calculerEtMettreAJourCMUP({
+  Future<double> _calculerEtMettreAJourCMUP({
     required Article article,
     required String unite,
     required double quantite,
@@ -563,6 +567,8 @@ class AchatService {
         .write(ArticlesCompanion(
       cmup: Value(nouveauCMUP),
     ));
+
+    return nouveauCMUP;
   }
 
   /// Met à jour la fiche stock pour les achats

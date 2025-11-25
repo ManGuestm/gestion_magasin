@@ -865,6 +865,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   entres: Value(ligne['quantite']),
                   ue: Value(ligne['unites']),
                   depots: Value(ligne['depot']),
+                  pus: Value(ligne['prixUnitaire']),
                   cmup: Value(nouveauCMUP),
                   frns: Value(_selectedFournisseur!),
                   verification: Value(_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'),
