@@ -154,6 +154,7 @@ class MenuData {
     IconButtonData(Icons.sync_alt, 'Echéance Fournisseurs'),
     IconButtonData(Icons.shopping_basket, 'Articles à commander'),
     IconButtonData(Icons.account_balance_wallet, 'Régularisation compte tiers'),
+    IconButtonData(Icons.price_change, 'Suivi de différence de Prix de vente'),
   ];
 
   static const Map<String, double> menuPositions = {

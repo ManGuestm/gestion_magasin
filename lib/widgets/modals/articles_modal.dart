@@ -8,10 +8,10 @@ import '../../mixins/form_navigation_mixin.dart';
 import '../../services/stock_management_service.dart';
 import '../../utils/stock_converter.dart';
 import '../../widgets/common/base_modal.dart';
+import '../common/tab_navigation_widget.dart';
 import 'add_article_modal.dart';
 import 'historique_stock_modal.dart';
 import 'mouvement_stock_modal.dart';
-import '../common/tab_navigation_widget.dart';
 
 class ArticlesModal extends StatefulWidget {
   const ArticlesModal({super.key});
@@ -64,8 +64,8 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin,
       },
       child: BaseModal(
         title: 'Articles',
-        width: AppConstants.defaultModalWidth,
-        height: AppConstants.defaultModalHeight,
+        width: MediaQuery.of(context).size.width * 0.5,
+        height: MediaQuery.of(context).size.height * 0.8,
         onNew: () => _showAddArticleModal(),
         onDelete: () => _selectedArticle != null ? _deleteArticle(_selectedArticle!) : null,
         onRefresh: _loadArticles,
@@ -265,6 +265,8 @@ class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin,
                       hintText: 'Rechercher (Ctrl+F)...',
                       hintStyle: TextStyle(color: Colors.grey[500], fontSize: 11),
                       prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey[500]),
+                      focusedBorder: OutlineInputBorder(),
+                      focusColor: Colors.blue,
                     ),
                     onChanged: _filterArticles,
                     onFieldSubmitted: (_) => _showAllArticles(),

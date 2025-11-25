@@ -46,14 +46,420 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> wit
     }
   }
 
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateFilter(String label, DateTime? date, IconData icon, Function(DateTime?) onChanged) {
+    return InkWell(
+      onTap: () async {
+        final selectedDate = await showDatePicker(
+          context: context,
+          initialDate: date ?? DateTime.now(),
+          firstDate: DateTime(2020),
+          lastDate: DateTime.now(),
+        );
+        onChanged(selectedDate);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.grey[600], size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    date != null ? _formatDate(date) : 'Sélectionner',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderCell(String text, {int flex = 1}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildDifferenceRow(Map<String, dynamic> diff, int index) {
+    final diffPrix = (diff['prix_standard'] ?? 0.0) - (diff['prix_vendu'] ?? 0.0);
+    final quantite = diff['quantite'] ?? 0.0;
+    final totDiff = quantite * diffPrix;
+
+    return Container(
+      padding: EdgeInsets.zero,
+      decoration: BoxDecoration(
+        color: index.isEven ? Colors.white : Colors.grey[50],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                _formatDateFromString(diff['date_vente']),
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                diff['numero_vente']?.toString() ?? '',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                diff['bl_numero']?.toString() ?? '',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                diff['nom_article']?.toString() ?? '',
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                diff['unite']?.toString() ?? '',
+                style: const TextStyle(fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                quantite.toStringAsFixed(0),
+                style: const TextStyle(fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                '${_formatNumber(diff['prix_standard'] ?? 0.0)} Ar',
+                style: const TextStyle(fontSize: 12),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                '${_formatNumber(diff['prix_vendu'] ?? 0.0)} Ar',
+                style: const TextStyle(fontSize: 12),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _getDifferenceColor(diffPrix).withValues(alpha: 0.1),
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                '${_formatNumber(diffPrix)} Ar',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: _getDifferenceColor(diffPrix),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: _getDifferenceColor(totDiff).withValues(alpha: 0.1),
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                '${_formatNumber(totDiff)} Ar',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: _getDifferenceColor(totDiff),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                diff['nom_client']?.toString() ?? '',
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                  right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                ),
+              ),
+              child: Text(
+                diff['commerciale']?.toString() ?? '',
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _getDifferenceColor(double difference) {
     if (difference > 0) return Colors.orange;
     if (difference < 0) return Colors.green;
     return Colors.grey;
   }
 
+  String _formatNumber(double number) {
+    return number.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]} ',
+        );
+  }
+
   String _formatDate(DateTime date) {
     return '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
+  }
+
+  String _formatDateFromString(dynamic dateValue) {
+    if (dateValue == null) return '';
+
+    try {
+      DateTime date;
+      if (dateValue is int) {
+        // Timestamp Unix en secondes
+        date = DateTime.fromMillisecondsSinceEpoch(dateValue * 1000);
+      } else if (dateValue is String) {
+        // Vérifier si c'est un timestamp en string
+        final timestamp = int.tryParse(dateValue);
+        if (timestamp != null) {
+          date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+        } else {
+          date = DateTime.parse(dateValue);
+        }
+      } else if (dateValue is DateTime) {
+        date = dateValue;
+      } else {
+        return '';
+      }
+      return _formatDate(date);
+    } catch (e) {
+      return dateValue.toString();
+    }
   }
 
   void _showPreview() async {
@@ -101,7 +507,7 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> wit
                   ),
                   const Spacer(),
                   Text(
-                    'Période: ${_dateDebut?.toString().split(' ')[0] ?? 'Toutes'} - ${_dateFin?.toString().split(' ')[0] ?? 'Toutes'}',
+                    'Période: ${_dateDebut != null ? _formatDate(_dateDebut!) : 'Toutes'} - ${_dateFin != null ? _formatDate(_dateFin!) : 'Toutes'}',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -215,8 +621,8 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> wit
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildInfoRow('DATE DÉBUT:', _dateDebut?.toString().split(' ')[0] ?? 'Toutes'),
-                    _buildInfoRow('DATE FIN:', _dateFin?.toString().split(' ')[0] ?? 'Toutes'),
+                    _buildInfoRow('DATE DÉBUT:', _dateDebut != null ? _formatDate(_dateDebut!) : 'Toutes'),
+                    _buildInfoRow('DATE FIN:', _dateFin != null ? _formatDate(_dateFin!) : 'Toutes'),
                     if (_blController.text.isNotEmpty) _buildInfoRow('BL N°:', _blController.text),
                     _buildInfoRow('DATE ÉDITION:', _formatDate(DateTime.now())),
                   ],
@@ -301,7 +707,7 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> wit
                     final totDiff = quantite * diffPrix;
                     return TableRow(
                       children: [
-                        _buildTableCell(diff['date_vente']?.toString().split(' ')[0] ?? ''),
+                        _buildTableCell(_formatDateFromString(diff['date_vente'])),
                         _buildTableCell(diff['numero_vente']?.toString() ?? ''),
                         _buildTableCell(diff['bl_numero']?.toString() ?? ''),
                         _buildTableCell(diff['nom_article']?.toString() ?? ''),
@@ -413,7 +819,7 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> wit
 
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
-      name: 'Suivi_Difference_Prix_${DateTime.now().toString().split(' ')[0]}.pdf',
+      name: 'Suivi_Difference_Prix_${_formatDate(DateTime.now())}.pdf',
     );
   }
 
@@ -470,8 +876,8 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> wit
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    _buildPdfInfoRow('DATE DÉBUT:', _dateDebut?.toString().split(' ')[0] ?? 'Toutes'),
-                    _buildPdfInfoRow('DATE FIN:', _dateFin?.toString().split(' ')[0] ?? 'Toutes'),
+                    _buildPdfInfoRow('DATE DÉBUT:', _dateDebut != null ? _formatDate(_dateDebut!) : 'Toutes'),
+                    _buildPdfInfoRow('DATE FIN:', _dateFin != null ? _formatDate(_dateFin!) : 'Toutes'),
                     if (_blController.text.isNotEmpty) _buildPdfInfoRow('BL N°:', _blController.text),
                     _buildPdfInfoRow('DATE ÉDITION:', _formatDate(DateTime.now())),
                   ],
@@ -523,7 +929,7 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> wit
               final totDiff = quantite * diffPrix;
               return pw.TableRow(
                 children: [
-                  _buildPdfTableCell(diff['date_vente']?.toString().split(' ')[0] ?? ''),
+                  _buildPdfTableCell(_formatDateFromString(diff['date_vente'])),
                   _buildPdfTableCell(diff['numero_vente']?.toString() ?? ''),
                   _buildPdfTableCell(diff['bl_numero']?.toString() ?? ''),
                   _buildPdfTableCell(diff['nom_article']?.toString() ?? ''),
@@ -591,220 +997,349 @@ class _SuiviDifferencePrixModalState extends State<SuiviDifferencePrixModal> wit
 
   @override
   Widget build(BuildContext context) {
+    final totalDifferences = _differences.fold<double>(
+      0,
+      (sum, diff) =>
+          sum + ((diff['quantite'] ?? 0.0) * ((diff['prix_standard'] ?? 0.0) - (diff['prix_vendu'] ?? 0.0))),
+    );
+
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) => handleTabNavigation(event),
       child: Dialog(
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.8,
-        height: 700,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Suivi de différence de Prix de vente',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Header moderne avec gradient
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.deepPurple[600]!, Colors.deepPurple[700]!],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Filtres
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: _dateDebut ?? DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                      );
-                      if (date != null) {
-                        setState(() => _dateDebut = date);
-                        _loadDifferences();
-                      }
-                    },
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Date début',
-                        border: OutlineInputBorder(),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      child: const Icon(
+                        Icons.analytics,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
                       child: Text(
-                        _dateDebut?.toString().split(' ')[0] ?? 'Sélectionner',
+                        'Suivi de Différence de Prix de Vente',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: InkWell(
-                    onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: _dateFin ?? DateTime.now(),
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime.now(),
-                      );
-                      if (date != null) {
-                        setState(() => _dateFin = date);
-                        _loadDifferences();
-                      }
-                    },
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Date fin',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Text(
-                        _dateFin?.toString().split(' ')[0] ?? 'Sélectionner',
-                      ),
+                    IconButton(
+                      onPressed: () => _loadDifferences(),
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      tooltip: 'Actualiser',
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextField(
-                    controller: _blController,
-                    decoration: const InputDecoration(
-                      labelText: 'BL N°',
-                      border: OutlineInputBorder(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      tooltip: 'Fermer',
                     ),
-                    onChanged: (_) => _loadDifferences(),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      _dateDebut = null;
-                      _dateFin = null;
-                      _blController.clear();
-                    });
-                    _loadDifferences();
-                  },
-                  child: const Text('Réinitialiser'),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: _differences.isNotEmpty ? () => _showPreview() : null,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  child: const Text('Aperçus', style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+              ),
 
-            // Tableau des différences
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      child: DataTable(
-                        columns: const [
-                          DataColumn(label: Text('Date')),
-                          DataColumn(label: Text('N° Vente')),
-                          DataColumn(label: Text('BL N°')),
-                          DataColumn(label: Text('Article')),
-                          DataColumn(label: Text('Qté')),
-                          DataColumn(label: Text('Prix Standard')),
-                          DataColumn(label: Text('Prix Vendu')),
-                          DataColumn(label: Text('Diff-Prix')),
-                          DataColumn(label: Text('Tot-Diff')),
-                          DataColumn(label: Text('Client')),
-                          DataColumn(label: Text('Vendeur')),
-                        ],
-                        rows: _differences.map((diff) {
-                          final diffPrix = (diff['prix_standard'] ?? 0.0) - (diff['prix_vendu'] ?? 0.0);
-                          final quantite = diff['quantite'] ?? 0.0;
-                          final totDiff = quantite * diffPrix;
-                          return DataRow(
-                            cells: [
-                              DataCell(Text(diff['date_vente']?.toString().split(' ')[0] ?? '')),
-                              DataCell(Text(diff['numero_vente']?.toString() ?? '')),
-                              DataCell(Text(diff['bl_numero']?.toString() ?? '')),
-                              DataCell(Text(diff['nom_article']?.toString() ?? '')),
-                              DataCell(Container(
-                                alignment: Alignment.centerRight,
-                                child: Text('${quantite.toStringAsFixed(0)}'),
-                              )),
-                              DataCell(Container(
-                                alignment: Alignment.centerRight,
-                                child: Text('${diff['prix_standard']?.toStringAsFixed(2) ?? '0.00'} Ar'),
-                              )),
-                              DataCell(Container(
-                                alignment: Alignment.centerRight,
-                                child: Text('${diff['prix_vendu']?.toStringAsFixed(2) ?? '0.00'} Ar'),
-                              )),
-                              DataCell(Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: _getDifferenceColor(diffPrix).withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '${diffPrix.toStringAsFixed(2)} Ar',
-                                  style: TextStyle(
-                                    color: _getDifferenceColor(diffPrix),
-                                    fontWeight: FontWeight.bold,
+              // Statistiques en cartes
+              Container(
+                padding: const EdgeInsets.all(24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatCard(
+                        'Nombre d\'écarts',
+                        _differences.length.toString(),
+                        Icons.trending_down,
+                        Colors.blue,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildStatCard(
+                        'Total des différences',
+                        '${_formatNumber(totalDifferences)} Ar',
+                        Icons.monetization_on,
+                        totalDifferences >= 0 ? Colors.orange : Colors.green,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildStatCard(
+                        'Écart moyen',
+                        _differences.isNotEmpty
+                            ? '${_formatNumber(totalDifferences / _differences.length)} Ar'
+                            : '0 Ar',
+                        Icons.calculate,
+                        Colors.purple,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Filtres modernes
+              Container(
+                margin: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.filter_list, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Filtres de recherche',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildDateFilter(
+                            'Date début',
+                            _dateDebut,
+                            Icons.calendar_today,
+                            (date) {
+                              if (date != null && _dateFin != null && date.isAfter(_dateFin!)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('La date de début doit être antérieure à la date de fin'),
+                                    backgroundColor: Colors.orange,
                                   ),
-                                ),
-                              )),
-                              DataCell(Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: _getDifferenceColor(totDiff).withValues(alpha: 0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  '${totDiff.toStringAsFixed(2)} Ar',
-                                  style: TextStyle(
-                                    color: _getDifferenceColor(totDiff),
-                                    fontWeight: FontWeight.bold,
+                                );
+                                return;
+                              }
+                              setState(() => _dateDebut = date);
+                              _loadDifferences();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildDateFilter(
+                            'Date fin',
+                            _dateFin,
+                            Icons.event,
+                            (date) {
+                              if (date != null && _dateDebut != null && date.isBefore(_dateDebut!)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('La date de fin doit être postérieure à la date de début'),
+                                    backgroundColor: Colors.orange,
                                   ),
-                                ),
-                              )),
-                              DataCell(Text(diff['nom_client']?.toString() ?? '')),
-                              DataCell(Text(diff['commerciale']?.toString() ?? '')),
+                                );
+                                return;
+                              }
+                              setState(() => _dateFin = date);
+                              _loadDifferences();
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: TextField(
+                            controller: _blController,
+                            decoration: InputDecoration(
+                              labelText: 'N° Bon de Livraison',
+                              prefixIcon: const Icon(Icons.receipt_long),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                            onChanged: (_) => _loadDifferences(),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _dateDebut = null;
+                              _dateFin = null;
+                              _blController.clear();
+                            });
+                            _loadDifferences();
+                          },
+                          icon: const Icon(Icons.clear_all, size: 18),
+                          label: const Text('Réinitialiser'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey[600],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _differences.isNotEmpty ? _showPreview : null,
+                          icon: const Icon(Icons.preview, size: 18),
+                          label: const Text('Aperçu'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tableau moderne
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.1),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: _isLoading
+                      ? const Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 16),
+                              Text('Analyse des différences de prix...'),
                             ],
-                          );
-                        }).toList(),
-                      ),
-                    ),
-            ),
-            const SizedBox(height: 8),
-            // Total des différences
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(4),
+                          ),
+                        )
+                      : _differences.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.check_circle_outline,
+                                    size: 64,
+                                    color: Colors.green[400],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    'Aucune différence de prix détectée',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Tous les prix de vente correspondent aux prix standards',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey[500],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Column(
+                              children: [
+                                // En-tête du tableau
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[50],
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(12),
+                                      topRight: Radius.circular(12),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      _buildHeaderCell('Date', flex: 1),
+                                      _buildHeaderCell('N° Vente', flex: 1),
+                                      _buildHeaderCell('BL N°', flex: 1),
+                                      _buildHeaderCell('Article', flex: 2),
+                                      _buildHeaderCell('Unité', flex: 1),
+                                      _buildHeaderCell('Qté', flex: 1),
+                                      _buildHeaderCell('Prix Std', flex: 1),
+                                      _buildHeaderCell('Prix Vendu', flex: 1),
+                                      _buildHeaderCell('Écart', flex: 1),
+                                      _buildHeaderCell('Total Écart', flex: 1),
+                                      _buildHeaderCell('Client', flex: 2),
+                                      _buildHeaderCell('Vendeur', flex: 1),
+                                    ],
+                                  ),
+                                ),
+                                // Corps du tableau
+                                Expanded(
+                                  child: ListView.builder(
+                                    itemCount: _differences.length,
+                                    itemBuilder: (context, index) {
+                                      final diff = _differences[index];
+                                      return _buildDifferenceRow(diff, index);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    'Total des différences: ${_differences.fold<double>(0, (sum, diff) => sum + ((diff['quantite'] ?? 0.0) * ((diff['prix_standard'] ?? 0.0) - (diff['prix_vendu'] ?? 0.0)))).toStringAsFixed(2)} Ar',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),);
+    );
   }
 
   @override

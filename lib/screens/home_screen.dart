@@ -40,34 +40,70 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Timer pour l'actualisation automatique
   Timer? _refreshTimer;
+  Timer? _realTimeTimer;
+  bool _isModalOpen = false;
+  DateTime _lastUpdate = DateTime.now();
+
+  // Indicateurs temps réel
+  bool _hasNewData = false;
+  int updateCounter = 0;
 
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
-    _startAutoRefresh();
+    _startRealTimeUpdates();
   }
 
-  void _startAutoRefresh() {
-    _refreshTimer = Timer.periodic(const Duration(minutes: 10), (timer) {
+  void _startRealTimeUpdates() {
+    // Actualisation rapide toutes les 30 secondes
+    _realTimeTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (!_isModalOpen) {
+        _loadDashboardData(silent: true);
+      }
+    });
+
+    // Actualisation complète toutes les 5 minutes
+    _refreshTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      if (!_isModalOpen) {
+        _loadDashboardData();
+      }
+    });
+  }
+
+  void _pauseUpdates() {
+    setState(() => _isModalOpen = true);
+  }
+
+  void _resumeUpdates() {
+    setState(() => _isModalOpen = false);
+    // Actualisation immédiate après fermeture du modal
+    Future.delayed(const Duration(milliseconds: 500), () {
       _loadDashboardData();
     });
   }
 
-  Future<void> _loadDashboardData() async {
+  Future<void> _loadDashboardData({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _isLoadingStats = true);
+    }
+
     try {
       final db = DatabaseService().database;
       final userRole = AuthService().currentUser?.role ?? '';
       final userName = AuthService().currentUser?.nom ?? '';
+      final now = DateTime.now();
 
       final stats = <String, dynamic>{};
+      final previousStats = Map<String, dynamic>.from(_stats);
 
-      // Statistiques communes
+      // Statistiques communes avec cache intelligent
       final totalClients = await db.getTotalClients();
       final totalArticles = await db.getTotalArticles();
 
       stats['clients'] = totalClients;
       stats['articles'] = totalArticles;
+      stats['lastUpdate'] = now;
 
       if (userRole == 'Administrateur') {
         final totalStock = await db.getTotalStockValue();
@@ -115,10 +151,26 @@ class _HomeScreenState extends State<HomeScreen> {
         stats['objectif'] = 75; // Exemple: 75% de l'objectif
       }
 
+      // Détecter les changements
+      _hasNewData = _detectChanges(previousStats, stats);
+      if (_hasNewData) {
+        updateCounter++;
+      }
+
       setState(() {
         _stats = stats;
         _isLoadingStats = false;
+        _lastUpdate = now;
       });
+
+      // Réinitialiser l'indicateur de changement après 3 secondes
+      if (_hasNewData) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            setState(() => _hasNewData = false);
+          }
+        });
+      }
     } catch (e) {
       debugPrint('Erreur lors du chargement des statistiques: $e');
       setState(() => _isLoadingStats = false);
@@ -133,11 +185,20 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
+      _pauseUpdates(); // Pause les mises à jour
+
       final modal = await ModalLoader.loadModal(item);
       if (modal != null && mounted) {
-        showDialog(context: context, builder: (context) => modal);
+        await showDialog(
+          context: context,
+          builder: (context) => modal,
+        );
+
+        // Reprendre les mises à jour après fermeture
+        _resumeUpdates();
       }
     } catch (e) {
+      _resumeUpdates(); // S'assurer de reprendre même en cas d'erreur
       debugPrint('Erreur lors du chargement du modal $item: $e');
     }
   }
@@ -293,30 +354,34 @@ class _HomeScreenState extends State<HomeScreen> {
     if (item == 'Ventes') {
       final userRole = AuthService().currentUser?.role ?? '';
       if (userRole == 'Vendeur') {
-        // Vendeur va directement au modal vente magasin
         _showModal('ventes_magasin');
       } else {
-        // Admin/Caisse passent par le modal de sélection
+        _pauseUpdates();
         showDialog(
           context: context,
           builder: (context) => const VentesSelectionModal(),
-        );
+        ).then((_) => _resumeUpdates());
       }
     } else if (item == 'Ventes (Tous dépôts)') {
       _showModal('ventes_tous_depots');
     } else if (item == 'Gestion des utilisateurs') {
-      // Vérifier les permissions admin
       if (!AuthService().hasRole('Administrateur')) {
         _showAccessDeniedDialog(item);
         return;
       }
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const GestionUtilisateursScreen()),
-      );
+      _pauseUpdates();
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(builder: (context) => const GestionUtilisateursScreen()),
+          )
+          .then((_) => _resumeUpdates());
     } else if (item == 'Profil') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (context) => const ProfilScreen()),
-      );
+      _pauseUpdates();
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(builder: (context) => const ProfilScreen()),
+          )
+          .then((_) => _resumeUpdates());
     } else {
       _showModal(item);
     }
@@ -448,10 +513,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (userRole == 'Vendeur') {
         _showModal('ventes_magasin');
       } else {
+        _pauseUpdates();
         showDialog(
           context: context,
           builder: (context) => const VentesSelectionModal(),
-        );
+        ).then((_) => _resumeUpdates());
       }
     } else {
       _showModal(iconLabel);
@@ -492,11 +558,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   'Tableau de Bord - $userRole',
                   style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
+                const SizedBox(width: 16),
+                _buildRealTimeIndicator(),
                 const Spacer(),
+                _buildLastUpdateInfo(),
+                const SizedBox(width: 8),
                 IconButton(
-                  onPressed: _loadDashboardData,
+                  onPressed: () => _loadDashboardData(),
                   icon: const Icon(Icons.refresh),
-                  tooltip: 'Actualiser les données',
+                  tooltip: 'Actualiser maintenant',
                 ),
               ],
             ),
@@ -620,39 +690,94 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return InkWell(
-      onTap: title == 'Recettes du Jour' ? _showVentesJourModal : null,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withValues(alpha: 0.2),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+    final hasChanged = _hasDataChanged(title);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      child: InkWell(
+        onTap: title == 'Recettes du Jour' ? _showVentesJourModal : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: hasChanged ? Border.all(color: Colors.blue, width: 2) : null,
+            boxShadow: [
+              BoxShadow(
+                color: hasChanged ? Colors.blue.withValues(alpha: 0.3) : Colors.grey.withValues(alpha: 0.2),
+                blurRadius: hasChanged ? 8 : 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Stack(
             children: [
-              Icon(icon, size: 32, color: color),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                textAlign: TextAlign.center,
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(icon, size: 32, color: color),
+                        if (_isLoadingStats)
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(color.withValues(alpha: 0.3)),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      title,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 4),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 500),
+                      child: Text(
+                        value,
+                        key: ValueKey(value),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: hasChanged ? Colors.blue : color,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                value,
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
-                textAlign: TextAlign.center,
-              ),
+              if (hasChanged)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              if (title.contains('Ventes') && !_isLoadingStats)
+                Positioned(
+                  bottom: 8,
+                  right: 8,
+                  child: Icon(
+                    Icons.trending_up,
+                    size: 16,
+                    color: Colors.green.withValues(alpha: 0.6),
+                  ),
+                ),
             ],
           ),
         ),
@@ -661,10 +786,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showVentesJourModal() {
+    _pauseUpdates();
     showDialog(
       context: context,
       builder: (context) => const VentesJourModal(),
-    );
+    ).then((_) => _resumeUpdates());
   }
 
   Widget _buildRecentSales() {
@@ -811,30 +937,86 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBrouillardNotification() {
     final count = _stats['ventesBrouillard'] ?? 0;
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.orange[50],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.orange[300]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Icon(Icons.warning, color: Colors.orange[700], size: 24),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Icon(Icons.warning, color: Colors.orange[700], size: 24),
+              if (count > 0)
+                Positioned(
+                  top: -2,
+                  right: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      count.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              '$count vente${count > 1 ? 's' : ''} en brouillard en attente de validation',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.orange[800]),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ventes en attente',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.orange[800],
+                  ),
+                ),
+                Text(
+                  '$count vente${count > 1 ? 's' : ''} en brouillard à valider',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.orange[700],
+                  ),
+                ),
+              ],
             ),
           ),
-          ElevatedButton(
+          ElevatedButton.icon(
             onPressed: () => _showModal('ventes_tous_depots'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               foregroundColor: Colors.white,
+              elevation: 2,
             ),
-            child: const Text('Voir les ventes'),
+            icon: const Icon(Icons.visibility, size: 16),
+            label: const Text('Voir'),
           ),
         ],
       ),
@@ -1080,9 +1262,117 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  bool _detectChanges(Map<String, dynamic> previous, Map<String, dynamic> current) {
+    if (previous.isEmpty) return false;
+
+    final keysToCheck = ['totalVentes', 'ventesJour', 'totalStock', 'ventesBrouillard', 'mesVentesJour'];
+
+    for (final key in keysToCheck) {
+      if (previous[key] != current[key]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _hasDataChanged(String cardTitle) {
+    if (!_hasNewData) return false;
+
+    // Mapper les titres des cartes aux clés de données
+    final titleToKey = {
+      'Total Ventes': 'totalVentes',
+      'Recettes du Jour': 'ventesJour',
+      'Ventes Jour': 'ventesJour',
+      'Valeur Total Stock': 'totalStock',
+      'Ventes en attente': 'ventesBrouillard',
+      'Mes Ventes Jour': 'mesVentesJour',
+      'Mes Ventes Mois': 'mesVentesMois',
+      'Total Achats': 'totalAchats',
+      'Bénéfices global': 'benefices',
+      'Bénéfice du jour': 'beneficesJour',
+    };
+
+    return titleToKey.containsKey(cardTitle);
+  }
+
+  Widget _buildRealTimeIndicator() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _isModalOpen ? Colors.orange[100] : Colors.green[100],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: _isModalOpen ? Colors.orange[300]! : Colors.green[300]!,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: _isModalOpen ? Colors.orange : Colors.green,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            _isModalOpen ? 'En pause' : 'Temps réel',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: _isModalOpen ? Colors.orange[800] : Colors.green[800],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLastUpdateInfo() {
+    final now = DateTime.now();
+    final diff = now.difference(_lastUpdate);
+
+    String timeText;
+    if (diff.inSeconds < 60) {
+      timeText = 'À l\'instant';
+    } else if (diff.inMinutes < 60) {
+      timeText = 'Il y a ${diff.inMinutes}min';
+    } else {
+      timeText = 'Il y a ${diff.inHours}h';
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_hasNewData) ...[
+          Container(
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: Colors.blue,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+        ],
+        Text(
+          timeText,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey[600],
+            fontWeight: _hasNewData ? FontWeight.w500 : FontWeight.normal,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _realTimeTimer?.cancel();
     _removeAllOverlays();
     super.dispose();
   }

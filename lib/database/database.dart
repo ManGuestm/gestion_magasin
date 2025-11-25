@@ -1193,13 +1193,15 @@ class AppDatabase extends _$AppDatabase {
     List<Variable> variables = [];
 
     if (dateDebut != null) {
+      final startOfDay = DateTime(dateDebut.year, dateDebut.month, dateDebut.day);
       whereClause += " AND v.daty >= ?";
-      variables.add(Variable.withDateTime(dateDebut));
+      variables.add(Variable.withDateTime(startOfDay));
     }
 
     if (dateFin != null) {
+      final endOfDay = DateTime(dateFin.year, dateFin.month, dateFin.day, 23, 59, 59);
       whereClause += " AND v.daty <= ?";
-      variables.add(Variable.withDateTime(dateFin));
+      variables.add(Variable.withDateTime(endOfDay));
     }
 
     if (blNumero != null && blNumero.isNotEmpty) {
@@ -1214,8 +1216,14 @@ class AppDatabase extends _$AppDatabase {
         v.numventes as numero_vente,
         v.nfact as bl_numero,
         dv.designation as nom_article,
+        dv.unites as unite,
         dv.q as quantite,
-        a.pvu1 as prix_standard,
+        CASE 
+          WHEN dv.unites = a.u1 THEN a.pvu1
+          WHEN dv.unites = a.u2 THEN a.pvu2
+          WHEN dv.unites = a.u3 THEN a.pvu3
+          ELSE a.pvu1
+        END as prix_standard,
         dv.pu as prix_vendu,
         v.clt as nom_client,
         v.commerc as commerciale
@@ -1224,6 +1232,13 @@ class AppDatabase extends _$AppDatabase {
       INNER JOIN articles a ON dv.designation = a.designation
       $whereClause
         AND (v.contre IS NULL OR v.contre = 0)
+        AND ABS(COALESCE(
+          CASE 
+            WHEN dv.unites = a.u1 THEN a.pvu1
+            WHEN dv.unites = a.u2 THEN a.pvu2
+            WHEN dv.unites = a.u3 THEN a.pvu3
+            ELSE a.pvu1
+          END, 0) - COALESCE(dv.pu, 0)) > 0.01
       ORDER BY v.daty DESC, v.numventes DESC
       ''',
       variables: variables,
@@ -1235,6 +1250,7 @@ class AppDatabase extends _$AppDatabase {
               'numero_vente': row.readNullable<String>('numero_vente'),
               'bl_numero': row.readNullable<String>('bl_numero'),
               'nom_article': row.readNullable<String>('nom_article'),
+              'unite': row.readNullable<String>('unite'),
               'quantite': row.readNullable<double>('quantite') ?? 0.0,
               'prix_standard': row.readNullable<double>('prix_standard') ?? 0.0,
               'prix_vendu': row.readNullable<double>('prix_vendu') ?? 0.0,
