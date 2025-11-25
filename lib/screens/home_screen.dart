@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../constants/app_constants.dart';
+import '../constants/app_functions.dart';
 import '../constants/menu_data.dart';
 import '../database/database_service.dart';
 import '../services/auth_service.dart';
@@ -55,17 +56,25 @@ class _HomeScreenState extends State<HomeScreen> {
     _startRealTimeUpdates();
   }
 
+  @override
+  void dispose() {
+    _realTimeTimer?.cancel();
+    _refreshTimer?.cancel();
+    _removeAllOverlays();
+    super.dispose();
+  }
+
   void _startRealTimeUpdates() {
     // Actualisation rapide toutes les 30 secondes
     _realTimeTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (!_isModalOpen) {
+      if (!_isModalOpen && mounted && ModalRoute.of(context)?.isCurrent == true) {
         _loadDashboardData(silent: true);
       }
     });
 
     // Actualisation complète toutes les 5 minutes
     _refreshTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
-      if (!_isModalOpen) {
+      if (!_isModalOpen && mounted && ModalRoute.of(context)?.isCurrent == true) {
         _loadDashboardData();
       }
     });
@@ -73,13 +82,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _pauseUpdates() {
     setState(() => _isModalOpen = true);
+    _realTimeTimer?.cancel();
+    _refreshTimer?.cancel();
   }
 
   void _resumeUpdates() {
     setState(() => _isModalOpen = false);
+    // Redémarrer les timers
+    _startRealTimeUpdates();
     // Actualisation immédiate après fermeture du modal
     Future.delayed(const Duration(milliseconds: 500), () {
-      _loadDashboardData();
+      if (mounted && !_isModalOpen) {
+        _loadDashboardData();
+      }
     });
   }
 
@@ -1105,8 +1120,8 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => AlertDialog(
         title: Text('Détails Vente N°${sale['numventes']}'),
         content: SizedBox(
-          width: 500,
-          height: 400,
+          width: MediaQuery.of(context).size.width * 0.5,
+          height: MediaQuery.of(context).size.width * 0.8,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1119,31 +1134,117 @@ class _HomeScreenState extends State<HomeScreen> {
               const Divider(),
               const Text('Articles vendus:', style: TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                          top: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                          left: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                          right: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                        ),
+                      ),
+                      child: Text(
+                        "Désignation",
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                          top: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                          left: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                          right: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                        ),
+                      ),
+                      child: Text(
+                        "Quantités",
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        border: Border(
+                          bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                          top: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                          left: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                          right: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                        ),
+                      ),
+                      child: Text(
+                        "P.U",
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
               Expanded(
                 child: ListView.builder(
                   itemCount: details.length,
                   itemBuilder: (context, index) {
                     final item = details[index];
                     return Container(
-                      padding: const EdgeInsets.all(8),
-                      margin: const EdgeInsets.only(bottom: 4),
                       decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(4),
+                        color: index.isEven ? Colors.white : Colors.grey[50],
                       ),
                       child: Row(
                         children: [
                           Expanded(
                             flex: 3,
-                            child: Text(item['designation'] ?? '', style: const TextStyle(fontSize: 12)),
+                            child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                    top: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                    left: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                    right: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                  ),
+                                ),
+                                child: Text(item['designation'] ?? '', style: const TextStyle(fontSize: 12))),
                           ),
                           Expanded(
-                            child:
-                                Text('${item['q']} ${item['unites']}', style: const TextStyle(fontSize: 12)),
+                            child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                    top: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                    left: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                    right: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                  ),
+                                ),
+                                child: Text('${item['q']} ${item['unites']}',
+                                    style: const TextStyle(fontSize: 12))),
                           ),
                           Expanded(
-                            child:
-                                Text('${_formatNumber(item['pu'])} Ar', style: const TextStyle(fontSize: 12)),
+                            child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  border: Border(
+                                    bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                    top: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                    left: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                    right: BorderSide(color: Colors.grey[400]!, width: 0.25),
+                                  ),
+                                ),
+                                child: Text('${_formatNumber(item['pu'])} Ar',
+                                    style: const TextStyle(fontSize: 12))),
                           ),
                         ],
                       ),
@@ -1152,7 +1253,21 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Divider(),
-              _buildDetailRow('Total TTC', '${_formatNumber(sale['total'])} Ar', isAmount: true),
+              _buildDetailRow(
+                'Total TTC',
+                '${_formatNumber(sale['total'])} Ar',
+                isAmount: true,
+                isTotalTTC: true,
+              ),
+              SizedBox(height: 24),
+              Container(
+                alignment: Alignment.center,
+                width: double.infinity,
+                child: Text(
+                  "Arrêté à la somme de ${AppFunctions.numberToWords(sale['total'].toInt())} Ariary",
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ],
           ),
         ),
@@ -1235,12 +1350,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value, {bool isAmount = false}) {
+  Widget _buildDetailRow(String label, String value, {bool isAmount = false, bool isTotalTTC = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: isTotalTTC ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
+          if (isTotalTTC) Spacer(),
+          if (isTotalTTC) Spacer(),
+          if (isTotalTTC) Spacer(),
           SizedBox(
             width: 120,
             child: Text(
@@ -1249,11 +1367,24 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontWeight: isAmount ? FontWeight.bold : FontWeight.normal,
-                color: isAmount ? Colors.green : null,
+            child: Container(
+              padding: isAmount ? EdgeInsets.symmetric(horizontal: 16, vertical: 4) : null,
+              decoration: isAmount
+                  ? BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                        top: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                        left: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                        right: BorderSide(color: Colors.grey[400]!, width: 0.5),
+                      ),
+                    )
+                  : null,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontWeight: isAmount ? FontWeight.bold : FontWeight.normal,
+                  color: isAmount ? Colors.green : null,
+                ),
               ),
             ),
           ),
@@ -1367,13 +1498,5 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     );
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    _realTimeTimer?.cancel();
-    _removeAllOverlays();
-    super.dispose();
   }
 }

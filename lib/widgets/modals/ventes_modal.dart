@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../../constants/app_functions.dart';
 import '../../constants/client_categories.dart';
 import '../../constants/vente_types.dart';
 import '../../database/database.dart';
@@ -96,6 +97,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   // Client balance
   double _soldeAnterieur = 0.0;
   final TextEditingController _soldeAnterieurController = TextEditingController();
+
+  // Client validation
+  bool get _isClientSelected => _selectedClient != null && _selectedClient!.isNotEmpty;
 
   // Paper format
   String _selectedFormat = 'A6';
@@ -367,7 +371,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(true),
                   autofocus: true,
-                  child: const Text('Valider'),
+                  child: const Text('Enregistrer'),
                 ),
               ],
             ),
@@ -661,6 +665,16 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   void _onArticleSelected(Article? article) async {
+    if (!_isClientSelected) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez d\'abord sélectionner un client'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _selectedArticle = article;
       if (article != null) {
@@ -778,7 +792,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   void _onUniteChanged(String? unite) async {
-    if (_selectedArticle == null || unite == null) return;
+    if (!_isClientSelected || _selectedArticle == null || unite == null) return;
 
     setState(() {
       _selectedUnite = unite;
@@ -1040,7 +1054,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   void _validerQuantite(String value) {
-    if (_selectedArticle == null) return;
+    if (!_isClientSelected || _selectedArticle == null) return;
 
     double quantite = double.tryParse(value) ?? 0.0;
 
@@ -1083,122 +1097,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     if (article.u2?.isNotEmpty == true) unites.add(article.u2!);
     if (article.u3?.isNotEmpty == true) unites.add(article.u3!);
     return unites.join(' / ');
-  }
-
-  String _numberToWords(int number) {
-    if (number == 0) return 'zéro';
-
-    final units = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
-    final teens = [
-      'dix',
-      'onze',
-      'douze',
-      'treize',
-      'quatorze',
-      'quinze',
-      'seize',
-      'dix-sept',
-      'dix-huit',
-      'dix-neuf'
-    ];
-    final tens = [
-      '',
-      '',
-      'vingt',
-      'trente',
-      'quarante',
-      'cinquante',
-      'soixante',
-      'soixante-dix',
-      'quatre-vingt',
-      'quatre-vingt-dix'
-    ];
-
-    String convertHundreds(int n) {
-      String result = '';
-
-      if (n >= 100) {
-        int hundreds = n ~/ 100;
-        if (hundreds == 1) {
-          result += 'cent';
-        } else {
-          result += '${units[hundreds]} cent';
-        }
-        if (n % 100 == 0) result += 's';
-        n %= 100;
-        if (n > 0) result += ' ';
-      }
-
-      if (n >= 20) {
-        int tensDigit = n ~/ 10;
-        int unitsDigit = n % 10;
-
-        if (tensDigit == 7) {
-          result += 'soixante';
-          if (unitsDigit == 1) {
-            result += ' et onze';
-          } else if (unitsDigit > 1) {
-            result += '-${teens[unitsDigit]}';
-          } else {
-            result += '-dix';
-          }
-        } else if (tensDigit == 9) {
-          result += 'quatre-vingt';
-          if (unitsDigit == 1) {
-            result += ' et onze';
-          } else if (unitsDigit > 1) {
-            result += '-${teens[unitsDigit]}';
-          } else {
-            result += '-dix';
-          }
-        } else {
-          result += tens[tensDigit];
-          if (unitsDigit == 1 &&
-              (tensDigit == 2 || tensDigit == 3 || tensDigit == 4 || tensDigit == 5 || tensDigit == 6)) {
-            result += ' et un';
-          } else if (unitsDigit > 1) {
-            result += '-${units[unitsDigit]}';
-          }
-        }
-      } else if (n >= 10) {
-        result += teens[n - 10];
-      } else if (n > 0) {
-        result += units[n];
-      }
-
-      return result;
-    }
-
-    String result = '';
-
-    if (number >= 1000000) {
-      int millions = number ~/ 1000000;
-      if (millions == 1) {
-        result += 'un million';
-      } else {
-        result += '${convertHundreds(millions)} million';
-      }
-      if (millions > 1) result += 's';
-      number %= 1000000;
-      if (number > 0) result += ' ';
-    }
-
-    if (number >= 1000) {
-      int thousands = number ~/ 1000;
-      if (thousands == 1) {
-        result += 'mille';
-      } else {
-        result += '${convertHundreds(thousands)} mille';
-      }
-      number %= 1000;
-      if (number > 0) result += ' ';
-    }
-
-    if (number > 0) {
-      result += convertHundreds(number);
-    }
-
-    return result.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
   String _calculateRemiseAmount() {
@@ -1492,7 +1390,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   bool _shouldShowAddButton() {
-    return _selectedArticle != null && _quantiteController.text.isNotEmpty;
+    return _isClientSelected && _selectedArticle != null && _quantiteController.text.isNotEmpty;
   }
 
   void _showContextMenu(BuildContext context, TapDownDetails details, int index) {
@@ -1583,7 +1481,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             TextButton(
               autofocus: true,
               onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Valider'),
+              child: const Text('Enregistrer'),
             ),
           ],
         ),
@@ -1927,7 +1825,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vente brouillard supprimée avec succès'), backgroundColor: Colors.green),
+          const SnackBar(
+              content: Text('Vente brouillard supprimée avec succès'), backgroundColor: Colors.green),
         );
 
         // Recharger la liste des ventes
@@ -2326,7 +2225,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                         ),
                         alignment: pw.Alignment.center,
                         child: pw.Text(
-                          'Arrêté à la somme de ${_numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
+                          'Arrêté à la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
                           style: pw.TextStyle(
                             fontSize: pdfFontSize - 1,
                             fontWeight: pw.FontWeight.bold,
@@ -2893,7 +2792,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           _contrePasserVente();
         }
       }
-      // F3 : Valider brouillard
+      // F3 : Enregistrer brouillard
       else if (event.logicalKey == LogicalKeyboardKey.f3) {
         if (_peutValiderBrouillard()) {
           _validerBrouillardVersJournal();
@@ -3617,18 +3516,25 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   _uniteFocusNode.requestFocus();
                                                 },
                                                 focusNode: _designationFocusNode,
-                                                hintText: 'Rechercher un article...',
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
+                                                hintText: _isClientSelected
+                                                    ? 'Rechercher un article...'
+                                                    : 'Sélectionnez d\'abord un client',
+                                                decoration: InputDecoration(
+                                                  border: const OutlineInputBorder(),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  focusedBorder: OutlineInputBorder(
+                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  focusedBorder: const OutlineInputBorder(
                                                     borderSide: BorderSide(color: Colors.blue, width: 2),
                                                   ),
+                                                  fillColor: _isClientSelected ? null : Colors.grey[200],
+                                                  filled: !_isClientSelected,
                                                 ),
-                                                style: const TextStyle(fontSize: 12),
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: _isClientSelected ? Colors.black : Colors.grey),
                                                 // TAB pressed in Désignation field goes to Unités
                                                 onTabPressed: () => _uniteFocusNode.requestFocus(),
+                                                enabled: _isClientSelected,
                                               ),
                                             ),
                                             const SizedBox(height: 4),
@@ -3664,12 +3570,16 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 },
                                                 focusNode: _uniteFocusNode,
                                                 hintText: 'Unité...',
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
+                                                decoration: InputDecoration(
+                                                  border: const OutlineInputBorder(),
                                                   contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  fillColor: _isClientSelected ? null : Colors.grey[200],
+                                                  filled: !_isClientSelected,
                                                 ),
-                                                style: const TextStyle(fontSize: 12),
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: _isClientSelected ? Colors.black : Colors.grey),
                                                 onSubmitted: (value) {
                                                   if (_selectedArticle != null && value.isNotEmpty) {
                                                     _verifierUniteArticle(value);
@@ -3681,6 +3591,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     _verifierUniteArticle(value);
                                                   }
                                                 },
+                                                enabled: _isClientSelected,
                                               ),
                                             ),
                                             if (_selectedArticle != null && _uniteAffichage.isNotEmpty)
@@ -3741,11 +3652,16 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         width: 2,
                                                       ),
                                                     ),
+                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
+                                                    filled: !_isClientSelected,
                                                   ),
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    color:
-                                                        _isQuantiteInsuffisante() ? Colors.red : Colors.black,
+                                                    color: !_isClientSelected
+                                                        ? Colors.grey
+                                                        : _isQuantiteInsuffisante()
+                                                            ? Colors.red
+                                                            : Colors.black,
                                                   ),
                                                   onChanged: (value) {
                                                     _validerQuantite(value);
@@ -3754,7 +3670,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   // ENTER/TAB in Quantités goes to Prix
                                                   onSubmitted: (value) => _prixFocusNode.requestFocus(),
                                                   onTap: () => updateFocusIndex(_quantiteFocusNode),
-                                                  readOnly: _selectedVerification == 'JOURNAL',
+                                                  readOnly: _selectedVerification == 'JOURNAL' ||
+                                                      !_isClientSelected,
                                                 ),
                                               ),
                                             ),
@@ -3794,21 +3711,26 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 child: TextField(
                                                   controller: _prixController,
                                                   focusNode: _prixFocusNode,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                    focusedBorder: OutlineInputBorder(
+                                                  decoration: InputDecoration(
+                                                    border: const OutlineInputBorder(),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 4, vertical: 2),
+                                                    focusedBorder: const OutlineInputBorder(
                                                       borderSide: BorderSide(color: Colors.blue, width: 2),
                                                     ),
+                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
+                                                    filled: !_isClientSelected,
                                                   ),
-                                                  style: const TextStyle(fontSize: 12),
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: _isClientSelected ? Colors.black : Colors.grey),
                                                   // onChanged: (value) => _calculerMontant(),
                                                   // ENTER in Prix goes to Dépôts
                                                   onSubmitted: (value) => widget.tousDepots
                                                       ? _depotFocusNode.requestFocus()
                                                       : _ajouterFocusNode.requestFocus(),
-                                                  readOnly: _selectedVerification == 'JOURNAL',
+                                                  readOnly: _selectedVerification == 'JOURNAL' ||
+                                                      !_isClientSelected,
                                                 ),
                                               ),
                                             ),
@@ -3841,15 +3763,20 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   },
                                                   onSubmitted: (_) => _ajouterFocusNode.requestFocus(),
                                                   hintText: 'Dépôt...',
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                    focusedBorder: OutlineInputBorder(
+                                                  decoration: InputDecoration(
+                                                    border: const OutlineInputBorder(),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 4, vertical: 2),
+                                                    focusedBorder: const OutlineInputBorder(
                                                       borderSide: BorderSide(color: Colors.blue, width: 2),
                                                     ),
+                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
+                                                    filled: !_isClientSelected,
                                                   ),
-                                                  style: const TextStyle(fontSize: 11),
+                                                  style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: _isClientSelected ? Colors.black : Colors.grey),
+                                                  enabled: _isClientSelected,
                                                 ),
                                               ),
                                               if (_selectedArticle != null)
@@ -3872,10 +3799,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     // AJOUTER BUTTON
                                                     ElevatedButton(
                                                       focusNode: _ajouterFocusNode,
-                                                      onPressed: _ajouterLigne,
+                                                      onPressed: _isClientSelected ? _ajouterLigne : null,
                                                       style: ElevatedButton.styleFrom(
                                                         elevation: _ajouterFocusNode.hasFocus ? 1 : 0,
-                                                        backgroundColor: Colors.green,
+                                                        backgroundColor:
+                                                            _isClientSelected ? Colors.green : Colors.grey,
                                                         foregroundColor: Colors.white,
                                                         minimumSize: const Size(60, 35),
                                                       ),
@@ -3888,9 +3816,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     // ANNULER BUTTON
                                                     ElevatedButton(
                                                       focusNode: _annulerFocusNode,
-                                                      onPressed: _resetArticleForm,
+                                                      onPressed: _isClientSelected ? _resetArticleForm : null,
                                                       style: ElevatedButton.styleFrom(
-                                                        backgroundColor: Colors.orange,
+                                                        backgroundColor:
+                                                            _isClientSelected ? Colors.orange : Colors.grey,
                                                         foregroundColor: Colors.white,
                                                         minimumSize: const Size(60, 35),
                                                       ),
@@ -4661,7 +4590,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                         ),
                                         if (_peutValiderBrouillard()) ...[
                                           Tooltip(
-                                            message: 'Valider brouillard (F3)',
+                                            message: 'Enregistrer brouillard (F3)',
                                             child: ElevatedButton(
                                               onPressed: _validerBrouillardVersJournal,
                                               style: ElevatedButton.styleFrom(
@@ -4669,7 +4598,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 foregroundColor: Colors.white,
                                                 minimumSize: const Size(80, 30),
                                               ),
-                                              child: const Text('Valider Brouillard (F3)',
+                                              child: const Text('Enregistrer Brouillard (F3)',
                                                   style: TextStyle(fontSize: 12)),
                                             ),
                                           ),
@@ -4689,33 +4618,37 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                           ),
                                         ],
                                       ],
-                                      //Bouton Contre passer
-                                      if (_isExistingPurchase) ...[
-                                        FutureBuilder<bool>(
-                                          future: _isVenteContrePassee(),
-                                          builder: (context, snapshot) {
-                                            final isContrePassee = snapshot.data ?? false;
-                                            return Tooltip(
-                                              message: isContrePassee
-                                                  ? 'Vente déjà contre-passée'
-                                                  : 'Contre-passer (Ctrl+D)',
-                                              child: ElevatedButton(
-                                                onPressed: isContrePassee ? null : _contrePasserVente,
-                                                style: ElevatedButton.styleFrom(
-                                                  minimumSize: const Size(80, 30),
-                                                  backgroundColor: isContrePassee ? Colors.grey : null,
+                                      if (!_peutValiderBrouillard()) ...[
+                                        //Bouton Contre passer
+                                        if (_isExistingPurchase) ...[
+                                          FutureBuilder<bool>(
+                                            future: _isVenteContrePassee(),
+                                            builder: (context, snapshot) {
+                                              final isContrePassee = snapshot.data ?? false;
+                                              return Tooltip(
+                                                message: isContrePassee
+                                                    ? 'Vente déjà contre-passée'
+                                                    : 'Contre-passer (Ctrl+D)',
+                                                child: ElevatedButton(
+                                                  onPressed: isContrePassee ? null : _contrePasserVente,
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize: const Size(80, 30),
+                                                    backgroundColor: isContrePassee ? Colors.grey : null,
+                                                  ),
+                                                  child: const Text('Contre Passer (Ctrl+D)',
+                                                      style: TextStyle(fontSize: 12)),
                                                 ),
-                                                child: const Text('Contre Passer (Ctrl+D)',
-                                                    style: TextStyle(fontSize: 12)),
-                                              ),
-                                            );
-                                          },
-                                        ),
+                                              );
+                                            },
+                                          ),
+                                        ],
                                       ],
-                                      //Bouton Modifier/ Valider
+
+                                      //Bouton Modifier/ Enregistrer
                                       Tooltip(
-                                        message:
-                                            _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
+                                        message: _isExistingPurchase
+                                            ? 'Modifier (Ctrl+S)'
+                                            : 'Enregistrer (Ctrl+S)',
                                         child: ElevatedButton(
                                           onPressed: _selectedVerification == 'JOURNAL'
                                               ? null
@@ -4726,7 +4659,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                             minimumSize: const Size(60, 30),
                                           ),
                                           child: Text(
-                                              _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
+                                              _isExistingPurchase
+                                                  ? 'Modifier (Ctrl+S)'
+                                                  : 'Enregistrer (Ctrl+S)',
                                               style: const TextStyle(fontSize: 12)),
                                         ),
                                       ),
@@ -4966,6 +4901,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                             focusNode: _searchArticleFocusNode,
                                             decoration: const InputDecoration(
                                               labelText: 'Rechercher article',
+                                              labelStyle: TextStyle(fontSize: 12),
                                               border: OutlineInputBorder(),
                                               contentPadding:
                                                   EdgeInsets.symmetric(horizontal: 8, vertical: 12),

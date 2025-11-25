@@ -1120,19 +1120,7 @@ class AppDatabase extends _$AppDatabase {
   /// Calcule le bénéfice réel des articles vendus (Prix de vente - Prix d'achat des articles vendus)
   Future<double> getBeneficesReels() async {
     try {
-      // Debug: vérifier les données
-      final debug = await customSelect('''
-        SELECT 
-          COUNT(*) as total_lignes,
-          COUNT(CASE WHEN v.verification = 'Journal' THEN 1 END) as lignes_journal,
-          COUNT(CASE WHEN a.cmup IS NOT NULL THEN 1 END) as lignes_avec_cmup
-        FROM detventes dv
-        LEFT JOIN ventes v ON dv.numventes = v.numventes
-        LEFT JOIN articles a ON dv.designation = a.designation
-      ''').getSingle();
 
-      debugPrint(
-          'Debug bénéfices - Total: ${debug.data['total_lignes']}, Journal: ${debug.data['lignes_journal']}, CMUP: ${debug.data['lignes_avec_cmup']}');
 
       final result = await customSelect('''
         SELECT 
@@ -1152,8 +1140,7 @@ class AppDatabase extends _$AppDatabase {
       final chiffreAffaires = (result.data['chiffre_affaires'] as num?)?.toDouble() ?? 0.0;
       final coutMarchandises = (result.data['cout_marchandises'] as num?)?.toDouble() ?? 0.0;
 
-      debugPrint(
-          'Bénéfices - CA: $chiffreAffaires, Coût: $coutMarchandises, Bénéfice: ${chiffreAffaires - coutMarchandises}');
+
 
       return chiffreAffaires - coutMarchandises;
     } catch (e) {
