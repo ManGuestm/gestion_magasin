@@ -114,6 +114,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   late final FocusNode _depotFocusNode;
   late final FocusNode _ajouterFocusNode;
   late final FocusNode _annulerFocusNode;
+  late final FocusNode _montantRecuFocusNode;
+  late final FocusNode _montantARendreFocusNode;
+  late final FocusNode _searchArticleFocusNode;
   final FocusNode _keyboardFocusNode = FocusNode();
 
   @override
@@ -129,6 +132,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     _depotFocusNode = createFocusNode();
     _ajouterFocusNode = createFocusNode();
     _annulerFocusNode = createFocusNode();
+    _montantRecuFocusNode = createFocusNode();
+    _montantARendreFocusNode = createFocusNode();
+    _searchArticleFocusNode = createFocusNode();
 
     // Charger les données de manière optimisée
     _initializeAsync();
@@ -507,16 +513,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   List<CltData> _filterClientsByRole(List<CltData> allClients) {
-    // final authService = AuthService();
-    // final userRole = authService.currentUserRole;
-
-    // Si vendeur et mode magasin uniquement, filtrer les clients
-    // if (userRole == 'Vendeur' && !widget.tousDepots) {
-    //   return allClients
-    //       .where((client) => client.categorie == null || client.categorie == ClientCategory.magasin.label)
-    //       .toList();
-    // }
-
     // Pour tous les autres cas, retourner tous les clients
     return allClients;
   }
@@ -562,6 +558,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     _searchVentesController.dispose();
     _searchArticleController.dispose();
     _soldeAnterieurController.dispose();
+    _montantRecuFocusNode.dispose();
+    _montantARendreFocusNode.dispose();
+    _searchArticleFocusNode.dispose();
     _keyboardFocusNode.dispose();
     super.dispose();
   }
@@ -1605,6 +1604,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           lignesVente: lignesVenteData,
           montantRecu: double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0,
           monnaieARendre: double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0,
+          heure: _heureController.text,
         );
       } else {
         await _venteService.enregistrerVenteDirecteJournal(
@@ -1623,6 +1623,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           lignesVente: lignesVenteData,
           montantRecu: double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0,
           monnaieARendre: double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0,
+          heure: _heureController.text,
         );
       }
 
@@ -2720,28 +2721,95 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   void _handleKeyboardShortcut(KeyEvent event) {
     if (event is KeyDownEvent) {
       final isCtrl = HardwareKeyboard.instance.isControlPressed;
+      final isShift = HardwareKeyboard.instance.isShiftPressed;
 
-      // Ctrl+S : Valider vente
+      // Ctrl+S : Sauvegarder brouillard ou valider vente
       if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyS) {
-        if (_lignesVente.isNotEmpty) {
+        if (_peutValiderBrouillard()) {
+          _sauvegarderModificationsBrouillard();
+        } else if (_lignesVente.isNotEmpty) {
           _validerVente();
+        }
+      }
+      // Ctrl+R : Focus sur champ montant reçu
+      else if (isCtrl && !isShift && event.logicalKey == LogicalKeyboardKey.keyR) {
+        _montantRecuFocusNode.requestFocus();
+        Future.delayed(const Duration(milliseconds: 50), () {
+          _montantRecuController.selection =
+              TextSelection(baseOffset: 0, extentOffset: _montantRecuController.text.length);
+        });
+      }
+      // Ctrl+Shift+R : Focus sur champ monnaie à rendre
+      else if (isCtrl && isShift && event.logicalKey == LogicalKeyboardKey.keyR) {
+        _montantARendreFocusNode.requestFocus();
+        Future.delayed(const Duration(milliseconds: 50), () {
+          _montantARendreController.selection =
+              TextSelection(baseOffset: 0, extentOffset: _montantARendreController.text.length);
+        });
+      }
+
+      // Ctrl+T : Focus sur champ TVA
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyT) {
+        FocusScope.of(context).requestFocus(FocusNode());
+        Future.delayed(const Duration(milliseconds: 50), () {
+          _tvaController.selection = TextSelection(baseOffset: 0, extentOffset: _tvaController.text.length);
+        });
+      }
+      // Ctrl+B : Accéder à la dernière vente en Brouillard
+      else if (isCtrl && !isShift && event.logicalKey == LogicalKeyboardKey.keyB) {
+        _ventesFuture?.then((ventes) {
+          final brouillards =
+              ventes.where((v) => v['verification'] == 'BROUILLARD' && v['contre'] != '1').toList();
+          if (brouillards.isNotEmpty) {
+            final dernierBrouillard = brouillards.first;
+            _chargerVenteExistante(dernierBrouillard['numventes']);
+          }
+        });
+      }
+      // Ctrl+J : Accéder à la dernière vente Journal
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyJ) {
+        _ventesFuture?.then((ventes) {
+          final journals = ventes.where((v) => v['verification'] == 'JOURNAL' && v['contre'] != '1').toList();
+          if (journals.isNotEmpty) {
+            final dernierJournal = journals.first;
+            _chargerVenteExistante(dernierJournal['numventes']);
+          }
+        });
+      }
+      // Ctrl+Shift+X : Accéder à la dernière vente contre-passée
+      else if (isCtrl && isShift && event.logicalKey == LogicalKeyboardKey.keyX) {
+        _ventesFuture?.then((ventes) {
+          final contrePassees =
+              ventes.where((v) => v['verification'] == 'JOURNAL' && v['contre'] == '1').toList();
+          if (contrePassees.isNotEmpty) {
+            final derniereCP = contrePassees.first;
+            _chargerVenteExistante(derniereCP['numventes']);
+          }
+        });
+      }
+      // Ctrl+F : Focus sur champ de recherche d'article
+      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyF) {
+        _searchArticleFocusNode.requestFocus();
+        Future.delayed(const Duration(milliseconds: 50), () {
+          _searchArticleController.selection =
+              TextSelection(baseOffset: 0, extentOffset: _searchArticleController.text.length);
+        });
+      }
+      // Ctrl+P : Imprimer Facture
+      else if (isCtrl && !isShift && event.logicalKey == LogicalKeyboardKey.keyP) {
+        if (_lignesVente.isNotEmpty) {
+          _imprimerFacture();
+        }
+      }
+      // Ctrl+Shift+P : Imprimer BL
+      else if (isCtrl && isShift && event.logicalKey == LogicalKeyboardKey.keyP) {
+        if (_lignesVente.isNotEmpty) {
+          _imprimerBL();
         }
       }
       // Ctrl+N : Créer nouvelle vente
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyN) {
         _creerNouvelleVente();
-      }
-      // Ctrl+P : Aperçu facture
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyP) {
-        if (_lignesVente.isNotEmpty) {
-          _apercuFacture();
-        }
-      }
-      // Ctrl+B : Aperçu BL
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyB) {
-        if (_lignesVente.isNotEmpty) {
-          _apercuBL();
-        }
       }
       // Ctrl+D : Contre-passer
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyD) {
@@ -3130,9 +3198,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         children: [
                                                           Icon(Icons.pending, size: 12, color: Colors.orange),
                                                           SizedBox(width: 4),
-                                                          Text('Brouillard',
+                                                          Text('Brouillard (Ctrl+B)',
                                                               style: TextStyle(
-                                                                  fontSize: 10,
+                                                                  fontSize: 12,
                                                                   fontWeight: FontWeight.w500,
                                                                   color: Colors.orange)),
                                                         ],
@@ -3171,11 +3239,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                           Icon(Icons.check_circle,
                                                               size: 12, color: Colors.green),
                                                           SizedBox(width: 4),
-                                                          Text('Journal',
-                                                              style: TextStyle(
-                                                                  fontSize: 10,
-                                                                  fontWeight: FontWeight.w500,
-                                                                  color: Colors.green)),
+                                                          Text(
+                                                            'Journal (Ctrl+J)',
+                                                            style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.w500,
+                                                                color: Colors.green),
+                                                          ),
                                                         ],
                                                       ),
                                                     ),
@@ -3210,9 +3280,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         children: [
                                                           Icon(Icons.cancel, size: 12, color: Colors.red),
                                                           SizedBox(width: 4),
-                                                          Text('Contre-passé',
+                                                          Text('Contre-passé (Ctrl+Shift+X)',
                                                               style: TextStyle(
-                                                                  fontSize: 10,
+                                                                  fontSize: 12,
                                                                   fontWeight: FontWeight.w500,
                                                                   color: Colors.red)),
                                                         ],
@@ -4437,6 +4507,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         height: 25,
                                                         child: TextField(
                                                           controller: _montantRecuController,
+                                                          focusNode: _montantRecuFocusNode,
                                                           decoration: const InputDecoration(
                                                             border: OutlineInputBorder(),
                                                             contentPadding: EdgeInsets.symmetric(
@@ -4463,6 +4534,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         height: 25,
                                                         child: TextField(
                                                           controller: _montantARendreController,
+                                                          focusNode: _montantARendreFocusNode,
                                                           decoration: const InputDecoration(
                                                             border: OutlineInputBorder(),
                                                             contentPadding: EdgeInsets.symmetric(
@@ -4496,235 +4568,243 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                     color: Color(0xFFFFB6C1),
                                   ),
                                   padding: const EdgeInsets.all(8),
-                                  child: SingleChildScrollView(
-                                    child: Row(
-                                      spacing: 4,
-                                      children: [
-                                        //Bouton Nouvel vente
-                                        if (_isExistingPurchase) ...[
-                                          Tooltip(
-                                            message: 'Créer nouveau (Ctrl+N)',
-                                            child: ElevatedButton(
-                                              onPressed: _creerNouvelleVente,
-                                              style:
-                                                  ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                              child: const Text('Créer', style: TextStyle(fontSize: 12)),
-                                            ),
-                                          ),
-                                          if (_peutValiderBrouillard()) ...[
-                                            Tooltip(
-                                              message: 'Valider brouillard (F3)',
-                                              child: ElevatedButton(
-                                                onPressed: _validerBrouillardVersJournal,
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.green,
-                                                  foregroundColor: Colors.white,
-                                                  minimumSize: const Size(80, 30),
-                                                ),
-                                                child: const Text('Valider Brouillard',
-                                                    style: TextStyle(fontSize: 12)),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                        //Bouton Contre passer
-                                        if (_isExistingPurchase) ...[
-                                          FutureBuilder<bool>(
-                                            future: _isVenteContrePassee(),
-                                            builder: (context, snapshot) {
-                                              final isContrePassee = snapshot.data ?? false;
-                                              return Tooltip(
-                                                message: isContrePassee
-                                                    ? 'Vente déjà contre-passée'
-                                                    : 'Contre-passer (Ctrl+D)',
-                                                child: ElevatedButton(
-                                                  onPressed: isContrePassee ? null : _contrePasserVente,
-                                                  style: ElevatedButton.styleFrom(
-                                                    minimumSize: const Size(80, 30),
-                                                    backgroundColor: isContrePassee ? Colors.grey : null,
-                                                  ),
-                                                  child: const Text('Contre Passer',
-                                                      style: TextStyle(fontSize: 12)),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                        //Bouton Modifier/ Valider
+                                  child: Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    alignment: WrapAlignment.end,
+                                    children: [
+                                      //Bouton Nouvel vente
+                                      if (_isExistingPurchase) ...[
                                         Tooltip(
-                                          message:
-                                              _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
+                                          message: 'Créer nouveau (Ctrl+N)',
                                           child: ElevatedButton(
-                                            onPressed: _selectedVerification == 'JOURNAL'
-                                                ? null
-                                                : (_isExistingPurchase ? _modifierVente : _validerVente),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor:
-                                                  _isExistingPurchase ? Colors.blue : Colors.green,
-                                              foregroundColor: Colors.white,
-                                              minimumSize: const Size(60, 30),
-                                            ),
-                                            child: Text(
-                                                _isExistingPurchase
-                                                    ? 'Modifier (Ctrl+S)'
-                                                    : 'Valider (Ctrl+S)',
-                                                style: const TextStyle(fontSize: 12)),
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        //Popup menu format papier d'impression
-                                        PopupMenuButton<String>(
-                                          initialValue: _selectedFormat,
-                                          itemBuilder: (BuildContext context) => [
-                                            const PopupMenuItem(
-                                              value: 'A4',
-                                              child: Text('Format A4', style: TextStyle(fontSize: 12)),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'A5',
-                                              child: Text('Format A5', style: TextStyle(fontSize: 12)),
-                                            ),
-                                            const PopupMenuItem(
-                                              value: 'A6',
-                                              child: Text('Format A6', style: TextStyle(fontSize: 12)),
-                                            ),
-                                          ],
-                                          onSelected: (value) {
-                                            if (value == 'facture') {
-                                              _apercuFacture();
-                                            } else if (value == 'bl') {
-                                              _apercuBL();
-                                            } else {
-                                              setState(() {
-                                                _selectedFormat = value;
-                                              });
-                                            }
-                                          },
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.orange,
-                                              borderRadius: BorderRadius.circular(4),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.print, color: Colors.white, size: 16),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  _selectedFormat,
-                                                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                                                ),
-                                                const SizedBox(width: 4),
-                                                const Icon(
-                                                  Icons.arrow_drop_down,
-                                                  color: Colors.white,
-                                                  size: 16,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                        //Bouton d'impression facture
-                                        FutureBuilder<bool>(
-                                          future: _isVenteContrePassee(),
-                                          builder: (context, snapshot) {
-                                            final isContrePassee = snapshot.data ?? false;
-                                            return Tooltip(
-                                              message: 'Imprimer Facture',
-                                              child: ElevatedButton(
-                                                onPressed: isContrePassee ? null : _imprimerFacture,
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: _selectedVerification != 'JOURNAL'
-                                                      ? Colors.grey
-                                                      : Colors.teal,
-                                                  foregroundColor: Colors.white,
-                                                  minimumSize: const Size(60, 30),
-                                                ),
-                                                child: const Text('Imprimer Facture',
-                                                    style: TextStyle(fontSize: 12)),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                        // Bouton d'Aperçu Facture
-                                        FutureBuilder<bool>(
-                                          future: _isVenteContrePassee(),
-                                          builder: (context, snapshot) {
-                                            final isContrePassee = snapshot.data ?? false;
-                                            return Tooltip(
-                                              message: 'Aperçu Facture',
-                                              child: ElevatedButton(
-                                                onPressed: isContrePassee ? null : _apercuFacture,
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: _selectedVerification != 'JOURNAL'
-                                                      ? Colors.grey
-                                                      : Colors.orange,
-                                                  foregroundColor: Colors.white,
-                                                  minimumSize: const Size(60, 30),
-                                                ),
-                                                child: const Text('Aperçu Facture',
-                                                    style: TextStyle(fontSize: 12)),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                        // Bouton d'impression BL
-                                        FutureBuilder<bool>(
-                                          future: _isVenteContrePassee(),
-                                          builder: (context, snapshot) {
-                                            final isContrePassee = snapshot.data ?? false;
-                                            return Tooltip(
-                                              message: 'Imprimer Bon de Livraison',
-                                              child: ElevatedButton(
-                                                onPressed: isContrePassee ? null : _imprimerBL,
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: _selectedVerification != 'JOURNAL'
-                                                      ? Colors.grey
-                                                      : Colors.teal,
-                                                  foregroundColor: Colors.white,
-                                                  minimumSize: const Size(60, 30),
-                                                ),
-                                                child:
-                                                    const Text('Imprimer BL', style: TextStyle(fontSize: 12)),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                        //Bouton aperçus BL
-                                        FutureBuilder<bool>(
-                                          future: _isVenteContrePassee(),
-                                          builder: (context, snapshot) {
-                                            final isContrePassee = snapshot.data ?? false;
-                                            return Tooltip(
-                                              message: 'Aperçu Bon de Livraison',
-                                              child: ElevatedButton(
-                                                onPressed: isContrePassee ? null : _apercuBL,
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: _selectedVerification != 'JOURNAL'
-                                                      ? Colors.grey
-                                                      : Colors.orange,
-                                                  foregroundColor: Colors.white,
-                                                  minimumSize: const Size(60, 30),
-                                                ),
-                                                child:
-                                                    const Text('Aperçu BL', style: TextStyle(fontSize: 12)),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                        const Spacer(),
-                                        //Bouton de fermeture du modal de vente
-                                        Tooltip(
-                                          message: 'Fermer (Escape)',
-                                          child: ElevatedButton(
-                                            onPressed: () => Navigator.of(context).pop(),
+                                            onPressed: _creerNouvelleVente,
                                             style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                            child: const Text('Fermer', style: TextStyle(fontSize: 12)),
+                                            child: const Text('Créer', style: TextStyle(fontSize: 12)),
                                           ),
+                                        ),
+                                        if (_peutValiderBrouillard()) ...[
+                                          Tooltip(
+                                            message: 'Valider brouillard (F3)',
+                                            child: ElevatedButton(
+                                              onPressed: _validerBrouillardVersJournal,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.green,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(80, 30),
+                                              ),
+                                              child: const Text('Valider Brouillard (F3)',
+                                                  style: TextStyle(fontSize: 12)),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                      //Bouton Contre passer
+                                      if (_isExistingPurchase) ...[
+                                        FutureBuilder<bool>(
+                                          future: _isVenteContrePassee(),
+                                          builder: (context, snapshot) {
+                                            final isContrePassee = snapshot.data ?? false;
+                                            return Tooltip(
+                                              message: isContrePassee
+                                                  ? 'Vente déjà contre-passée'
+                                                  : 'Contre-passer (Ctrl+D)',
+                                              child: ElevatedButton(
+                                                onPressed: isContrePassee ? null : _contrePasserVente,
+                                                style: ElevatedButton.styleFrom(
+                                                  minimumSize: const Size(80, 30),
+                                                  backgroundColor: isContrePassee ? Colors.grey : null,
+                                                ),
+                                                child: const Text('Contre Passer (Ctrl+D)',
+                                                    style: TextStyle(fontSize: 12)),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ],
-                                    ),
+                                      //Bouton Modifier/ Valider
+                                      Tooltip(
+                                        message:
+                                            _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
+                                        child: ElevatedButton(
+                                          onPressed: _selectedVerification == 'JOURNAL'
+                                              ? null
+                                              : (_isExistingPurchase ? _modifierVente : _validerVente),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _isExistingPurchase ? Colors.blue : Colors.green,
+                                            foregroundColor: Colors.white,
+                                            minimumSize: const Size(60, 30),
+                                          ),
+                                          child: Text(
+                                              _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Valider (Ctrl+S)',
+                                              style: const TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+
+                                      //Popup menu format papier d'impression
+                                      PopupMenuButton<String>(
+                                        style: ButtonStyle(
+                                            padding: WidgetStateProperty.fromMap({
+                                          WidgetState.hovered: const EdgeInsets.all(0),
+                                          WidgetState.focused: const EdgeInsets.all(0),
+                                          WidgetState.pressed: const EdgeInsets.all(0),
+                                        })),
+                                        menuPadding: EdgeInsets.all(2),
+                                        initialValue: _selectedFormat,
+                                        itemBuilder: (BuildContext context) => [
+                                          const PopupMenuItem(
+                                            value: 'A4',
+                                            child: Text('Format A4', style: TextStyle(fontSize: 12)),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'A5',
+                                            child: Text('Format A5', style: TextStyle(fontSize: 12)),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'A6',
+                                            child: Text('Format A6', style: TextStyle(fontSize: 12)),
+                                          ),
+                                        ],
+                                        onSelected: (value) {
+                                          if (value == 'facture') {
+                                            _apercuFacture();
+                                          } else if (value == 'bl') {
+                                            _apercuBL();
+                                          } else {
+                                            setState(() {
+                                              _selectedFormat = value;
+                                            });
+                                          }
+                                        },
+                                        child: Container(
+                                          constraints: const BoxConstraints(
+                                            minWidth: 60,
+                                            minHeight: 18,
+                                            maxHeight: 30,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange,
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              const Icon(Icons.print, color: Colors.white, size: 16),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                _selectedFormat,
+                                                style: const TextStyle(color: Colors.white, fontSize: 12),
+                                              ),
+                                              const SizedBox(width: 4),
+                                              const Icon(
+                                                Icons.arrow_drop_down,
+                                                color: Colors.white,
+                                                size: 16,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      //Bouton d'impression facture
+                                      FutureBuilder<bool>(
+                                        future: _isVenteContrePassee(),
+                                        builder: (context, snapshot) {
+                                          final isContrePassee = snapshot.data ?? false;
+                                          return Tooltip(
+                                            message: 'Imprimer Facture (Ctrl+P)',
+                                            child: ElevatedButton(
+                                              onPressed: isContrePassee ? null : _imprimerFacture,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: _selectedVerification != 'JOURNAL'
+                                                    ? Colors.grey
+                                                    : Colors.teal,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(60, 30),
+                                              ),
+                                              child: const Text('Imprimer Facture (Ctrl+P)',
+                                                  style: TextStyle(fontSize: 12)),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      // Bouton d'Aperçu Facture
+                                      FutureBuilder<bool>(
+                                        future: _isVenteContrePassee(),
+                                        builder: (context, snapshot) {
+                                          final isContrePassee = snapshot.data ?? false;
+                                          return Tooltip(
+                                            message: 'Aperçu Facture',
+                                            child: ElevatedButton(
+                                              onPressed: isContrePassee ? null : _apercuFacture,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: _selectedVerification != 'JOURNAL'
+                                                    ? Colors.grey
+                                                    : Colors.orange,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(60, 30),
+                                              ),
+                                              child: const Text('Aperçu Facture',
+                                                  style: TextStyle(fontSize: 12)),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      // Bouton d'impression BL
+                                      FutureBuilder<bool>(
+                                        future: _isVenteContrePassee(),
+                                        builder: (context, snapshot) {
+                                          final isContrePassee = snapshot.data ?? false;
+                                          return Tooltip(
+                                            message: 'Imprimer Bon de Livraison (Ctrl+Shift+P)',
+                                            child: ElevatedButton(
+                                              onPressed: isContrePassee ? null : _imprimerBL,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: _selectedVerification != 'JOURNAL'
+                                                    ? Colors.grey
+                                                    : Colors.teal,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(60, 30),
+                                              ),
+                                              child: const Text('Imprimer BL (Ctrl+Shift+P)',
+                                                  style: TextStyle(fontSize: 12)),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                      //Bouton aperçus BL
+                                      FutureBuilder<bool>(
+                                        future: _isVenteContrePassee(),
+                                        builder: (context, snapshot) {
+                                          final isContrePassee = snapshot.data ?? false;
+                                          return Tooltip(
+                                            message: 'Aperçu Bon de Livraison',
+                                            child: ElevatedButton(
+                                              onPressed: isContrePassee ? null : _apercuBL,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: _selectedVerification != 'JOURNAL'
+                                                    ? Colors.grey
+                                                    : Colors.orange,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(60, 30),
+                                              ),
+                                              child: const Text('Aperçu BL', style: TextStyle(fontSize: 12)),
+                                            ),
+                                          );
+                                        },
+                                      ),
+
+                                      //Bouton de fermeture du modal de vente
+                                      Tooltip(
+                                        message: 'Fermer (Echap)',
+                                        child: ElevatedButton(
+                                          onPressed: () => Navigator.of(context).pop(),
+                                          style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
+                                          child: const Text('Fermer', style: TextStyle(fontSize: 12)),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -4793,6 +4873,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                             },
                                             hintText: 'Nom de l\'article...',
                                             controller: _searchArticleController,
+                                            focusNode: _searchArticleFocusNode,
                                             decoration: const InputDecoration(
                                               labelText: 'Rechercher article',
                                               border: OutlineInputBorder(),

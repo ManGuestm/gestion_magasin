@@ -25,6 +25,7 @@ class VenteService {
     required List<Map<String, dynamic>> lignesVente,
     required double? montantRecu,
     required double? monnaieARendre,
+    String? heure,
   }) async {
     await _databaseService.database.transaction(() async {
       // 1. Insérer la vente en mode BROUILLARD
@@ -45,6 +46,7 @@ class VenteService {
               verification: Value('BROUILLARD'),
               montantRecu: Value(montantRecu),
               monnaieARendre: Value(monnaieARendre),
+              heure: Value(heure),
             ),
           );
 
@@ -84,6 +86,7 @@ class VenteService {
     required List<Map<String, dynamic>> lignesVente,
     required double? montantRecu,
     required double? monnaieARendre,
+    String? heure,
   }) async {
     await _databaseService.database.transaction(() async {
       // 1. Insérer la vente principale
@@ -103,6 +106,7 @@ class VenteService {
         remise: remise,
         montantRecu: montantRecu,
         monnaieARendre: monnaieARendre,
+        heure: heure,
       );
 
       // 2. Traiter chaque ligne de vente
@@ -155,6 +159,7 @@ class VenteService {
     required double? remise,
     required double? montantRecu,
     required double? monnaieARendre,
+    String? heure,
   }) async {
     await _databaseService.database.into(_databaseService.database.ventes).insert(
           VentesCompanion.insert(
@@ -174,6 +179,7 @@ class VenteService {
             verification: Value('JOURNAL'),
             montantRecu: Value(montantRecu),
             monnaieARendre: Value(monnaieARendre),
+            heure: Value(heure),
           ),
         );
   }
@@ -655,6 +661,7 @@ class VenteService {
     required List<Map<String, dynamic>> lignesVente,
     required double? montantRecu,
     required double? monnaieARendre,
+    String? heure,
   }) async {
     await traiterVenteJournal(
       numVentes: numVentes,
@@ -673,6 +680,7 @@ class VenteService {
       lignesVente: lignesVente,
       montantRecu: montantRecu,
       monnaieARendre: monnaieARendre,
+      heure: heure,
     );
   }
 
