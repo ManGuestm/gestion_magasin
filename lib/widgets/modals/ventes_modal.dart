@@ -320,7 +320,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                 q: drift.Value(ligne['quantite']),
                 pu: drift.Value(ligne['prixUnitaire']),
                 daty: drift.Value(DateTime.now()),
-                diffPrix: drift.Value(ligne['diffPrix'] ?? 0.0),
+                diffPrix: drift.Value((ligne['diffPrix'] ?? 0.0) * ligne['quantite']),
               ),
             );
       }
@@ -480,6 +480,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
           _lignesVente.clear();
           for (var detail in details) {
+            // Calculer la différence de prix unitaire à partir de la différence totale stockée
+            double diffPrixUnitaire = 0.0;
+            if ((detail.q ?? 0.0) > 0) {
+              diffPrixUnitaire = (detail.diffPrix ?? 0.0) / (detail.q ?? 1.0);
+            }
+
             _lignesVente.add({
               'designation': detail.designation ?? '',
               'unites': detail.unites ?? '',
@@ -487,7 +493,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
               'prixUnitaire': detail.pu ?? 0.0,
               'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
               'depot': detail.depots ?? '',
-              'diffPrix': detail.diffPrix ?? 0.0,
+              'diffPrix': diffPrixUnitaire, // Différence unitaire
             });
           }
         });
@@ -1203,11 +1209,56 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   double _calculateTotalDiffPrix() {
-    double total = 0;
+    double total = 0.0;
     for (var ligne in _lignesVente) {
-      total += ligne['diffPrix'] ?? 0;
+      total += (ligne['diffPrix'] ?? 0.0) * (ligne['quantite'] ?? 0.0);
     }
     return total;
+  }
+
+  Future<double> _getPrixVenteStandard(Article article, String unite) async {
+    // Retourner le prix selon l'unité
+    if (unite == article.u1) {
+      return article.pvu1 ?? 0.0;
+    } else if (unite == article.u2) {
+      return article.pvu2 ?? 0.0;
+    } else if (unite == article.u3) {
+      return article.pvu3 ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  void _calculerMontant() {
+    double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
+    double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
+    double montant = quantite * prix;
+    _montantController.text = montant > 0 ? _formatNumber(montant) : '';
+  }
+
+  void _calculerTotaux() {
+    double totalHT = 0;
+    for (var ligne in _lignesVente) {
+      totalHT += ligne['montant'] ?? 0;
+    }
+
+    double remise = double.tryParse(_remiseController.text) ?? 0;
+    double totalApresRemise = totalHT - (totalHT * remise / 100);
+    double tva = double.tryParse(_tvaController.text) ?? 0;
+    double totalTTC = totalApresRemise + (totalApresRemise * tva / 100);
+    double avance = double.tryParse(_avanceController.text) ?? 0;
+    double reste = totalTTC - avance;
+
+    double nouveauSolde = _soldeAnterieur;
+    if (_selectedModePaiement == 'A crédit') {
+      nouveauSolde += reste;
+    }
+
+    setState(() {
+      _totalHTController.text = _formatNumber(totalHT);
+      _totalTTCController.text = _formatNumber(totalTTC);
+      _resteController.text = _formatNumber(reste);
+      _nouveauSoldeController.text = _formatNumber(nouveauSolde);
+    });
   }
 
   String _calculateTvaAmount() {
@@ -1217,13 +1268,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     double tva = double.tryParse(_tvaController.text) ?? 0;
     double tvaAmount = totalApresRemise * tva / 100;
     return _formatNumber(tvaAmount);
-  }
-
-  void _calculerMontant() {
-    double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
-    double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
-    double montant = quantite * prix;
-    _montantController.text = _formatNumber(montant);
   }
 
   void _ajouterLigne() async {
@@ -1320,18 +1364,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     });
 
     _calculerTotaux();
-    _resetArticleForm();
-  }
 
-  Future<double> _getPrixVenteStandard(Article article, String unite) async {
-    if (unite == article.u1) {
-      return article.pvu1 ?? 0;
-    } else if (unite == article.u2) {
-      return article.pvu2 ?? 0;
-    } else if (unite == article.u3) {
-      return article.pvu3 ?? 0;
+    // Sauvegarder automatiquement si c'est une vente brouillard existante
+    if (_isExistingPurchase && _isVenteBrouillard()) {
+      await _sauvegarderModificationsBrouillard();
     }
-    return 0.0;
+
+    _resetArticleForm();
   }
 
   void _chargerLigneArticle(int index) {
@@ -1410,36 +1449,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
   }
 
-  void _calculerTotaux() {
-    double totalHT = 0;
-    for (var ligne in _lignesVente) {
-      totalHT += ligne['montant'] ?? 0;
-    }
-
-    double remise = double.tryParse(_remiseController.text) ?? 0;
-    double totalApresRemise = totalHT - (totalHT * remise / 100);
-    double tva = double.tryParse(_tvaController.text) ?? 0;
-    double totalTTC = totalApresRemise + (totalApresRemise * tva / 100);
-    double avance = double.tryParse(_avanceController.text) ?? 0;
-    double reste = totalTTC - avance;
-
-    // Calculer le nouveau solde selon le mode de paiement
-    double nouveauSolde = _soldeAnterieur; // Commencer par le solde antérieur
-    if (_selectedModePaiement == 'A crédit') {
-      nouveauSolde += reste; // Ajouter le reste à payer
-    } else {
-      // Pour les paiements comptant, le nouveau solde reste le solde antérieur
-      nouveauSolde = _soldeAnterieur;
-    }
-
-    setState(() {
-      _totalHTController.text = _formatNumber(totalHT);
-      _totalTTCController.text = _formatNumber(totalTTC);
-      _resteController.text = _formatNumber(reste);
-      _nouveauSoldeController.text = _formatNumber(nouveauSolde);
-    });
-  }
-
   void _calculerMonnaie() {
     double totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0;
     double montantRecu = double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0;
@@ -1470,11 +1479,16 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     });
   }
 
-  void _supprimerLigne(int index) {
+  void _supprimerLigne(int index) async {
     setState(() {
       _lignesVente.removeAt(index);
     });
     _calculerTotaux();
+
+    // Sauvegarder automatiquement si c'est une vente brouillard existante
+    if (_isExistingPurchase && _isVenteBrouillard()) {
+      await _sauvegarderModificationsBrouillard();
+    }
   }
 
   bool _shouldShowAddButton() {
@@ -1867,6 +1881,60 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         _reloadVentesList();
 
         await _chargerVenteExistante(_numVentesController.text);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _contrePasserVenteBrouillard() async {
+    if (!_isExistingPurchase || !_isVenteBrouillard()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune vente brouillard sélectionnée')),
+      );
+      return;
+    }
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Contre-passer vente brouillard'),
+        content: Text(
+            'Voulez-vous vraiment contre-passer la vente brouillard N° ${_numVentesController.text} ?\n\n'
+            'Cette action va :\n'
+            '• Ajuster les stocks (restauration)\n'
+            '• Supprimer définitivement la vente\n'
+            '• Les comptes clients seront ajustés (vente brouillard non comptabilisée)'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer définitivement'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await _venteService.contrePasserVenteBrouillard(_numVentesController.text);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vente brouillard supprimée avec succès'), backgroundColor: Colors.green),
+        );
+
+        // Recharger la liste des ventes
+        _reloadVentesList();
+
+        // Créer une nouvelle vente
+        _creerNouvelleVente();
       }
     } catch (e) {
       if (mounted) {
@@ -4605,6 +4673,20 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   style: TextStyle(fontSize: 12)),
                                             ),
                                           ),
+                                          // Bouton Contre-passer vente brouillard
+                                          Tooltip(
+                                            message: 'Contre-passer vente brouillard',
+                                            child: ElevatedButton(
+                                              onPressed: _contrePasserVenteBrouillard,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.red,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(80, 30),
+                                              ),
+                                              child: const Text('Supprimer Brouillard',
+                                                  style: TextStyle(fontSize: 12)),
+                                            ),
+                                          ),
                                         ],
                                       ],
                                       //Bouton Contre passer
@@ -5020,23 +5102,44 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     .map(
                                                       (ligne) => Padding(
                                                         padding: const EdgeInsets.symmetric(vertical: 2),
-                                                        child: Row(
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
                                                           children: [
-                                                            Expanded(
-                                                              child: Text(
-                                                                ligne['designation'] ?? '',
-                                                                style: const TextStyle(fontSize: 11),
-                                                                overflow: TextOverflow.ellipsis,
-                                                              ),
+                                                            Row(
+                                                              children: [
+                                                                Expanded(
+                                                                  child: Text(
+                                                                    ligne['designation'] ?? '',
+                                                                    style: const TextStyle(
+                                                                        fontSize: 11,
+                                                                        fontWeight: FontWeight.w500),
+                                                                    overflow: TextOverflow.ellipsis,
+                                                                  ),
+                                                                ),
+                                                                Text(
+                                                                  _formatNumber(
+                                                                    (ligne['diffPrix'] ?? 0) *
+                                                                        (ligne['quantite'] ?? 0),
+                                                                  ),
+                                                                  style: TextStyle(
+                                                                    fontSize: 11,
+                                                                    fontWeight: FontWeight.bold,
+                                                                    color: (ligne['diffPrix'] ?? 0) >= 0
+                                                                        ? Colors.green
+                                                                        : Colors.red,
+                                                                  ),
+                                                                ),
+                                                              ],
                                                             ),
-                                                            Text(
-                                                              _formatNumber(ligne['diffPrix'] ?? 0),
-                                                              style: TextStyle(
-                                                                fontSize: 11,
-                                                                fontWeight: FontWeight.w500,
-                                                                color: (ligne['diffPrix'] ?? 0) >= 0
-                                                                    ? Colors.green
-                                                                    : Colors.red,
+                                                            Padding(
+                                                              padding: const EdgeInsets.only(left: 8, top: 1),
+                                                              child: Text(
+                                                                '${_formatNumber(ligne['quantite'] ?? 0)} ${ligne['unites'] ?? ''} x ${_formatNumber(ligne['diffPrix'] ?? 0)} Ar',
+                                                                style: TextStyle(
+                                                                  fontSize: 10,
+                                                                  color: Colors.grey[600],
+                                                                  fontStyle: FontStyle.italic,
+                                                                ),
                                                               ),
                                                             ),
                                                           ],

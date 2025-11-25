@@ -61,7 +61,7 @@ class VenteService {
                 q: Value(ligne['quantite']),
                 pu: Value(ligne['prixUnitaire']),
                 daty: Value(date),
-                diffPrix: Value(ligne['diffPrix']),
+                diffPrix: Value((ligne['diffPrix'] ?? 0.0) * ligne['quantite']),
               ),
             );
       }
@@ -208,7 +208,7 @@ class VenteService {
             q: Value(quantite),
             pu: Value(prixUnitaire),
             daty: Value(date),
-            diffPrix: Value(diffPrix),
+            diffPrix: Value((diffPrix ?? 0.0) * quantite),
           ),
         );
 
@@ -293,8 +293,8 @@ class VenteService {
       // Créer l'entrée de stock avec des valeurs négatives (vente à découvert)
       await _databaseService.database.into(_databaseService.database.depart).insert(
             DepartCompanion.insert(
-              designation: Value(article.designation).toString(),
-              depots: Value(depot).toString(),
+              designation: article.designation,
+              depots: depot,
               stocksu1: Value(-conversions['u1']!),
               stocksu2: Value(-conversions['u2']!),
               stocksu3: Value(-conversions['u3']!),
@@ -325,7 +325,7 @@ class VenteService {
 
     await _databaseService.database.into(_databaseService.database.stocks).insert(
           StocksCompanion.insert(
-            ref: Value(ref).toString(),
+            ref: ref,
             daty: Value(date),
             lib: Value('Vente N° $numVentes'),
             numventes: Value(numVentes),
@@ -398,7 +398,7 @@ class VenteService {
       final ref = 'FS-${DateTime.now().millisecondsSinceEpoch}';
       await _databaseService.database.into(_databaseService.database.fstocks).insert(
             FstocksCompanion.insert(
-              ref: Value(ref).toString(),
+              ref: ref,
               art: Value(designation),
               qs: Value(quantite),
               qst: Value(quantite),
@@ -422,7 +422,7 @@ class VenteService {
 
     await _databaseService.database.into(_databaseService.database.compteclt).insert(
           ComptecltCompanion.insert(
-            ref: Value(ref).toString(),
+            ref: ref,
             daty: Value(date),
             lib: Value('Vente N° $numVentes${nFacture != null ? ' - Facture $nFacture' : ''}'),
             numventes: Value(numVentes),
@@ -836,7 +836,7 @@ class VenteService {
 
     await _databaseService.database.into(_databaseService.database.stocks).insert(
           StocksCompanion.insert(
-            ref: Value(ref).toString(),
+            ref: ref,
             daty: Value(DateTime.now()),
             lib: Value('Contre-passement vente N° $numVentes'),
             numventes: Value(numVentes),
@@ -863,7 +863,7 @@ class VenteService {
 
     await _databaseService.database.into(_databaseService.database.compteclt).insert(
           ComptecltCompanion.insert(
-            ref: Value(ref).toString(),
+            ref: ref,
             clt: Value(client),
             daty: Value(DateTime.now()),
             lib: Value('Contre-passement vente N° $numVentes'),
@@ -897,7 +897,7 @@ class VenteService {
 
     await _databaseService.database.into(_databaseService.database.caisse).insert(
           CaisseCompanion.insert(
-            ref: Value(ref).toString(),
+            ref: ref,
             daty: Value(DateTime.now()),
             lib: Value('Contre-passement vente N° $numVentes'),
             credit: Value(montant),
@@ -905,5 +905,33 @@ class VenteService {
             verification: const Value('JOURNAL'),
           ),
         );
+  }
+
+  /// Contre-passe une vente brouillard (suppression définitive)
+  Future<void> contrePasserVenteBrouillard(String numVentes) async {
+    final vente = await (_databaseService.database.select(_databaseService.database.ventes)
+          ..where((v) => v.numventes.equals(numVentes) & v.verification.equals('BROUILLARD')))
+        .getSingleOrNull();
+
+    if (vente == null) throw Exception('Vente brouillard non trouvée');
+
+    await _databaseService.database.transaction(() async {
+      // 1. Supprimer les détails de vente
+      await (_databaseService.database.delete(_databaseService.database.detventes)
+            ..where((d) => d.numventes.equals(numVentes)))
+          .go();
+
+      // 2. Supprimer la vente
+      await (_databaseService.database.delete(_databaseService.database.ventes)
+            ..where((v) => v.numventes.equals(numVentes)))
+          .go();
+    });
+  }
+
+  /// Récupère les ventes brouillard
+  Future<List<Vente>> getVentesBrouillard() async {
+    return await (_databaseService.database.select(_databaseService.database.ventes)
+          ..where((v) => v.verification.equals('BROUILLARD')))
+        .get();
   }
 }
