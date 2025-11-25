@@ -10,9 +10,9 @@ import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
 import '../../utils/stock_converter.dart';
 import '../common/enhanced_autocomplete.dart';
+import '../common/tab_navigation_widget.dart';
 import 'add_fournisseur_modal.dart';
 import 'bon_reception_preview.dart';
-import '../common/tab_navigation_widget.dart';
 
 class AchatsModal extends StatefulWidget {
   const AchatsModal({super.key});
