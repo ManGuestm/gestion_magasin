@@ -1202,6 +1202,14 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     return _formatNumber(remiseAmount);
   }
 
+  double _calculateTotalDiffPrix() {
+    double total = 0;
+    for (var ligne in _lignesVente) {
+      total += ligne['diffPrix'] ?? 0;
+    }
+    return total;
+  }
+
   String _calculateTvaAmount() {
     double totalHT = double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0;
     double remise = double.tryParse(_remiseController.text) ?? 0;
@@ -4983,6 +4991,89 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   ),
                                                 ),
                                         ),
+
+                                        // Section Différences de prix
+                                        if (_lignesVente.isNotEmpty) ...[
+                                          const SizedBox(height: 16),
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange.shade50,
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: Colors.orange.shade200),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Différences de prix',
+                                                  style: TextStyle(
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.orange.shade700,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 8),
+                                                // Liste des différences par ligne
+                                                ...(_lignesVente
+                                                    .where((ligne) => (ligne['diffPrix'] ?? 0) != 0)
+                                                    .map(
+                                                      (ligne) => Padding(
+                                                        padding: const EdgeInsets.symmetric(vertical: 2),
+                                                        child: Row(
+                                                          children: [
+                                                            Expanded(
+                                                              child: Text(
+                                                                ligne['designation'] ?? '',
+                                                                style: const TextStyle(fontSize: 11),
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              _formatNumber(ligne['diffPrix'] ?? 0),
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                fontWeight: FontWeight.w500,
+                                                                color: (ligne['diffPrix'] ?? 0) >= 0
+                                                                    ? Colors.green
+                                                                    : Colors.red,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ),
+                                                    )),
+                                                if (_lignesVente
+                                                    .any((ligne) => (ligne['diffPrix'] ?? 0) != 0)) ...[
+                                                  const Divider(height: 12),
+                                                  Row(
+                                                    children: [
+                                                      const Expanded(
+                                                        child: Text(
+                                                          'Total Différence:',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        _formatNumber(_calculateTotalDiffPrix()),
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: _calculateTotalDiffPrix() >= 0
+                                                              ? Colors.green
+                                                              : Colors.red,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),
