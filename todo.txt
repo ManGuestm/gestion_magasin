@@ -1,17 +1,258 @@
--- Voir toutes les ventes avec écart de prix
-SELECT numventes, designation, pu, diffPrix, (pu - diffPrix) as prix_standard
-FROM detventes 
-WHERE diffPrix != 0;
+final pdf = pw.Document();
+    final pdfFontSize = _selectedFormat == 'A6' ? 7.0 : (_selectedFormat == 'A5' ? 9.0 : 10.0);
+    final pdfHeaderFontSize = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
+    final pdfPadding = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
+    final pageFormat = _selectedFormat == 'A4'
+        ? PdfPageFormat.a4
+        : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5);
 
--- Calculer l'impact total des écarts par vente
-SELECT numventes, SUM(q * diffPrix) as impact_total_ecart
-FROM detventes 
-GROUP BY numventes
-HAVING SUM(q * diffPrix) != 0;
+    final int maxLinesPerPage = _selectedFormat == 'A6' ? 15 : (_selectedFormat == 'A5' ? 20 : 25);
+    final int totalPages = (_lignesAchat.length / maxLinesPerPage).ceil();
 
--- Top des articles avec les plus gros écarts
-SELECT designation, AVG(diffPrix) as ecart_moyen, COUNT(*) as nb_ventes
-FROM detventes 
-WHERE diffPrix != 0
-GROUP BY designation
-ORDER BY ABS(AVG(diffPrix)) DESC;
+    for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+      final int startIndex = pageIndex * maxLinesPerPage;
+      final int endIndex = (startIndex + maxLinesPerPage).clamp(0, _lignesAchat.length);
+      final List<Map<String, dynamic>> pageLines = _lignesAchat.sublist(startIndex, endIndex);
+      final bool isLastPage = pageIndex == totalPages - 1;
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: pageFormat,
+          margin: const pw.EdgeInsets.all(8),
+          build: (context) {
+            return pw.Container(
+              padding: pw.EdgeInsets.all(pdfPadding),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Center(
+                    child: pw.Container(
+                      padding: pw.EdgeInsets.symmetric(vertical: pdfPadding / 2),
+                      decoration: const pw.BoxDecoration(
+                        border: pw.Border(
+                          top: pw.BorderSide(color: PdfColors.black, width: 2),
+                          bottom: pw.BorderSide(color: PdfColors.black, width: 2),
+                        ),
+                      ),
+                      child: pw.Text('BON DE RÉCEPTION',
+                          style:
+                              pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize + 2)),
+                    ),
+                  ),
+                  pw.SizedBox(height: pdfPadding),
+                  pw.Container(
+                    decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+                    padding: pw.EdgeInsets.all(pdfPadding / 2),
+                    child: pw.Row(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Expanded(
+                          flex: 3,
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('SOCIÉTÉ:',
+                                  style: pw.TextStyle(
+                                      fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1)),
+                              pw.Text(_societe?.rsoc ?? 'SOCIÉTÉ',
+                                  style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
+                              if (_societe?.adr != null)
+                                pw.Text(_societe!.adr!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
+                              if (_societe?.activites != null)
+                                pw.Text(_societe!.activites!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
+                              if (_societe?.port != null)
+                                pw.Text('Tél: ${_societe!.port!}',
+                                    style: pw.TextStyle(fontSize: pdfFontSize - 2)),
+                            ],
+                          ),
+                        ),
+                        pw.Expanded(
+                          flex: 2,
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text('N° ACHAT: ${_numAchatsController.text}',
+                                  style: pw.TextStyle(
+                                      fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                              pw.Text('DATE: ${_dateController.text}',
+                                  style: pw.TextStyle(
+                                      fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                              pw.Text('FOURNISSEUR: ${_selectedFournisseur ?? ""}',
+                                  style: pw.TextStyle(
+                                      fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                              pw.Text('N° FACTURE/BL: ${_nFactController.text}',
+                                  style: pw.TextStyle(
+                                      fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: pdfPadding),
+                  pw.Container(
+                    decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+                    child: pw.Table(
+                      border: const pw.TableBorder(
+                          horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                          verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5)),
+                      children: [
+                        pw.TableRow(
+                          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                          children: [
+                            pw.Container(
+                                padding: pw.EdgeInsets.all(3),
+                                child: pw.Text('DÉSIGNATION',
+                                    style: pw.TextStyle(
+                                        fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                    textAlign: pw.TextAlign.center)),
+                            pw.Container(
+                                padding: pw.EdgeInsets.all(3),
+                                child: pw.Text('UNITÉ',
+                                    style: pw.TextStyle(
+                                        fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                    textAlign: pw.TextAlign.center)),
+                            pw.Container(
+                                padding: pw.EdgeInsets.all(3),
+                                child: pw.Text('QUANTITÉ',
+                                    style: pw.TextStyle(
+                                        fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                    textAlign: pw.TextAlign.center)),
+                            pw.Container(
+                                padding: pw.EdgeInsets.all(3),
+                                child: pw.Text('P.U HT',
+                                    style: pw.TextStyle(
+                                        fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                    textAlign: pw.TextAlign.center)),
+                            pw.Container(
+                                padding: pw.EdgeInsets.all(3),
+                                child: pw.Text('MONTANT',
+                                    style: pw.TextStyle(
+                                        fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                    textAlign: pw.TextAlign.center)),
+                            pw.Container(
+                                padding: pw.EdgeInsets.all(3),
+                                child: pw.Text('DÉPÔT',
+                                    style: pw.TextStyle(
+                                        fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                                    textAlign: pw.TextAlign.center)),
+                          ],
+                        ),
+                        ..._lignesAchat.map((ligne) => pw.TableRow(
+                              children: [
+                                pw.Container(
+                                    padding: pw.EdgeInsets.all(3),
+                                    child: pw.Text(ligne['designation'] ?? '',
+                                        style: pw.TextStyle(fontSize: pdfFontSize - 1))),
+                                pw.Container(
+                                    padding: pw.EdgeInsets.all(3),
+                                    child: pw.Text(ligne['unites'] ?? '',
+                                        style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                        textAlign: pw.TextAlign.center)),
+                                pw.Container(
+                                    padding: pw.EdgeInsets.all(3),
+                                    child: pw.Text(
+                                        AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                        style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                        textAlign: pw.TextAlign.center)),
+                                pw.Container(
+                                    padding: pw.EdgeInsets.all(3),
+                                    child: pw.Text(
+                                        AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                        style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                        textAlign: pw.TextAlign.right)),
+                                pw.Container(
+                                    padding: pw.EdgeInsets.all(3),
+                                    child: pw.Text(
+                                        AppFunctions.formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                        style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                        textAlign: pw.TextAlign.right)),
+                                pw.Container(
+                                    padding: pw.EdgeInsets.all(3),
+                                    child: pw.Text(ligne['depot'] ?? '',
+                                        style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                        textAlign: pw.TextAlign.center)),
+                              ],
+                            )),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: pdfPadding),
+                  pw.Container(
+                    decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
+                    padding: pw.EdgeInsets.all(pdfPadding / 2),
+                    child: pw.Row(
+                      children: [
+                        pw.Spacer(),
+                        pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.end,
+                          children: [
+                            pw.Text(
+                                'TOTAL HT: ${AppFunctions.formatNumber(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0)}',
+                                style:
+                                    pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold)),
+                            if ((double.tryParse(_tvaController.text) ?? 0) > 0)
+                              pw.Text(
+                                  'TVA: ${AppFunctions.formatNumber(double.tryParse(_tvaController.text) ?? 0)}%',
+                                  style: pw.TextStyle(fontSize: pdfFontSize - 1)),
+                            pw.Text(
+                                'TOTAL TTC: ${AppFunctions.formatNumber(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0)}',
+                                style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: pdfPadding * 2),
+                  pw.Container(
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.black, width: 1),
+                    ),
+                    padding: pw.EdgeInsets.all(pdfPadding),
+                    child: pw.Row(
+                      children: [
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              pw.Text('FOURNISSEUR',
+                                  style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
+                              pw.SizedBox(height: pdfPadding * 2),
+                              pw.Container(
+                                height: 1,
+                                color: PdfColors.black,
+                                margin: const pw.EdgeInsets.symmetric(horizontal: 20),
+                              ),
+                              pw.SizedBox(height: pdfPadding / 2),
+                              pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
+                            ],
+                          ),
+                        ),
+                        pw.Container(width: 1, height: 60, color: PdfColors.black),
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              pw.Text('ACHETEUR',
+                                  style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold)),
+                              pw.SizedBox(height: pdfPadding * 2),
+                              pw.Container(
+                                height: 1,
+                                color: PdfColors.black,
+                                margin: const pw.EdgeInsets.symmetric(horizontal: 20),
+                              ),
+                              pw.SizedBox(height: pdfPadding / 2),
+                              pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
+    return pdf;
+  }

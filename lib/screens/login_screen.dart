@@ -85,9 +85,9 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Colors.indigo[900]!,
-              Colors.indigo[700]!,
-              Colors.blue[600]!,
+              Colors.grey[300]!,
+              Colors.grey[200]!,
+              Colors.grey[50]!,
             ],
           ),
         ),
@@ -126,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.indigo.withValues(alpha: 0.3),
+                                  color: Colors.grey.withValues(alpha: 0.3),
                                   blurRadius: 15,
                                   offset: const Offset(0, 5),
                                 ),
@@ -141,7 +141,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   return Container(
                                     decoration: BoxDecoration(
                                       gradient: LinearGradient(
-                                        colors: [Colors.indigo[600]!, Colors.blue[500]!],
+                                        colors: [Colors.grey[600]!, Colors.grey[500]!],
                                       ),
                                       borderRadius: BorderRadius.circular(20),
                                     ),

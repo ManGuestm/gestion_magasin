@@ -1164,7 +1164,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Vente gratuite'),
-          content: const Text('Le prix de vente est de 0 Ar.\n\nVoulez-vous offrir cet article comme cadeau ?'),
+          content:
+              const Text('Le prix de vente est de 0 Ar.\n\nVoulez-vous offrir cet article comme cadeau ?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -1185,8 +1186,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('Prix de vente inférieur au coût'),
-          content: Text(
-              'Prix de vente: ${AppFunctions.formatNumber(prixVente)} Ar/$unite\n'
+          content: Text('Prix de vente: ${AppFunctions.formatNumber(prixVente)} Ar/$unite\n'
               'Prix d\'achat (CMUP): ${AppFunctions.formatNumber(prixAchat)} Ar/$unite\n\n'
               'Le prix de vente est inférieur au prix d\'achat.\n\n'
               'Êtes-vous sûr de continuer cette opération ?'),
