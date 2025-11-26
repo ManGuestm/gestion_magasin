@@ -26,16 +26,19 @@ class VentesSelectionModal extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: KeyboardListener(
-        focusNode: FocusNode()..requestFocus(),
-        onKeyEvent: (event) {
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
           if (event is KeyDownEvent) {
             if (event.logicalKey == LogicalKeyboardKey.keyD) {
               _handleVenteTousDepots(context);
+              return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.keyM) {
               _handleVenteMagSeulement(context);
+              return KeyEventResult.handled;
             }
           }
+          return KeyEventResult.ignored;
         },
         child: Dialog(
           backgroundColor: Colors.grey[100],

@@ -87,10 +87,19 @@ class _MouvementStockModalState extends State<MouvementStockModal>
             _uniteEntree = unites.first;
             _uniteSortie = unites.first;
           }
+          // Calculer le prix unitaire basé sur le CMUP
+          _calculerPrixUnitaire(article);
         });
       }
     } catch (e) {
       debugPrint('Erreur chargement unités: $e');
+    }
+  }
+
+  void _calculerPrixUnitaire(Article article) {
+    final cmup = article.cmup ?? 0.0;
+    if (cmup > 0) {
+      _prixController.text = cmup.toStringAsFixed(2);
     }
   }
 

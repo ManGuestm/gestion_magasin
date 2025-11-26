@@ -138,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
         stats['ventesBrouillard'] = ventesBrouillard;
 
         _recentSales = await db.getRecentSales(5);
-        _recentBuys = await db.getRecentPurchases(5);
+        _recentBuys = (await db.getRecentPurchases(5)).where((buy) => buy['contre'] == 1).toList();
       } else if (userRole == 'Caisse') {
         final totalVentes = await db.getTotalVentes();
         final ventesJour = await db.getVentesToday();
@@ -153,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
         stats['ventesBrouillard'] = ventesBrouillard;
 
         _recentSales = await db.getRecentSales(5);
-        _recentBuys = await db.getRecentPurchases(5);
+        _recentBuys = (await db.getRecentPurchases(5)).where((buy) => buy['contre'] != '1').toList();
       } else if (userRole == 'Vendeur') {
         final mesVentesJour = await db.getVentesTodayByUser(userName);
         final mesVentesMois = await db.getVentesThisMonthByUser(userName);
@@ -503,7 +503,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleKeyPress(KeyEvent event) {
-    if (event is KeyDownEvent) {
+    // Ne traiter les raccourcis que si aucun modal n'est ouvert
+    if (event is KeyDownEvent && !_isModalOpen) {
       final shortcuts = {
         LogicalKeyboardKey.keyP: 'Articles',
         LogicalKeyboardKey.keyA: 'Achats',
@@ -1292,7 +1293,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: Text('Détails Achat N°${achat['numachats']}'),
         content: SizedBox(
           width: 500,
-          height: 400,
+          height: MediaQuery.of(context).size.height * 0.7,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1336,7 +1337,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const Divider(),
-              _buildDetailRow('Total TTC', '${_formatNumber(achat['total'])} Ar', isAmount: true),
+              _buildDetailRow('Total TTC', '${_formatNumber(achat['total'])} Ar',
+                  isAmount: true, isTotalTTC: true),
             ],
           ),
         ),
@@ -1357,8 +1359,6 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: isTotalTTC ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
           if (isTotalTTC) Spacer(),
-          if (isTotalTTC) Spacer(),
-          if (isTotalTTC) Spacer(),
           SizedBox(
             width: 120,
             child: Text(
@@ -1369,6 +1369,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: Container(
               padding: isAmount ? EdgeInsets.symmetric(horizontal: 16, vertical: 4) : null,
+              alignment: isAmount ? Alignment.center : null,
               decoration: isAmount
                   ? BoxDecoration(
                       border: Border(

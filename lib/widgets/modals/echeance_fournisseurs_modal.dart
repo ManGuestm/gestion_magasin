@@ -15,13 +15,37 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
   List<Achat> _achats = [];
   List<Achat> _filteredAchats = [];
   String? _selectedFournisseur;
+  String _numAchatsFilter = '';
   bool _isLoading = false;
   int _selectedIndex = -1;
+  int _currentPage = 0;
+  final int _itemsPerPage = 20;
+  final TextEditingController _numAchatsController = TextEditingController();
+
+  List<Achat> get _paginatedAchats {
+    final startIndex = _currentPage * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, _filteredAchats.length);
+    return _filteredAchats.sublist(startIndex, endIndex);
+  }
+
+  int get _totalPages => (_filteredAchats.length / _itemsPerPage).ceil();
 
   @override
   void initState() {
     super.initState();
     _loadAchats();
+    _numAchatsController.addListener(() {
+      setState(() {
+        _numAchatsFilter = _numAchatsController.text;
+      });
+      _filterAchats();
+    });
+  }
+
+  @override
+  void dispose() {
+    _numAchatsController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadAchats() async {
@@ -30,7 +54,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       final db = AppDatabase();
       final achats = await db.getAllAchats();
       setState(() {
-        _achats = achats.where((a) => a.echeance != null && (a.regl ?? 0) < (a.totalttc ?? 0)).toList();
+        _achats = achats.where((a) => (a.regl ?? 0) < (a.totalttc ?? 0)).toList();
         _filteredAchats = _achats;
         _isLoading = false;
       });
@@ -41,11 +65,14 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
 
   void _filterAchats() {
     setState(() {
-      if (_selectedFournisseur == null) {
-        _filteredAchats = _achats;
-      } else {
-        _filteredAchats = _achats.where((a) => a.frns == _selectedFournisseur).toList();
-      }
+      _filteredAchats = _achats.where((a) {
+        bool matchesFournisseur = _selectedFournisseur == null || a.frns == _selectedFournisseur;
+        bool matchesNumAchats = _numAchatsFilter.isEmpty ||
+            (a.numachats ?? '').toLowerCase().contains(_numAchatsFilter.toLowerCase());
+        return matchesFournisseur && matchesNumAchats;
+      }).toList();
+      _currentPage = 0;
+      _selectedIndex = -1;
     });
   }
 
@@ -124,11 +151,12 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : ListView.builder(
-                      itemCount: _filteredAchats.length,
+                      itemCount: _paginatedAchats.length,
                       itemExtent: 18,
                       itemBuilder: (context, index) {
-                        final achat = _filteredAchats[index];
-                        return _buildTableRow(achat, index);
+                        final achat = _paginatedAchats[index];
+                        final globalIndex = _currentPage * _itemsPerPage + index;
+                        return _buildTableRow(achat, globalIndex);
                       },
                     ),
             ),
@@ -249,27 +277,38 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       padding: const EdgeInsets.all(4),
       child: Row(
         children: [
-          _buildNavButton(Icons.first_page, () {}),
-          _buildNavButton(Icons.chevron_left, () {}),
-          _buildNavButton(Icons.chevron_right, () {}),
-          _buildNavButton(Icons.last_page, () {}),
+          _buildNavButton(Icons.first_page, _currentPage > 0 ? () => _goToPage(0) : null),
+          _buildNavButton(Icons.chevron_left, _currentPage > 0 ? () => _goToPage(_currentPage - 1) : null),
+          _buildNavButton(
+              Icons.chevron_right, _currentPage < _totalPages - 1 ? () => _goToPage(_currentPage + 1) : null),
+          _buildNavButton(
+              Icons.last_page, _currentPage < _totalPages - 1 ? () => _goToPage(_totalPages - 1) : null),
+          const SizedBox(width: 8),
+          Text('${_currentPage + 1}/$_totalPages', style: const TextStyle(fontSize: 10)),
         ],
       ),
     );
   }
 
-  Widget _buildNavButton(IconData icon, VoidCallback onPressed) {
+  void _goToPage(int page) {
+    setState(() {
+      _currentPage = page;
+      _selectedIndex = -1;
+    });
+  }
+
+  Widget _buildNavButton(IconData icon, VoidCallback? onPressed) {
     return Container(
       width: 24,
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 1),
       decoration: BoxDecoration(
-        color: Colors.grey[300],
+        color: onPressed != null ? Colors.grey[300] : Colors.grey[200],
         border: Border.all(color: Colors.grey[600]!),
       ),
       child: IconButton(
         onPressed: onPressed,
-        icon: Icon(icon, size: 12),
+        icon: Icon(icon, size: 12, color: onPressed != null ? Colors.black : Colors.grey),
         padding: EdgeInsets.zero,
       ),
     );
@@ -289,6 +328,15 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: Border.all(color: Colors.grey),
+              ),
+              child: TextField(
+                controller: _numAchatsController,
+                style: const TextStyle(fontSize: 10),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 0),
+                  isDense: true,
+                ),
               ),
             ),
             const SizedBox(width: 16),
@@ -335,8 +383,8 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       padding: const EdgeInsets.all(4),
       child: Row(
         children: [
-          _buildActionButton('Afficher tous', () => _filterAchats()),
-          _buildActionButton('Aperçu', () {}),
+          _buildActionButton('Afficher tous', _showAll),
+          _buildActionButton('Aperçu', _showPreview),
           _buildActionButton('Fermer', () => Navigator.of(context).pop()),
         ],
       ),
@@ -363,6 +411,58 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
           text,
           style: const TextStyle(fontSize: 11, color: Colors.black),
         ),
+      ),
+    );
+  }
+
+  void _showAll() {
+    setState(() {
+      _selectedFournisseur = null;
+      _numAchatsController.clear();
+      _numAchatsFilter = '';
+    });
+    _filterAchats();
+  }
+
+  void _showPreview() {
+    if (_selectedIndex == -1 || _selectedIndex >= _filteredAchats.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez sélectionner une ligne')),
+      );
+      return;
+    }
+
+    final achat = _filteredAchats[_selectedIndex];
+    final resteAPayer = (achat.totalttc ?? 0) - (achat.regl ?? 0);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Aperçu Échéance'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Fournisseur: ${achat.frns ?? ''}'),
+            Text('N° Facture/BL: ${achat.nfact ?? ''}'),
+            Text('N° Achats: ${achat.numachats ?? ''}'),
+            Text('Montant: ${_formatNumber(achat.totalttc)}'),
+            Text('Payé: ${_formatNumber(achat.regl)}'),
+            Text('Reste à payer: ${_formatNumber(resteAPayer)}'),
+            Text('Date facture: ${_formatDate(achat.daty)}'),
+            Text('Échéance: ${_formatDate(achat.echeance)}'),
+            const SizedBox(height: 10),
+            if (achat.echeance != null && achat.echeance!.isBefore(DateTime.now()))
+              const Text('⚠️ ÉCHÉANCE DÉPASSÉE',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Fermer'),
+          ),
+        ],
       ),
     );
   }

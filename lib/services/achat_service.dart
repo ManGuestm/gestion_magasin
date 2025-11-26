@@ -14,6 +14,7 @@ class AchatService {
     required DateTime date,
     required String? fournisseur,
     required String? modePaiement,
+    DateTime? echeance,
     required double totalHT,
     required double totalTTC,
     required double tva,
@@ -28,6 +29,7 @@ class AchatService {
               daty: Value(date),
               frns: Value(fournisseur),
               modepai: Value(modePaiement),
+              echeance: Value(echeance),
               totalnt: Value(totalHT),
               totalttc: Value(totalTTC),
               tva: Value(tva),
@@ -606,6 +608,21 @@ class AchatService {
     }
   }
 
+  /// Contre-passe un achat brouillard (suppression définitive)
+  Future<void> contrePasserAchatBrouillard(String numAchats) async {
+    await _databaseService.database.transaction(() async {
+      // Supprimer les détails
+      await (_databaseService.database.delete(_databaseService.database.detachats)
+            ..where((d) => d.numachats.equals(numAchats)))
+          .go();
+
+      // Supprimer l'achat principal
+      await (_databaseService.database.delete(_databaseService.database.achats)
+            ..where((a) => a.numachats.equals(numAchats)))
+          .go();
+    });
+  }
+
   /// Contre-passe un achat journalisé
   Future<void> contrePasserAchatJournal(String numAchats) async {
     final achat = await (_databaseService.database.select(_databaseService.database.achats)
@@ -624,7 +641,7 @@ class AchatService {
             ..where((a) => a.numachats.equals(numAchats)))
           .write(const AchatsCompanion(contre: Value('1')));
 
-      // 2. Ajuster compte fournisseur (sortie pour annuler l'entrée)
+      // 3. Ajuster compte fournisseur (sortie pour annuler l'entrée)
       if (achat.frns != null && achat.frns!.isNotEmpty) {
         final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
         await _databaseService.database.into(_databaseService.database.comptefrns).insert(
@@ -654,7 +671,7 @@ class AchatService {
         }
       }
 
-      // 3. Mouvement caisse si paiement espèces (entrée pour récupérer l'argent)
+      // 4. Mouvement caisse si paiement espèces (entrée pour récupérer l'argent)
       if (achat.modepai == 'Espèces') {
         final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
         await _databaseService.database.into(_databaseService.database.caisse).insert(

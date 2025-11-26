@@ -489,14 +489,15 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
       'comptefrns', 'compteclt', 'comptecom', 'caisse', 'banque', 'chequier', 'effets',
       'autrescompte', 'blclt', 'emblclt', 'fstocks', 'tribanque', 'tricaisse',
       // Tables production et prix
-      'pv', 'sintrant', 'sproduit',
-      // Table depart (stocks par dépôt) - suppression complète
-      'depart'
+      'pv', 'sintrant', 'sproduit'
     ];
 
     for (final table in tablesToClear) {
       await db.customStatement('DELETE FROM $table');
     }
+
+    // Réinitialiser les stocks par dépôt
+    await _reinitialiserStocksDepots(db);
   }
 
   Future<void> _reinitialiserSelectif(dynamic db) async {
@@ -504,6 +505,8 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
       await db.customStatement('DELETE FROM articles');
       await db.customStatement('DELETE FROM depart');
       await db.customStatement('DELETE FROM pv');
+      await db.customStatement('DELETE FROM stocks');
+      await db.customStatement('DELETE FROM fstocks');
     }
     if (_clients) {
       await db.customStatement('DELETE FROM clt');
@@ -519,6 +522,8 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
       await db.customStatement('DELETE FROM detachats');
       await db.customStatement('DELETE FROM retachats');
       await db.customStatement('DELETE FROM retdetachats');
+      // Supprimer les mouvements de stock liés aux achats
+      await db.customStatement("DELETE FROM stocks WHERE verification IN ('ACHAT', 'RETOUR_ACHAT')");
     }
     if (_ventes) {
       await db.customStatement('DELETE FROM ventes');
@@ -526,10 +531,14 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
       await db.customStatement('DELETE FROM retventes');
       await db.customStatement('DELETE FROM retdeventes');
       await db.customStatement('DELETE FROM blclt');
+      // Supprimer les mouvements de stock liés aux ventes
+      await db.customStatement("DELETE FROM stocks WHERE verification IN ('VENTE', 'RETOUR_VENTE')");
     }
     if (_stocks) {
       await db.customStatement('DELETE FROM stocks');
       await db.customStatement('DELETE FROM fstocks');
+      // Recalculer les stocks après suppression des mouvements
+      await _recalculerStocksApresSuppressionMouvements(db);
     }
     if (_quantitesStock) {
       await _reinitialiserQuantitesStock(db);
@@ -558,14 +567,23 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
         cmup = 0
     ''');
 
-    // 2. Supprimer toutes les entrées existantes dans depart
+    // 2. Réinitialiser les stocks par dépôt
+    await _reinitialiserStocksDepots(db);
+
+    // 3. Supprimer les mouvements de stock pour cohérence
+    await db.customStatement('DELETE FROM stocks');
+    await db.customStatement('DELETE FROM fstocks');
+  }
+
+  Future<void> _reinitialiserStocksDepots(dynamic db) async {
+    // Supprimer toutes les entrées existantes dans depart
     await db.customStatement('DELETE FROM depart');
 
-    // 3. Récupérer tous les articles et tous les dépôts
+    // Récupérer tous les articles et tous les dépôts
     final articles = await db.select(db.articles).get();
     final depots = await db.select(db.depots).get();
 
-    // 4. Créer une entrée dans depart pour chaque combinaison article/dépôt
+    // Créer une entrée dans depart pour chaque combinaison article/dépôt avec stock à 0
     for (final article in articles) {
       for (final depot in depots) {
         await db.into(db.depart).insert(
@@ -579,5 +597,22 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
             );
       }
     }
+  }
+
+  Future<void> _recalculerStocksApresSuppressionMouvements(dynamic db) async {
+    // Remettre à zéro tous les stocks
+    await db.customStatement('''
+      UPDATE articles SET 
+        stocksu1 = 0,
+        stocksu2 = 0,
+        stocksu3 = 0
+    ''');
+    
+    await db.customStatement('''
+      UPDATE depart SET 
+        stocksu1 = 0,
+        stocksu2 = 0,
+        stocksu3 = 0
+    ''');
   }
 }

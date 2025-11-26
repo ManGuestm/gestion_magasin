@@ -237,7 +237,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           'INSERT INTO caisse (ref, daty, lib, credit, debit, soldes, type, clt, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             ref,
-            _paymentDate.toIso8601String(),
+            _paymentDate.millisecondsSinceEpoch,
             libelle,
             amount,
             0.0,
@@ -251,7 +251,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           'INSERT INTO banque (ref, daty, lib, credit, debit, soldes, type, clt, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             ref,
-            _paymentDate.toIso8601String(),
+            _paymentDate.millisecondsSinceEpoch,
             libelle,
             amount,
             0.0,
@@ -290,7 +290,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           'INSERT INTO caisse (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             ref,
-            _paymentDate.toIso8601String(),
+            _paymentDate.millisecondsSinceEpoch,
             libelle,
             amount,
             0.0,
@@ -304,7 +304,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           'INSERT INTO banque (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             ref,
-            _paymentDate.toIso8601String(),
+            _paymentDate.millisecondsSinceEpoch,
             libelle,
             amount,
             0.0,

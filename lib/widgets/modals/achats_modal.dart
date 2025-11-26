@@ -93,7 +93,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     return _achatsNumbers.where((numAchat) {
       final statut = _achatsStatuts[numAchat] ?? 'BROUILLARD';
       final matchesSearch = _searchAchatsText.isEmpty || numAchat.toLowerCase().contains(_searchAchatsText);
-      return statut != 'JOURNAL' && matchesSearch;
+      return statut == 'BROUILLARD' && matchesSearch;
     }).toList();
   }
 
@@ -102,6 +102,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       final statut = _achatsStatuts[numAchat] ?? 'BROUILLARD';
       final matchesSearch = _searchAchatsText.isEmpty || numAchat.toLowerCase().contains(_searchAchatsText);
       return statut == 'JOURNAL' && matchesSearch;
+    }).toList();
+  }
+
+  List<String> _getContrePasseAchats() {
+    return _achatsNumbers.where((numAchat) {
+      final statut = _achatsStatuts[numAchat] ?? 'BROUILLARD';
+      final matchesSearch = _searchAchatsText.isEmpty || numAchat.toLowerCase().contains(_searchAchatsText);
+      return statut == 'CONTRE-PASSÉ' && matchesSearch;
     }).toList();
   }
 
@@ -122,6 +130,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     _searchAchatsFocusNode = createFocusNode();
     _echeanceJoursFocusNode = createFocusNode();
 
+    // Listeners pour les champs d'échéance
+    _dateController.addListener(_onDateChanged);
+    _echeanceJoursController.addListener(_onEcheanceJoursChanged);
+
     _autocompleteController = TextEditingController();
     _loadData();
     _loadAchatsNumbers().then((_) => _initializeForm());
@@ -140,11 +152,65 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     });
   }
 
+  void _onDateChanged() {
+    if (_dateController.text.isNotEmpty) {
+      _calculerEcheanceDepuisDate();
+    }
+  }
+
+  void _onEcheanceJoursChanged() {
+    if (_echeanceJoursController.text.isNotEmpty) {
+      _calculerEcheanceDepuisJours();
+    }
+  }
+
+  void _calculerEcheanceDepuisDate() {
+    try {
+      final dateParts = _dateController.text.split('-');
+      if (dateParts.length == 3) {
+        final dateFacture =
+            DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+
+        final joursEcheance = int.tryParse(_echeanceJoursController.text) ?? 7;
+        final dateEcheance = dateFacture.add(Duration(days: joursEcheance));
+
+        setState(() {
+          _echeanceController.text = app_date.AppDateUtils.formatDate(dateEcheance);
+        });
+      }
+    } catch (e) {
+      // Ignorer les erreurs de parsing
+    }
+  }
+
+  void _calculerEcheanceDepuisJours() {
+    try {
+      final dateParts = _dateController.text.split('-');
+      if (dateParts.length == 3) {
+        final dateFacture =
+            DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+
+        final joursEcheance = int.tryParse(_echeanceJoursController.text) ?? 7;
+        final dateEcheance = dateFacture.add(Duration(days: joursEcheance));
+
+        setState(() {
+          _echeanceController.text = app_date.AppDateUtils.formatDate(dateEcheance);
+        });
+      }
+    } catch (e) {
+      // Ignorer les erreurs de parsing
+    }
+  }
+
   void _initializeForm() async {
     // Toujours créer un nouveau formulaire par défaut
     final now = DateTime.now();
     _dateController.text = app_date.AppDateUtils.formatDate(now);
-    _echeanceController.text = app_date.AppDateUtils.formatDate(now);
+
+    // Échéance par défaut : 7 jours après la date de facturation
+    final echeanceDefaut = now.add(const Duration(days: 7));
+    _echeanceController.text = app_date.AppDateUtils.formatDate(echeanceDefaut);
+    _echeanceJoursController.text = '7';
 
     // Générer le prochain numéro d'achat
     final nextNum = await _getNextNumAchats();
@@ -186,15 +252,20 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       final achats = await _databaseService.database.select(_databaseService.database.achats).get();
 
       setState(() {
+        // Inclure tous les achats (y compris contre-passés)
         _achatsNumbers =
-            achats.map((a) => a.numachats ?? '').where((numAchat) => numAchat.isNotEmpty).toList();
+            achats.where((a) => (a.numachats ?? '').isNotEmpty).map((a) => a.numachats!).toList();
         _achatsNumbers.sort((a, b) => b.compareTo(a)); // Tri décroissant
 
         // Charger les statuts
         _achatsStatuts.clear();
         for (var achat in achats) {
           if (achat.numachats != null) {
-            _achatsStatuts[achat.numachats!] = achat.verification ?? 'BROUILLARD';
+            if (achat.contre == '1') {
+              _achatsStatuts[achat.numachats!] = 'CONTRE-PASSÉ';
+            } else {
+              _achatsStatuts[achat.numachats!] = achat.verification ?? 'BROUILLARD';
+            }
           }
         }
       });
@@ -624,6 +695,19 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           _selectedModePaiement = achat.modepai;
           if (achat.echeance != null) {
             _echeanceController.text = app_date.AppDateUtils.formatDate(achat.echeance!);
+
+            // Calculer les jours d'échéance
+            if (achat.daty != null) {
+              final joursEcheance = achat.echeance!.difference(achat.daty!).inDays;
+              _echeanceJoursController.text = joursEcheance.toString();
+            }
+          } else {
+            // Valeurs par défaut si pas d'échéance
+            _echeanceJoursController.text = '7';
+            if (achat.daty != null) {
+              final echeanceDefaut = achat.daty!.add(const Duration(days: 7));
+              _echeanceController.text = app_date.AppDateUtils.formatDate(echeanceDefaut);
+            }
           }
           _tvaController.text = (achat.tva ?? 0).toString();
           _statutAchatActuel = achat.verification ?? 'BROUILLARD';
@@ -658,12 +742,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _articleFocusNode.requestFocus();
         });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Achat N° $numAchats chargé')),
-          );
-        }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -808,6 +886,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               ..where((d) => d.numachats.equals(_numAchatsController.text)))
             .go();
 
+        // Calculer la date d'échéance
+        DateTime? dateEcheance;
+        if (_echeanceController.text.isNotEmpty) {
+          List<String> echeanceParts = _echeanceController.text.split('-');
+          dateEcheance =
+              DateTime(int.parse(echeanceParts[2]), int.parse(echeanceParts[1]), int.parse(echeanceParts[0]));
+        }
+
         // Mettre à jour l'achat principal (GARDER LE MÊME NUMÉRO)
         await (_databaseService.database.update(_databaseService.database.achats)
               ..where((a) => a.numachats.equals(_numAchatsController.text)))
@@ -816,7 +902,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           daty: Value(dateForDB),
           frns: Value(_selectedFournisseur!),
           modepai: Value(_selectedModePaiement),
-          echeance: Value(_echeanceController.text.isEmpty ? null : dateForDB),
+          echeance: Value(dateEcheance),
           totalnt: Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0),
           tva: Value(double.tryParse(_tvaController.text) ?? 0.0),
           totalttc: Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
@@ -1001,7 +1087,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         builder: (context) => AlertDialog(
           title: const Text('Confirmation'),
           content: Text(
-              'Voulez-vous vraiment contre-passer l\'achat N° ${_numAchatsController.text} ?\n\n${isJournalise ? "Cet achat journalisé sera marqué comme contre-passé sans ajustement des stocks." : "Cet achat sera marqué comme contre-passé et les stocks seront ajustés."}'),
+              'Voulez-vous vraiment contre-passer l\'achat N° ${_numAchatsController.text} ?\n\n${isJournalise ? "Cet achat journalisé sera marqué comme contre-passé et exclu des listes." : "Cet achat brouillard sera SUPPRIMÉ DÉFINITIVEMENT."}'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -1019,38 +1105,27 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     }
 
     try {
-      await _databaseService.database.transaction(() async {
-        // Mettre à jour le statut contre-passé dans la table achats
-        await (_databaseService.database.update(_databaseService.database.achats)
-              ..where((a) => a.numachats.equals(_numAchatsController.text)))
-            .write(const AchatsCompanion(
-          contre: Value('1'),
-        ));
-
-        // Utiliser le service pour contre-passer l'achat
-        if (isJournalise) {
-          await _achatService.contrePasserAchatJournal(_numAchatsController.text);
-        } else {
-          // Pour les achats brouillard, marquer simplement comme contre-passé
-          // (pas de mouvements financiers à annuler)
-        }
-      });
+      // Utiliser le service pour contre-passer l'achat
+      if (isJournalise) {
+        await _achatService.contrePasserAchatJournal(_numAchatsController.text);
+      } else {
+        await _achatService.contrePasserAchatBrouillard(_numAchatsController.text);
+      }
 
       // Recharger toutes les données pour mettre à jour l'interface
       await _loadAchatsNumbers();
       await _loadData();
 
       // Mettre à jour l'interface pour refléter le statut contre-passé
+      // Créer un nouvel achat après contre-passement
       if (mounted) {
-        setState(() {
-          // Recharger l'achat pour voir le statut mis à jour
-          _chargerAchatExistant(_numAchatsController.text);
-        });
+        await _creerNouvelAchat();
       }
 
       if (mounted) {
+        final message = isJournalise ? 'Achat contre-passé avec succès' : 'Achat supprimé définitivement';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Achat contre-passé avec succès')),
+          SnackBar(content: Text(message)),
         );
       }
     } catch (e) {
@@ -1324,7 +1399,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       List<String> dateParts = _dateController.text.split('-');
       DateTime dateForDB =
           DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
-      DateTime? echeanceForDB = _echeanceController.text.isEmpty ? null : dateForDB;
+
+      // Calculer la date d'échéance
+      DateTime? echeanceForDB;
+      if (_echeanceController.text.isNotEmpty) {
+        List<String> echeanceParts = _echeanceController.text.split('-');
+        echeanceForDB =
+            DateTime(int.parse(echeanceParts[2]), int.parse(echeanceParts[1]), int.parse(echeanceParts[0]));
+      }
 
       double totalHT = double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0;
       double tva = double.tryParse(_tvaController.text) ?? 0.0;
@@ -1362,6 +1444,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           date: dateForDB,
           fournisseur: _selectedFournisseur,
           modePaiement: _selectedModePaiement,
+          echeance: echeanceForDB,
           totalHT: totalHT,
           totalTTC: totalTTC,
           tva: tva,
@@ -1442,13 +1525,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       // Ctrl+J : Focus sur Echéance (Jours)
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyJ) {
         _echeanceJoursFocusNode.requestFocus();
-      }
-      // Ctrl+B : Aller au premier achat Brouillard
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyB) {
-        final brouillardAchats = _getBrouillardAchats();
-        if (brouillardAchats.isNotEmpty) {
-          _chargerAchatExistant(brouillardAchats.first);
-        }
       }
       // Ctrl+L : Aller au premier achat Journal
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyL) {
@@ -1567,7 +1643,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                       children: [
                                         Icon(Icons.edit_note, size: 14, color: Colors.orange.shade700),
                                         const SizedBox(width: 4),
-                                        Text('Brouillard (Ctrl + B)',
+                                        Text('Brouillard',
                                             style: TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.bold,
@@ -1644,26 +1720,52 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                       },
                                     ),
                                   ),
+                                  // Section Contre-passé
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade50,
+                                      border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.block, size: 14, color: Colors.red.shade700),
+                                        const SizedBox(width: 4),
+                                        Text('Contre-passé',
+                                            style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.red.shade700)),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 1,
+                                    child: ListView.builder(
+                                      itemCount: _getContrePasseAchats().length,
+                                      itemBuilder: (context, index) {
+                                        final numAchat = _getContrePasseAchats()[index];
+                                        return Container(
+                                          decoration: BoxDecoration(
+                                            color: _numAchatsController.text == numAchat
+                                                ? Colors.red.shade100
+                                                : null,
+                                            border: Border(
+                                                bottom: BorderSide(color: Colors.grey.shade200, width: 0.5)),
+                                          ),
+                                          child: ListTile(
+                                            dense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                            title: Text('N° $numAchat', style: const TextStyle(fontSize: 11)),
+                                            onTap: () => _chargerAchatExistant(numAchat),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 ],
                               ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          border: Border(top: BorderSide(color: Colors.grey.shade300)),
-                        ),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _creerNouvelAchat,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                            child: const Text('Nouveau', style: TextStyle(fontSize: 11)),
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -3714,6 +3816,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   @override
   void dispose() {
+    _dateController.removeListener(_onDateChanged);
+    _echeanceJoursController.removeListener(_onEcheanceJoursChanged);
     _numAchatsController.dispose();
     _nFactController.dispose();
     _dateController.dispose();

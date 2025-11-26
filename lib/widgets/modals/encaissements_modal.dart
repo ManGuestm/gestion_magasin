@@ -27,7 +27,7 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
   Future<void> _loadEncaissements() async {
     try {
       final caisses = await _databaseService.database.getAllCaisses();
-      final encaissements = caisses.where((c) => (c.debit ?? 0) > 0).toList();
+      final encaissements = caisses.where((c) => (c.credit ?? 0) > 0).toList();
       encaissements.sort((a, b) => (b.daty ?? DateTime(0)).compareTo(a.daty ?? DateTime(0)));
       setState(() {
         _encaissements = encaissements;
@@ -48,7 +48,7 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
   }
 
   double get _totalEncaissements {
-    return _encaissements.fold(0.0, (sum, item) => sum + (item.debit ?? 0));
+    return _encaissements.fold(0.0, (sum, item) => sum + (item.credit ?? 0));
   }
 
   Color _getTypeColor(String? type) {
@@ -78,8 +78,8 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
                 ref: nextRef,
                 daty: drift.Value(result['date']),
                 lib: drift.Value(result['libelle']),
-                debit: drift.Value(result['montant']),
-                credit: const drift.Value(0.0),
+                debit: const drift.Value(0.0),
+                credit: drift.Value(result['montant']),
                 type: drift.Value(result['type']),
                 verification: const drift.Value('JOURNAL'),
               ),
@@ -152,6 +152,7 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
                   SizedBox(height: 20),
                   Row(
                     children: [
+                      Spacer(),
                       if (!_isLoading)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -160,7 +161,7 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            '${_encaissements.length} entrées',
+                            '${_encaissements.length} encaissé(s)',
                             style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.w500),
                           ),
                         ),
@@ -200,118 +201,179 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
                         )
                       : Column(
                           children: [
-                            // En-têtes du tableau
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Expanded(
-                                      flex: 2,
-                                      child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
-                                  Expanded(
-                                      flex: 3,
-                                      child: Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold))),
-                                  Expanded(
-                                      flex: 2,
-                                      child: Text('Type', style: TextStyle(fontWeight: FontWeight.bold))),
-                                  Expanded(
-                                      flex: 2,
-                                      child: Text('Montant',
-                                          style: TextStyle(fontWeight: FontWeight.bold),
-                                          textAlign: TextAlign.right)),
-                                ],
-                              ),
-                            ),
-                            // Lignes du tableau
+                            // Table avec bordures
                             Expanded(
-                              child: ListView.builder(
-                                itemCount: _encaissements.length,
-                                itemBuilder: (context, index) {
-                                  final encaissement = _encaissements[index];
-                                  final isEven = index % 2 == 0;
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                    decoration: BoxDecoration(
-                                      color: isEven ? Colors.white : Colors.grey.shade50,
-                                      border:
-                                          Border(bottom: BorderSide(color: Colors.grey.shade200, width: 0.5)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            encaissement.daty != null
-                                                ? DateFormat('dd/MM/yyyy').format(encaissement.daty!)
-                                                : 'N/A',
-                                            style: const TextStyle(fontSize: 13),
-                                          ),
+                              child: Container(
+                                margin: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey.shade300, width: 1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Column(
+                                  children: [
+                                    // En-tête du tableau
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade100,
+                                        border: Border(
+                                          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
                                         ),
-                                        Expanded(
-                                          flex: 3,
-                                          child: Text(
-                                            encaissement.lib ?? 'N/A',
-                                            style: const TextStyle(fontSize: 13),
-                                          ),
+                                        borderRadius: const BorderRadius.only(
+                                          topLeft: Radius.circular(7),
+                                          topRight: Radius.circular(7),
                                         ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: _getTypeColor(encaissement.type),
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
+                                      ),
+                                      child: const Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 2,
                                             child: Text(
-                                              encaissement.type ?? 'N/A',
-                                              style: const TextStyle(fontSize: 11, color: Colors.white),
+                                              'Date',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 3,
+                                            child: Text(
+                                              'Libellé',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              'Type',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                               textAlign: TextAlign.center,
                                             ),
                                           ),
-                                        ),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Text(
-                                            '${_formatNumber(encaissement.debit ?? 0)} Ar',
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.green,
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              'Montant',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                              textAlign: TextAlign.right,
                                             ),
-                                            textAlign: TextAlign.right,
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  );
-                                },
+                                    // Lignes du tableau
+                                    Expanded(
+                                      child: ListView.builder(
+                                        itemCount: _encaissements.length,
+                                        itemBuilder: (context, index) {
+                                          final encaissement = _encaissements[index];
+                                          final isLast = index == _encaissements.length - 1;
+                                          return Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                            decoration: BoxDecoration(
+                                              color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
+                                              border: isLast
+                                                  ? null
+                                                  : Border(
+                                                      bottom: BorderSide(
+                                                        color: Colors.grey.shade300,
+                                                        width: 0.5,
+                                                      ),
+                                                    ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Text(
+                                                    encaissement.daty != null
+                                                        ? DateFormat('dd/MM/yyyy').format(encaissement.daty!)
+                                                        : 'N/A',
+                                                    style: const TextStyle(fontSize: 13),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 3,
+                                                  child: Text(
+                                                    encaissement.lib ?? 'N/A',
+                                                    style: const TextStyle(fontSize: 13),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Center(
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(
+                                                          horizontal: 8, vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: _getTypeColor(encaissement.type),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      child: Text(
+                                                        encaissement.type ?? 'N/A',
+                                                        style: const TextStyle(
+                                                          fontSize: 11,
+                                                          color: Colors.white,
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                        textAlign: TextAlign.center,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Text(
+                                                    '${_formatNumber(encaissement.credit ?? 0)} Ar',
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.w600,
+                                                      color: Colors.green,
+                                                    ),
+                                                    textAlign: TextAlign.right,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                             // Total
                             Container(
+                              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
                                 color: Colors.green.shade50,
-                                border: Border(top: BorderSide(color: Colors.green.shade200, width: 2)),
+                                border: Border.all(color: Colors.green.shade300, width: 1),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
+                                  Icon(Icons.account_balance_wallet, color: Colors.green.shade700, size: 20),
+                                  const SizedBox(width: 8),
                                   const Expanded(
                                     child: Text(
                                       'Total des Encaissements',
                                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                     ),
                                   ),
-                                  Text(
-                                    '${_formatNumber(_totalEncaissements)} Ar',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.green.shade700,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade600,
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      '${_formatNumber(_totalEncaissements)} Ar',
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ],

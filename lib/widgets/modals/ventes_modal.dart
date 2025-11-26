@@ -226,6 +226,19 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           .where((v) => (v['numventes'] as String).isNotEmpty)
           .toList();
 
+      // Filtrer par N° Fact/BL si dépôt MAG seulement
+      if (!widget.tousDepots) {
+        result = result.where((v) {
+          final nfact = v['nfact'] as String? ?? '';
+          return nfact.startsWith('MAG');
+        }).toList();
+      } else {
+        result = result.where((v) {
+          final nfact = v['nfact'] as String? ?? '';
+          return nfact.startsWith('DEP');
+        }).toList();
+      }
+
       // Trier par date décroissante
       result.sort((a, b) => (b['daty'] ?? DateTime(0)).compareTo(a['daty'] ?? DateTime(0)));
 
