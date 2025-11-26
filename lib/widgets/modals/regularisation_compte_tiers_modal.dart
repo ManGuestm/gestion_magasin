@@ -8,7 +8,12 @@ import '../../database/database_service.dart';
 import '../common/enhanced_autocomplete.dart';
 
 class RegularisationCompteTiersModal extends StatefulWidget {
-  const RegularisationCompteTiersModal({super.key});
+  final VoidCallback? onPaymentSuccess;
+
+  const RegularisationCompteTiersModal({
+    super.key,
+    this.onPaymentSuccess,
+  });
 
   @override
   State<RegularisationCompteTiersModal> createState() => _RegularisationCompteTiersModalState();
@@ -203,6 +208,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
       }
 
       _showSuccess('Règlement enregistré avec succès');
+      widget.onPaymentSuccess?.call();
       _resetForm();
     } catch (e) {
       _showError('Erreur lors de l\'enregistrement: $e');
@@ -272,7 +278,12 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
     await _databaseService.database.customStatement(
         'UPDATE frns SET soldes = ? WHERE rsoc = ?', [nouveauSolde, _selectedSupplier!.rsoc]);
 
-    // 2. Écriture compte fournisseur
+    // 2. Mettre à jour le montant réglé dans les achats
+    await _databaseService.database.customStatement(
+        'UPDATE achats SET regl = COALESCE(regl, 0) + ? WHERE frns = ? AND (totalttc - COALESCE(regl, 0)) > 0',
+        [amount, _selectedSupplier!.rsoc]);
+
+    // 3. Écriture compte fournisseur
     await _databaseService.database.insertComptefrns(ComptefrnsCompanion(
       ref: Value(ref),
       daty: Value(_paymentDate),
@@ -284,7 +295,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
       verification: const Value('REGLEMENT'),
     ));
 
-    // 3. Décaissement selon le mode de paiement
+    // 4. Décaissement selon le mode de paiement
     if (_paymentMethod == 'Espèces') {
       await _databaseService.database.customStatement(
           'INSERT INTO caisse (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',

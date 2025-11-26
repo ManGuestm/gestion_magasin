@@ -2809,17 +2809,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           _tvaController.selection = TextSelection(baseOffset: 0, extentOffset: _tvaController.text.length);
         });
       }
-      // Ctrl+B : Accéder à la dernière vente en Brouillard
-      else if (isCtrl && !isShift && event.logicalKey == LogicalKeyboardKey.keyB) {
-        _ventesFuture?.then((ventes) {
-          final brouillards =
-              ventes.where((v) => v['verification'] == 'BROUILLARD' && v['contre'] != '1').toList();
-          if (brouillards.isNotEmpty) {
-            final dernierBrouillard = brouillards.first;
-            _chargerVenteExistante(dernierBrouillard['numventes']);
-          }
-        });
-      }
+
       // Ctrl+J : Accéder à la dernière vente Journal
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyJ) {
         _ventesFuture?.then((ventes) {
@@ -3252,7 +3242,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         children: [
                                                           Icon(Icons.pending, size: 12, color: Colors.orange),
                                                           SizedBox(width: 4),
-                                                          Text('Brouillard (Ctrl+B)',
+                                                          Text('Brouillard',
                                                               style: TextStyle(
                                                                   fontSize: 12,
                                                                   fontWeight: FontWeight.w500,
