@@ -3405,7 +3405,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               ),
                               alignment: pw.Alignment.center,
                               child: pw.Text(
-                                'Arrêté à la somme de ${AppFunctions.formatNumber(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0)} Ariary',
+                                'Arrêté à la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
                                 style: pw.TextStyle(
                                   fontSize: pdfFontSize - 1,
                                   fontWeight: pw.FontWeight.bold,
