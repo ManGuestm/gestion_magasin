@@ -37,7 +37,11 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(
+            content: SelectableText('Erreur: $e'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 15),
+          ),
         );
       }
     }
@@ -76,7 +80,7 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
         await _databaseService.database.into(_databaseService.database.caisse).insert(
               CaisseCompanion.insert(
                 ref: nextRef,
-                daty: drift.Value(result['date']),
+                daty: drift.Value(result['daty']),
                 lib: drift.Value(result['libelle']),
                 debit: const drift.Value(0.0),
                 credit: drift.Value(result['montant']),
@@ -93,7 +97,11 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: SelectableText('Erreur: $e'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 15),
+            ),
           );
         }
       }
@@ -104,8 +112,13 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
     final caisses = await _databaseService.database.getAllCaisses();
     int maxNum = 0;
     for (var caisse in caisses) {
-      final num = int.tryParse(caisse.ref.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-      if (num > maxNum) maxNum = num;
+      if (caisse.ref.startsWith('DEC')) {
+        final numStr = caisse.ref.replaceAll(RegExp(r'[^0-9]'), '');
+        if (numStr.isNotEmpty) {
+          final num = int.tryParse(numStr) ?? 0;
+          if (num > maxNum) maxNum = num;
+        }
+      }
     }
     return 'DEC${(maxNum + 1).toString().padLeft(4, '0')}';
   }
@@ -411,7 +424,7 @@ class _AjouterDepenseDialogState extends State<_AjouterDepenseDialog> {
                 'libelle': _libelleController.text,
                 'type': _selectedType,
                 'montant': double.tryParse(_montantController.text) ?? 0.0,
-                'date': _selectedDate,
+                'daty': _selectedDate,
               });
             }
           },

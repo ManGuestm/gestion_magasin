@@ -936,6 +936,66 @@ class AppDatabase extends _$AppDatabase {
   Future<Depot?> getDepotByName(String name) =>
       (select(depots)..where((tbl) => tbl.depots.equals(name))).getSingleOrNull();
 
+  // ========== MÉTHODES CAISSE ==========
+  /// Récupère toutes les opérations de caisse avec gestion d'erreur
+  Future<List<CaisseData>> getAllCaisses() async {
+    try {
+      return await select(caisse).get();
+    } catch (e) {
+      // En cas d'erreur de parsing, récupérer les données valides uniquement
+      final query = selectOnly(caisse)
+        ..addColumns([
+          caisse.ref,
+          caisse.daty,
+          caisse.lib,
+          caisse.debit,
+          caisse.credit,
+          caisse.soldes,
+          caisse.type,
+          caisse.clt,
+          caisse.frns,
+          caisse.verification,
+          caisse.comptes,
+        ]);
+
+      final results = await query.get();
+      return results.map((row) {
+        return CaisseData(
+          ref: row.read(caisse.ref) ?? '',
+          daty: row.read(caisse.daty),
+          lib: row.read(caisse.lib),
+          debit: _safeParseDouble(row.read(caisse.debit)),
+          credit: _safeParseDouble(row.read(caisse.credit)),
+          soldes: _safeParseDouble(row.read(caisse.soldes)),
+          type: row.read(caisse.type),
+          clt: row.read(caisse.clt),
+          frns: row.read(caisse.frns),
+          verification: row.read(caisse.verification),
+          comptes: row.read(caisse.comptes),
+        );
+      }).toList();
+    }
+  }
+
+  /// Parse sécurisé d'un double depuis une valeur dynamique
+  double? _safeParseDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      // Ignorer les chaînes qui ressemblent à des dates ISO ou timestamps
+      if (value.contains('T') || value.contains('-') && value.length > 10) return 0.0;
+      // Ignorer les chaînes vides
+      if (value.trim().isEmpty) return 0.0;
+      return double.tryParse(value.trim()) ?? 0.0;
+    }
+    return 0.0;
+  }
+
+  /// Récupère une opération de caisse par référence
+  Future<CaisseData?> getCaisseByRef(String ref) =>
+      (select(caisse)..where((tbl) => tbl.ref.equals(ref))).getSingleOrNull();
+
   /// Récupère le dernier dépôt utilisé dans les détails de ventes
   Future<String?> getDernierDepotUtilise() async {
     final result = await (select(detventes)
@@ -1491,8 +1551,8 @@ class AppDatabase extends _$AppDatabase {
 
   // ========== AUTRES MÉTHODES ==========
 
-  /// Récupère toutes les opérations de caisse
-  Future<List<CaisseData>> getAllCaisses() => select(caisse).get();
+  // /// Récupère toutes les opérations de caisse
+  // Future<List<CaisseData>> getAllCaisses() => select(caisse).get();
 
   /// Récupère tous les chéquiers
   Future<List<ChequierData>> getAllChequiers() => select(chequier).get();

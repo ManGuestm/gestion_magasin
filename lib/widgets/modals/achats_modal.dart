@@ -3028,27 +3028,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                   ),
                                 ),
                                 const Spacer(),
-                                Tooltip(
-                                  message: 'Aperçu BR (Ctrl+P)',
-                                  child: ElevatedButton(
-                                    onPressed: _lignesAchat.isNotEmpty ? _ouvrirApercuBR : null,
-                                    style: ElevatedButton.styleFrom(minimumSize: const Size(70, 30)),
-                                    child: const Text('Aperçu BR', style: TextStyle(fontSize: 12)),
-                                  ),
-                                ),
-                                Tooltip(
-                                  message: 'Imprimer BR',
-                                  child: ElevatedButton(
-                                    onPressed: _lignesAchat.isNotEmpty ? _imprimerBonReception : null,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.purple,
-                                      foregroundColor: Colors.white,
-                                      minimumSize: const Size(70, 30),
-                                    ),
-                                    child: const Icon(Icons.print, size: 16),
-                                  ),
-                                ),
                                 PopupMenuButton<String>(
+                                  style: ButtonStyle(
+                                      padding: WidgetStateProperty.fromMap({
+                                    WidgetState.hovered: const EdgeInsets.all(0),
+                                    WidgetState.focused: const EdgeInsets.all(0),
+                                    WidgetState.pressed: const EdgeInsets.all(0),
+                                  })),
+                                  menuPadding: EdgeInsets.all(2),
                                   initialValue: _selectedFormat,
                                   onSelected: (String format) {
                                     setState(() {
@@ -3070,10 +3057,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     ),
                                   ],
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    constraints: const BoxConstraints(
+                                      minWidth: 60,
+                                      minHeight: 18,
+                                      maxHeight: 30,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                                     decoration: BoxDecoration(
                                       color: Colors.brown,
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -3088,9 +3080,38 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     ),
                                   ),
                                 ),
+                                Tooltip(
+                                  message: 'Aperçu BR',
+                                  child: ElevatedButton(
+                                    onPressed: _lignesAchat.isNotEmpty ? _ouvrirApercuBR : null,
+                                    style: ElevatedButton.styleFrom(minimumSize: const Size(70, 30)),
+                                    child: const Text('Aperçu BR', style: TextStyle(fontSize: 12)),
+                                  ),
+                                ),
+                                Tooltip(
+                                  message: 'Imprimer BR (Ctrl+P)',
+                                  child: ElevatedButton(
+                                    onPressed: _lignesAchat.isNotEmpty ? _imprimerBonReception : null,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.purple,
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size(70, 30),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.print, size: 16),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          "Imprimer BR (Ctrl+P)",
+                                          style: TextStyle(fontSize: 12),
+                                        )
+                                      ],
+                                    ),
+                                  ),
+                                ),
                                 const Spacer(),
                                 Tooltip(
-                                  message: 'Fermer (Escape)',
+                                  message: 'Fermer (Echap)',
                                   child: ElevatedButton(
                                     onPressed: () => Navigator.of(context).pop(),
                                     style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
@@ -3168,14 +3189,37 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     final pdfPadding = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
 
     // Calculer le nombre de lignes par page
-    final int maxLinesPerPage = _selectedFormat == 'A6' ? 15 : (_selectedFormat == 'A5' ? 20 : 25);
-    final int totalPages = (_lignesAchat.length / maxLinesPerPage).ceil();
+    final int maxLinesPerPage = _selectedFormat == 'A6' ? 25 : (_selectedFormat == 'A5' ? 30 : 35);
+    final int articlePages = (_lignesAchat.length / maxLinesPerPage).ceil().clamp(1, double.infinity).toInt();
 
-    for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
+    // Calculer l'espace disponible sur la dernière page en lignes équivalentes
+    final int lastPageLines = _lignesAchat.isEmpty
+        ? 0
+        : (_lignesAchat.length % maxLinesPerPage == 0
+            ? maxLinesPerPage
+            : _lignesAchat.length % maxLinesPerPage);
+    final int emptyLinesOnLastPage = maxLinesPerPage - lastPageLines;
+
+    // Estimation de l'espace nécessaire en nombre de lignes équivalentes
+    final int totalsEquivalentLines = _selectedFormat == 'A6' ? 8 : (_selectedFormat == 'A5' ? 7 : 6);
+    final int signaturesEquivalentLines = _selectedFormat == 'A6' ? 5 : (_selectedFormat == 'A5' ? 4 : 4);
+
+    bool canFitTotalsOnLastPage = emptyLinesOnLastPage >= totalsEquivalentLines;
+    bool canFitBothOnLastPage = emptyLinesOnLastPage >= (totalsEquivalentLines + signaturesEquivalentLines);
+
+    int totalPages = articlePages;
+    if (!canFitTotalsOnLastPage) {
+      totalPages += 1; // Page séparée pour totaux et signatures
+    } else if (!canFitBothOnLastPage) {
+      totalPages += 1; // Page séparée pour signatures seulement
+    }
+
+    // Pages avec articles
+    for (int pageIndex = 0; pageIndex < articlePages; pageIndex++) {
       final int startIndex = pageIndex * maxLinesPerPage;
       final int endIndex = (startIndex + maxLinesPerPage).clamp(0, _lignesAchat.length);
       final List<Map<String, dynamic>> pageLines = _lignesAchat.sublist(startIndex, endIndex);
-      final bool isLastPage = pageIndex == totalPages - 1;
+      final bool isLastArticlePage = pageIndex == articlePages - 1;
 
       pdf.addPage(
         pw.Page(
@@ -3217,9 +3261,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                         border: pw.Border.all(color: PdfColors.black, width: 1),
                       ),
                       padding: pw.EdgeInsets.all(pdfPadding / 2),
-                      child:
-                          // Company info row
-                          pw.Row(
+                      child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Expanded(
@@ -3352,150 +3394,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                       ),
                     ),
 
-                    // Totals et footer seulement sur la dernière page
-                    if (isLastPage) ...[
-                      pw.SizedBox(height: pdfPadding),
-
-                      // Totals section
-                      pw.Container(
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border.all(color: PdfColors.black, width: 1),
-                        ),
-                        padding: pw.EdgeInsets.all(pdfPadding / 2),
-                        child: pw.Column(
-                          children: [
-                            pw.Row(
-                              children: [
-                                pw.Spacer(),
-                                pw.Column(
-                                  crossAxisAlignment: pw.CrossAxisAlignment.end,
-                                  children: [
-                                    _buildPdfTotalRow(
-                                        'TOTAL HT:',
-                                        AppFunctions.formatNumber(
-                                            double.tryParse(_totalHTController.text.replaceAll(' ', '')) ??
-                                                0),
-                                        pdfFontSize),
-                                    _buildPdfTotalRow(
-                                        'TVA:',
-                                        AppFunctions.formatNumber(double.tryParse(_tvaController.text) ?? 0),
-                                        pdfFontSize),
-                                    pw.Container(
-                                      decoration: const pw.BoxDecoration(
-                                        border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
-                                      ),
-                                      child: _buildPdfTotalRow(
-                                          'TOTAL TTC:',
-                                          AppFunctions.formatNumber(
-                                              double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ??
-                                                  0),
-                                          pdfFontSize,
-                                          isBold: true),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            pw.SizedBox(height: pdfPadding / 2),
-                            pw.Container(
-                              width: double.infinity,
-                              padding: pw.EdgeInsets.all(pdfPadding / 2),
-                              decoration: pw.BoxDecoration(
-                                border: pw.Border.all(color: PdfColors.black, width: 0.5),
-                              ),
-                              alignment: pw.Alignment.center,
-                              child: pw.Text(
-                                'Arrêté à la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
-                                style: pw.TextStyle(
-                                  fontSize: pdfFontSize - 1,
-                                  fontWeight: pw.FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            pw.SizedBox(height: pdfPadding / 2),
-                            pw.Row(
-                              children: [
-                                pw.Text(
-                                  'Mode de paiement: ',
-                                  style:
-                                      pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
-                                ),
-                                pw.Text(
-                                  _selectedModePaiement ?? "",
-                                  style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
+                    // Ajouter totaux sur la dernière page d'articles si possible
+                    if (isLastArticlePage && canFitTotalsOnLastPage) ...[
                       pw.SizedBox(height: pdfPadding * 2),
+                      _buildTotalsSection(pdfFontSize, pdfPadding),
+                    ],
 
-                      // Signatures section
-                      pw.Container(
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border.all(color: PdfColors.black, width: 1),
-                        ),
-                        padding: pw.EdgeInsets.all(pdfPadding),
-                        child: pw.Row(
-                          children: [
-                            pw.Expanded(
-                              child: pw.Column(
-                                children: [
-                                  pw.Text(
-                                    'FOURNISSEUR',
-                                    style: pw.TextStyle(
-                                      fontSize: pdfFontSize,
-                                      fontWeight: pw.FontWeight.bold,
-                                    ),
-                                  ),
-                                  pw.SizedBox(height: pdfPadding * 2),
-                                  pw.Container(
-                                    height: 1,
-                                    color: PdfColors.black,
-                                    margin: const pw.EdgeInsets.symmetric(horizontal: 20),
-                                  ),
-                                  pw.SizedBox(height: pdfPadding / 2),
-                                  pw.Text(
-                                    'Nom et signature',
-                                    style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            pw.Container(
-                              width: 1,
-                              height: 60,
-                              color: PdfColors.black,
-                            ),
-                            pw.Expanded(
-                              child: pw.Column(
-                                children: [
-                                  pw.Text(
-                                    'RÉCEPTIONNAIRE',
-                                    style: pw.TextStyle(
-                                      fontSize: pdfFontSize,
-                                      fontWeight: pw.FontWeight.bold,
-                                    ),
-                                  ),
-                                  pw.SizedBox(height: pdfPadding * 2),
-                                  pw.Container(
-                                    height: 1,
-                                    color: PdfColors.black,
-                                    margin: const pw.EdgeInsets.symmetric(horizontal: 20),
-                                  ),
-                                  pw.SizedBox(height: pdfPadding / 2),
-                                  pw.Text(
-                                    'Nom et signature',
-                                    style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    // Ajouter signatures sur la dernière page si possible
+                    if (isLastArticlePage && canFitBothOnLastPage) ...[
+                      pw.SizedBox(height: pdfPadding * 2),
+                      _buildSignaturesSection(pdfFontSize, pdfPadding),
                     ],
                   ],
                 ),
@@ -3506,7 +3414,250 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       );
     }
 
+    // Page séparée pour totaux et/ou signatures si nécessaire
+    if (!canFitTotalsOnLastPage || (!canFitBothOnLastPage && canFitTotalsOnLastPage)) {
+      pdf.addPage(
+        pw.Page(
+          pageFormat: _pdfPageFormat,
+          margin: const pw.EdgeInsets.all(3),
+          build: (context) {
+            return pw.Center(
+              child: pw.Container(
+                alignment: pw.Alignment.topCenter,
+                padding: pw.EdgeInsets.all(pdfPadding),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    // Document title centered
+                    pw.Center(
+                      child: pw.Container(
+                        padding: pw.EdgeInsets.symmetric(vertical: pdfPadding / 2),
+                        decoration: const pw.BoxDecoration(
+                          border: pw.Border(
+                            top: pw.BorderSide(color: PdfColors.black, width: 2),
+                            bottom: pw.BorderSide(color: PdfColors.black, width: 2),
+                          ),
+                        ),
+                        child: pw.Text(
+                          'BON DE RÉCEPTION',
+                          style: pw.TextStyle(
+                            fontWeight: pw.FontWeight.bold,
+                            fontSize: pdfHeaderFontSize + 2,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    pw.SizedBox(height: pdfPadding),
+
+                    // Header section with company and document info
+                    pw.Container(
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.black, width: 1),
+                      ),
+                      padding: pw.EdgeInsets.all(pdfPadding / 2),
+                      child: pw.Row(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Expanded(
+                            flex: 3,
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  'SOCIÉTÉ:',
+                                  style:
+                                      pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
+                                ),
+                                pw.Text(
+                                  _societe?.rsoc ?? 'SOCIÉTÉ',
+                                  style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
+                                ),
+                                if (_societe?.activites != null)
+                                  pw.Text(
+                                    _societe!.activites!,
+                                    style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                  ),
+                                if (_societe?.adr != null)
+                                  pw.Text(
+                                    _societe!.adr!,
+                                    style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          pw.Expanded(
+                            flex: 2,
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                _buildPdfInfoRow('N° DOCUMENT:', _numAchatsController.text, pdfFontSize),
+                                _buildPdfInfoRow('DATE:', _dateController.text, pdfFontSize),
+                                _buildPdfInfoRow('N° FACTURE:', _nFactController.text, pdfFontSize),
+                                _buildPdfInfoRow('FOURNISSEUR:', _selectedFournisseur ?? "", pdfFontSize),
+                                _buildPdfInfoRow('PAGE:', '$totalPages/$totalPages', pdfFontSize),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    pw.SizedBox(height: pdfPadding * 2),
+
+                    // Totaux si pas déjà sur la dernière page d'articles
+                    if (!canFitTotalsOnLastPage) _buildTotalsSection(pdfFontSize, pdfPadding),
+
+                    pw.SizedBox(height: pdfPadding * 2),
+
+                    // Signatures
+                    _buildSignaturesSection(pdfFontSize, pdfPadding),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
+
     return pdf;
+  }
+
+  pw.Widget _buildTotalsSection(double pdfFontSize, double pdfPadding) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: 1),
+      ),
+      padding: pw.EdgeInsets.all(pdfPadding / 2),
+      child: pw.Column(
+        children: [
+          pw.Row(
+            children: [
+              pw.Spacer(),
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  _buildPdfTotalRow(
+                      'TOTAL HT:',
+                      AppFunctions.formatNumber(
+                          double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0),
+                      pdfFontSize),
+                  _buildPdfTotalRow('TVA:',
+                      AppFunctions.formatNumber(double.tryParse(_tvaController.text) ?? 0), pdfFontSize),
+                  pw.Container(
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
+                    ),
+                    child: _buildPdfTotalRow(
+                        'TOTAL TTC:',
+                        AppFunctions.formatNumber(
+                            double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0),
+                        pdfFontSize,
+                        isBold: true),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          pw.SizedBox(height: pdfPadding / 2),
+          pw.Container(
+            width: double.infinity,
+            padding: pw.EdgeInsets.all(pdfPadding / 2),
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: PdfColors.black, width: 0.5),
+            ),
+            alignment: pw.Alignment.center,
+            child: pw.Text(
+              'Arrêté à la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
+              style: pw.TextStyle(
+                fontSize: pdfFontSize - 1,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+          ),
+          pw.SizedBox(height: pdfPadding / 2),
+          pw.Row(
+            children: [
+              pw.Text(
+                'Mode de paiement: ',
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
+              ),
+              pw.Text(
+                _selectedModePaiement ?? "",
+                style: pw.TextStyle(fontSize: pdfFontSize - 1),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _buildSignaturesSection(double pdfFontSize, double pdfPadding) {
+    return pw.Container(
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.black, width: 1),
+      ),
+      padding: pw.EdgeInsets.all(pdfPadding),
+      child: pw.Row(
+        children: [
+          pw.Expanded(
+            child: pw.Column(
+              children: [
+                pw.Text(
+                  'FOURNISSEUR',
+                  style: pw.TextStyle(
+                    fontSize: pdfFontSize,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: pdfPadding * 2),
+                pw.Container(
+                  height: 1,
+                  color: PdfColors.black,
+                  margin: const pw.EdgeInsets.symmetric(horizontal: 20),
+                ),
+                pw.SizedBox(height: pdfPadding / 2),
+                pw.Text(
+                  'Nom et signature',
+                  style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                ),
+              ],
+            ),
+          ),
+          pw.Container(
+            width: 1,
+            height: 60,
+            color: PdfColors.black,
+          ),
+          pw.Expanded(
+            child: pw.Column(
+              children: [
+                pw.Text(
+                  'RÉCEPTIONNAIRE',
+                  style: pw.TextStyle(
+                    fontSize: pdfFontSize,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: pdfPadding * 2),
+                pw.Container(
+                  height: 1,
+                  color: PdfColors.black,
+                  margin: const pw.EdgeInsets.symmetric(horizontal: 20),
+                ),
+                pw.SizedBox(height: pdfPadding / 2),
+                pw.Text(
+                  'Nom et signature',
+                  style: pw.TextStyle(fontSize: pdfFontSize - 2),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   pw.Widget _buildPdfTableCell(String text, double fontSize, {bool isHeader = false, bool isAmount = false}) {

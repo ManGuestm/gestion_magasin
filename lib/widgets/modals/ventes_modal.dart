@@ -4776,7 +4776,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
                                           decoration: BoxDecoration(
                                             color: Colors.orange,
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(12),
                                           ),
                                           child: Row(
                                             mainAxisSize: MainAxisSize.min,
