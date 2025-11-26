@@ -1157,6 +1157,75 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     return AppFunctions.formatNumber(tvaAmount);
   }
 
+  Future<bool> _verifierPrixVente(double prixVente, double prixAchat, String unite) async {
+    if (prixVente == 0) {
+      // Prix = 0 : Modal cadeau
+      final continuer = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Vente gratuite'),
+          content: const Text('Le prix de vente est de 0 Ar.\n\nVoulez-vous offrir cet article comme cadeau ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              autofocus: true,
+              child: const Text('Cadeau'),
+            ),
+          ],
+        ),
+      );
+      return continuer ?? false;
+    } else if (prixVente < prixAchat) {
+      // Prix de vente < Prix d'achat : Modal confirmation
+      final continuer = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Prix de vente inférieur au coût'),
+          content: Text(
+              'Prix de vente: ${AppFunctions.formatNumber(prixVente)} Ar/$unite\n'
+              'Prix d\'achat (CMUP): ${AppFunctions.formatNumber(prixAchat)} Ar/$unite\n\n'
+              'Le prix de vente est inférieur au prix d\'achat.\n\n'
+              'Êtes-vous sûr de continuer cette opération ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              autofocus: true,
+              child: const Text('Continuer quand même'),
+            ),
+          ],
+        ),
+      );
+      return continuer ?? false;
+    }
+    return true; // Prix normal, continuer
+  }
+
+  Future<double> _getPrixAchatPourUnite(Article article, String unite) async {
+    double cmup = article.cmup ?? 0.0;
+    if (cmup == 0.0) return 0.0;
+
+    // Le CMUP est stocké en unité de base (u3), convertir vers l'unité demandée
+    if (unite == article.u1 && article.tu2u1 != null && article.tu3u2 != null) {
+      // Prix u1 = CMUP × (tu2u1 × tu3u2)
+      return cmup * (article.tu2u1! * article.tu3u2!);
+    } else if (unite == article.u2 && article.tu3u2 != null) {
+      // Prix u2 = CMUP × tu3u2
+      return cmup * article.tu3u2!;
+    } else if (unite == article.u3) {
+      // Prix u3 = CMUP directement
+      return cmup;
+    }
+    return cmup; // Par défaut
+  }
+
   void _ajouterLigne() async {
     if (_selectedArticle == null) return;
 
@@ -1164,6 +1233,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
     String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? 'Pce');
     String depot = _selectedDepot ?? _defaultDepot;
+
+    // Vérifier les prix avant de continuer
+    final prixAchat = await _getPrixAchatPourUnite(_selectedArticle!, unite);
+    final prixValide = await _verifierPrixVente(prix, prixAchat, unite);
+    if (!prixValide) return;
 
     // Vérifier stock selon le type de dépôt
     if (quantite > _stockDisponible) {
