@@ -176,7 +176,7 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              isEdit ? 'Valider' : 'Créer',
+                              isEdit ? 'Enregistrer' : 'Créer',
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Colors.white,

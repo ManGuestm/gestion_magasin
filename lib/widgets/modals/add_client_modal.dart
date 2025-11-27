@@ -38,7 +38,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
   void initState() {
     super.initState();
     _rsocFocusNode = createFocusNode();
-    
+
     if (widget.client != null) {
       _rsocController.text = widget.client!.rsoc;
       _adrController.text = widget.client!.adr ?? '';
@@ -405,7 +405,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
   Widget _buildLabeledField(String label, TextEditingController controller,
       {bool required = false, double? width, bool readOnly = false}) {
     final focusNode = controller == _rsocController ? _rsocFocusNode : createFocusNode();
-    
+
     return Row(
       children: [
         SizedBox(
@@ -460,7 +460,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
 
   Widget _buildTextAreaField(String label, TextEditingController controller) {
     final focusNode = createFocusNode();
-    
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -583,7 +583,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
           ElevatedButton.icon(
             onPressed: _saveClient,
             icon: const Icon(Icons.check, size: 16),
-            label: const Text('Valider (Entrée)'),
+            label: const Text('Enregistrer (Entrée)'),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green[600],
               foregroundColor: Colors.white,

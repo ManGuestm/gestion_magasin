@@ -15,6 +15,7 @@ class EnhancedAutocomplete<T> extends StatefulWidget {
   final bool enabled;
   final void Function(String)? onTextChanged;
   final VoidCallback? onTabPressed;
+  final VoidCallback? onShiftTabPressed;
   final void Function(String)? onFocusLost;
 
   const EnhancedAutocomplete({
@@ -32,6 +33,7 @@ class EnhancedAutocomplete<T> extends StatefulWidget {
     this.enabled = true,
     this.onTextChanged,
     this.onTabPressed,
+    this.onShiftTabPressed,
     this.onFocusLost,
   });
 
@@ -176,23 +178,35 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
         if (event is KeyDownEvent) {
           // Tab : gérer la navigation personnalisée
           if (event.logicalKey == LogicalKeyboardKey.tab) {
+            final isShiftPressed =
+                HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftLeft) ||
+                    HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftRight);
+
             // Si il y a une suggestion, valider d'abord
             if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
               _selectOption(_filteredOptions[_selectedIndex]);
-              // Après sélection, passer au champ suivant
-              if (widget.onTabPressed != null) {
+              // Après sélection, naviguer selon la direction
+              if (isShiftPressed && widget.onShiftTabPressed != null) {
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  widget.onShiftTabPressed!();
+                });
+              } else if (!isShiftPressed && widget.onTabPressed != null) {
                 Future.delayed(const Duration(milliseconds: 50), () {
                   widget.onTabPressed!();
                 });
               }
               return KeyEventResult.handled;
             }
-            // Appeler le callback de navigation Tab si défini
-            if (widget.onTabPressed != null) {
+
+            // Navigation directe selon la direction
+            if (isShiftPressed && widget.onShiftTabPressed != null) {
+              widget.onShiftTabPressed!();
+              return KeyEventResult.handled;
+            } else if (!isShiftPressed && widget.onTabPressed != null) {
               widget.onTabPressed!();
               return KeyEventResult.handled;
             }
-            return KeyEventResult.ignored; // Laisser Tab faire son travail
+            return KeyEventResult.ignored;
           }
           // Backspace : gérer la suppression de la sélection autocomplétée
           else if (event.logicalKey == LogicalKeyboardKey.backspace) {

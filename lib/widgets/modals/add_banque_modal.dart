@@ -19,7 +19,7 @@ class _AddBanqueModalState extends State<AddBanqueModal> with TabNavigationMixin
   final _codeController = TextEditingController();
   final _intituleController = TextEditingController();
   final _ncompteController = TextEditingController();
-  
+
   late final FocusNode _codeFocusNode;
   late final FocusNode _intituleFocusNode;
   late final FocusNode _ncompteFocusNode;
@@ -27,12 +27,12 @@ class _AddBanqueModalState extends State<AddBanqueModal> with TabNavigationMixin
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize focus nodes with tab navigation
     _codeFocusNode = createFocusNode();
     _intituleFocusNode = createFocusNode();
     _ncompteFocusNode = createFocusNode();
-    
+
     if (widget.banque != null) {
       _codeController.text = widget.banque!.code;
       _intituleController.text = widget.banque!.intitule ?? '';
@@ -115,7 +115,7 @@ class _AddBanqueModalState extends State<AddBanqueModal> with TabNavigationMixin
     } else {
       focusNode = _ncompteFocusNode;
     }
-    
+
     return Row(
       children: [
         SizedBox(
@@ -180,7 +180,7 @@ class _AddBanqueModalState extends State<AddBanqueModal> with TabNavigationMixin
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: const Text(
-                'Valider',
+                'Enregistrer',
                 style: TextStyle(fontSize: 12, color: Colors.black),
               ),
             ),

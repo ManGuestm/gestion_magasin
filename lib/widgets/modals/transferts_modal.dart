@@ -1151,7 +1151,7 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                                     foregroundColor: Colors.white,
                                     minimumSize: const Size(60, 30),
                                   ),
-                                  child: const Text('Valider', style: TextStyle(fontSize: 12)),
+                                  child: const Text('Enregistrer', style: TextStyle(fontSize: 12)),
                                 ),
                                 ElevatedButton(
                                   onPressed: _lignesTransfert.isNotEmpty ? _ouvrirApercuBT : null,

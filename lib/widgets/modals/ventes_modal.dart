@@ -3521,49 +3521,68 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                           Expanded(
                                             child: SizedBox(
                                               height: 25,
-                                              child: EnhancedAutocomplete<CltData>(
-                                                options: _clients,
-                                                displayStringForOption: (client) => client.rsoc,
-                                                onSelected: (client) {
-                                                  setState(() {
-                                                    _selectedClient = client.rsoc;
-                                                    _clientController.text = client.rsoc;
-                                                    _showCreditMode = _shouldShowCreditMode(client);
-                                                    if ((!_showCreditMode || _isVendeur()) &&
-                                                        _selectedModePaiement == 'A crédit') {
-                                                      _selectedModePaiement = 'Espèces';
+                                              child: Focus(
+                                                onKeyEvent: (node, event) {
+                                                  if (event is KeyDownEvent &&
+                                                      event.logicalKey == LogicalKeyboardKey.tab) {
+                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                        HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftRight);
+                                                    
+                                                    if (isShiftPressed) {
+                                                      // Pas de champ précédent, rester sur le client
+                                                      return KeyEventResult.ignored;
+                                                    } else {
+                                                      _designationFocusNode.requestFocus();
+                                                      return KeyEventResult.handled;
                                                     }
-                                                  });
-                                                  _chargerSoldeClient(client.rsoc);
-                                                  // Navigate to next field on selection
-                                                  _designationFocusNode.requestFocus();
-                                                },
-                                                // onTap: () => updateFocusIndex(_clientFocusNode),
-                                                controller: _clientController,
-                                                focusNode: _clientFocusNode,
-                                                hintText: 'Rechercher un client...',
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  focusedBorder: OutlineInputBorder(
-                                                    borderSide: BorderSide(color: Colors.blue, width: 2),
-                                                  ),
-                                                ),
-                                                style: const TextStyle(fontSize: 12),
-                                                onSubmitted: (value) async {
-                                                  await _verifierEtCreerClient(value);
-                                                  _designationFocusNode.requestFocus();
-                                                },
-                                                // TAB pressed in Client field - check for unknown client first
-                                                onTabPressed: () async {
-                                                  final currentText = _clientController.text.trim();
-                                                  if (currentText.isNotEmpty) {
-                                                    await _verifierEtCreerClient(currentText);
                                                   }
-                                                  _designationFocusNode.requestFocus();
+                                                  return KeyEventResult.ignored;
                                                 },
-                                                enabled: _selectedVerification != 'JOURNAL',
+                                                child: EnhancedAutocomplete<CltData>(
+                                                  options: _clients,
+                                                  displayStringForOption: (client) => client.rsoc,
+                                                  onSelected: (client) {
+                                                    setState(() {
+                                                      _selectedClient = client.rsoc;
+                                                      _clientController.text = client.rsoc;
+                                                      _showCreditMode = _shouldShowCreditMode(client);
+                                                      if ((!_showCreditMode || _isVendeur()) &&
+                                                          _selectedModePaiement == 'A crédit') {
+                                                        _selectedModePaiement = 'Espèces';
+                                                      }
+                                                    });
+                                                    _chargerSoldeClient(client.rsoc);
+                                                    // Navigate to next field on selection
+                                                    _designationFocusNode.requestFocus();
+                                                  },
+                                                  controller: _clientController,
+                                                  focusNode: _clientFocusNode,
+                                                  hintText: 'Rechercher un client...',
+                                                  decoration: const InputDecoration(
+                                                    border: OutlineInputBorder(),
+                                                    contentPadding:
+                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    focusedBorder: OutlineInputBorder(
+                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                    ),
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
+                                                  onSubmitted: (value) async {
+                                                    await _verifierEtCreerClient(value);
+                                                    _designationFocusNode.requestFocus();
+                                                  },
+                                                  onTabPressed: () async {
+                                                    final currentText = _clientController.text.trim();
+                                                    if (currentText.isNotEmpty) {
+                                                      await _verifierEtCreerClient(currentText);
+                                                    }
+                                                    _designationFocusNode.requestFocus();
+                                                  },
+                                                  onShiftTabPressed: () => _clientFocusNode.requestFocus(),
+                                                  enabled: _selectedVerification != 'JOURNAL',
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -3589,34 +3608,53 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                             const SizedBox(height: 4),
                                             SizedBox(
                                               height: 25,
-                                              child: EnhancedAutocomplete<Article>(
-                                                options: _articles,
-                                                displayStringForOption: (article) => article.designation,
-                                                onSelected: (article) {
-                                                  _onArticleSelected(article);
-                                                  // Navigate to next field on selection
-                                                  _uniteFocusNode.requestFocus();
+                                              child: Focus(
+                                                onKeyEvent: (node, event) {
+                                                  if (event is KeyDownEvent &&
+                                                      event.logicalKey == LogicalKeyboardKey.tab) {
+                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                        HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftRight);
+                                                    
+                                                    if (isShiftPressed) {
+                                                      _clientFocusNode.requestFocus();
+                                                    } else {
+                                                      _uniteFocusNode.requestFocus();
+                                                    }
+                                                    return KeyEventResult.handled;
+                                                  }
+                                                  return KeyEventResult.ignored;
                                                 },
-                                                focusNode: _designationFocusNode,
-                                                hintText: _isClientSelected
-                                                    ? 'Rechercher un article...'
-                                                    : 'Sélectionnez d\'abord un client',
-                                                decoration: InputDecoration(
-                                                  border: const OutlineInputBorder(),
-                                                  contentPadding:
-                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  focusedBorder: const OutlineInputBorder(
-                                                    borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                child: EnhancedAutocomplete<Article>(
+                                                  options: _articles,
+                                                  displayStringForOption: (article) => article.designation,
+                                                  onSelected: (article) {
+                                                    _onArticleSelected(article);
+                                                    // Navigate to next field on selection
+                                                    _uniteFocusNode.requestFocus();
+                                                  },
+                                                  focusNode: _designationFocusNode,
+                                                  hintText: _isClientSelected
+                                                      ? 'Rechercher un article...'
+                                                      : 'Sélectionnez d\'abord un client',
+                                                  decoration: InputDecoration(
+                                                    border: const OutlineInputBorder(),
+                                                    contentPadding:
+                                                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    focusedBorder: const OutlineInputBorder(
+                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                    ),
+                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
+                                                    filled: !_isClientSelected,
                                                   ),
-                                                  fillColor: _isClientSelected ? null : Colors.grey[200],
-                                                  filled: !_isClientSelected,
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: _isClientSelected ? Colors.black : Colors.grey),
+                                                  onTabPressed: () => _uniteFocusNode.requestFocus(),
+                                                  onShiftTabPressed: () => _clientFocusNode.requestFocus(),
+                                                  enabled: _isClientSelected,
                                                 ),
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: _isClientSelected ? Colors.black : Colors.grey),
-                                                // TAB pressed in Désignation field goes to Unités
-                                                onTabPressed: () => _uniteFocusNode.requestFocus(),
-                                                enabled: _isClientSelected,
                                               ),
                                             ),
                                             const SizedBox(height: 4),
@@ -3637,43 +3675,64 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                             const SizedBox(height: 4),
                                             SizedBox(
                                               height: 25,
-                                              child: EnhancedAutocomplete<String>(
-                                                options: _selectedArticle != null
-                                                    ? _getUnitsForSelectedArticle()
-                                                        .map((item) => item.value!)
-                                                        .toList()
-                                                    : [''],
-                                                displayStringForOption: (unit) => unit,
-                                                onSelected: (unit) {
-                                                  if (_selectedArticle != null) {
-                                                    _verifierUniteArticle(unit);
+                                              child: Focus(
+                                                onKeyEvent: (node, event) {
+                                                  if (event is KeyDownEvent &&
+                                                      event.logicalKey == LogicalKeyboardKey.tab) {
+                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                        HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftRight);
+                                                    
+                                                    if (isShiftPressed) {
+                                                      _designationFocusNode.requestFocus();
+                                                    } else {
+                                                      _quantiteFocusNode.requestFocus();
+                                                    }
+                                                    return KeyEventResult.handled;
                                                   }
-                                                  _quantiteFocusNode.requestFocus();
+                                                  return KeyEventResult.ignored;
                                                 },
-                                                focusNode: _uniteFocusNode,
-                                                hintText: 'Unité...',
-                                                decoration: InputDecoration(
-                                                  border: const OutlineInputBorder(),
-                                                  contentPadding:
-                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: _isClientSelected ? null : Colors.grey[200],
-                                                  filled: !_isClientSelected,
+                                                child: EnhancedAutocomplete<String>(
+                                                  options: _selectedArticle != null
+                                                      ? _getUnitsForSelectedArticle()
+                                                          .map((item) => item.value!)
+                                                          .toList()
+                                                      : [''],
+                                                  displayStringForOption: (unit) => unit,
+                                                  onSelected: (unit) {
+                                                    if (_selectedArticle != null) {
+                                                      _verifierUniteArticle(unit);
+                                                    }
+                                                    _quantiteFocusNode.requestFocus();
+                                                  },
+                                                  focusNode: _uniteFocusNode,
+                                                  hintText: 'Unité...',
+                                                  decoration: InputDecoration(
+                                                    border: const OutlineInputBorder(),
+                                                    contentPadding:
+                                                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
+                                                    filled: !_isClientSelected,
+                                                  ),
+                                                  style: TextStyle(
+                                                      fontSize: 12,
+                                                      color: _isClientSelected ? Colors.black : Colors.grey),
+                                                  onSubmitted: (value) {
+                                                    if (_selectedArticle != null && value.isNotEmpty) {
+                                                      _verifierUniteArticle(value);
+                                                    }
+                                                    _quantiteFocusNode.requestFocus();
+                                                  },
+                                                  onTabPressed: () => _quantiteFocusNode.requestFocus(),
+                                                  onShiftTabPressed: () => _designationFocusNode.requestFocus(),
+                                                  onFocusLost: (value) {
+                                                    if (_selectedArticle != null && value.isNotEmpty) {
+                                                      _verifierUniteArticle(value);
+                                                    }
+                                                  },
+                                                  enabled: _isClientSelected,
                                                 ),
-                                                style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: _isClientSelected ? Colors.black : Colors.grey),
-                                                onSubmitted: (value) {
-                                                  if (_selectedArticle != null && value.isNotEmpty) {
-                                                    _verifierUniteArticle(value);
-                                                  }
-                                                  _quantiteFocusNode.requestFocus();
-                                                },
-                                                onFocusLost: (value) {
-                                                  if (_selectedArticle != null && value.isNotEmpty) {
-                                                    _verifierUniteArticle(value);
-                                                  }
-                                                },
-                                                enabled: _isClientSelected,
                                               ),
                                             ),
                                             if (_selectedArticle != null && _uniteAffichage.isNotEmpty)
@@ -3699,7 +3758,16 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    _prixFocusNode.requestFocus();
+                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                        HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftRight);
+                                                    
+                                                    if (isShiftPressed) {
+                                                      _uniteFocusNode.requestFocus();
+                                                    } else {
+                                                      _prixFocusNode.requestFocus();
+                                                    }
                                                     return KeyEventResult.handled;
                                                   }
                                                   return KeyEventResult.ignored;
@@ -3783,9 +3851,18 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    widget.tousDepots
-                                                        ? _depotFocusNode.requestFocus()
-                                                        : _ajouterFocusNode.requestFocus();
+                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                        HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftRight);
+                                                    
+                                                    if (isShiftPressed) {
+                                                      _quantiteFocusNode.requestFocus();
+                                                    } else {
+                                                      widget.tousDepots
+                                                          ? _depotFocusNode.requestFocus()
+                                                          : _ajouterFocusNode.requestFocus();
+                                                    }
                                                     return KeyEventResult.handled;
                                                   }
                                                   return KeyEventResult.ignored;
@@ -3844,6 +3921,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     _ajouterFocusNode.requestFocus();
                                                   },
                                                   onSubmitted: (_) => _ajouterFocusNode.requestFocus(),
+                                                  onTabPressed: () => _ajouterFocusNode.requestFocus(),
+                                                  onShiftTabPressed: () => _prixFocusNode.requestFocus(),
                                                   hintText: 'Dépôt...',
                                                   decoration: InputDecoration(
                                                     border: const OutlineInputBorder(),

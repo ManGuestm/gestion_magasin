@@ -260,7 +260,7 @@ class _MouvementStockModalState extends State<MouvementStockModal>
             backgroundColor: Colors.green,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Valider'),
+          child: const Text('Enregistrer'),
         ),
       ],
       content: Form(

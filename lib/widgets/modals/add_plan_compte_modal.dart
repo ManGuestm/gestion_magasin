@@ -204,7 +204,7 @@ class _AddPlanCompteModalState extends State<AddPlanCompteModal> with TabNavigat
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: const Text(
-                'Valider',
+                'Enregistrer',
                 style: TextStyle(fontSize: 12, color: Colors.black),
               ),
             ),

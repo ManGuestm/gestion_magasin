@@ -2037,7 +2037,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     onKeyEvent: (node, event) {
                                                       if (event is KeyDownEvent &&
                                                           event.logicalKey == LogicalKeyboardKey.tab) {
-                                                        _articleFocusNode.requestFocus();
+                                                        final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                            .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                            HardwareKeyboard.instance.logicalKeysPressed
+                                                            .contains(LogicalKeyboardKey.shiftRight);
+                                                        
+                                                        if (isShiftPressed) {
+                                                          _nFactFocusNode.requestFocus();
+                                                        } else {
+                                                          _articleFocusNode.requestFocus();
+                                                        }
                                                         return KeyEventResult.handled;
                                                       }
                                                       return KeyEventResult.ignored;
@@ -2108,7 +2117,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               onKeyEvent: (node, event) {
                                                 if (event is KeyDownEvent &&
                                                     event.logicalKey == LogicalKeyboardKey.tab) {
-                                                  _uniteFocusNode.requestFocus();
+                                                  final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                      .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                      HardwareKeyboard.instance.logicalKeysPressed
+                                                      .contains(LogicalKeyboardKey.shiftRight);
+                                                  
+                                                  if (isShiftPressed) {
+                                                    _fournisseurFocusNode.requestFocus();
+                                                  } else {
+                                                    _uniteFocusNode.requestFocus();
+                                                  }
                                                   return KeyEventResult.handled;
                                                 }
                                                 return KeyEventResult.ignored;
@@ -2160,7 +2178,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     }
                                                     // Tab pour passer au champ suivant
                                                     else if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                      _uniteFocusNode.requestFocus();
+                                                      final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                          .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                          HardwareKeyboard.instance.logicalKeysPressed
+                                                          .contains(LogicalKeyboardKey.shiftRight);
+                                                      
+                                                      if (isShiftPressed) {
+                                                        _fournisseurFocusNode.requestFocus();
+                                                      } else {
+                                                        _uniteFocusNode.requestFocus();
+                                                      }
                                                       return KeyEventResult.handled;
                                                     }
                                                   }
@@ -2176,6 +2203,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                       _onArticleSelected(article);
                                                     }
                                                   },
+                                                  onTabPressed: () => _uniteFocusNode.requestFocus(),
+                                                  onShiftTabPressed: () => _fournisseurFocusNode.requestFocus(),
                                                   onFieldSubmitted: (_) => _uniteFocusNode.requestFocus(),
                                                   onTextChanged: (text) {
                                                     if (text.isEmpty) {
@@ -2247,7 +2276,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               onKeyEvent: (node, event) {
                                                 if (event is KeyDownEvent &&
                                                     event.logicalKey == LogicalKeyboardKey.tab) {
-                                                  _quantiteFocusNode.requestFocus();
+                                                  final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                      .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                      HardwareKeyboard.instance.logicalKeysPressed
+                                                      .contains(LogicalKeyboardKey.shiftRight);
+                                                  
+                                                  if (isShiftPressed) {
+                                                    _articleFocusNode.requestFocus();
+                                                  } else {
+                                                    _quantiteFocusNode.requestFocus();
+                                                  }
                                                   return KeyEventResult.handled;
                                                 }
                                                 return KeyEventResult.ignored;
@@ -2268,6 +2306,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     _quantiteFocusNode.requestFocus();
                                                   }
                                                 },
+                                                onTabPressed: () => _quantiteFocusNode.requestFocus(),
+                                                onShiftTabPressed: () => _articleFocusNode.requestFocus(),
                                                 onFieldSubmitted: (_) => _quantiteFocusNode.requestFocus(),
                                                 hintText: 'Unité...',
                                                 decoration: InputDecoration(
@@ -2307,7 +2347,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         onKeyEvent: (node, event) {
                                           if (event is KeyDownEvent &&
                                               event.logicalKey == LogicalKeyboardKey.tab) {
-                                            _prixFocusNode.requestFocus();
+                                            final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                .contains(LogicalKeyboardKey.shiftRight);
+                                            
+                                            if (isShiftPressed) {
+                                              _uniteFocusNode.requestFocus();
+                                            } else {
+                                              _prixFocusNode.requestFocus();
+                                            }
                                             return KeyEventResult.handled;
                                           }
                                           return KeyEventResult.ignored;
@@ -2355,10 +2404,19 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         onKeyEvent: (node, event) {
                                           if (event is KeyDownEvent &&
                                               event.logicalKey == LogicalKeyboardKey.tab) {
-                                            if (_isArticleFormValid() && _statutAchatActuel != 'JOURNAL') {
-                                              _validerFocusNode.requestFocus();
+                                            final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                .contains(LogicalKeyboardKey.shiftRight);
+                                            
+                                            if (isShiftPressed) {
+                                              _quantiteFocusNode.requestFocus();
                                             } else {
-                                              _nFactFocusNode.requestFocus();
+                                              if (_isArticleFormValid() && _statutAchatActuel != 'JOURNAL') {
+                                                _validerFocusNode.requestFocus();
+                                              } else {
+                                                _nFactFocusNode.requestFocus();
+                                              }
                                             }
                                             return KeyEventResult.handled;
                                           }
@@ -2407,11 +2465,20 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               onKeyEvent: (node, event) {
                                                 if (event is KeyDownEvent &&
                                                     event.logicalKey == LogicalKeyboardKey.tab) {
-                                                  if (_isArticleFormValid() &&
-                                                      _statutAchatActuel != 'JOURNAL') {
-                                                    _validerFocusNode.requestFocus();
+                                                  final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                      .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                      HardwareKeyboard.instance.logicalKeysPressed
+                                                      .contains(LogicalKeyboardKey.shiftRight);
+                                                  
+                                                  if (isShiftPressed) {
+                                                    _prixFocusNode.requestFocus();
                                                   } else {
-                                                    _nFactFocusNode.requestFocus();
+                                                    if (_isArticleFormValid() &&
+                                                        _statutAchatActuel != 'JOURNAL') {
+                                                      _validerFocusNode.requestFocus();
+                                                    } else {
+                                                      _nFactFocusNode.requestFocus();
+                                                    }
                                                   }
                                                   return KeyEventResult.handled;
                                                 }
@@ -2434,6 +2501,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     }
                                                   }
                                                 },
+                                                onTabPressed: () {
+                                                  if (_isArticleFormValid() && _statutAchatActuel != 'JOURNAL') {
+                                                    _validerFocusNode.requestFocus();
+                                                  } else {
+                                                    _nFactFocusNode.requestFocus();
+                                                  }
+                                                },
+                                                onShiftTabPressed: () => _prixFocusNode.requestFocus(),
                                                 onSubmitted: (_) {
                                                   if (_isArticleFormValid() &&
                                                       _statutAchatActuel != 'JOURNAL') {
@@ -2477,7 +2552,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               onKeyEvent: (node, event) {
                                                 if (event is KeyDownEvent) {
                                                   if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    _annulerFocusNode.requestFocus();
+                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                        HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftRight);
+                                                    
+                                                    if (isShiftPressed) {
+                                                      _depotFocusNode.requestFocus();
+                                                    } else {
+                                                      _annulerFocusNode.requestFocus();
+                                                    }
                                                     return KeyEventResult.handled;
                                                   } else if (event.logicalKey == LogicalKeyboardKey.enter) {
                                                     if (_validerFocusNode.hasFocus) {
@@ -2537,7 +2621,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               onKeyEvent: (node, event) {
                                                 if (event is KeyDownEvent) {
                                                   if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    _nFactFocusNode.requestFocus();
+                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                        HardwareKeyboard.instance.logicalKeysPressed
+                                                        .contains(LogicalKeyboardKey.shiftRight);
+                                                    
+                                                    if (isShiftPressed) {
+                                                      _validerFocusNode.requestFocus();
+                                                    } else {
+                                                      _nFactFocusNode.requestFocus();
+                                                    }
                                                     return KeyEventResult.handled;
                                                   } else if (event.logicalKey == LogicalKeyboardKey.enter) {
                                                     if (_annulerFocusNode.hasFocus) {
