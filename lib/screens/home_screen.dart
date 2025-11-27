@@ -1520,90 +1520,90 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          decoration: const BoxDecoration(
-                            border: Border(
-                              top: BorderSide(color: Colors.black, width: 2),
-                              bottom: BorderSide(color: Colors.black, width: 2),
-                            ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                            top: BorderSide(color: Colors.black, width: 2),
+                            bottom: BorderSide(color: Colors.black, width: 2),
                           ),
-                          child: const Text(
-                            'BON DE LIVRAISON',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              letterSpacing: 2,
-                            ),
+                        ),
+                        child: const Text(
+                          'BON DE LIVRAISON',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            letterSpacing: 2,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'SOCIÉTÉ:',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                                  ),
-                                  Text(
-                                    societe?.rsoc ?? 'SOCIÉTÉ',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                  ),
-                                  if (societe?.activites != null)
-                                    Text(societe!.activites!, style: const TextStyle(fontSize: 10)),
-                                  if (societe?.adr != null)
-                                    Text(societe!.adr!, style: const TextStyle(fontSize: 10)),
-                                  if (societe?.rcs != null)
-                                    Text('RCS: ${societe!.rcs!}', style: const TextStyle(fontSize: 9)),
-                                  if (societe?.nif != null)
-                                    Text('NIF: ${societe!.nif!}', style: const TextStyle(fontSize: 9)),
-                                  if (societe?.stat != null)
-                                    Text('STAT: ${societe!.stat!}', style: const TextStyle(fontSize: 9)),
-                                  if (societe?.email != null)
-                                    Text('Email: ${societe!.email!}', style: const TextStyle(fontSize: 9)),
-                                  if (societe?.port != null)
-                                    Text('Tél: ${societe!.port!}', style: const TextStyle(fontSize: 9)),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildInvoiceInfoRow('N° BL:', '${achat['nfact']}'),
-                                  _buildInvoiceInfoRow('N° ACHAT:', '${achat['numachats']}'),
-                                  _buildInvoiceInfoRow('DATE:', _formatDateOnly(achat['date'])),
-                                  _buildInvoiceInfoRow('FOURNISSEUR:', '${achat['fournisseur']}'),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black),
                       ),
-                      const SizedBox(height: 20),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                        ),
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'SOCIÉTÉ:',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                ),
+                                Text(
+                                  societe?.rsoc ?? 'SOCIÉTÉ',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                ),
+                                if (societe?.activites != null)
+                                  Text(societe!.activites!, style: const TextStyle(fontSize: 10)),
+                                if (societe?.adr != null)
+                                  Text(societe!.adr!, style: const TextStyle(fontSize: 10)),
+                                if (societe?.rcs != null)
+                                  Text('RCS: ${societe!.rcs!}', style: const TextStyle(fontSize: 9)),
+                                if (societe?.nif != null)
+                                  Text('NIF: ${societe!.nif!}', style: const TextStyle(fontSize: 9)),
+                                if (societe?.stat != null)
+                                  Text('STAT: ${societe!.stat!}', style: const TextStyle(fontSize: 9)),
+                                if (societe?.email != null)
+                                  Text('Email: ${societe!.email!}', style: const TextStyle(fontSize: 9)),
+                                if (societe?.port != null)
+                                  Text('Tél: ${societe!.port!}', style: const TextStyle(fontSize: 9)),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildInvoiceInfoRow('N° BL:', '${achat['nfact']}'),
+                                _buildInvoiceInfoRow('N° ACHAT:', '${achat['numachats']}'),
+                                _buildInvoiceInfoRow('DATE:', _formatDateOnly(achat['date'])),
+                                _buildInvoiceInfoRow('FOURNISSEUR:', '${achat['fournisseur']}'),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black),
+                      ),
+                      child: SingleChildScrollView(
                         child: Column(
                           children: [
                             Container(
@@ -1649,81 +1649,83 @@ class _HomeScreenState extends State<HomeScreen> {
                                 5: FlexColumnWidth(1.5),
                               },
                               children: [
-                                ...details.asMap().entries.map((entry) {
-                                  final index = entry.key + 1;
-                                  final item = entry.value;
-                                  final montant = (item['q'] ?? 0) * (item['pu'] ?? 0);
-                                  return TableRow(
-                                    children: [
-                                      _buildInvoiceTableCell(index.toString()),
-                                      _buildInvoiceTableCell(item['designation'] ?? ''),
-                                      _buildInvoiceTableCell('${item['q'] ?? 0}'),
-                                      _buildInvoiceTableCell(item['unites'] ?? ''),
-                                      _buildInvoiceTableCell(_formatNumber(item['pu'] ?? 0)),
-                                      _buildInvoiceTableCell(_formatNumber(montant), isAmount: true),
-                                    ],
-                                  );
-                                }),
+                                ...details.asMap().entries.map(
+                                  (entry) {
+                                    final index = entry.key + 1;
+                                    final item = entry.value;
+                                    final montant = (item['q'] ?? 0) * (item['pu'] ?? 0);
+                                    return TableRow(
+                                      children: [
+                                        _buildInvoiceTableCell(index.toString()),
+                                        _buildInvoiceTableCell(item['designation'] ?? ''),
+                                        _buildInvoiceTableCell('${item['q'] ?? 0}'),
+                                        _buildInvoiceTableCell(item['unites'] ?? ''),
+                                        _buildInvoiceTableCell(_formatNumber(item['pu'] ?? 0)),
+                                        _buildInvoiceTableCell(_formatNumber(montant), isAmount: true),
+                                      ],
+                                    );
+                                  },
+                                ),
                               ],
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                margin: EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Spacer(),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Row(
-                              children: [
-                                const Spacer(),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    if ((achatData?.read<double>('tva') ?? 0) > 0)
-                                      Container(
-                                        decoration: const BoxDecoration(
-                                          border: Border(top: BorderSide(color: Colors.black)),
-                                        ),
-                                        child: _buildInvoiceTotalRow('TOTAL HT:',
-                                            '${_formatNumber(achatData?.read<double>('totalnt') ?? 0)} Ar',
-                                            isBold: true),
-                                      ),
-                                    if ((achatData?.read<double>('tva') ?? 0) > 0)
-                                      _buildInvoiceTotalRow(
-                                          'TVA:', '${_formatNumber(achatData?.read('tva') ?? 0)} %',
-                                          isBold: true),
-                                    _buildInvoiceTotalRow('TOTAL TTC:',
-                                        '${_formatNumber(achatData?.read<double>('totalttc') ?? 0)} Ar',
-                                        isBold: true),
-                                  ],
+                            if ((achatData?.read<double>('tva') ?? 0) > 0)
+                              Container(
+                                decoration: const BoxDecoration(
+                                  border: Border(top: BorderSide(color: Colors.black)),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.black, width: 0.5),
+                                child: _buildInvoiceTotalRow('TOTAL HT:',
+                                    '${_formatNumber(achatData?.read<double>('totalnt') ?? 0)} Ar',
+                                    isBold: true),
                               ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                'Arrêté à la somme de ${AppFunctions.numberToWords((achatData?.read<double>('totalttc') ?? 0).toInt())} Ariary',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
+                            if ((achatData?.read<double>('tva') ?? 0) > 0)
+                              _buildInvoiceTotalRow('TVA:', '${_formatNumber(achatData?.read('tva') ?? 0)} %',
+                                  isBold: true),
+                            _buildInvoiceTotalRow(
+                                'TOTAL TTC:', '${_formatNumber(achatData?.read<double>('totalttc') ?? 0)} Ar',
+                                isBold: true),
                           ],
                         ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black, width: 0.5),
                       ),
-                    ],
-                  ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Arrêté à la somme de ${AppFunctions.numberToWords((achatData?.read<double>('totalttc') ?? 0).toInt())} Ariary',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
