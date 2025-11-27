@@ -91,31 +91,4 @@ class CMUPCalculator {
     }
     return prixUnitaire; // Par défaut
   }
-
-  /// Calcule le prix de vente basé sur le CMUP et l'unité demandée
-  static double calculerPrixVente({
-    required Article article,
-    required String unite,
-    double margePercent = 20.0,
-  }) {
-    double cmup = article.cmup ?? 0.0;
-    if (cmup == 0.0) return 0.0;
-
-    // Le CMUP est en u3, convertir vers l'unité demandée
-    double prixBase = cmup;
-
-    if (unite == article.u1) {
-      // Prix u1 = CMUP × (tu2u1 × tu3u2)
-      double tu2u1 = article.tu2u1 ?? 1.0;
-      double tu3u2 = article.tu3u2 ?? 1.0;
-      prixBase = cmup * tu2u1 * tu3u2;
-    } else if (unite == article.u2) {
-      // Prix u2 = CMUP × tu3u2
-      prixBase = cmup * (article.tu3u2 ?? 1.0);
-    }
-    // Pour u3 : prix = CMUP directement
-
-    // Appliquer la marge
-    return prixBase * (1 + margePercent / 100);
-  }
 }

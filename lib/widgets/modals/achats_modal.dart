@@ -418,15 +418,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       _selectedDepot = article.dep ?? 'MAG';
 
       // Remplir automatiquement les champs
-      _uniteController.text = article.u1 ?? '';
+      // _uniteController.text = article.u1 ?? '';
       _depotController.text = article.dep ?? 'MAG';
 
-      // Prix selon CMUP (0 si CMUP = 0)
-      if ((article.cmup ?? 0.0) == 0.0) {
-        _prixController.text = '';
-      } else {
-        _prixController.text = NumberUtils.formatNumber(article.cmup!);
-      }
       _quantiteController.text = '';
 
       // Focus automatique sur le champ unité après sélection
@@ -454,6 +448,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               'L\'unité "$unite" n\'est pas valide pour l\'article "${_selectedArticle!.designation}".\n\nUnités autorisées: ${unitesValides.join(", ")}'),
           actions: [
             TextButton(
+              autofocus: true,
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('OK'),
             ),
@@ -461,10 +456,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         ),
       );
 
-      // Remettre l'unité par défaut
+      // Remettre l'unité par défaut et focus sur le champ unité
       setState(() {
-        _selectedUnite = _selectedArticle!.u1;
-        _uniteController.text = _selectedArticle!.u1 ?? '';
+        _uniteController.text = '';
+      });
+
+      // Focus sur le champ unité après fermeture du modal
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _uniteFocusNode.requestFocus();
       });
       return;
     }
@@ -481,11 +480,19 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       _selectedUnite = unite;
       _uniteController.text = unite;
 
-      // Prix selon CMUP (0 si CMUP = 0)
+      // Calculer le prix selon CMUP avec conversion d'unité
       if ((_selectedArticle!.cmup ?? 0.0) == 0.0) {
-        _prixController.text = '';
+        _prixController.text = '0';
       } else {
-        _prixController.text = NumberUtils.formatNumber(_selectedArticle!.cmup!);
+        // Convertir le CMUP selon l'unité sélectionnée
+        // Le CMUP est stocké en unité de base (u3)
+        double prixConverti = StockConverter.convertirPrixSelonUnite(
+          article: _selectedArticle!,
+          uniteSource: _selectedArticle!.u3 ?? 'Dét',
+          uniteCible: unite,
+          prixSource: _selectedArticle!.cmup!,
+        );
+        _prixController.text = NumberUtils.formatNumber(prixConverti);
       }
 
       // Réinitialisation de la quantité pour forcer une nouvelle saisie

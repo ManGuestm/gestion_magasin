@@ -75,22 +75,22 @@ class StockConverter {
     required double stockU3,
   }) {
     List<String> parts = [];
-    
+
     // Ajouter U1 si défini et non nul
     if (article.u1?.isNotEmpty == true) {
       parts.add('${stockU1.toInt()} ${article.u1}');
     }
-    
+
     // Ajouter U2 si défini et non nul
     if (article.u2?.isNotEmpty == true) {
       parts.add('${stockU2.toInt()} ${article.u2}');
     }
-    
+
     // Ajouter U3 si défini et non nul
     if (article.u3?.isNotEmpty == true) {
       parts.add('${stockU3.toInt()} ${article.u3}');
     }
-    
+
     return parts.isEmpty ? '0' : parts.join(' / ');
   }
 
@@ -110,12 +110,12 @@ class StockConverter {
       totalU3 += stockU1 * article.tu2u1! * article.tu3u2!;
       return totalU3;
     }
-    
+
     // Pour les articles à 2 unités (u1, u2) comme Gauffrette
     if (article.u2?.isNotEmpty == true && article.tu2u1 != null) {
       return stockU1 * article.tu2u1! + stockU2;
     }
-    
+
     // Pour les articles à 1 unité
     return stockU1;
   }
@@ -139,7 +139,7 @@ class StockConverter {
 
     // Convertir la quantité de vente en u3
     double quantiteVenteU3 = 0;
-    
+
     if (uniteVente == article.u3) {
       quantiteVenteU3 = quantiteVente;
     } else if (uniteVente == article.u2) {
@@ -185,5 +185,36 @@ class StockConverter {
       'u2': venteConvertie['u2']!,
       'u3': venteConvertie['u3']!,
     };
+  }
+
+  /// Convertit un prix selon l'unité sélectionnée
+  /// Le CMUP est stocké en unité de base (u3), on calcule le prix pour l'unité demandée
+  /// Exemple: CMUP = 873 (pour u3=Dét), si unité = Ctn et tu2u1=252, tu3u2=1
+  /// alors prix Ctn = 873 * 252 * 1 = 219996
+  static double convertirPrixSelonUnite({
+    required Article article,
+    required String uniteSource,
+    required String uniteCible,
+    required double prixSource,
+  }) {
+    // Le CMUP est toujours en unité de base (u3)
+    // On calcule le prix pour l'unité cible
+
+    if (uniteCible == article.u3) {
+      // Unité cible = u3 (unité de base) : prix = CMUP
+      return prixSource;
+    } else if (uniteCible == article.u2) {
+      // Unité cible = u2 : prix = CMUP * tu3u2
+      if (article.tu3u2 != null && article.tu3u2! > 0) {
+        return prixSource * article.tu3u2!;
+      }
+    } else if (uniteCible == article.u1) {
+      // Unité cible = u1 : prix = CMUP * tu3u2 * tu2u1
+      if (article.tu3u2 != null && article.tu3u2! > 0 && article.tu2u1 != null && article.tu2u1! > 0) {
+        return prixSource * article.tu3u2! * article.tu2u1!;
+      }
+    }
+
+    return prixSource; // Retourner le prix original si conversion impossible
   }
 }

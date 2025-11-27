@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 
 import '../database/database.dart';
 import '../database/database_service.dart';
+import '../utils/cmup_calculator.dart';
 import '../utils/stock_converter.dart';
 
 class AchatService {
@@ -537,40 +538,14 @@ class AchatService {
     required double quantite,
     required double prixUnitaire,
   }) async {
-    // Convertir la quantité d'achat en unité de base (u3) pour le calcul CMUP
-    final conversions = StockConverter.convertirQuantiteAchat(
-      article: article,
+    // Utiliser le calculateur CMUP amélioré qui gère correctement les unités
+    return await CMUPCalculator.calculerEtMettreAJourCMUP(
+      designation: article.designation,
       uniteAchat: unite,
       quantiteAchat: quantite,
+      prixUnitaireAchat: prixUnitaire,
+      article: article,
     );
-
-    final quantiteU3 = conversions['u3']!;
-
-    // Calculer le nouveau CMUP
-    final stockActuelU3 = article.stocksu3 ?? 0;
-    final cmupActuel = article.cmup ?? 0;
-
-    double nouveauCMUP;
-    if (stockActuelU3 == 0) {
-      // Premier achat : CMUP = prix d'achat
-      nouveauCMUP = prixUnitaire;
-    } else {
-      // CMUP pondéré : (stock_actuel * CMUP_actuel + quantité_achat * prix_achat) / (stock_actuel + quantité_achat)
-      final valeurStockActuel = stockActuelU3 * cmupActuel;
-      final valeurAchat = quantiteU3 * prixUnitaire;
-      final stockTotal = stockActuelU3 + quantiteU3;
-
-      nouveauCMUP = stockTotal > 0 ? (valeurStockActuel + valeurAchat) / stockTotal : prixUnitaire;
-    }
-
-    // Mettre à jour le CMUP dans la table articles
-    await (_databaseService.database.update(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(article.designation)))
-        .write(ArticlesCompanion(
-      cmup: Value(nouveauCMUP),
-    ));
-
-    return nouveauCMUP;
   }
 
   /// Met à jour la fiche stock pour les achats
