@@ -2714,6 +2714,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                   rsoc: nomClient,
                   categorie: drift.Value(
                       widget.tousDepots ? ClientCategory.tousDepots.label : ClientCategory.magasin.label),
+                  commercial: drift.Value(AuthService().currentUser?.nom ?? ''),
+                  taux: drift.Value(0),
+                  soldes: drift.Value(0),
+                  soldesa: drift.Value(0),
+                  action: drift.Value("A"),
+                  plafon: drift.Value(9000000000.0),
+                  plafonbl: drift.Value(9000000000.0),
                 ),
               );
 
@@ -3548,8 +3555,14 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   await _verifierEtCreerClient(value);
                                                   _designationFocusNode.requestFocus();
                                                 },
-                                                // TAB pressed in Client field goes to Designation
-                                                onTabPressed: () => _designationFocusNode.requestFocus(),
+                                                // TAB pressed in Client field - check for unknown client first
+                                                onTabPressed: () async {
+                                                  final currentText = _clientController.text.trim();
+                                                  if (currentText.isNotEmpty) {
+                                                    await _verifierEtCreerClient(currentText);
+                                                  }
+                                                  _designationFocusNode.requestFocus();
+                                                },
                                                 enabled: _selectedVerification != 'JOURNAL',
                                               ),
                                             ),

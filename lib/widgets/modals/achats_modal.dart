@@ -634,22 +634,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _articleFocusNode.requestFocus();
 
-      // Pré-remplir et sélectionner le dernier article ajouté pour faciliter la saisie
+      // Pré-remplir le dernier article ajouté avec curseur à la fin
       if (lastArticleDesignation != null && _autocompleteController != null) {
         _autocompleteController!.text = lastArticleDesignation;
-        _autocompleteController!.selection =
-            TextSelection(baseOffset: 0, extentOffset: lastArticleDesignation.length);
-
-        // Déclencher l'autocomplétion en simulant une modification
-        Future.delayed(const Duration(milliseconds: 50), () {
-          if (_autocompleteController != null && mounted) {
-            final currentText = _autocompleteController!.text;
-            _autocompleteController!.text = '$currentText ';
-            _autocompleteController!.text = currentText;
-            _autocompleteController!.selection =
-                TextSelection(baseOffset: 0, extentOffset: currentText.length);
-          }
-        });
+        _autocompleteController!.selection = TextSelection.collapsed(offset: lastArticleDesignation.length);
       }
     });
   }
