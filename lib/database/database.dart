@@ -2160,13 +2160,21 @@ class AppDatabase extends _$AppDatabase {
 
   /// Récupère les détails d'une vente
   Future<List<Map<String, dynamic>>> getVenteDetails(String numVentes) async {
-    final details = await (select(detventes)..where((d) => d.numventes.equals(numVentes))).get();
-    return details
-        .map((d) => {
-              'designation': d.designation,
-              'unites': d.unites,
-              'q': d.q,
-              'pu': d.pu,
+    final query = select(detventes)
+        .join([leftOuterJoin(ventes, ventes.numventes.equalsExp(detventes.numventes))])
+      ..where(detventes.numventes.equals(numVentes));
+
+    final results = await query.get();
+    return results
+        .map((row) => {
+              'designation': row.readTable(detventes).designation,
+              'unites': row.readTable(detventes).unites,
+              'q': row.readTable(detventes).q,
+              'pu': row.readTable(detventes).pu,
+              'modepai': row.readTable(ventes).modepai,
+              'remise': row.readTable(ventes).remise,
+              'totalHT': row.readTable(ventes).totalnt,
+              'totalTTC': row.readTable(ventes).totalttc,
             })
         .toList();
   }

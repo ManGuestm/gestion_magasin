@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:drift/drift.dart' hide Column, Table;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -953,7 +954,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(
                               'Client: ${sale['client'] ?? 'Client'} - ${_formatDate(sale['date'])} | Vendu par: ${sale['commerc']}',
-                              style: const TextStyle(color: Colors.grey)),
+                              style: const TextStyle(color: Colors.grey, fontSize: 12)),
                           trailing: Text(
                             '${_formatNumber(sale['total'] ?? 0)} Ar',
                             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
@@ -1028,7 +1029,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(
                               'Fournisseur: ${buy['fournisseur'] ?? 'Fournisseur'} - ${_formatDateOnly(buy['date'])}',
-                              style: const TextStyle(color: Colors.grey)),
+                              style: const TextStyle(color: Colors.grey, fontSize: 12)),
                           trailing: Text(
                             '${_formatNumber(buy['total'] ?? 0)} Ar',
                             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
@@ -1205,283 +1206,529 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showVenteDetails(Map<String, dynamic> sale) async {
     final details = await DatabaseService().database.getVenteDetails(sale['numventes']);
+    final venteData = await DatabaseService().database.customSelect(
+        'SELECT * FROM ventes WHERE numventes = ?',
+        variables: [Variable(sale['numventes'])]).getSingleOrNull();
+    final societe =
+        await DatabaseService().database.getAllSoc().then((socs) => socs.isNotEmpty ? socs.first : null);
 
     if (!mounted) return;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Détails Vente N°${sale['numventes']}'),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.5,
-          height: MediaQuery.of(context).size.width * 0.8,
+      builder: (context) => Dialog(
+        child: Container(
+          width: 600,
+          height: 700,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDetailRow('N° Vente', '${sale['numventes']}'),
-              _buildDetailRow('N° Facture', '${sale['nfact']}'),
-              _buildDetailRow('Client', '${sale['client']}'),
-              _buildDetailRow('Commercial', '${sale['commerc']}'),
-              _buildDetailRow('Date', _formatDate(sale['date'])),
-              _buildDetailRow('Mode Paiement', '${sale['modepai'] ?? 'Non spécifié'}'),
-              const Divider(),
-              const Text('Articles vendus:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        border: Border(
-                          bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                          top: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                          left: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                          right: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                        ),
-                      ),
-                      child: Text(
-                        "Désignation",
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    topRight: Radius.circular(8),
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        border: Border(
-                          bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                          top: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                          left: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                          right: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                        ),
-                      ),
-                      child: Text(
-                        "Quantités",
-                        style: const TextStyle(fontSize: 12),
-                      ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.receipt, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Facture N° ${sale['nfact']}',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        border: Border(
-                          bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                          top: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                          left: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                          right: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                        ),
-                      ),
-                      child: Text(
-                        "P.U",
-                        style: const TextStyle(fontSize: 12),
-                      ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
                     ),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: details.length,
-                  itemBuilder: (context, index) {
-                    final item = details[index];
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: index.isEven ? Colors.white : Colors.grey[50],
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                    top: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                    left: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                    right: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                  ),
-                                ),
-                                child: Text(item['designation'] ?? '', style: const TextStyle(fontSize: 12))),
-                          ),
-                          Expanded(
-                            child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                    top: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                    left: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                    right: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                  ),
-                                ),
-                                child: Text('${item['q']} ${item['unites']}',
-                                    style: const TextStyle(fontSize: 12))),
-                          ),
-                          Expanded(
-                            child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    bottom: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                    top: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                    left: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                    right: BorderSide(color: Colors.grey[400]!, width: 0.25),
-                                  ),
-                                ),
-                                child: Text('${_formatNumber(item['pu'])} Ar',
-                                    style: const TextStyle(fontSize: 12))),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                  ],
                 ),
               ),
-              const Divider(),
-              _buildDetailRow(
-                'Total TTC',
-                '${_formatNumber(sale['total'])} Ar',
-                isAmount: true,
-                isTotalTTC: true,
-              ),
-              SizedBox(height: 24),
-              Container(
-                alignment: Alignment.center,
-                width: double.infinity,
-                child: Text(
-                  "Arrêté à la somme de ${AppFunctions.numberToWords(sale['total'].toInt())} Ariary",
-                  textAlign: TextAlign.center,
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: Colors.black, width: 2),
+                              bottom: BorderSide(color: Colors.black, width: 2),
+                            ),
+                          ),
+                          child: const Text(
+                            'FACTURE DE VENTE',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'SOCIÉTÉ:',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                  ),
+                                  Text(
+                                    societe?.rsoc ?? 'SOCIÉTÉ',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                  if (societe?.activites != null)
+                                    Text(societe!.activites!, style: const TextStyle(fontSize: 10)),
+                                  if (societe?.adr != null)
+                                    Text(societe!.adr!, style: const TextStyle(fontSize: 10)),
+                                  if (societe?.rcs != null)
+                                    Text('RCS: ${societe!.rcs!}', style: const TextStyle(fontSize: 9)),
+                                  if (societe?.nif != null)
+                                    Text('NIF: ${societe!.nif!}', style: const TextStyle(fontSize: 9)),
+                                  if (societe?.stat != null)
+                                    Text('STAT: ${societe!.stat!}', style: const TextStyle(fontSize: 9)),
+                                  if (societe?.email != null)
+                                    Text('Email: ${societe!.email!}', style: const TextStyle(fontSize: 9)),
+                                  if (societe?.port != null)
+                                    Text('Tél: ${societe!.port!}', style: const TextStyle(fontSize: 9)),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildInvoiceInfoRow('N° FACTURE:', '${sale['nfact']}'),
+                                  _buildInvoiceInfoRow('N° VENTE:', '${sale['numventes']}'),
+                                  _buildInvoiceInfoRow('DATE:', _formatDate(sale['date'])),
+                                  _buildInvoiceInfoRow('CLIENT:', '${sale['client']}'),
+                                  _buildInvoiceInfoRow('COMMERCIAL:', '${sale['commerc']}'),
+                                  _buildInvoiceInfoRow(
+                                      'MODE PAIEMENT:',
+                                      details.isNotEmpty
+                                          ? '${details[0]['modepai'] ?? 'Non spécifié'}'
+                                          : 'Non spécifié'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              color: Colors.grey[200],
+                              child: Table(
+                                border: const TableBorder(
+                                  horizontalInside: BorderSide(color: Colors.black, width: 0.5),
+                                  verticalInside: BorderSide(color: Colors.black, width: 0.5),
+                                ),
+                                columnWidths: const {
+                                  0: FlexColumnWidth(0.5),
+                                  1: FlexColumnWidth(3),
+                                  2: FlexColumnWidth(1),
+                                  3: FlexColumnWidth(1),
+                                  4: FlexColumnWidth(1.5),
+                                  5: FlexColumnWidth(1.5),
+                                },
+                                children: [
+                                  TableRow(
+                                    children: [
+                                      _buildInvoiceTableCell('N°', isHeader: true),
+                                      _buildInvoiceTableCell('DÉSIGNATION', isHeader: true),
+                                      _buildInvoiceTableCell('QTÉ', isHeader: true),
+                                      _buildInvoiceTableCell('UNITÉ', isHeader: true),
+                                      _buildInvoiceTableCell('PU', isHeader: true),
+                                      _buildInvoiceTableCell('MONTANT', isHeader: true),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Table(
+                              border: const TableBorder(
+                                horizontalInside: BorderSide(color: Colors.black, width: 0.5),
+                                verticalInside: BorderSide(color: Colors.black, width: 0.5),
+                              ),
+                              columnWidths: const {
+                                0: FlexColumnWidth(0.5),
+                                1: FlexColumnWidth(3),
+                                2: FlexColumnWidth(1),
+                                3: FlexColumnWidth(1),
+                                4: FlexColumnWidth(1.5),
+                                5: FlexColumnWidth(1.5),
+                              },
+                              children: [
+                                ...details.asMap().entries.map((entry) {
+                                  final index = entry.key + 1;
+                                  final item = entry.value;
+                                  final montant = (item['q'] ?? 0) * (item['pu'] ?? 0);
+                                  return TableRow(
+                                    children: [
+                                      _buildInvoiceTableCell(index.toString()),
+                                      _buildInvoiceTableCell(item['designation'] ?? ''),
+                                      _buildInvoiceTableCell('${item['q'] ?? 0}'),
+                                      _buildInvoiceTableCell(item['unites'] ?? ''),
+                                      _buildInvoiceTableCell(_formatNumber(item['pu'] ?? 0)),
+                                      _buildInvoiceTableCell(_formatNumber(montant), isAmount: true),
+                                    ],
+                                  );
+                                }),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                const Spacer(),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Container(
+                                      decoration: const BoxDecoration(
+                                        border: Border(top: BorderSide(color: Colors.black)),
+                                      ),
+                                      child: _buildInvoiceTotalRow('TOTAL HT:',
+                                          '${_formatNumber(venteData?.read<double>('totalnt') ?? 0)} Ar',
+                                          isBold: true),
+                                    ),
+                                    _buildInvoiceTotalRow('Remise:',
+                                        '${_formatNumber(venteData?.read<double>('remise') ?? 0)} %',
+                                        isBold: true),
+                                    if ((venteData?.read<double>('tva') ?? 0) > 0)
+                                      _buildInvoiceTotalRow(
+                                          'TVA:', '${_formatNumber(venteData?.read('tva') ?? 0)} Ar',
+                                          isBold: true),
+                                    _buildInvoiceTotalRow('TOTAL TTC:',
+                                        '${_formatNumber(venteData?.read<double>('totalttc') ?? 0)} Ar',
+                                        isBold: true),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.black, width: 0.5),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Arrêté à la somme de ${AppFunctions.numberToWords((venteData?.read<double>('totalttc') ?? 0).toInt())} Ariary',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fermer'),
-          ),
-        ],
       ),
     );
   }
 
   void _showAchatDetails(Map<String, dynamic> achat) async {
     final details = await DatabaseService().database.getAchatDetails(achat['numachats']);
+    final achatData = await DatabaseService().database.customSelect(
+        'SELECT * FROM achats WHERE numachats = ?',
+        variables: [Variable(achat['numachats'])]).getSingleOrNull();
+
+    final societe =
+        await DatabaseService().database.getAllSoc().then((socs) => socs.isNotEmpty ? socs.first : null);
 
     if (!mounted) return;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Détails Achat N°${achat['numachats']}'),
-        content: SizedBox(
-          width: 500,
-          height: MediaQuery.of(context).size.height * 0.7,
+      builder: (context) => Dialog(
+        child: Container(
+          width: 600,
+          height: 700,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildDetailRow('N° Achat', '${achat['numachats']}'),
-              _buildDetailRow('N° Facture', '${achat['nfact']}'),
-              _buildDetailRow('Fournisseur', '${achat['fournisseur']}'),
-              _buildDetailRow('Date', _formatDateOnly(achat['date'])),
-              const Divider(),
-              const Text('Articles achetés:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: details.length,
-                  itemBuilder: (context, index) {
-                    final item = details[index];
-                    return Container(
-                      padding: const EdgeInsets.all(8),
-                      margin: const EdgeInsets.only(bottom: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Text(item['designation'] ?? '', style: const TextStyle(fontSize: 12)),
-                          ),
-                          Expanded(
-                            child:
-                                Text('${item['q']} ${item['unites']}', style: const TextStyle(fontSize: 12)),
-                          ),
-                          Expanded(
-                            child:
-                                Text('${_formatNumber(item['pu'])} Ar', style: const TextStyle(fontSize: 12)),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    topRight: Radius.circular(8),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shopping_cart, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Bon de Livraison N° ${achat['nfact']}',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
                 ),
               ),
-              const Divider(),
-              _buildDetailRow('Total TTC', '${_formatNumber(achat['total'])} Ar',
-                  isAmount: true, isTotalTTC: true),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          decoration: const BoxDecoration(
+                            border: Border(
+                              top: BorderSide(color: Colors.black, width: 2),
+                              bottom: BorderSide(color: Colors.black, width: 2),
+                            ),
+                          ),
+                          child: const Text(
+                            'BON DE LIVRAISON',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'SOCIÉTÉ:',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                  ),
+                                  Text(
+                                    societe?.rsoc ?? 'SOCIÉTÉ',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                  if (societe?.activites != null)
+                                    Text(societe!.activites!, style: const TextStyle(fontSize: 10)),
+                                  if (societe?.adr != null)
+                                    Text(societe!.adr!, style: const TextStyle(fontSize: 10)),
+                                  if (societe?.rcs != null)
+                                    Text('RCS: ${societe!.rcs!}', style: const TextStyle(fontSize: 9)),
+                                  if (societe?.nif != null)
+                                    Text('NIF: ${societe!.nif!}', style: const TextStyle(fontSize: 9)),
+                                  if (societe?.stat != null)
+                                    Text('STAT: ${societe!.stat!}', style: const TextStyle(fontSize: 9)),
+                                  if (societe?.email != null)
+                                    Text('Email: ${societe!.email!}', style: const TextStyle(fontSize: 9)),
+                                  if (societe?.port != null)
+                                    Text('Tél: ${societe!.port!}', style: const TextStyle(fontSize: 9)),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildInvoiceInfoRow('N° BL:', '${achat['nfact']}'),
+                                  _buildInvoiceInfoRow('N° ACHAT:', '${achat['numachats']}'),
+                                  _buildInvoiceInfoRow('DATE:', _formatDateOnly(achat['date'])),
+                                  _buildInvoiceInfoRow('FOURNISSEUR:', '${achat['fournisseur']}'),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                        ),
+                        child: Column(
+                          children: [
+                            Container(
+                              color: Colors.grey[200],
+                              child: Table(
+                                border: const TableBorder(
+                                  horizontalInside: BorderSide(color: Colors.black, width: 0.5),
+                                  verticalInside: BorderSide(color: Colors.black, width: 0.5),
+                                ),
+                                columnWidths: const {
+                                  0: FlexColumnWidth(0.5),
+                                  1: FlexColumnWidth(3),
+                                  2: FlexColumnWidth(1),
+                                  3: FlexColumnWidth(1),
+                                  4: FlexColumnWidth(1.5),
+                                  5: FlexColumnWidth(1.5),
+                                },
+                                children: [
+                                  TableRow(
+                                    children: [
+                                      _buildInvoiceTableCell('N°', isHeader: true),
+                                      _buildInvoiceTableCell('DÉSIGNATION', isHeader: true),
+                                      _buildInvoiceTableCell('QTÉ', isHeader: true),
+                                      _buildInvoiceTableCell('UNITÉ', isHeader: true),
+                                      _buildInvoiceTableCell('PU', isHeader: true),
+                                      _buildInvoiceTableCell('MONTANT', isHeader: true),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Table(
+                              border: const TableBorder(
+                                horizontalInside: BorderSide(color: Colors.black, width: 0.5),
+                                verticalInside: BorderSide(color: Colors.black, width: 0.5),
+                              ),
+                              columnWidths: const {
+                                0: FlexColumnWidth(0.5),
+                                1: FlexColumnWidth(3),
+                                2: FlexColumnWidth(1),
+                                3: FlexColumnWidth(1),
+                                4: FlexColumnWidth(1.5),
+                                5: FlexColumnWidth(1.5),
+                              },
+                              children: [
+                                ...details.asMap().entries.map((entry) {
+                                  final index = entry.key + 1;
+                                  final item = entry.value;
+                                  final montant = (item['q'] ?? 0) * (item['pu'] ?? 0);
+                                  return TableRow(
+                                    children: [
+                                      _buildInvoiceTableCell(index.toString()),
+                                      _buildInvoiceTableCell(item['designation'] ?? ''),
+                                      _buildInvoiceTableCell('${item['q'] ?? 0}'),
+                                      _buildInvoiceTableCell(item['unites'] ?? ''),
+                                      _buildInvoiceTableCell(_formatNumber(item['pu'] ?? 0)),
+                                      _buildInvoiceTableCell(_formatNumber(montant), isAmount: true),
+                                    ],
+                                  );
+                                }),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black),
+                        ),
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                const Spacer(),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    if ((achatData?.read<double>('tva') ?? 0) > 0)
+                                      Container(
+                                        decoration: const BoxDecoration(
+                                          border: Border(top: BorderSide(color: Colors.black)),
+                                        ),
+                                        child: _buildInvoiceTotalRow('TOTAL HT:',
+                                            '${_formatNumber(achatData?.read<double>('totalnt') ?? 0)} Ar',
+                                            isBold: true),
+                                      ),
+                                    if ((achatData?.read<double>('tva') ?? 0) > 0)
+                                      _buildInvoiceTotalRow(
+                                          'TVA:', '${_formatNumber(achatData?.read('tva') ?? 0)} %',
+                                          isBold: true),
+                                    _buildInvoiceTotalRow('TOTAL TTC:',
+                                        '${_formatNumber(achatData?.read<double>('totalttc') ?? 0)} Ar',
+                                        isBold: true),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.black, width: 0.5),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                'Arrêté à la somme de ${AppFunctions.numberToWords((achatData?.read<double>('totalttc') ?? 0).toInt())} Ariary',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fermer'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, {bool isAmount = false, bool isTotalTTC = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: isTotalTTC ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (isTotalTTC) Spacer(),
-          SizedBox(
-            width: 120,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              padding: isAmount ? EdgeInsets.symmetric(horizontal: 16, vertical: 4) : null,
-              alignment: isAmount ? Alignment.center : null,
-              decoration: isAmount
-                  ? BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey[400]!, width: 0.5),
-                        top: BorderSide(color: Colors.grey[400]!, width: 0.5),
-                        left: BorderSide(color: Colors.grey[400]!, width: 0.5),
-                        right: BorderSide(color: Colors.grey[400]!, width: 0.5),
-                      ),
-                    )
-                  : null,
-              child: Text(
-                value,
-                style: TextStyle(
-                  fontWeight: isAmount ? FontWeight.bold : FontWeight.normal,
-                  color: isAmount ? Colors.green : null,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1592,4 +1839,79 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
+}
+
+Widget _buildInvoiceInfoRow(String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 1),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 90,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildInvoiceTableCell(String text, {bool isHeader = false, bool isAmount = false}) {
+  return Container(
+    padding: const EdgeInsets.all(6),
+    decoration: isHeader
+        ? BoxDecoration(
+            color: Colors.grey[200],
+          )
+        : null,
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 10,
+        fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
+      ),
+      textAlign: isHeader ? TextAlign.center : (isAmount ? TextAlign.right : TextAlign.left),
+      overflow: TextOverflow.ellipsis,
+    ),
+  );
+}
+
+Widget _buildInvoiceTotalRow(String label, String value, {bool isBold = false}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        const SizedBox(width: 20),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+      ],
+    ),
+  );
 }
