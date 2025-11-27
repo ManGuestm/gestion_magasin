@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
@@ -53,6 +58,137 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
     return Colors.yellow[700]!;
   }
 
+  Future<void> _printDirect() async {
+    if (_articlesACommander.isEmpty) {
+      _showMessage('Aucune donnée à imprimer', Colors.orange[600]!);
+      return;
+    }
+
+    try {
+      final printers = await Printing.listPrinters();
+      final defaultPrinter = printers.firstWhere(
+        (printer) => printer.isDefault,
+        orElse: () => printers.isNotEmpty ? printers.first : throw Exception('Aucune imprimante'),
+      );
+
+      await Printing.directPrintPdf(
+        printer: defaultPrinter,
+        onLayout: _generatePdf,
+        usePrinterSettings: true,
+      );
+      _showMessage('Impression lancée vers ${defaultPrinter.name}', Colors.green[600]!);
+    } catch (e) {
+      _showMessage('Erreur lors de l\'impression: $e', Colors.red[600]!);
+    }
+  }
+
+  Future<Uint8List> _generatePdf(PdfPageFormat format) async {
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: format,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'NIVEAU DES STOCKS - ARTICLES À COMMANDER',
+                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text('Seuil minimum: ${_seuilMinimum.toString()}'),
+              pw.Text('Nombre d\'articles à commander: ${_articlesACommander.length}'),
+              pw.Text('Date d\'impression: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}'),
+              pw.SizedBox(height: 20),
+              pw.Table(
+                border: pw.TableBorder.all(),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(3),
+                  1: const pw.FlexColumnWidth(1),
+                  2: const pw.FlexColumnWidth(1),
+                  3: const pw.FlexColumnWidth(1),
+                  4: const pw.FlexColumnWidth(1),
+                  5: const pw.FlexColumnWidth(1),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                    children: [
+                      _buildPdfHeaderCell('ARTICLE'),
+                      _buildPdfHeaderCell('STOCK U1'),
+                      _buildPdfHeaderCell('STOCK U2'),
+                      _buildPdfHeaderCell('STOCK U3'),
+                      _buildPdfHeaderCell('TOTAL'),
+                      _buildPdfHeaderCell('STATUT'),
+                    ],
+                  ),
+                  ..._articlesACommander.map((article) {
+                    final stockTotal =
+                        (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+                    return pw.TableRow(
+                      children: [
+                        _buildPdfCell(article.designation),
+                        _buildPdfCell(NumberUtils.formatNumber(article.stocksu1 ?? 0)),
+                        _buildPdfCell(NumberUtils.formatNumber(article.stocksu2 ?? 0)),
+                        _buildPdfCell(NumberUtils.formatNumber(article.stocksu3 ?? 0)),
+                        _buildPdfCell(NumberUtils.formatNumber(stockTotal)),
+                        _buildPdfCell(stockTotal <= 0 ? 'Épuisé' : 'Faible'),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+              pw.Spacer(),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('GESTION COMMERCIALE DES PME'),
+                  pw.Text(DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now())),
+                  pw.Text('1'),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  pw.Widget _buildPdfHeaderCell(String text) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(4),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+        textAlign: pw.TextAlign.center,
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfCell(String text) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(4),
+      child: pw.Text(
+        text,
+        style: const pw.TextStyle(fontSize: 9),
+      ),
+    );
+  }
+
+  void _showMessage(String message, Color color) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Focus(
@@ -79,6 +215,17 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                       ),
                     ),
+                    ElevatedButton.icon(
+                      onPressed: _printDirect,
+                      icon: const Icon(Icons.print, size: 16),
+                      label: const Text('Imprimer'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[600],
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close, size: 20),

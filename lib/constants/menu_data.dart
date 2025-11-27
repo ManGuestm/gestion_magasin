@@ -48,7 +48,7 @@ class MenuData {
       'Mise à jour des valeurs de stocks',
       'Niveau des stocks (Articles à commandées)',
       'Ammortissement des immobilisations',
-      'Réactualisation de la abse de données',
+      'Réactualisation de la base de données',
     ],
     tresoreries: [
       'Encaissements',
@@ -56,7 +56,6 @@ class MenuData {
       'Chèques',
       'Effet à recevoir',
       'Virements Internes',
-      'Opérations Caisses',
       'Opérations Banques',
       'Comptes fournisseurs',
       'Moyen de paiement',
@@ -190,3 +189,7 @@ class IconButtonData {
 
   const IconButtonData(this.icon, this.label);
 }
+
+
+
+// 'Opérations Caisses',

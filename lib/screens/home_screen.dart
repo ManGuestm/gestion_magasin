@@ -564,46 +564,61 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       color: Colors.grey[200],
       padding: const EdgeInsets.all(16),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Tableau de Bord - $userRole',
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 16),
+              _buildRealTimeIndicator(),
+              const Spacer(),
+              _buildLastUpdateInfo(),
+              const SizedBox(width: 8),
+              IconButton(
+                onPressed: () => _loadDashboardData(),
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Actualiser maintenant',
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          if ((userRole == 'Administrateur' || userRole == 'Caisse') && (_stats['ventesBrouillard'] ?? 0) > 0)
+            _buildBrouillardNotification(),
+          const SizedBox(height: 20),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Tableau de Bord - $userRole',
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                Expanded(
+                  flex: 2,
+                  child: SingleChildScrollView(child: _buildStatsGrid(userRole)),
                 ),
                 const SizedBox(width: 16),
-                _buildRealTimeIndicator(),
-                const Spacer(),
-                _buildLastUpdateInfo(),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () => _loadDashboardData(),
-                  icon: const Icon(Icons.refresh),
-                  tooltip: 'Actualiser maintenant',
-                ),
+                if (userRole != 'Vendeur')
+                  Expanded(
+                    flex: 1,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: _buildRecentSales(),
+                        ),
+                        const SizedBox(height: 16),
+                        Expanded(
+                          flex: 1,
+                          child: _buildRecentPurchases(),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
-            const SizedBox(height: 20),
-            if ((userRole == 'Administrateur' || userRole == 'Caisse') &&
-                (_stats['ventesBrouillard'] ?? 0) > 0)
-              _buildBrouillardNotification(),
-            const SizedBox(height: 20),
-            _buildStatsGrid(userRole),
-            const SizedBox(height: 20),
-            if (userRole != 'Vendeur')
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 100.0,
-                children: [
-                  Expanded(child: _buildRecentSales()),
-                  Expanded(child: _buildRecentPurchases()),
-                ],
-              ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -613,11 +628,11 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, constraints) {
         int crossAxisCount;
         if (constraints.maxWidth > 1400) {
-          crossAxisCount = userRole == 'Administrateur' ? 7 : 6;
+          crossAxisCount = userRole == 'Administrateur' ? 9 : 8;
         } else if (constraints.maxWidth > 1000) {
-          crossAxisCount = userRole == 'Administrateur' ? 5 : 4;
+          crossAxisCount = userRole == 'Administrateur' ? 7 : 6;
         } else if (constraints.maxWidth > 600) {
-          crossAxisCount = 3;
+          crossAxisCount = 5;
         } else {
           crossAxisCount = 2;
         }
@@ -711,9 +726,10 @@ class _HomeScreenState extends State<HomeScreen> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       child: InkWell(
-        onTap: title == 'Recettes du Jour' ? _showVentesJourModal : null,
+        onTap: () => _handleStatCardTap(title),
         borderRadius: BorderRadius.circular(8),
         child: Container(
+          alignment: Alignment.center,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
@@ -807,6 +823,69 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) => const VentesJourModal(),
     ).then((_) => _resumeUpdates());
+  }
+
+  void _handleStatCardTap(String title) {
+    switch (title) {
+      case 'Valeur Total Stock':
+      case 'Articles':
+      case 'Articles Dispo':
+      case 'Articles Stock':
+        _showModal('Articles');
+        break;
+      case 'Total Achats':
+        _showModal('Liste des achats');
+        break;
+      case 'Derniers Achats':
+        _showModal('Achats');
+        break;
+      case 'Total Ventes':
+      case 'Mes Ventes Jour':
+      case 'Mes Ventes Mois':
+      case 'Ventes Jour':
+        final userRole = AuthService().currentUser?.role ?? '';
+        if (userRole == 'Vendeur') {
+          _showModal('ventes_magasin');
+        } else {
+          _pauseUpdates();
+          showDialog(
+            context: context,
+            builder: (context) => const VentesSelectionModal(),
+          ).then((_) => _resumeUpdates());
+        }
+        break;
+      case 'Recettes du Jour':
+        _showVentesJourModal();
+        break;
+      case 'Clients Actifs':
+      case 'Clients':
+      case 'Mes Clients':
+        _showModal('Clients');
+        break;
+      case 'Fournisseurs':
+        _showModal('Fournisseurs');
+        break;
+      case 'Encaissements':
+        _showModal('Encaissements');
+        break;
+      case 'Transactions':
+        _showModal('Transactions');
+        break;
+      case 'Ventes en attente':
+        _showModal('ventes_tous_depots');
+        break;
+      case 'Bénéfices global':
+      case 'Bénéfice du jour':
+      case 'Commission':
+        _showModal('Commissions');
+        break;
+      case 'Objectif Mois':
+        // Pas de modal spécifique pour les objectifs
+        break;
+      default:
+        // Pas d'action pour les autres cartes
+        break;
+    }
   }
 
   Widget _buildRecentSales() {

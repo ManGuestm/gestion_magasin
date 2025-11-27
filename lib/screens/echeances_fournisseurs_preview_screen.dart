@@ -236,7 +236,7 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
   }
 
   Widget _buildTableRow(Achat achat, int index) {
-    final isOverdue = achat.echeance != null && achat.echeance!.isBefore(DateTime.now());
+    // final isOverdue = achat.echeance != null && achat.echeance!.isBefore(DateTime.now());
     final resteAPayer = (achat.totalttc ?? 0) - (achat.regl ?? 0);
 
     return Container(
