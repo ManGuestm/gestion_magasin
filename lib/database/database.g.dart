@@ -22209,6 +22209,399 @@ class UsersCompanion extends UpdateCompanion<User> {
   }
 }
 
+class $CmupHistoryTable extends CmupHistory
+    with TableInfo<$CmupHistoryTable, CmupHistoryData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CmupHistoryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _designationMeta =
+      const VerificationMeta('designation');
+  @override
+  late final GeneratedColumn<String> designation = GeneratedColumn<String>(
+      'designation', aliasedName, false,
+      additionalChecks:
+          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 100),
+      type: DriftSqlType.string,
+      requiredDuringInsert: true);
+  static const VerificationMeta _cmupValueMeta =
+      const VerificationMeta('cmupValue');
+  @override
+  late final GeneratedColumn<double> cmupValue = GeneratedColumn<double>(
+      'cmup_value', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _dateDebutMeta =
+      const VerificationMeta('dateDebut');
+  @override
+  late final GeneratedColumn<DateTime> dateDebut = GeneratedColumn<DateTime>(
+      'date_debut', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _dateFinMeta =
+      const VerificationMeta('dateFin');
+  @override
+  late final GeneratedColumn<DateTime> dateFin = GeneratedColumn<DateTime>(
+      'date_fin', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _cmupPrecedentMeta =
+      const VerificationMeta('cmupPrecedent');
+  @override
+  late final GeneratedColumn<double> cmupPrecedent = GeneratedColumn<double>(
+      'cmup_precedent', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        designation,
+        cmupValue,
+        dateDebut,
+        dateFin,
+        cmupPrecedent,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cmup_history';
+  @override
+  VerificationContext validateIntegrity(Insertable<CmupHistoryData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('designation')) {
+      context.handle(
+          _designationMeta,
+          designation.isAcceptableOrUnknown(
+              data['designation']!, _designationMeta));
+    } else if (isInserting) {
+      context.missing(_designationMeta);
+    }
+    if (data.containsKey('cmup_value')) {
+      context.handle(_cmupValueMeta,
+          cmupValue.isAcceptableOrUnknown(data['cmup_value']!, _cmupValueMeta));
+    } else if (isInserting) {
+      context.missing(_cmupValueMeta);
+    }
+    if (data.containsKey('date_debut')) {
+      context.handle(_dateDebutMeta,
+          dateDebut.isAcceptableOrUnknown(data['date_debut']!, _dateDebutMeta));
+    } else if (isInserting) {
+      context.missing(_dateDebutMeta);
+    }
+    if (data.containsKey('date_fin')) {
+      context.handle(_dateFinMeta,
+          dateFin.isAcceptableOrUnknown(data['date_fin']!, _dateFinMeta));
+    } else if (isInserting) {
+      context.missing(_dateFinMeta);
+    }
+    if (data.containsKey('cmup_precedent')) {
+      context.handle(
+          _cmupPrecedentMeta,
+          cmupPrecedent.isAcceptableOrUnknown(
+              data['cmup_precedent']!, _cmupPrecedentMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CmupHistoryData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CmupHistoryData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      designation: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}designation'])!,
+      cmupValue: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}cmup_value'])!,
+      dateDebut: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}date_debut'])!,
+      dateFin: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}date_fin'])!,
+      cmupPrecedent: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}cmup_precedent']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $CmupHistoryTable createAlias(String alias) {
+    return $CmupHistoryTable(attachedDatabase, alias);
+  }
+}
+
+class CmupHistoryData extends DataClass implements Insertable<CmupHistoryData> {
+  final int id;
+  final String designation;
+  final double cmupValue;
+  final DateTime dateDebut;
+  final DateTime dateFin;
+  final double? cmupPrecedent;
+  final DateTime createdAt;
+  const CmupHistoryData(
+      {required this.id,
+      required this.designation,
+      required this.cmupValue,
+      required this.dateDebut,
+      required this.dateFin,
+      this.cmupPrecedent,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['designation'] = Variable<String>(designation);
+    map['cmup_value'] = Variable<double>(cmupValue);
+    map['date_debut'] = Variable<DateTime>(dateDebut);
+    map['date_fin'] = Variable<DateTime>(dateFin);
+    if (!nullToAbsent || cmupPrecedent != null) {
+      map['cmup_precedent'] = Variable<double>(cmupPrecedent);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  CmupHistoryCompanion toCompanion(bool nullToAbsent) {
+    return CmupHistoryCompanion(
+      id: Value(id),
+      designation: Value(designation),
+      cmupValue: Value(cmupValue),
+      dateDebut: Value(dateDebut),
+      dateFin: Value(dateFin),
+      cmupPrecedent: cmupPrecedent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cmupPrecedent),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory CmupHistoryData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CmupHistoryData(
+      id: serializer.fromJson<int>(json['id']),
+      designation: serializer.fromJson<String>(json['designation']),
+      cmupValue: serializer.fromJson<double>(json['cmupValue']),
+      dateDebut: serializer.fromJson<DateTime>(json['dateDebut']),
+      dateFin: serializer.fromJson<DateTime>(json['dateFin']),
+      cmupPrecedent: serializer.fromJson<double?>(json['cmupPrecedent']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'designation': serializer.toJson<String>(designation),
+      'cmupValue': serializer.toJson<double>(cmupValue),
+      'dateDebut': serializer.toJson<DateTime>(dateDebut),
+      'dateFin': serializer.toJson<DateTime>(dateFin),
+      'cmupPrecedent': serializer.toJson<double?>(cmupPrecedent),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  CmupHistoryData copyWith(
+          {int? id,
+          String? designation,
+          double? cmupValue,
+          DateTime? dateDebut,
+          DateTime? dateFin,
+          Value<double?> cmupPrecedent = const Value.absent(),
+          DateTime? createdAt}) =>
+      CmupHistoryData(
+        id: id ?? this.id,
+        designation: designation ?? this.designation,
+        cmupValue: cmupValue ?? this.cmupValue,
+        dateDebut: dateDebut ?? this.dateDebut,
+        dateFin: dateFin ?? this.dateFin,
+        cmupPrecedent:
+            cmupPrecedent.present ? cmupPrecedent.value : this.cmupPrecedent,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  CmupHistoryData copyWithCompanion(CmupHistoryCompanion data) {
+    return CmupHistoryData(
+      id: data.id.present ? data.id.value : this.id,
+      designation:
+          data.designation.present ? data.designation.value : this.designation,
+      cmupValue: data.cmupValue.present ? data.cmupValue.value : this.cmupValue,
+      dateDebut: data.dateDebut.present ? data.dateDebut.value : this.dateDebut,
+      dateFin: data.dateFin.present ? data.dateFin.value : this.dateFin,
+      cmupPrecedent: data.cmupPrecedent.present
+          ? data.cmupPrecedent.value
+          : this.cmupPrecedent,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CmupHistoryData(')
+          ..write('id: $id, ')
+          ..write('designation: $designation, ')
+          ..write('cmupValue: $cmupValue, ')
+          ..write('dateDebut: $dateDebut, ')
+          ..write('dateFin: $dateFin, ')
+          ..write('cmupPrecedent: $cmupPrecedent, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id, designation, cmupValue, dateDebut, dateFin, cmupPrecedent, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CmupHistoryData &&
+          other.id == this.id &&
+          other.designation == this.designation &&
+          other.cmupValue == this.cmupValue &&
+          other.dateDebut == this.dateDebut &&
+          other.dateFin == this.dateFin &&
+          other.cmupPrecedent == this.cmupPrecedent &&
+          other.createdAt == this.createdAt);
+}
+
+class CmupHistoryCompanion extends UpdateCompanion<CmupHistoryData> {
+  final Value<int> id;
+  final Value<String> designation;
+  final Value<double> cmupValue;
+  final Value<DateTime> dateDebut;
+  final Value<DateTime> dateFin;
+  final Value<double?> cmupPrecedent;
+  final Value<DateTime> createdAt;
+  const CmupHistoryCompanion({
+    this.id = const Value.absent(),
+    this.designation = const Value.absent(),
+    this.cmupValue = const Value.absent(),
+    this.dateDebut = const Value.absent(),
+    this.dateFin = const Value.absent(),
+    this.cmupPrecedent = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  CmupHistoryCompanion.insert({
+    this.id = const Value.absent(),
+    required String designation,
+    required double cmupValue,
+    required DateTime dateDebut,
+    required DateTime dateFin,
+    this.cmupPrecedent = const Value.absent(),
+    required DateTime createdAt,
+  })  : designation = Value(designation),
+        cmupValue = Value(cmupValue),
+        dateDebut = Value(dateDebut),
+        dateFin = Value(dateFin),
+        createdAt = Value(createdAt);
+  static Insertable<CmupHistoryData> custom({
+    Expression<int>? id,
+    Expression<String>? designation,
+    Expression<double>? cmupValue,
+    Expression<DateTime>? dateDebut,
+    Expression<DateTime>? dateFin,
+    Expression<double>? cmupPrecedent,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (designation != null) 'designation': designation,
+      if (cmupValue != null) 'cmup_value': cmupValue,
+      if (dateDebut != null) 'date_debut': dateDebut,
+      if (dateFin != null) 'date_fin': dateFin,
+      if (cmupPrecedent != null) 'cmup_precedent': cmupPrecedent,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  CmupHistoryCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? designation,
+      Value<double>? cmupValue,
+      Value<DateTime>? dateDebut,
+      Value<DateTime>? dateFin,
+      Value<double?>? cmupPrecedent,
+      Value<DateTime>? createdAt}) {
+    return CmupHistoryCompanion(
+      id: id ?? this.id,
+      designation: designation ?? this.designation,
+      cmupValue: cmupValue ?? this.cmupValue,
+      dateDebut: dateDebut ?? this.dateDebut,
+      dateFin: dateFin ?? this.dateFin,
+      cmupPrecedent: cmupPrecedent ?? this.cmupPrecedent,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (designation.present) {
+      map['designation'] = Variable<String>(designation.value);
+    }
+    if (cmupValue.present) {
+      map['cmup_value'] = Variable<double>(cmupValue.value);
+    }
+    if (dateDebut.present) {
+      map['date_debut'] = Variable<DateTime>(dateDebut.value);
+    }
+    if (dateFin.present) {
+      map['date_fin'] = Variable<DateTime>(dateFin.value);
+    }
+    if (cmupPrecedent.present) {
+      map['cmup_precedent'] = Variable<double>(cmupPrecedent.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CmupHistoryCompanion(')
+          ..write('id: $id, ')
+          ..write('designation: $designation, ')
+          ..write('cmupValue: $cmupValue, ')
+          ..write('dateDebut: $dateDebut, ')
+          ..write('dateFin: $dateFin, ')
+          ..write('cmupPrecedent: $cmupPrecedent, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -22255,6 +22648,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $TribanqueTable tribanque = $TribanqueTable(this);
   late final $TricaisseTable tricaisse = $TricaisseTable(this);
   late final $UsersTable users = $UsersTable(this);
+  late final $CmupHistoryTable cmupHistory = $CmupHistoryTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -22302,7 +22696,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         transf,
         tribanque,
         tricaisse,
-        users
+        users,
+        cmupHistory
       ];
 }
 
@@ -32700,6 +33095,204 @@ typedef $$UsersTableProcessedTableManager = ProcessedTableManager<
     (User, BaseReferences<_$AppDatabase, $UsersTable, User>),
     User,
     PrefetchHooks Function()>;
+typedef $$CmupHistoryTableCreateCompanionBuilder = CmupHistoryCompanion
+    Function({
+  Value<int> id,
+  required String designation,
+  required double cmupValue,
+  required DateTime dateDebut,
+  required DateTime dateFin,
+  Value<double?> cmupPrecedent,
+  required DateTime createdAt,
+});
+typedef $$CmupHistoryTableUpdateCompanionBuilder = CmupHistoryCompanion
+    Function({
+  Value<int> id,
+  Value<String> designation,
+  Value<double> cmupValue,
+  Value<DateTime> dateDebut,
+  Value<DateTime> dateFin,
+  Value<double?> cmupPrecedent,
+  Value<DateTime> createdAt,
+});
+
+class $$CmupHistoryTableFilterComposer
+    extends Composer<_$AppDatabase, $CmupHistoryTable> {
+  $$CmupHistoryTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get designation => $composableBuilder(
+      column: $table.designation, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get cmupValue => $composableBuilder(
+      column: $table.cmupValue, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get dateDebut => $composableBuilder(
+      column: $table.dateDebut, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get dateFin => $composableBuilder(
+      column: $table.dateFin, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get cmupPrecedent => $composableBuilder(
+      column: $table.cmupPrecedent, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$CmupHistoryTableOrderingComposer
+    extends Composer<_$AppDatabase, $CmupHistoryTable> {
+  $$CmupHistoryTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get designation => $composableBuilder(
+      column: $table.designation, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get cmupValue => $composableBuilder(
+      column: $table.cmupValue, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get dateDebut => $composableBuilder(
+      column: $table.dateDebut, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get dateFin => $composableBuilder(
+      column: $table.dateFin, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get cmupPrecedent => $composableBuilder(
+      column: $table.cmupPrecedent,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$CmupHistoryTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CmupHistoryTable> {
+  $$CmupHistoryTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get designation => $composableBuilder(
+      column: $table.designation, builder: (column) => column);
+
+  GeneratedColumn<double> get cmupValue =>
+      $composableBuilder(column: $table.cmupValue, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dateDebut =>
+      $composableBuilder(column: $table.dateDebut, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get dateFin =>
+      $composableBuilder(column: $table.dateFin, builder: (column) => column);
+
+  GeneratedColumn<double> get cmupPrecedent => $composableBuilder(
+      column: $table.cmupPrecedent, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$CmupHistoryTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $CmupHistoryTable,
+    CmupHistoryData,
+    $$CmupHistoryTableFilterComposer,
+    $$CmupHistoryTableOrderingComposer,
+    $$CmupHistoryTableAnnotationComposer,
+    $$CmupHistoryTableCreateCompanionBuilder,
+    $$CmupHistoryTableUpdateCompanionBuilder,
+    (
+      CmupHistoryData,
+      BaseReferences<_$AppDatabase, $CmupHistoryTable, CmupHistoryData>
+    ),
+    CmupHistoryData,
+    PrefetchHooks Function()> {
+  $$CmupHistoryTableTableManager(_$AppDatabase db, $CmupHistoryTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CmupHistoryTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CmupHistoryTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CmupHistoryTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> designation = const Value.absent(),
+            Value<double> cmupValue = const Value.absent(),
+            Value<DateTime> dateDebut = const Value.absent(),
+            Value<DateTime> dateFin = const Value.absent(),
+            Value<double?> cmupPrecedent = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              CmupHistoryCompanion(
+            id: id,
+            designation: designation,
+            cmupValue: cmupValue,
+            dateDebut: dateDebut,
+            dateFin: dateFin,
+            cmupPrecedent: cmupPrecedent,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String designation,
+            required double cmupValue,
+            required DateTime dateDebut,
+            required DateTime dateFin,
+            Value<double?> cmupPrecedent = const Value.absent(),
+            required DateTime createdAt,
+          }) =>
+              CmupHistoryCompanion.insert(
+            id: id,
+            designation: designation,
+            cmupValue: cmupValue,
+            dateDebut: dateDebut,
+            dateFin: dateFin,
+            cmupPrecedent: cmupPrecedent,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$CmupHistoryTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $CmupHistoryTable,
+    CmupHistoryData,
+    $$CmupHistoryTableFilterComposer,
+    $$CmupHistoryTableOrderingComposer,
+    $$CmupHistoryTableAnnotationComposer,
+    $$CmupHistoryTableCreateCompanionBuilder,
+    $$CmupHistoryTableUpdateCompanionBuilder,
+    (
+      CmupHistoryData,
+      BaseReferences<_$AppDatabase, $CmupHistoryTable, CmupHistoryData>
+    ),
+    CmupHistoryData,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -32779,4 +33372,6 @@ class $AppDatabaseManager {
       $$TricaisseTableTableManager(_db, _db.tricaisse);
   $$UsersTableTableManager get users =>
       $$UsersTableTableManager(_db, _db.users);
+  $$CmupHistoryTableTableManager get cmupHistory =>
+      $$CmupHistoryTableTableManager(_db, _db.cmupHistory);
 }

@@ -1,8 +1,12 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
+import '../common/date_picker_field.dart';
+import '../common/enhanced_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
 
 class MiseAJourValeursStocksModal extends StatefulWidget {
@@ -70,8 +74,31 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
   }
 
   double _getValeurStock(Article article) {
-    final stockTotal = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
-    return stockTotal * (article.cmup ?? 0);
+    // Convertir tous les stocks en unité de base (u3) pour calculer la valeur
+    double stockTotalU3 = (article.stocksu3 ?? 0);
+
+    // Ajouter stock u2 converti en u3
+    if (article.tu3u2 != null && article.tu3u2! > 0) {
+      stockTotalU3 += (article.stocksu2 ?? 0) * article.tu3u2!;
+    }
+
+    // Ajouter stock u1 converti en u3
+    if (article.tu2u1 != null && article.tu2u1! > 0 && article.tu3u2 != null && article.tu3u2! > 0) {
+      stockTotalU3 += (article.stocksu1 ?? 0) * article.tu2u1! * article.tu3u2!;
+    }
+
+    // CMUP est en unité de base (u3), donc valeur = stockTotalU3 * CMUP
+    return stockTotalU3 * (article.cmup ?? 0);
+  }
+
+  void _showManualCMUPModal() {
+    showDialog(
+      context: context,
+      builder: (context) => _ManualCMUPModal(
+        articles: _articles,
+        onUpdate: _loadArticles,
+      ),
+    );
   }
 
   @override
@@ -119,17 +146,31 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
                       'Valeur totale des stocks: ${NumberUtils.formatNumber(valeurTotale)} Ar',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: _isUpdating ? null : _updateCMUP,
-                      icon: _isUpdating
-                          ? const SizedBox(
-                              width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.update),
-                      label: Text(_isUpdating ? 'Mise à jour...' : 'Mettre à jour CMUP'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                      ),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _isUpdating ? null : _showManualCMUPModal,
+                          icon: const Icon(Icons.edit),
+                          label: const Text('CMUP manuel'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: _isUpdating ? null : _updateCMUP,
+                          icon: _isUpdating
+                              ? const SizedBox(
+                                  width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.update),
+                          label: Text(_isUpdating ? 'Mise à jour...' : 'Mettre à jour CMUP'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -270,6 +311,208 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ManualCMUPModal extends StatefulWidget {
+  final List<Article> articles;
+  final VoidCallback onUpdate;
+
+  const _ManualCMUPModal({required this.articles, required this.onUpdate});
+
+  @override
+  State<_ManualCMUPModal> createState() => _ManualCMUPModalState();
+}
+
+class _ManualCMUPModalState extends State<_ManualCMUPModal> {
+  final DatabaseService _databaseService = DatabaseService();
+  final TextEditingController _cmupController = TextEditingController();
+  final TextEditingController _dateDebutController = TextEditingController();
+  final TextEditingController _dateFinController = TextEditingController();
+  Article? _selectedArticle;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _dateDebutController.text = app_date.AppDateUtils.formatDate(now);
+    _dateFinController.text = app_date.AppDateUtils.formatDate(now.add(const Duration(days: 30)));
+  }
+
+  @override
+  void dispose() {
+    _cmupController.dispose();
+    _dateDebutController.dispose();
+    _dateFinController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _saveCMUP() async {
+    if (_selectedArticle == null || _cmupController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez sélectionner un article et saisir le CMUP')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final newCMUP = double.tryParse(_cmupController.text.replaceAll(' ', '')) ?? 0;
+      final dateDebut = DateTime.parse(_dateDebutController.text.split('-').reversed.join('-'));
+      final dateFin = DateTime.parse(_dateFinController.text.split('-').reversed.join('-'));
+
+      await _databaseService.database.transaction(() async {
+        // Sauvegarder l'historique
+        await _databaseService.database.into(_databaseService.database.cmupHistory).insert(
+              CmupHistoryCompanion.insert(
+                designation: _selectedArticle!.designation,
+                cmupValue: newCMUP,
+                dateDebut: dateDebut,
+                dateFin: dateFin,
+                cmupPrecedent: Value(_selectedArticle!.cmup),
+                createdAt: DateTime.now(),
+              ),
+            );
+
+        // Mettre à jour le CMUP actuel
+        await (_databaseService.database.update(_databaseService.database.articles)
+              ..where((a) => a.designation.equals(_selectedArticle!.designation)))
+            .write(ArticlesCompanion(
+          cmup: Value(newCMUP),
+        ));
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('CMUP mis à jour avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        widget.onUpdate();
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      child: Container(
+        width: 500,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Mise à jour CMUP manuelle',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text('Article:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            EnhancedAutocomplete<Article>(
+              options: widget.articles,
+              displayStringForOption: (article) => article.designation,
+              onSelected: (article) {
+                setState(() {
+                  _selectedArticle = article;
+                  _cmupController.text = NumberUtils.formatNumber(article.cmup ?? 0);
+                });
+              },
+              hintText: 'Sélectionner un article...',
+            ),
+            const SizedBox(height: 16),
+            const Text('CMUP:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            TextField(
+              controller: _cmupController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                hintText: 'Nouveau CMUP',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Date début:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      DatePickerField(
+                        controller: _dateDebutController,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Date fin:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      DatePickerField(
+                        controller: _dateFinController,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Annuler'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _saveCMUP,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Enregistrer'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

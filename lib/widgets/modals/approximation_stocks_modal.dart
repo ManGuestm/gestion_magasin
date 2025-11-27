@@ -16,6 +16,7 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
   final DatabaseService _databaseService = DatabaseService();
   List<Article> _articles = [];
   List<Article> _articlesFiltered = [];
+  Map<String, Map<String, double>> _stocksParDepot = {};
   bool _isLoading = true;
   String _filterText = '';
   final TextEditingController _filterController = TextEditingController();
@@ -39,9 +40,22 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
       final articles = await _databaseService.database.getAllArticles();
       final depots = await _databaseService.database.getAllDepots();
 
+      // Charger les stocks par dépôt
+      final stocksDepart = await _databaseService.database.select(_databaseService.database.depart).get();
+
+      Map<String, Map<String, double>> stocksMap = {};
+      for (var stock in stocksDepart) {
+        if (!stocksMap.containsKey(stock.designation)) {
+          stocksMap[stock.designation] = {};
+        }
+        stocksMap[stock.designation]![stock.depots] =
+            (stock.stocksu1 ?? 0) + (stock.stocksu2 ?? 0) + (stock.stocksu3 ?? 0);
+      }
+
       setState(() {
         _articles = articles;
         _articlesFiltered = articles;
+        _stocksParDepot = stocksMap;
         _depots = ['Tous les Dépôts', ...depots.map((d) => d.depots)];
         _isLoading = false;
       });
@@ -74,7 +88,14 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
       }).toList();
     }
 
-    // Filtre par dépôt (pour l'affichage, on garde tous les articles mais on adaptera l'affichage)
+    // Filtre par dépôt - ne montrer que les articles qui ont du stock dans ce dépôt
+    if (_selectedDepot != 'Tous les Dépôts') {
+      filtered = filtered.where((article) {
+        return _stocksParDepot[article.designation]?.containsKey(_selectedDepot) == true &&
+            (_stocksParDepot[article.designation]![_selectedDepot] ?? 0) > 0;
+      }).toList();
+    }
+
     setState(() {
       _articlesFiltered = filtered;
     });
@@ -85,9 +106,8 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
       return (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
     }
 
-    // Pour un dépôt spécifique, on devrait chercher dans la table Depart
-    // Pour simplifier, on retourne le stock total
-    return (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+    // Retourner le stock du dépôt spécifique depuis la table depart
+    return _stocksParDepot[article.designation]?[depot] ?? 0.0;
   }
 
   double _getValeurStock(Article article) {
@@ -119,7 +139,7 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
               borderRadius: const BorderRadius.all(Radius.circular(16)),
               color: Colors.grey[100],
             ),
-            width: MediaQuery.of(context).size.width * 0.95,
+            width: MediaQuery.of(context).size.width * 0.7,
             height: MediaQuery.of(context).size.height * 0.9,
             child: Column(
               children: [
@@ -247,13 +267,6 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
                                     Expanded(
                                       flex: 2,
                                       child: Center(
-                                        child: Text('CMUP',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                      ),
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Center(
                                         child: Text('Valeur Stock',
                                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                       ),
@@ -335,15 +348,6 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
                                                     child: Text(
                                                       '0',
                                                       style: TextStyle(fontSize: 11),
-                                                    ),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: Center(
-                                                    child: Text(
-                                                      NumberUtils.formatNumber(article.cmup ?? 0),
-                                                      style: const TextStyle(fontSize: 11),
                                                     ),
                                                   ),
                                                 ),

@@ -706,6 +706,17 @@ class Users extends Table {
       ];
 }
 
+// Table Historique CMUP - utilisée par: Mise à jour manuelle des CMUP
+class CmupHistory extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get designation => text().withLength(min: 1, max: 100)();
+  RealColumn get cmupValue => real()();
+  DateTimeColumn get dateDebut => dateTime()();
+  DateTimeColumn get dateFin => dateTime()();
+  RealColumn get cmupPrecedent => real().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 /// Base de données principale de l'application Gestion de Magasin
 ///
 /// Cette classe gère toutes les opérations de base de données pour l'application
@@ -763,7 +774,8 @@ class Users extends Table {
   Transf,
   Tribanque,
   Tricaisse,
-  Users
+  Users,
+  CmupHistory
 ])
 class AppDatabase extends _$AppDatabase {
   /// Constructeur de la base de données
@@ -773,7 +785,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
   @override
-  int get schemaVersion => 43;
+  int get schemaVersion => 44;
 
   /// Stratégie de migration de la base de données
   /// Gère la création initiale et les mises à jour de schéma
@@ -907,6 +919,9 @@ class AppDatabase extends _$AppDatabase {
           } else if (from == 42) {
             // Ajouter la colonne diff_prix à la table detventes
             await m.addColumn(detventes, detventes.diffPrix as GeneratedColumn);
+          } else if (from == 43) {
+            // Ajouter la table CmupHistory
+            await m.createTable(cmupHistory);
           }
         },
       );
