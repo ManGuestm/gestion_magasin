@@ -981,7 +981,8 @@ class AppDatabase extends _$AppDatabase {
 
   /// Calcule le total des achats
   Future<double> getTotalAchats() async {
-    final query = select(achats);
+    final query = select(achats)
+      ..where((a) => a.verification.equals('JOURNAL') & a.contre.isNull() | a.contre.equals("0"));
     final result = await query.get();
     return result.fold<double>(
       0.0,
@@ -991,7 +992,8 @@ class AppDatabase extends _$AppDatabase {
 
   /// Calcule le total des ventes (non contre-passées)
   Future<double> getTotalVentes() async {
-    final query = select(ventes)..where((v) => v.contre.isNull() | v.contre.equals("0"));
+    final query = select(ventes)
+      ..where((v) => v.verification.equals('JOURNAL') & v.contre.isNull() | v.contre.equals("0"));
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0.0));
   }
@@ -1084,6 +1086,7 @@ class AppDatabase extends _$AppDatabase {
   /// Récupère les 5 derniers achats
   Future<List<Map<String, dynamic>>> getRecentPurchases(int limit) async {
     final query = select(achats)
+      ..where((a) => a.verification.equals('JOURNAL') & a.contre.isNull() | a.contre.equals("0"))
       ..orderBy([(tbl) => OrderingTerm.desc(tbl.numachats)])
       ..limit(limit);
     final result = await query.get();

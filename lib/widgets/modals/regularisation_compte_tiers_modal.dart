@@ -239,6 +239,14 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
     // 3. Encaissement selon le mode de paiement
     if (_paymentMethod == 'Espèces') {
+      // Récupérer le dernier solde de caisse
+      final dernierMouvement = await _databaseService.database.customSelect(
+        'SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1',
+      ).getSingleOrNull();
+      
+      final dernierSolde = dernierMouvement?.data['soldes'] as double? ?? 0.0;
+      final nouveauSolde = dernierSolde + amount;
+
       await _databaseService.database.customStatement(
           'INSERT INTO caisse (ref, daty, lib, credit, debit, soldes, type, clt, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
@@ -247,7 +255,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
             libelle,
             amount,
             0.0,
-            amount,
+            nouveauSolde,
             'ENCAISSEMENT',
             _selectedClient!.rsoc,
             'REGLEMENT'
@@ -297,6 +305,14 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
     // 4. Décaissement selon le mode de paiement
     if (_paymentMethod == 'Espèces') {
+      // Récupérer le dernier solde de caisse
+      final dernierMouvement = await _databaseService.database.customSelect(
+        'SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1',
+      ).getSingleOrNull();
+      
+      final dernierSolde = dernierMouvement?.data['soldes'] as double? ?? 0.0;
+      final nouveauSolde = dernierSolde - amount;
+
       await _databaseService.database.customStatement(
           'INSERT INTO caisse (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
@@ -305,7 +321,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
             libelle,
             amount,
             0.0,
-            -amount,
+            nouveauSolde,
             'DECAISSEMENT',
             _selectedSupplier!.rsoc,
             'REGLEMENT'

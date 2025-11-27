@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/modals/a_propos_modal.dart';
 import '../widgets/modals/achats_modal.dart';
 import '../widgets/modals/amortissement_immobilisations_modal.dart';
 import '../widgets/modals/approximation_stocks_modal.dart';
@@ -132,6 +133,7 @@ class ModalLoader {
       'ventes_tous_depots': () => const VentesModal(tousDepots: true),
       'ventes_magasin': () => const VentesModal(tousDepots: false),
       'Suivi de différence de Prix de vente': () => const SuiviDifferencePrixModal(),
+      'À propos': () => const AProposModal(),
     };
   }
 

@@ -608,6 +608,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   void _resetArticleForm() async {
     final lastDepot = await _getLastUsedDepot();
+
+    // Sauvegarder le dernier article ajouté avant de réinitialiser
+    String? lastArticleDesignation;
+    if (_lignesAchat.isNotEmpty) {
+      lastArticleDesignation = _lignesAchat.last['designation'];
+    }
+
     setState(() {
       _selectedArticle = null;
       _selectedUnite = null;
@@ -623,9 +630,27 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       _prixController.clear();
     });
 
-    // Focus automatique sur Désignation Articles
+    // Focus automatique sur Désignation Articles avec pré-sélection du dernier article
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _articleFocusNode.requestFocus();
+
+      // Pré-remplir et sélectionner le dernier article ajouté pour faciliter la saisie
+      if (lastArticleDesignation != null && _autocompleteController != null) {
+        _autocompleteController!.text = lastArticleDesignation;
+        _autocompleteController!.selection =
+            TextSelection(baseOffset: 0, extentOffset: lastArticleDesignation.length);
+
+        // Déclencher l'autocomplétion en simulant une modification
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (_autocompleteController != null && mounted) {
+            final currentText = _autocompleteController!.text;
+            _autocompleteController!.text = '$currentText ';
+            _autocompleteController!.text = currentText;
+            _autocompleteController!.selection =
+                TextSelection(baseOffset: 0, extentOffset: currentText.length);
+          }
+        });
+      }
     });
   }
 
@@ -2093,35 +2118,89 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                 }
                                                 return KeyEventResult.ignored;
                                               },
-                                              child: EnhancedAutocomplete<Article>(
-                                                controller: _autocompleteController,
-                                                focusNode: _articleFocusNode,
-                                                options: _articles,
-                                                displayStringForOption: (article) => article.designation,
-                                                onSelected: (article) {
-                                                  if (_statutAchatActuel != 'JOURNAL') {
-                                                    _onArticleSelected(article);
+                                              child: Focus(
+                                                onKeyEvent: (node, event) {
+                                                  if (event is KeyDownEvent &&
+                                                      _statutAchatActuel != 'JOURNAL') {
+                                                    // Navigation avec flèches gauche/droite dans les articles
+                                                    if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                                                        event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                                                      final currentText = _autocompleteController?.text ?? '';
+                                                      if (currentText.isNotEmpty) {
+                                                        final currentIndex = _articles
+                                                            .indexWhere((a) => a.designation == currentText);
+                                                        if (currentIndex != -1) {
+                                                          int newIndex;
+                                                          if (event.logicalKey ==
+                                                              LogicalKeyboardKey.arrowRight) {
+                                                            newIndex = (currentIndex + 1) % _articles.length;
+                                                          } else {
+                                                            newIndex = (currentIndex - 1 + _articles.length) %
+                                                                _articles.length;
+                                                          }
+                                                          final newArticle = _articles[newIndex];
+                                                          _autocompleteController?.text =
+                                                              newArticle.designation;
+                                                          _autocompleteController?.selection = TextSelection(
+                                                              baseOffset: 0,
+                                                              extentOffset: newArticle.designation.length);
+                                                          _onArticleSelected(newArticle);
+                                                          return KeyEventResult.handled;
+                                                        }
+                                                      } else if (_lignesAchat.isNotEmpty) {
+                                                        // Si le champ est vide, commencer par le dernier article ajouté
+                                                        final lastArticle = _lignesAchat.last['designation'];
+                                                        final articleIndex = _articles
+                                                            .indexWhere((a) => a.designation == lastArticle);
+                                                        if (articleIndex != -1) {
+                                                          final article = _articles[articleIndex];
+                                                          _autocompleteController?.text = article.designation;
+                                                          _autocompleteController?.selection = TextSelection(
+                                                              baseOffset: 0,
+                                                              extentOffset: article.designation.length);
+                                                          _onArticleSelected(article);
+                                                          return KeyEventResult.handled;
+                                                        }
+                                                      }
+                                                    }
+                                                    // Tab pour passer au champ suivant
+                                                    else if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                      _uniteFocusNode.requestFocus();
+                                                      return KeyEventResult.handled;
+                                                    }
                                                   }
+                                                  return KeyEventResult.ignored;
                                                 },
-                                                onFieldSubmitted: (_) => _uniteFocusNode.requestFocus(),
-                                                onTextChanged: (text) {
-                                                  if (text.isEmpty) {
-                                                    setState(() {
-                                                      _selectedArticle = null;
-                                                    });
-                                                  }
-                                                },
-                                                hintText: 'Rechercher article... (← → pour naviguer)',
-                                                decoration: InputDecoration(
-                                                  border: const OutlineInputBorder(),
-                                                  contentPadding:
-                                                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                  fillColor: _statutAchatActuel == 'JOURNAL'
-                                                      ? Colors.grey.shade200
-                                                      : null,
-                                                  filled: _statutAchatActuel == 'JOURNAL',
+                                                child: EnhancedAutocomplete<Article>(
+                                                  controller: _autocompleteController,
+                                                  focusNode: _articleFocusNode,
+                                                  options: _articles,
+                                                  displayStringForOption: (article) => article.designation,
+                                                  onSelected: (article) {
+                                                    if (_statutAchatActuel != 'JOURNAL') {
+                                                      _onArticleSelected(article);
+                                                    }
+                                                  },
+                                                  onFieldSubmitted: (_) => _uniteFocusNode.requestFocus(),
+                                                  onTextChanged: (text) {
+                                                    if (text.isEmpty) {
+                                                      setState(() {
+                                                        _selectedArticle = null;
+                                                      });
+                                                    }
+                                                  },
+                                                  hintText: 'Rechercher article... (← → pour naviguer)',
+                                                  decoration: InputDecoration(
+                                                    border: const OutlineInputBorder(),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 4, vertical: 2),
+                                                    fillColor: _statutAchatActuel == 'JOURNAL'
+                                                        ? Colors.grey.shade200
+                                                        : null,
+                                                    filled: _statutAchatActuel == 'JOURNAL',
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
                                                 ),
-                                                style: const TextStyle(fontSize: 12),
                                               ),
                                             ),
                                           ),
@@ -2419,7 +2498,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                 elevation: _validerFocusNode.hasFocus ? 4 : 2,
                                               ),
                                               child: Text(
-                                                _validerFocusNode.hasFocus ? 'Ajouter ↵' : 'Modifier',
+                                                _validerFocusNode.hasFocus ? 'Ajouter ↵' : 'Ajouter',
                                                 style: TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: _validerFocusNode.hasFocus
@@ -3082,7 +3161,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     child: ElevatedButton(
                                       onPressed: _creerNouvelAchat,
                                       style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                      child: const Text('Créer', style: TextStyle(fontSize: 12)),
+                                      child: const Text('Créer (Ctrl+N)', style: TextStyle(fontSize: 12)),
                                     ),
                                   ),
                                   if (_statutAchatActuel == 'BROUILLARD') ...[
@@ -3095,7 +3174,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           foregroundColor: Colors.white,
                                           minimumSize: const Size(80, 30),
                                         ),
-                                        child: const Text('Enregistrer Brouillard',
+                                        child: const Text('Enregistrer Brouillard (F3)',
                                             style: TextStyle(fontSize: 12)),
                                       ),
                                     ),
@@ -3125,7 +3204,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                       foregroundColor: Colors.white,
                                       minimumSize: const Size(60, 30),
                                     ),
-                                    child: Text(_isExistingPurchase ? 'Modifier' : 'Enregistrer',
+                                    child: Text(
+                                        _isExistingPurchase ? 'Modifier(Ctrl+S)' : 'Enregistrer (Ctrl+S)',
                                         style: const TextStyle(fontSize: 12)),
                                   ),
                                 ),

@@ -444,7 +444,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
     }
 
     // Pagination: environ 35 lignes par page
-    const int lignesParPage = 35;
+    const int lignesParPage = 26;
     final int nombrePages = (stockData.length / lignesParPage).ceil();
 
     for (int pageIndex = 0; pageIndex < nombrePages; pageIndex++) {

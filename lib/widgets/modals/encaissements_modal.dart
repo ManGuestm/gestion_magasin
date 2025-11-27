@@ -72,6 +72,15 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
 
     if (result != null) {
       try {
+        // Récupérer le dernier solde de caisse
+        final dernierMouvement = await (_databaseService.database.select(_databaseService.database.caisse)
+              ..orderBy([(c) => drift.OrderingTerm.desc(c.daty)])
+              ..limit(1))
+            .getSingleOrNull();
+        
+        final dernierSolde = dernierMouvement?.soldes ?? 0.0;
+        final nouveauSolde = dernierSolde + result['montant'];
+
         final nextRef = await _getNextRef();
         await _databaseService.database.into(_databaseService.database.caisse).insert(
               CaisseCompanion.insert(
@@ -80,6 +89,7 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
                 lib: drift.Value(result['libelle']),
                 debit: const drift.Value(0.0),
                 credit: drift.Value(result['montant']),
+                soldes: drift.Value(nouveauSolde),
                 type: drift.Value(result['type']),
                 verification: const drift.Value('JOURNAL'),
               ),

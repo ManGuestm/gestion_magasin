@@ -460,6 +460,15 @@ class VenteService {
   }) async {
     if (montant <= 0) return;
 
+    // Récupérer le dernier solde de caisse
+    final dernierMouvement = await (_databaseService.database.select(_databaseService.database.caisse)
+          ..orderBy([(c) => OrderingTerm.desc(c.daty)])
+          ..limit(1))
+        .getSingleOrNull();
+
+    final dernierSolde = dernierMouvement?.soldes ?? 0.0;
+    final nouveauSolde = dernierSolde + montant;
+
     final ref = 'V-${DateTime.now().millisecondsSinceEpoch}';
 
     await _databaseService.database.into(_databaseService.database.caisse).insert(
@@ -467,7 +476,8 @@ class VenteService {
             ref: ref,
             daty: Value(date),
             lib: Value('Vente N° $numVentes - Client: $client'),
-            debit: Value(montant),
+            credit: Value(montant),
+            soldes: Value(nouveauSolde),
             clt: Value(client ?? ''),
             type: Value('Vente au comptant'),
             verification: Value('JOURNAL'),
@@ -893,6 +903,15 @@ class VenteService {
     required double montant,
     required String? client,
   }) async {
+    // Récupérer le dernier solde de caisse
+    final dernierMouvement = await (_databaseService.database.select(_databaseService.database.caisse)
+          ..orderBy([(c) => OrderingTerm.desc(c.daty)])
+          ..limit(1))
+        .getSingleOrNull();
+
+    final dernierSolde = dernierMouvement?.soldes ?? 0.0;
+    final nouveauSolde = dernierSolde - montant;
+
     final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
 
     await _databaseService.database.into(_databaseService.database.caisse).insert(
@@ -900,7 +919,9 @@ class VenteService {
             ref: ref,
             daty: Value(DateTime.now()),
             lib: Value('Contre-passement vente N° $numVentes'),
-            credit: Value(montant),
+            debit: Value(montant),
+            soldes: Value(nouveauSolde),
+            type: Value("CP. Vente"),
             clt: Value(client ?? ''),
             verification: const Value('JOURNAL'),
           ),

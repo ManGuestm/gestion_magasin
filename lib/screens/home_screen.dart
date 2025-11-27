@@ -138,7 +138,7 @@ class _HomeScreenState extends State<HomeScreen> {
         stats['ventesBrouillard'] = ventesBrouillard;
 
         _recentSales = await db.getRecentSales(5);
-        _recentBuys = (await db.getRecentPurchases(5)).where((buy) => buy['contre'] == 1).toList();
+        _recentBuys = await db.getRecentPurchases(5);
       } else if (userRole == 'Caisse') {
         final totalVentes = await db.getTotalVentes();
         final ventesJour = await db.getVentesToday();
@@ -153,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
         stats['ventesBrouillard'] = ventesBrouillard;
 
         _recentSales = await db.getRecentSales(5);
-        _recentBuys = (await db.getRecentPurchases(5)).where((buy) => buy['contre'] != '1').toList();
+        _recentBuys = (await db.getRecentPurchases(5));
       } else if (userRole == 'Vendeur') {
         final mesVentesJour = await db.getVentesTodayByUser(userName);
         final mesVentesMois = await db.getVentesThisMonthByUser(userName);
@@ -828,6 +828,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleStatCardTap(String title) {
     switch (title) {
       case 'Valeur Total Stock':
+        _showModal('Etat de stocks');
+        break;
       case 'Articles':
       case 'Articles Dispo':
       case 'Articles Stock':
@@ -840,6 +842,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _showModal('Achats');
         break;
       case 'Total Ventes':
+        _showModal('Liste des ventes');
+        break;
       case 'Mes Ventes Jour':
       case 'Mes Ventes Mois':
       case 'Ventes Jour':
@@ -929,30 +933,35 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: EdgeInsets.all(32),
                   child: Center(child: CircularProgressIndicator()),
                 )
-              : ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _recentSales.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final sale = _recentSales[index];
-                    return ListTile(
-                      onTap: () => _showVenteDetails(sale),
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.blue[100],
-                        child: Text('${index + 1}', style: TextStyle(color: Colors.blue[700])),
-                      ),
-                      title: Text('Vente N°${sale['numventes'] ?? index + 1} | Facture N° ${sale['nfact']}',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(
-                          'Client: ${sale['client'] ?? 'Client'} - ${_formatDate(sale['date'])} | Vendu par: ${sale['commerc']}',
-                          style: const TextStyle(color: Colors.grey)),
-                      trailing: Text(
-                        '${_formatNumber(sale['total'] ?? 0)} Ar',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                      ),
-                    );
-                  },
+              : Expanded(
+                  child: SingleChildScrollView(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _recentSales.length,
+                      separatorBuilder: (context, index) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final sale = _recentSales[index];
+                        return ListTile(
+                          onTap: () => _showVenteDetails(sale),
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.blue[100],
+                            child: Text('${index + 1}', style: TextStyle(color: Colors.blue[700])),
+                          ),
+                          title: Text(
+                              'Vente N°${sale['numventes'] ?? index + 1} | Facture N° ${sale['nfact']}',
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                              'Client: ${sale['client'] ?? 'Client'} - ${_formatDate(sale['date'])} | Vendu par: ${sale['commerc']}',
+                              style: const TextStyle(color: Colors.grey)),
+                          trailing: Text(
+                            '${_formatNumber(sale['total'] ?? 0)} Ar',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
         ],
       ),
@@ -1000,30 +1009,34 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: EdgeInsets.all(32),
                   child: Center(child: CircularProgressIndicator()),
                 )
-              : ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _recentBuys.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final buy = _recentBuys[index];
-                    return ListTile(
-                      onTap: () => _showAchatDetails(buy),
-                      leading: CircleAvatar(
-                        backgroundColor: Colors.green[100],
-                        child: Text('${index + 1}', style: TextStyle(color: Colors.green[700])),
-                      ),
-                      title: Text('Achat N°${buy['numachats'] ?? index + 1} | Facture N° ${buy['nfact']}',
-                          style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(
-                          'Fournisseur: ${buy['fournisseur'] ?? 'Fournisseur'} - ${_formatDateOnly(buy['date'])}',
-                          style: const TextStyle(color: Colors.grey)),
-                      trailing: Text(
-                        '${_formatNumber(buy['total'] ?? 0)} Ar',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
-                      ),
-                    );
-                  },
+              : Expanded(
+                  child: SingleChildScrollView(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _recentBuys.length,
+                      separatorBuilder: (context, index) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final buy = _recentBuys[index];
+                        return ListTile(
+                          onTap: () => _showAchatDetails(buy),
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.green[100],
+                            child: Text('${index + 1}', style: TextStyle(color: Colors.green[700])),
+                          ),
+                          title: Text('Achat N°${buy['numachats'] ?? index + 1} | BL N° ${buy['nfact']}',
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                              'Fournisseur: ${buy['fournisseur'] ?? 'Fournisseur'} - ${_formatDateOnly(buy['date'])}',
+                              style: const TextStyle(color: Colors.grey)),
+                          trailing: Text(
+                            '${_formatNumber(buy['total'] ?? 0)} Ar',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
         ],
       ),
