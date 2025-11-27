@@ -1981,7 +1981,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         const SizedBox(width: 4),
                                         Flexible(
                                           child: SizedBox(
-                                            width: 120,
+                                            width: 150,
                                             height: 25,
                                             child: Focus(
                                               onKeyEvent: (node, event) {
@@ -2022,7 +2022,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: SizedBox(
-                                            height: 25,
+                                            height: 30,
                                             child: Row(
                                               children: [
                                                 Expanded(
@@ -2100,7 +2100,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     const Text('Désignation Articles', style: TextStyle(fontSize: 12)),
                                     const SizedBox(height: 4),
                                     SizedBox(
-                                      height: 25,
+                                      height: 30,
                                       child: Row(
                                         children: [
                                           Expanded(
@@ -2202,6 +2202,22 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         ],
                                       ),
                                     ),
+                                    // Affichage des unités disponibles
+                                    if (_selectedArticle != null) ...[
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Unités disponible: ${[
+                                          _selectedArticle!.u1,
+                                          _selectedArticle!.u2,
+                                          _selectedArticle!.u3
+                                        ].where((u) => u != null && u.isNotEmpty).join(' - ')}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.blue.shade700,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -2215,7 +2231,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     const Text('Unités', style: TextStyle(fontSize: 12)),
                                     const SizedBox(height: 4),
                                     SizedBox(
-                                      height: 25,
+                                      height: 30,
                                       child: Row(
                                         children: [
                                           Expanded(
@@ -2272,6 +2288,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         ],
                                       ),
                                     ),
+                                    SizedBox(height: 19),
                                   ],
                                 ),
                               ),
@@ -2285,7 +2302,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     const Text('Quantités', style: TextStyle(fontSize: 12)),
                                     const SizedBox(height: 4),
                                     SizedBox(
-                                      height: 25,
+                                      height: 30,
                                       child: Focus(
                                         onKeyEvent: (node, event) {
                                           if (event is KeyDownEvent &&
@@ -2319,6 +2336,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         ),
                                       ),
                                     ),
+                                    SizedBox(height: 19),
                                   ],
                                 ),
                               ),
@@ -2332,7 +2350,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     const Text('P.U HT', style: TextStyle(fontSize: 12)),
                                     const SizedBox(height: 4),
                                     SizedBox(
-                                      height: 25,
+                                      height: 30,
                                       child: Focus(
                                         onKeyEvent: (node, event) {
                                           if (event is KeyDownEvent &&
@@ -2367,6 +2385,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         ),
                                       ),
                                     ),
+                                    SizedBox(height: 19),
                                   ],
                                 ),
                               ),
@@ -2380,7 +2399,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     const Text('Dépôts', style: TextStyle(fontSize: 12)),
                                     const SizedBox(height: 4),
                                     SizedBox(
-                                      height: 25,
+                                      height: 30,
                                       child: Row(
                                         children: [
                                           Expanded(
@@ -2440,6 +2459,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         ],
                                       ),
                                     ),
+                                    SizedBox(height: 19),
                                   ],
                                 ),
                               ),
@@ -2450,114 +2470,124 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     const SizedBox(height: 16),
                                     Row(
                                       children: [
-                                        Focus(
-                                          focusNode: _validerFocusNode,
-                                          onKeyEvent: (node, event) {
-                                            if (event is KeyDownEvent) {
-                                              if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                _annulerFocusNode.requestFocus();
-                                                return KeyEventResult.handled;
-                                              } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-                                                if (_validerFocusNode.hasFocus) {
-                                                  _validerAjout();
+                                        Column(
+                                          children: [
+                                            Focus(
+                                              focusNode: _validerFocusNode,
+                                              onKeyEvent: (node, event) {
+                                                if (event is KeyDownEvent) {
+                                                  if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                    _annulerFocusNode.requestFocus();
+                                                    return KeyEventResult.handled;
+                                                  } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                                    if (_validerFocusNode.hasFocus) {
+                                                      _validerAjout();
+                                                    }
+                                                    return KeyEventResult.handled;
+                                                  }
                                                 }
-                                                return KeyEventResult.handled;
-                                              }
-                                            }
-                                            return KeyEventResult.ignored;
-                                          },
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              border: _validerFocusNode.hasFocus
-                                                  ? Border.all(color: Colors.blue, width: 3)
-                                                  : null,
-                                              borderRadius: BorderRadius.circular(4),
-                                              boxShadow: _validerFocusNode.hasFocus
-                                                  ? [
-                                                      BoxShadow(
-                                                        color: Colors.blue.withValues(alpha: 0.3),
-                                                        blurRadius: 4,
-                                                        spreadRadius: 1,
-                                                      )
-                                                    ]
-                                                  : null,
-                                            ),
-                                            child: ElevatedButton(
-                                              onPressed: _validerAjout,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: _validerFocusNode.hasFocus
-                                                    ? Colors.green[600]
-                                                    : Colors.green,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(60, 35),
-                                                elevation: _validerFocusNode.hasFocus ? 4 : 2,
-                                              ),
-                                              child: Text(
-                                                _validerFocusNode.hasFocus ? 'Ajouter ↵' : 'Ajouter',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: _validerFocusNode.hasFocus
-                                                      ? FontWeight.bold
-                                                      : FontWeight.normal,
+                                                return KeyEventResult.ignored;
+                                              },
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  border: _validerFocusNode.hasFocus
+                                                      ? Border.all(color: Colors.blue, width: 3)
+                                                      : null,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  boxShadow: _validerFocusNode.hasFocus
+                                                      ? [
+                                                          BoxShadow(
+                                                            color: Colors.blue.withValues(alpha: 0.3),
+                                                            blurRadius: 4,
+                                                            spreadRadius: 1,
+                                                          )
+                                                        ]
+                                                      : null,
+                                                ),
+                                                child: ElevatedButton(
+                                                  onPressed: _validerAjout,
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: _validerFocusNode.hasFocus
+                                                        ? Colors.green[600]
+                                                        : Colors.green,
+                                                    foregroundColor: Colors.white,
+                                                    minimumSize: const Size(60, 35),
+                                                    elevation: _validerFocusNode.hasFocus ? 4 : 2,
+                                                  ),
+                                                  child: Text(
+                                                    _validerFocusNode.hasFocus ? 'Ajouter ↵' : 'Ajouter',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: _validerFocusNode.hasFocus
+                                                          ? FontWeight.bold
+                                                          : FontWeight.normal,
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
+                                            SizedBox(height: 16),
+                                          ],
                                         ),
                                         const SizedBox(width: 4),
-                                        Focus(
-                                          focusNode: _annulerFocusNode,
-                                          onKeyEvent: (node, event) {
-                                            if (event is KeyDownEvent) {
-                                              if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                _nFactFocusNode.requestFocus();
-                                                return KeyEventResult.handled;
-                                              } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-                                                if (_annulerFocusNode.hasFocus) {
-                                                  _resetArticleForm();
+                                        Column(
+                                          children: [
+                                            Focus(
+                                              focusNode: _annulerFocusNode,
+                                              onKeyEvent: (node, event) {
+                                                if (event is KeyDownEvent) {
+                                                  if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                    _nFactFocusNode.requestFocus();
+                                                    return KeyEventResult.handled;
+                                                  } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                                    if (_annulerFocusNode.hasFocus) {
+                                                      _resetArticleForm();
+                                                    }
+                                                    return KeyEventResult.handled;
+                                                  }
                                                 }
-                                                return KeyEventResult.handled;
-                                              }
-                                            }
-                                            return KeyEventResult.ignored;
-                                          },
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              border: _annulerFocusNode.hasFocus
-                                                  ? Border.all(color: Colors.blue, width: 3)
-                                                  : null,
-                                              borderRadius: BorderRadius.circular(4),
-                                              boxShadow: _annulerFocusNode.hasFocus
-                                                  ? [
-                                                      BoxShadow(
-                                                        color: Colors.blue.withValues(alpha: 0.3),
-                                                        blurRadius: 4,
-                                                        spreadRadius: 1,
-                                                      )
-                                                    ]
-                                                  : null,
-                                            ),
-                                            child: ElevatedButton(
-                                              onPressed: _resetArticleForm,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: _annulerFocusNode.hasFocus
-                                                    ? Colors.orange[600]
-                                                    : Colors.orange,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(60, 35),
-                                                elevation: _annulerFocusNode.hasFocus ? 4 : 2,
-                                              ),
-                                              child: Text(
-                                                _annulerFocusNode.hasFocus ? 'Annuler ↵' : 'Annuler',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: _annulerFocusNode.hasFocus
-                                                      ? FontWeight.bold
-                                                      : FontWeight.normal,
+                                                return KeyEventResult.ignored;
+                                              },
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  border: _annulerFocusNode.hasFocus
+                                                      ? Border.all(color: Colors.blue, width: 3)
+                                                      : null,
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  boxShadow: _annulerFocusNode.hasFocus
+                                                      ? [
+                                                          BoxShadow(
+                                                            color: Colors.blue.withValues(alpha: 0.3),
+                                                            blurRadius: 4,
+                                                            spreadRadius: 1,
+                                                          )
+                                                        ]
+                                                      : null,
+                                                ),
+                                                child: ElevatedButton(
+                                                  onPressed: _resetArticleForm,
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: _annulerFocusNode.hasFocus
+                                                        ? Colors.orange[600]
+                                                        : Colors.orange,
+                                                    foregroundColor: Colors.white,
+                                                    minimumSize: const Size(60, 35),
+                                                    elevation: _annulerFocusNode.hasFocus ? 4 : 2,
+                                                  ),
+                                                  child: Text(
+                                                    _annulerFocusNode.hasFocus ? 'Annuler ↵' : 'Annuler',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: _annulerFocusNode.hasFocus
+                                                          ? FontWeight.bold
+                                                          : FontWeight.normal,
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ),
+                                            SizedBox(height: 16),
+                                          ],
                                         ),
                                       ],
                                     ),

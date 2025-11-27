@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import '../../mixins/form_navigation_mixin.dart';
+import '../common/tab_navigation_widget.dart';
 
 class AddArticleModal extends StatefulWidget {
   final Article? article;
@@ -14,7 +14,7 @@ class AddArticleModal extends StatefulWidget {
   State<AddArticleModal> createState() => _AddArticleModalState();
 }
 
-class _AddArticleModalState extends State<AddArticleModal> with FormNavigationMixin {
+class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMixin {
   final _formKey = GlobalKey<FormState>();
   final Map<String, TextEditingController> _controllers = {};
   List<Depot> _depots = [];

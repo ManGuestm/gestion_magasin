@@ -1,66 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class TabNavigationWidget extends StatefulWidget {
-  final Widget child;
-  final List<FocusNode> focusNodes;
-
-  const TabNavigationWidget({
-    super.key,
-    required this.child,
-    required this.focusNodes,
-  });
-
-  @override
-  State<TabNavigationWidget> createState() => _TabNavigationWidgetState();
-}
-
-class _TabNavigationWidgetState extends State<TabNavigationWidget> {
-  int _currentFocusIndex = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Focus(
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: widget.child,
-    );
-  }
-
-  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
-      if (HardwareKeyboard.instance.isShiftPressed) {
-        _previousField();
-        return KeyEventResult.handled;
-      } else {
-        _nextField();
-        return KeyEventResult.handled;
-      }
-    }
-    return KeyEventResult.ignored;
-  }
-
-  void _nextField() {
-    if (_currentFocusIndex < widget.focusNodes.length - 1) {
-      _currentFocusIndex++;
-      widget.focusNodes[_currentFocusIndex].requestFocus();
-    }
-  }
-
-  void _previousField() {
-    if (_currentFocusIndex > 0) {
-      _currentFocusIndex--;
-      widget.focusNodes[_currentFocusIndex].requestFocus();
-    }
-  }
-
-  void updateCurrentIndex(FocusNode focusNode) {
-    final index = widget.focusNodes.indexOf(focusNode);
-    if (index != -1) {
-      _currentFocusIndex = index;
-    }
-  }
-}
+/// Mixin pour la navigation par tabulation dans les formulaires
+/// Remplace FormNavigationMixin et TabNavigationMixin
 
 mixin TabNavigationMixin<T extends StatefulWidget> on State<T> {
   final List<FocusNode> _focusNodes = [];
@@ -88,7 +30,8 @@ mixin TabNavigationMixin<T extends StatefulWidget> on State<T> {
 
   KeyEventResult handleTabNavigation(KeyEvent event) {
     if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
-      if (HardwareKeyboard.instance.isShiftPressed) {
+      if (HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftLeft) ||
+          HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftRight)) {
         previousField();
         return KeyEventResult.handled;
       } else {
@@ -99,11 +42,66 @@ mixin TabNavigationMixin<T extends StatefulWidget> on State<T> {
     return KeyEventResult.ignored;
   }
 
+  KeyEventResult handleKeyEvent(KeyEvent event) => handleTabNavigation(event);
+
   void updateFocusIndex(FocusNode focusNode) {
     final index = _focusNodes.indexOf(focusNode);
     if (index != -1) {
       _currentFocusIndex = index;
     }
+  }
+
+  void focusFirstField() {
+    if (_focusNodes.isNotEmpty) {
+      _currentFocusIndex = 0;
+      _focusNodes[0].requestFocus();
+    }
+  }
+
+  Widget buildFormField({
+    required TextEditingController controller,
+    required String label,
+    FocusNode? focusNode,
+    VoidCallback? onSubmitted,
+    TextInputType? keyboardType,
+    bool enabled = true,
+    bool autofocus = false,
+    String? Function(String?)? validator,
+    void Function(String)? onChanged,
+  }) {
+    final node = focusNode ?? createFocusNode();
+
+    return Focus(
+      onKeyEvent: (node, event) => handleKeyEvent(event),
+      child: SizedBox(
+        height: 30,
+        child: TextFormField(
+          cursorHeight: 15,
+          controller: controller,
+          focusNode: node,
+          enabled: enabled,
+          autofocus: autofocus,
+          keyboardType: keyboardType,
+          validator: validator,
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            labelText: label,
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          ),
+          onFieldSubmitted: (_) {
+            if (onSubmitted != null) {
+              onSubmitted();
+            } else {
+              nextField();
+            }
+          },
+          onTap: () {
+            _currentFocusIndex = _focusNodes.indexOf(node);
+          },
+        ),
+      ),
+    );
   }
 
   @override

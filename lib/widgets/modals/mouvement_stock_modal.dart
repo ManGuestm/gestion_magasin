@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import '../../mixins/form_navigation_mixin.dart';
+
 import '../../services/stock_management_service.dart';
 import '../common/base_modal.dart';
 import '../common/tab_navigation_widget.dart';
@@ -23,7 +23,7 @@ class MouvementStockModal extends StatefulWidget {
 }
 
 class _MouvementStockModalState extends State<MouvementStockModal>
-    with FormNavigationMixin, TabNavigationMixin {
+    with TabNavigationMixin {
   final _formKey = GlobalKey<FormState>();
   final _refArticleController = TextEditingController();
   final _depotController = TextEditingController();

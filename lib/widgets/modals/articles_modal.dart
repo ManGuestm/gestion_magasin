@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../constants/app_constants.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import '../../mixins/form_navigation_mixin.dart';
+
 import '../../services/stock_management_service.dart';
 import '../../utils/stock_converter.dart';
 import '../../widgets/common/base_modal.dart';
@@ -20,7 +20,7 @@ class ArticlesModal extends StatefulWidget {
   State<ArticlesModal> createState() => _ArticlesModalState();
 }
 
-class _ArticlesModalState extends State<ArticlesModal> with FormNavigationMixin, TabNavigationMixin {
+class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   List<Article> _articles = [];
   List<Article> _filteredArticles = [];
   List<Depot> _depots = [];

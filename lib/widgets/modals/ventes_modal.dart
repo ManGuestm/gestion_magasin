@@ -728,7 +728,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   List<DropdownMenuItem<String>> _getUnitsForSelectedArticle() {
     if (_selectedArticle == null) {
       return const [
-        DropdownMenuItem(value: 'Pce', child: Text('Pce', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(value: '', child: Text('', style: TextStyle(fontSize: 12))),
       ];
     }
 
@@ -754,7 +754,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
     return units.isEmpty
         ? [
-            const DropdownMenuItem(value: 'Pce', child: Text('Pce', style: TextStyle(fontSize: 12))),
+            const DropdownMenuItem(value: '', child: Text('', style: TextStyle(fontSize: 12))),
           ]
         : units;
   }
@@ -880,7 +880,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   Future<void> _verifierStock(Article article) async {
     try {
       String depot = _selectedDepot ?? 'MAG';
-      String unite = _selectedUnite ?? (article.u1 ?? 'Pce');
+      String unite = _selectedUnite ?? (article.u1 ?? '');
 
       // Utiliser exactement la même logique que le modal articles
       final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
@@ -972,11 +972,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
         if (stockTotalU3 > 0) {
           double stockPourUnite =
-              _calculerStockPourUnite(article, _selectedUnite ?? (article.u1 ?? 'Pce'), stockTotalU3);
+              _calculerStockPourUnite(article, _selectedUnite ?? (article.u1 ?? ''), stockTotalU3);
           autresStocks.add({
             'depot': stock.depots,
             'stockDisponible': stockPourUnite,
-            'unite': _selectedUnite ?? (article.u1 ?? 'Pce'),
+            'unite': _selectedUnite ?? (article.u1 ?? ''),
           });
         }
       }
@@ -1047,7 +1047,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             );
 
             // Calculer le stock pour l'unité de vente
-            double stockPourUnite = _calculerStockPourUnite(article, detail.unites ?? 'Pce', stockTotalU3);
+            double stockPourUnite = _calculerStockPourUnite(article, detail.unites ?? '', stockTotalU3);
 
             // Si la quantité vendue dépasse le stock disponible
             if (detail.q! > stockPourUnite) {
@@ -1244,7 +1244,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
     double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
     double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
-    String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? 'Pce');
+    String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? '');
     String depot = _selectedDepot ?? _defaultDepot;
 
     // Vérifier les prix avant de continuer
@@ -3642,7 +3642,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     ? _getUnitsForSelectedArticle()
                                                         .map((item) => item.value!)
                                                         .toList()
-                                                    : ['Pce'],
+                                                    : [''],
                                                 displayStringForOption: (unit) => unit,
                                                 onSelected: (unit) {
                                                   if (_selectedArticle != null) {

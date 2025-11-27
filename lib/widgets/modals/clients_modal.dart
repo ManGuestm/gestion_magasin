@@ -7,7 +7,7 @@ import '../../constants/app_constants.dart';
 import '../../constants/client_categories.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import '../../mixins/form_navigation_mixin.dart';
+import '../common/tab_navigation_widget.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/common/base_modal.dart';
 import 'add_client_modal.dart';
@@ -19,7 +19,7 @@ class ClientsModal extends StatefulWidget {
   State<ClientsModal> createState() => _ClientsModalState();
 }
 
-class _ClientsModalState extends State<ClientsModal> with FormNavigationMixin {
+class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
   List<CltData> _clients = [];
   List<CltData> _filteredClients = [];
   final TextEditingController _searchController = TextEditingController();
