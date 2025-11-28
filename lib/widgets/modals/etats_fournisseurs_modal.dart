@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../database/database.dart';
-import '../../database/database_service.dart';
-import '../../utils/number_utils.dart';
-import '../common/tab_navigation_widget.dart';
+import '../common/base_modal.dart';
+import 'fiche_fournisseurs_modal.dart';
+import 'balance_comptes_fournisseurs_modal.dart';
+import 'statistiques_fournisseurs_modal.dart';
 
 class EtatsFournisseursModal extends StatefulWidget {
   const EtatsFournisseursModal({super.key});
@@ -12,181 +12,128 @@ class EtatsFournisseursModal extends StatefulWidget {
   State<EtatsFournisseursModal> createState() => _EtatsFournisseursModalState();
 }
 
-class _EtatsFournisseursModalState extends State<EtatsFournisseursModal> with TabNavigationMixin {
-  final DatabaseService _databaseService = DatabaseService();
-  List<Frn> _fournisseurs = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadFournisseurs();
-  }
-
-  Future<void> _loadFournisseurs() async {
-    try {
-      final fournisseurs = await _databaseService.database.getAllFournisseurs();
-      setState(() {
-        _fournisseurs = fournisseurs;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
-      }
-    }
-  }
-
+class _EtatsFournisseursModalState extends State<EtatsFournisseursModal> {
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.95,
-        height: MediaQuery.of(context).size.height * 0.9,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey[100],
-        ),
+    return BaseModal(
+      title: 'États Fournisseurs',
+      width: 600,
+      height: 400,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'États Fournisseurs',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, size: 20),
-                  ),
-                ],
-              ),
+            const Text(
+              'Sélectionnez le type d\'état fournisseur :',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const Divider(height: 1),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Container(
-                      margin: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: Colors.grey),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.orange[100],
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(8),
-                                topRight: Radius.circular(8),
-                              ),
-                            ),
-                            child: const Row(
-                              children: [
-                                Expanded(flex: 2, child: Center(child: Text('Raison Sociale', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Téléphone', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Email', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Dernière op.', style: TextStyle(fontWeight: FontWeight.bold)))),
-                                Expanded(child: Center(child: Text('Délai', style: TextStyle(fontWeight: FontWeight.bold)))),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: _fournisseurs.isEmpty
-                                ? const Center(child: Text('Aucun fournisseur trouvé'))
-                                : ListView.builder(
-                                    itemCount: _fournisseurs.length,
-                                    itemBuilder: (context, index) {
-                                      final fournisseur = _fournisseurs[index];
-                                      return Container(
-                                        height: 35,
-                                        decoration: BoxDecoration(
-                                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                                          border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              flex: 2,
-                                              child: Padding(
-                                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                child: Text(
-                                                  fournisseur.rsoc,
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  fournisseur.tel ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  fournisseur.email ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  NumberUtils.formatNumber(fournisseur.soldes ?? 0),
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: (fournisseur.soldes ?? 0) > 0 ? Colors.red : Colors.green,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  fournisseur.datedernop?.toString().split(' ')[0] ?? 'N/A',
-                                                  style: const TextStyle(fontSize: 11),
-                                                ),
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Center(
-                                                child: Text(
-                                                  '${fournisseur.delai ?? 0} j',
-                                                  style: const TextStyle(fontSize: 11),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
+            const SizedBox(height: 24),
+            
+            // Fiche Fournisseurs
+            _buildMenuCard(
+              title: 'Fiche Fournisseurs',
+              description: 'Consulter les informations détaillées des fournisseurs',
+              icon: Icons.business,
+              color: Colors.blue,
+              onTap: () => _showModal(const FicheFournisseursModal()),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Balance des Comptes Fournisseurs
+            _buildMenuCard(
+              title: 'Balance des Comptes Fournisseurs',
+              description: 'Consulter les soldes et mouvements des comptes fournisseurs',
+              icon: Icons.account_balance,
+              color: Colors.green,
+              onTap: () => _showModal(const BalanceComptesFournisseursModal()),
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Statistiques Fournisseurs
+            _buildMenuCard(
+              title: 'Statistiques Fournisseurs',
+              description: 'Analyser les performances et statistiques des fournisseurs',
+              icon: Icons.analytics,
+              color: Colors.purple,
+              onTap: () => _showModal(const StatistiquesFournisseursModal()),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMenuCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.grey[400],
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showModal(Widget modal) {
+    Navigator.of(context).pop(); // Fermer le modal actuel
+    showDialog(
+      context: context,
+      builder: (context) => modal,
     );
   }
 }

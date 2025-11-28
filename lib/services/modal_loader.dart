@@ -25,6 +25,8 @@ import '../widgets/modals/etats_autres_comptes_modal.dart';
 import '../widgets/modals/etats_clients_modal.dart';
 import '../widgets/modals/etats_commerciaux_modal.dart';
 import '../widgets/modals/etats_fournisseurs_modal.dart';
+import '../widgets/modals/fiche_fournisseurs_modal.dart';
+import '../widgets/modals/balance_comptes_fournisseurs_modal.dart';
 import '../widgets/modals/etats_immobilisations_modal.dart';
 import '../widgets/modals/etiquettes_prix_modal.dart';
 import '../widgets/modals/fiche_stocks_modal.dart';
@@ -98,6 +100,8 @@ class ModalLoader {
       'Chèques': () => const ChequesModal(),
       'Journal des banques': () => const JournalBanquesModal(),
       'Etats Fournisseurs': () => const EtatsFournisseursModal(),
+      'Fiche Fournisseurs': () => const FicheFournisseursModal(),
+      'Balance des comptes Fournisseurs': () => const BalanceComptesFournisseursModal(),
       'Etats Clients': () => const EtatsClientsModal(),
       'Etats Articles': () => const EtatsArticlesModal(),
       'Etiquettes de prix': () => const EtiquettesPrixModal(),

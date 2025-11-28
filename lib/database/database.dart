@@ -1892,6 +1892,64 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// Récupère les statistiques détaillées des fournisseurs
+  Future<List<Map<String, dynamic>>> getStatistiquesFournisseurs({
+    DateTime? dateDebut,
+    DateTime? dateFin,
+    String? fournisseur,
+  }) async {
+    String whereClause = "WHERE a.verification = 'JOURNAL' AND (a.contre IS NULL OR a.contre = '0')";
+    List<dynamic> params = [];
+
+    if (dateDebut != null) {
+      whereClause += ' AND a.daty >= ?';
+      params.add(dateDebut.toIso8601String());
+    }
+
+    if (dateFin != null) {
+      whereClause += ' AND a.daty <= ?';
+      params.add(dateFin.toIso8601String());
+    }
+
+    if (fournisseur != null) {
+      whereClause += ' AND a.frns = ?';
+      params.add(fournisseur);
+    }
+
+    final result = await customSelect(
+      '''
+      SELECT 
+        a.frns as fournisseur,
+        COUNT(*) as nombre_achats,
+        COALESCE(SUM(a.totalttc), 0) as montant_total,
+        COALESCE(AVG(a.totalttc), 0) as montant_moyen,
+        MIN(a.daty) as premier_achat,
+        MAX(a.daty) as dernier_achat,
+        f.tel as telephone,
+        f.email as email,
+        f.soldes as solde_compte
+      FROM achats a
+      LEFT JOIN frns f ON a.frns = f.rsoc
+      $whereClause
+      GROUP BY a.frns
+      ORDER BY montant_total DESC
+      ''',
+      variables: params.map((p) => Variable(p)).toList(),
+    ).get();
+
+    return result.map((row) => {
+      'fournisseur': row.read<String>('fournisseur') ?? '',
+      'nombre_achats': row.read<int>('nombre_achats') ?? 0,
+      'montant_total': row.read<double>('montant_total') ?? 0.0,
+      'montant_moyen': row.read<double>('montant_moyen') ?? 0.0,
+      'premier_achat': row.readNullable<String>('premier_achat'),
+      'dernier_achat': row.readNullable<String>('dernier_achat'),
+      'telephone': row.readNullable<String>('telephone') ?? '',
+      'email': row.readNullable<String>('email') ?? '',
+      'solde_compte': row.readNullable<double>('solde_compte') ?? 0.0,
+    }).toList();
+  }
+
   /// Calcule le solde d'un client basé sur les ventes, retours et mouvements de compte
   Future<double> calculerSoldeClient(String rsocClient) async {
     const query = '''
