@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -21,6 +22,8 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
   DateTime? _dateFin;
   String? _selectedFournisseur;
   List<Frn> _fournisseurs = [];
+  final TextEditingController _dateDebutController = TextEditingController();
+  final TextEditingController _dateFinController = TextEditingController();
 
   @override
   void initState() {
@@ -127,7 +130,7 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
       title: 'Balance des Comptes Fournisseurs',
       width: 1200,
       height: 700,
-      child: Column(
+      content: Column(
         children: [
           // Filtres
           Container(
@@ -142,23 +145,15 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
                   children: [
                     Expanded(
                       child: DatePickerField(
+                        controller: _dateDebutController,
                         label: 'Date début',
-                        selectedDate: _dateDebut,
-                        onDateSelected: (date) {
-                          setState(() => _dateDebut = date);
-                          _loadBalances();
-                        },
                       ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: DatePickerField(
+                        controller: _dateFinController,
                         label: 'Date fin',
-                        selectedDate: _dateFin,
-                        onDateSelected: (date) {
-                          setState(() => _dateFin = date);
-                          _loadBalances();
-                        },
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -168,7 +163,7 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
                           labelText: 'Fournisseur',
                           border: OutlineInputBorder(),
                         ),
-                        value: _selectedFournisseur,
+                        initialValue: _selectedFournisseur,
                         items: [
                           const DropdownMenuItem<String>(
                             value: null,
@@ -212,36 +207,35 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : DataTableWidget<Map<String, dynamic>>(
-                    data: _balances,
-                    columns: const [
-                      DataColumn(label: Text('Fournisseur')),
-                      DataColumn(label: Text('NIF')),
-                      DataColumn(label: Text('Téléphone')),
-                      DataColumn(label: Text('Solde Initial')),
-                      DataColumn(label: Text('Total Entrées')),
-                      DataColumn(label: Text('Total Sorties')),
-                      DataColumn(label: Text('Solde Final')),
+                    headers: const [
+                      'Fournisseur',
+                      'NIF',
+                      'Téléphone',
+                      'Solde Initial',
+                      'Total Entrées',
+                      'Total Sorties',
+                      'Solde Final',
                     ],
-                    buildRow: (balance) => DataRow(
-                      cells: [
-                        DataCell(Text(balance['fournisseur'])),
-                        DataCell(Text(balance['nif'])),
-                        DataCell(Text(balance['telephone'])),
-                        DataCell(Text('${_formatNumber(balance['solde_initial'])} Ar')),
-                        DataCell(Text('${_formatNumber(balance['total_entrees'])} Ar')),
-                        DataCell(Text('${_formatNumber(balance['total_sorties'])} Ar')),
-                        DataCell(
-                          Text(
-                            '${_formatNumber(balance['solde_final'])} Ar',
-                            style: TextStyle(
-                              color: balance['solde_final'] > 0 ? Colors.red : Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
+                    items: _balances,
+                    rowBuilder: (balance, isSelected) => [
+                      Expanded(child: Text(balance['fournisseur'], style: TextStyle(fontSize: 11))),
+                      Expanded(child: Text(balance['nif'], style: TextStyle(fontSize: 11))),
+                      Expanded(child: Text(balance['telephone'], style: TextStyle(fontSize: 11))),
+                      Expanded(child: Text('${_formatNumber(balance['solde_initial'])} Ar', style: TextStyle(fontSize: 11))),
+                      Expanded(child: Text('${_formatNumber(balance['total_entrees'])} Ar', style: TextStyle(fontSize: 11))),
+                      Expanded(child: Text('${_formatNumber(balance['total_sorties'])} Ar', style: TextStyle(fontSize: 11))),
+                      Expanded(
+                        child: Text(
+                          '${_formatNumber(balance['solde_final'])} Ar',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: balance['solde_final'] > 0 ? Colors.red : Colors.green,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ],
-                    ),
-                    onRowTap: (balance) => _showBalanceDetails(balance),
+                      ),
+                    ],
+                    onItemSelected: (balance) => _showBalanceDetails(balance),
                   ),
           ),
 
@@ -255,10 +249,14 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildTotalCard('Nombre de fournisseurs', '${_balances.length}'),
-                _buildTotalCard('Total Entrées', '${_formatNumber(_calculateTotalEntrees())} Ar'),
-                _buildTotalCard('Total Sorties', '${_formatNumber(_calculateTotalSorties())} Ar'),
-                _buildTotalCard('Solde Global', '${_formatNumber(_calculateSoldeGlobal())} Ar'),
+                Text(
+                  'Total Soldes: ${_formatNumber(_balances.fold(0.0, (sum, b) => sum + b['solde_final']))} Ar',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'Nombre de fournisseurs: ${_balances.length}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ],
             ),
           ),
@@ -267,18 +265,13 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
     );
   }
 
-  Widget _buildTotalCard(String label, String value) {
-    return Column(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
-        ),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-      ],
+  String _formatNumber(double number) {
+    return NumberFormat('#,##0.00', 'fr_FR').format(number);
+  }
+
+  void _exportToExcel() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Export Excel non implémenté')),
     );
   }
 
@@ -287,23 +280,25 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Détails - ${balance['fournisseur']}'),
-        content: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDetailRow('Fournisseur:', balance['fournisseur']),
-              _buildDetailRow('NIF:', balance['nif']),
-              _buildDetailRow('Téléphone:', balance['telephone']),
-              _buildDetailRow('Email:', balance['email']),
-              const Divider(),
-              _buildDetailRow('Solde initial:', '${_formatNumber(balance['solde_initial'])} Ar'),
-              _buildDetailRow('Total entrées:', '${_formatNumber(balance['total_entrees'])} Ar'),
-              _buildDetailRow('Total sorties:', '${_formatNumber(balance['total_sorties'])} Ar'),
-              _buildDetailRow('Solde final:', '${_formatNumber(balance['solde_final'])} Ar'),
-            ],
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('NIF: ${balance['nif']}'),
+            Text('Téléphone: ${balance['telephone']}'),
+            Text('Email: ${balance['email']}'),
+            const Divider(),
+            Text('Solde initial: ${_formatNumber(balance['solde_initial'])} Ar'),
+            Text('Total entrées: ${_formatNumber(balance['total_entrees'])} Ar'),
+            Text('Total sorties: ${_formatNumber(balance['total_sorties'])} Ar'),
+            Text(
+              'Solde final: ${_formatNumber(balance['solde_final'])} Ar',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: balance['solde_final'] > 0 ? Colors.red : Colors.green,
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -312,50 +307,6 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(child: Text(value)),
-        ],
-      ),
-    );
-  }
-
-  double _calculateTotalEntrees() {
-    return _balances.fold(0.0, (sum, b) => sum + (b['total_entrees'] as double));
-  }
-
-  double _calculateTotalSorties() {
-    return _balances.fold(0.0, (sum, b) => sum + (b['total_sorties'] as double));
-  }
-
-  double _calculateSoldeGlobal() {
-    return _balances.fold(0.0, (sum, b) => sum + (b['solde_final'] as double));
-  }
-
-  void _exportToExcel() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export Excel en cours de développement')),
-    );
-  }
-
-  String _formatNumber(double number) {
-    return number.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]} ',
     );
   }
 }

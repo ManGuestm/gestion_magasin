@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../common/base_modal.dart';
-import 'fiche_fournisseurs_modal.dart';
 import 'balance_comptes_fournisseurs_modal.dart';
+import 'fiche_fournisseurs_modal.dart';
 import 'statistiques_fournisseurs_modal.dart';
 
 class EtatsFournisseursModal extends StatefulWidget {
@@ -19,7 +19,7 @@ class _EtatsFournisseursModalState extends State<EtatsFournisseursModal> {
       title: 'États Fournisseurs',
       width: 600,
       height: 400,
-      child: Padding(
+      content: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -29,7 +29,7 @@ class _EtatsFournisseursModalState extends State<EtatsFournisseursModal> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
-            
+
             // Fiche Fournisseurs
             _buildMenuCard(
               title: 'Fiche Fournisseurs',
@@ -38,9 +38,9 @@ class _EtatsFournisseursModalState extends State<EtatsFournisseursModal> {
               color: Colors.blue,
               onTap: () => _showModal(const FicheFournisseursModal()),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Balance des Comptes Fournisseurs
             _buildMenuCard(
               title: 'Balance des Comptes Fournisseurs',
@@ -49,9 +49,9 @@ class _EtatsFournisseursModalState extends State<EtatsFournisseursModal> {
               color: Colors.green,
               onTap: () => _showModal(const BalanceComptesFournisseursModal()),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Statistiques Fournisseurs
             _buildMenuCard(
               title: 'Statistiques Fournisseurs',
@@ -85,7 +85,7 @@ class _EtatsFournisseursModalState extends State<EtatsFournisseursModal> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(

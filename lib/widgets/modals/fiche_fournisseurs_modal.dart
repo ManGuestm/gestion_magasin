@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../database/database_service.dart';
 import '../../database/database.dart';
+import '../../database/database_service.dart';
 import '../common/base_modal.dart';
 import '../common/data_table_widget.dart';
 
@@ -17,7 +17,7 @@ class _FicheFournisseursModalState extends State<FicheFournisseursModal> {
   List<Frn> _fournisseurs = [];
   List<Frn> _filteredFournisseurs = [];
   bool _isLoading = true;
-  String _searchQuery = '';
+  String searchQuery = '';
 
   @override
   void initState() {
@@ -46,15 +46,16 @@ class _FicheFournisseursModalState extends State<FicheFournisseursModal> {
 
   void _filterFournisseurs(String query) {
     setState(() {
-      _searchQuery = query;
+      searchQuery = query;
       if (query.isEmpty) {
         _filteredFournisseurs = _fournisseurs;
       } else {
-        _filteredFournisseurs = _fournisseurs.where((f) =>
-          f.rsoc.toLowerCase().contains(query.toLowerCase()) ||
-          (f.nif?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
-          (f.tel?.toLowerCase().contains(query.toLowerCase()) ?? false)
-        ).toList();
+        _filteredFournisseurs = _fournisseurs
+            .where((f) =>
+                f.rsoc.toLowerCase().contains(query.toLowerCase()) ||
+                (f.nif?.toLowerCase().contains(query.toLowerCase()) ?? false) ||
+                (f.tel?.toLowerCase().contains(query.toLowerCase()) ?? false))
+            .toList();
       }
     });
   }
@@ -65,7 +66,7 @@ class _FicheFournisseursModalState extends State<FicheFournisseursModal> {
       title: 'Fiche Fournisseurs',
       width: 1000,
       height: 700,
-      child: Column(
+      content: Column(
         children: [
           // Barre de recherche
           Padding(
@@ -79,39 +80,59 @@ class _FicheFournisseursModalState extends State<FicheFournisseursModal> {
               onChanged: _filterFournisseurs,
             ),
           ),
-          
+
           // Tableau des fournisseurs
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : DataTableWidget<Frn>(
-                    data: _filteredFournisseurs,
-                    columns: const [
-                      DataColumn(label: Text('Raison Sociale')),
-                      DataColumn(label: Text('Adresse')),
-                      DataColumn(label: Text('Téléphone')),
-                      DataColumn(label: Text('Email')),
-                      DataColumn(label: Text('NIF')),
-                      DataColumn(label: Text('Solde')),
-                      DataColumn(label: Text('Dernière Op.')),
+                    headers: const [
+                      'Raison Sociale',
+                      'Adresse',
+                      'Téléphone',
+                      'Email',
+                      'NIF',
+                      'Solde',
+                      'Dernière Op.',
                     ],
-                    buildRow: (fournisseur) => DataRow(
-                      cells: [
-                        DataCell(Text(fournisseur.rsoc)),
-                        DataCell(Text(fournisseur.adr ?? '')),
-                        DataCell(Text(fournisseur.tel ?? '')),
-                        DataCell(Text(fournisseur.email ?? '')),
-                        DataCell(Text(fournisseur.nif ?? '')),
-                        DataCell(Text('${_formatNumber(fournisseur.soldes ?? 0)} Ar')),
-                        DataCell(Text(fournisseur.datedernop != null 
-                          ? DateFormat('dd/MM/yyyy').format(fournisseur.datedernop!)
-                          : '')),
-                      ],
-                    ),
-                    onRowTap: (fournisseur) => _showFournisseurDetails(fournisseur),
+                    items: _filteredFournisseurs,
+                    rowBuilder: (fournisseur, isSelected) => [
+                      Expanded(
+                          child: Text(fournisseur.rsoc,
+                              style:
+                                  TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.black))),
+                      Expanded(
+                          child: Text(fournisseur.adr ?? '',
+                              style:
+                                  TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.black))),
+                      Expanded(
+                          child: Text(fournisseur.tel ?? '',
+                              style:
+                                  TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.black))),
+                      Expanded(
+                          child: Text(fournisseur.email ?? '',
+                              style:
+                                  TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.black))),
+                      Expanded(
+                          child: Text(fournisseur.nif ?? '',
+                              style:
+                                  TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.black))),
+                      Expanded(
+                          child: Text('${_formatNumber(fournisseur.soldes ?? 0)} Ar',
+                              style:
+                                  TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.black))),
+                      Expanded(
+                          child: Text(
+                              fournisseur.datedernop != null
+                                  ? DateFormat('dd/MM/yyyy').format(fournisseur.datedernop!)
+                                  : '',
+                              style:
+                                  TextStyle(fontSize: 11, color: isSelected ? Colors.white : Colors.black))),
+                    ],
+                    onItemSelected: (fournisseur) => _showFournisseurDetails(fournisseur),
                   ),
           ),
-          
+
           // Résumé
           Container(
             padding: const EdgeInsets.all(16),
@@ -157,9 +178,11 @@ class _FicheFournisseursModalState extends State<FicheFournisseursModal> {
               _buildDetailRow('Télex:', fournisseur.telex ?? ''),
               _buildDetailRow('Solde:', '${_formatNumber(fournisseur.soldes ?? 0)} Ar'),
               _buildDetailRow('Délai paiement:', '${fournisseur.delai ?? 0} jours'),
-              _buildDetailRow('Dernière opération:', fournisseur.datedernop != null 
-                ? DateFormat('dd/MM/yyyy HH:mm').format(fournisseur.datedernop!)
-                : 'Aucune'),
+              _buildDetailRow(
+                  'Dernière opération:',
+                  fournisseur.datedernop != null
+                      ? DateFormat('dd/MM/yyyy HH:mm').format(fournisseur.datedernop!)
+                      : 'Aucune'),
             ],
           ),
         ),
@@ -198,8 +221,8 @@ class _FicheFournisseursModalState extends State<FicheFournisseursModal> {
 
   String _formatNumber(double number) {
     return number.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]} ',
-    );
+          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (Match m) => '${m[1]} ',
+        );
   }
 }

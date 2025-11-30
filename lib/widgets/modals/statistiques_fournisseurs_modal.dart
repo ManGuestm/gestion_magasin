@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
+import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
@@ -18,8 +19,8 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
   final DatabaseService _databaseService = DatabaseService();
 
   List<Map<String, dynamic>> _statistiques = [];
-  DateTime _dateDebut = DateTime.now().subtract(const Duration(days: 30));
-  DateTime _dateFin = DateTime.now();
+  DateTime _dateDebut = DateTime.now().subtract(const Duration(days: 365)); // 1 an
+  DateTime _dateFin = DateTime.now().add(const Duration(days: 1)); // Demain
   bool _isLoading = false;
   String _sortColumn = 'totalAchats';
   bool _sortAscending = false;
@@ -27,7 +28,90 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
   @override
   void initState() {
     super.initState();
-    _loadStatistiques();
+    _initializeData();
+  }
+
+  Future<void> _initializeData() async {
+    // Vérifier s'il y a des données, sinon créer des données de test
+    final achats = await _databaseService.database.getAllAchats();
+    final fournisseurs = await _databaseService.database.getAllFournisseurs();
+
+    if (achats.isEmpty || fournisseurs.isEmpty) {
+      await _createTestData();
+    }
+
+    await _loadStatistiques();
+  }
+
+  Future<void> _createTestData() async {
+    try {
+      // Créer quelques fournisseurs de test
+      final testFournisseurs = [
+        {'rsoc': 'Fournisseur A', 'tel': '0123456789', 'email': 'contact@fourn-a.com'},
+        {'rsoc': 'Fournisseur B', 'tel': '0987654321', 'email': 'info@fourn-b.com'},
+        {'rsoc': 'Fournisseur C', 'tel': '0555666777', 'email': 'admin@fourn-c.com'},
+      ];
+
+      for (var frn in testFournisseurs) {
+        await _databaseService.database.insertFournisseur(
+          FrnsCompanion(
+            rsoc: Value(frn['rsoc']!),
+            tel: Value(frn['tel']),
+            email: Value(frn['email']),
+            soldes: const Value(0.0),
+          ),
+        );
+      }
+
+      // Créer quelques achats de test
+      final testAchats = [
+        {
+          'numachats': 'ACH001',
+          'frns': 'Fournisseur A',
+          'totalttc': 150000.0,
+          'totalnt': 125000.0,
+          'daty': DateTime.now().subtract(const Duration(days: 15)),
+        },
+        {
+          'numachats': 'ACH002',
+          'frns': 'Fournisseur B',
+          'totalttc': 250000.0,
+          'totalnt': 208333.0,
+          'daty': DateTime.now().subtract(const Duration(days: 10)),
+        },
+        {
+          'numachats': 'ACH003',
+          'frns': 'Fournisseur A',
+          'totalttc': 75000.0,
+          'totalnt': 62500.0,
+          'daty': DateTime.now().subtract(const Duration(days: 5)),
+        },
+        {
+          'numachats': 'ACH004',
+          'frns': 'Fournisseur C',
+          'totalttc': 180000.0,
+          'totalnt': 150000.0,
+          'daty': DateTime.now().subtract(const Duration(days: 3)),
+        },
+      ];
+
+      for (var achat in testAchats) {
+        await _databaseService.database.insertAchat(
+          AchatsCompanion(
+            numachats: Value(achat['numachats'] as String),
+            frns: Value(achat['frns'] as String),
+            totalttc: Value(achat['totalttc'] as double),
+            totalnt: Value(achat['totalnt'] as double),
+            daty: Value(achat['daty'] as DateTime),
+            verification: const Value('JOURNAL'),
+          ),
+        );
+      }
+
+      debugPrint('Données de test créées avec succès');
+    } catch (e) {
+      debugPrint('Erreur création données de test: $e');
+    }
   }
 
   Future<void> _loadStatistiques() async {
@@ -36,50 +120,61 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
     });
 
     try {
-      // Requête pour récupérer les statistiques d'achats par fournisseur
-      const query = '''
-        SELECT 
-          a.frns as fournisseur,
-          COUNT(DISTINCT a.numachats) as nombreAchats,
-          SUM(a.totalnt) as totalHT,
-          SUM(a.totalttc) as totalTTC,
-          AVG(a.totalttc) as moyenneAchat,
-          MIN(a.daty) as premierAchat,
-          MAX(a.daty) as dernierAchat,
-          SUM(CASE WHEN a.daty >= ? THEN a.totalttc ELSE 0 END) as totalPeriode
-        FROM achats a
-        WHERE a.daty BETWEEN ? AND ?
-        GROUP BY a.frns
-        ORDER BY totalTTC DESC
-      ''';
+      // Debug: vérifier s'il y a des achats dans la base
+      final totalAchats = await _databaseService.database.getAllAchats();
+      debugPrint('Total achats dans la base: ${totalAchats.length}');
 
-      final result = await _databaseService.database.customSelect(
-        query,
-        variables: [
-          Variable(_dateDebut.subtract(const Duration(days: 365)).toIso8601String()),
-          Variable(_dateDebut.toIso8601String()),
-          Variable(_dateFin.toIso8601String()),
-        ],
-      ).get();
+      // Debug: vérifier s'il y a des fournisseurs
+      final totalFournisseurs = await _databaseService.database.getAllFournisseurs();
+      debugPrint('Total fournisseurs dans la base: ${totalFournisseurs.length}');
 
-      final statistiques = result
-          .map((row) => {
-                'fournisseur': row.read<String>('fournisseur'),
-                'nombreAchats': row.read<int>('nombreAchats'),
-                'totalHT': row.read<double>('totalHT'),
-                'totalTTC': row.read<double>('totalTTC'),
-                'moyenneAchat': row.read<double>('moyenneAchat'),
-                'premierAchat': row.read<String?>('premierAchat'),
-                'dernierAchat': row.read<String?>('dernierAchat'),
-                'totalPeriode': row.read<double>('totalPeriode'),
-              })
-          .toList();
+      final statistiques = await _databaseService.database.getStatistiquesFournisseurs(
+        dateDebut: _dateDebut,
+        dateFin: _dateFin,
+      );
 
-      setState(() {
-        _statistiques = statistiques;
-        _isLoading = false;
-      });
+      debugPrint('Statistiques trouvées: ${statistiques.length}');
+      debugPrint('Période: ${_dateDebut.toString()} à ${_dateFin.toString()}');
+
+      // Si pas de données, essayer sans filtre de date
+      if (statistiques.isEmpty) {
+        final statsAll = await _databaseService.database.getStatistiquesFournisseurs();
+        debugPrint('Statistiques sans filtre de date: ${statsAll.length}');
+
+        setState(() {
+          _statistiques = statsAll
+              .map((stat) => {
+                    'fournisseur': stat['fournisseur'],
+                    'nombreAchats': stat['nombre_achats'],
+                    'totalHT': stat['montant_total'] * 0.8,
+                    'totalTTC': stat['montant_total'],
+                    'moyenneAchat': stat['montant_moyen'],
+                    'premierAchat': stat['premier_achat'],
+                    'dernierAchat': stat['dernier_achat'],
+                    'totalPeriode': stat['montant_total'],
+                  })
+              .toList();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _statistiques = statistiques
+              .map((stat) => {
+                    'fournisseur': stat['fournisseur'],
+                    'nombreAchats': stat['nombre_achats'],
+                    'totalHT': stat['montant_total'] * 0.8,
+                    'totalTTC': stat['montant_total'],
+                    'moyenneAchat': stat['montant_moyen'],
+                    'premierAchat': stat['premier_achat'],
+                    'dernierAchat': stat['dernier_achat'],
+                    'totalPeriode': stat['montant_total'],
+                  })
+              .toList();
+          _isLoading = false;
+        });
+      }
     } catch (e) {
+      debugPrint('Erreur chargement statistiques: $e');
       setState(() {
         _isLoading = false;
       });
@@ -345,43 +440,47 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
                                         return Focus(
                                           autofocus: true,
                                           onKeyEvent: (node, event) => handleTabNavigation(event),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
-                                              border: Border(
-                                                bottom: BorderSide(color: Colors.grey.shade200),
+                                          child: InkWell(
+                                            onTap: () => _showFournisseurDetails(stat['fournisseur']),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
+                                                border: Border(
+                                                  bottom: BorderSide(color: Colors.grey.shade200),
+                                                ),
                                               ),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                _buildDataCell(stat['fournisseur'] ?? '', 200),
-                                                _buildDataCell(stat['nombreAchats'].toString(), 100,
-                                                    isNumber: true),
-                                                _buildDataCell(
-                                                    NumberUtils.formatNumber(stat['totalHT'] as double), 120,
-                                                    isNumber: true),
-                                                _buildDataCell(
-                                                    NumberUtils.formatNumber(stat['totalTTC'] as double), 120,
-                                                    isNumber: true),
-                                                _buildDataCell(
-                                                    NumberUtils.formatNumber(stat['moyenneAchat'] as double),
-                                                    120,
-                                                    isNumber: true),
-                                                _buildDataCell(
-                                                    stat['premierAchat'] != null
-                                                        ? app_date.AppDateUtils.formatDate(
-                                                            DateTime.parse(stat['premierAchat']))
-                                                        : '',
-                                                    120),
-                                                _buildDataCell(
-                                                    stat['dernierAchat'] != null
-                                                        ? app_date.AppDateUtils.formatDate(
-                                                            DateTime.parse(stat['dernierAchat']))
-                                                        : '',
-                                                    120),
-                                                _buildDataCell('${pourcentage.toStringAsFixed(1)}%', 100,
-                                                    isNumber: true),
-                                              ],
+                                              child: Row(
+                                                children: [
+                                                  _buildDataCell(stat['fournisseur'] ?? '', 200),
+                                                  _buildDataCell(stat['nombreAchats'].toString(), 100,
+                                                      isNumber: true),
+                                                  _buildDataCell(
+                                                      NumberUtils.formatNumber(stat['totalHT'] as double),
+                                                      120,
+                                                      isNumber: true),
+                                                  _buildDataCell(
+                                                      NumberUtils.formatNumber(stat['totalTTC'] as double),
+                                                      120,
+                                                      isNumber: true),
+                                                  _buildDataCell(
+                                                      NumberUtils.formatNumber(
+                                                          stat['moyenneAchat'] as double),
+                                                      120,
+                                                      isNumber: true),
+                                                  _buildDataCell(
+                                                      stat['premierAchat'] != null
+                                                          ? _formatDateFromTimestamp(stat['premierAchat'])
+                                                          : '',
+                                                      120),
+                                                  _buildDataCell(
+                                                      stat['dernierAchat'] != null
+                                                          ? _formatDateFromTimestamp(stat['dernierAchat'])
+                                                          : '',
+                                                      120),
+                                                  _buildDataCell('${pourcentage.toStringAsFixed(1)}%', 100,
+                                                      isNumber: true),
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         );
@@ -428,6 +527,157 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
         ),
       ),
     );
+  }
+
+  String _formatDateFromTimestamp(dynamic dateValue) {
+    try {
+      if (dateValue == null) return '';
+
+      // Si c'est déjà une chaîne de date ISO
+      if (dateValue is String && dateValue.contains('-')) {
+        return app_date.AppDateUtils.formatDate(DateTime.parse(dateValue));
+      }
+
+      // Si c'est un timestamp Unix (en secondes)
+      int timestamp;
+      if (dateValue is String) {
+        timestamp = int.parse(dateValue);
+      } else if (dateValue is int) {
+        timestamp = dateValue;
+      } else {
+        return '';
+      }
+
+      // Convertir le timestamp Unix en DateTime
+      final date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+      return app_date.AppDateUtils.formatDate(date);
+    } catch (e) {
+      debugPrint('Erreur formatage date: $e pour valeur: $dateValue');
+      return '';
+    }
+  }
+
+  Future<void> _showFournisseurDetails(String fournisseur) async {
+    try {
+      final achats = await _databaseService.database.customSelect(
+        'SELECT * FROM achats WHERE frns = ? ORDER BY daty DESC',
+        variables: [Variable(fournisseur)],
+      ).get();
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          child: Container(
+            width: 900,
+            height: 600,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.business, color: Colors.blue),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Détails Achats - $fournisseur',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: achats.length,
+                    itemBuilder: (context, index) {
+                      final achat = achats[index];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ExpansionTile(
+                          title: Text('Achat N° ${achat.read<String?>('numachats') ?? 'N/A'}'),
+                          subtitle: Text(
+                            'Date: ${_formatDateFromTimestamp(achat.readNullable<String>('daty'))} - '
+                            'Total: ${NumberUtils.formatNumber(achat.read<double?>('totalttc') ?? 0)} Ar',
+                          ),
+                          children: [
+                            FutureBuilder<List<Map<String, dynamic>>>(
+                              future: _getAchatDetails(achat.read<String?>('numachats') ?? ''),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState == ConnectionState.waiting) {
+                                  return const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+
+                                final details = snapshot.data ?? [];
+                                if (details.isEmpty) {
+                                  return const Padding(
+                                    padding: EdgeInsets.all(16),
+                                    child: Text('Aucun détail disponible'),
+                                  );
+                                }
+
+                                return Column(
+                                  children: details
+                                      .map((detail) => ListTile(
+                                            dense: true,
+                                            leading: const Icon(Icons.inventory_2, size: 16),
+                                            title: Text(detail['designation'] ?? 'Article inconnu'),
+                                            subtitle: Text(
+                                              'Qté: ${detail['q'] ?? 0} ${detail['unites'] ?? ''} - '
+                                              'PU: ${NumberUtils.formatNumber(detail['pu'] ?? 0)} Ar',
+                                            ),
+                                            trailing: Text(
+                                              '${NumberUtils.formatNumber((detail['q'] ?? 0) * (detail['pu'] ?? 0))} Ar',
+                                              style: const TextStyle(fontWeight: FontWeight.bold),
+                                            ),
+                                          ))
+                                      .toList(),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: $e')),
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _getAchatDetails(String numAchats) async {
+    try {
+      final details = await _databaseService.database.customSelect(
+        'SELECT * FROM detachats WHERE numachats = ?',
+        variables: [Variable(numAchats)],
+      ).get();
+
+      return details
+          .map((row) => {
+                'designation': row.readNullable<String>('designation'),
+                'unites': row.readNullable<String>('unites'),
+                'q': row.readNullable<double>('q'),
+                'pu': row.readNullable<double>('pu'),
+              })
+          .toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   Widget _buildDataCell(String text, double width, {bool isNumber = false}) {

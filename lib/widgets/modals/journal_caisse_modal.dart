@@ -23,6 +23,22 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
   String _searchText = '';
   final TextEditingController _searchController = TextEditingController();
 
+  // Filtrage avancé
+  bool _showAdvancedFilters = false;
+  DateTime? _dateDebut;
+  DateTime? _dateFin;
+  String _libelleFilter = '';
+  double? _debitMin;
+  double? _debitMax;
+  double? _creditMin;
+  double? _creditMax;
+
+  final TextEditingController _libelleController = TextEditingController();
+  final TextEditingController _debitMinController = TextEditingController();
+  final TextEditingController _debitMaxController = TextEditingController();
+  final TextEditingController _creditMinController = TextEditingController();
+  final TextEditingController _creditMaxController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -51,16 +67,52 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
   }
 
   List<CaisseData> get _filteredMouvements {
-    List<CaisseData> filtered;
-    if (_searchText.isEmpty) {
-      filtered = List.from(_mouvements);
-    } else {
-      filtered = _mouvements
+    List<CaisseData> filtered = List.from(_mouvements);
+
+    // Filtrage par recherche simple
+    if (_searchText.isNotEmpty) {
+      filtered = filtered
           .where((m) =>
               (m.lib?.toLowerCase().contains(_searchText.toLowerCase()) ?? false) ||
               (m.daty?.toString().contains(_searchText) ?? false))
           .toList();
     }
+
+    // Filtrage avancé
+    if (_dateDebut != null) {
+      filtered = filtered
+          .where((m) => m.daty != null && m.daty!.isAfter(_dateDebut!.subtract(const Duration(days: 1))))
+          .toList();
+    }
+
+    if (_dateFin != null) {
+      filtered = filtered
+          .where((m) => m.daty != null && m.daty!.isBefore(_dateFin!.add(const Duration(days: 1))))
+          .toList();
+    }
+
+    if (_libelleFilter.isNotEmpty) {
+      filtered = filtered
+          .where((m) => m.lib?.toLowerCase().contains(_libelleFilter.toLowerCase()) ?? false)
+          .toList();
+    }
+
+    if (_debitMin != null) {
+      filtered = filtered.where((m) => (m.debit ?? 0) >= _debitMin!).toList();
+    }
+
+    if (_debitMax != null) {
+      filtered = filtered.where((m) => (m.debit ?? 0) <= _debitMax!).toList();
+    }
+
+    if (_creditMin != null) {
+      filtered = filtered.where((m) => (m.credit ?? 0) >= _creditMin!).toList();
+    }
+
+    if (_creditMax != null) {
+      filtered = filtered.where((m) => (m.credit ?? 0) <= _creditMax!).toList();
+    }
+
     // Trier par date décroissante pour l'affichage
     filtered.sort((a, b) => (b.daty ?? DateTime.now()).compareTo(a.daty ?? DateTime.now()));
     return filtered;
@@ -195,6 +247,22 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
                         ),
                       ),
                       const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _showAdvancedFilters = !_showAdvancedFilters;
+                          });
+                        },
+                        icon:
+                            Icon(_showAdvancedFilters ? Icons.filter_list_off : Icons.filter_list, size: 18),
+                        label: const Text('Filtres'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _showAdvancedFilters ? Colors.orange : Colors.grey,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Tooltip(
                         message: 'Actualiser (F5)',
                         child: ElevatedButton.icon(
@@ -211,6 +279,9 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
                     ],
                   ),
                 ),
+
+                // Panneau de filtres avancés
+                if (_showAdvancedFilters) _buildAdvancedFilters(),
 
                 // Résumé des totaux
                 Container(
@@ -527,10 +598,279 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
     );
   }
 
+  Widget _buildAdvancedFilters() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Filtres avancés',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Plage de dates
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Période', style: TextStyle(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _selectDate(true),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade400),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _dateDebut != null
+                                    ? '${_dateDebut!.day.toString().padLeft(2, '0')}/${_dateDebut!.month.toString().padLeft(2, '0')}/${_dateDebut!.year}'
+                                    : 'Date début',
+                                style: TextStyle(
+                                  color: _dateDebut != null ? Colors.black : Colors.grey.shade600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => _selectDate(false),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade400),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _dateFin != null
+                                    ? '${_dateFin!.day.toString().padLeft(2, '0')}/${_dateFin!.month.toString().padLeft(2, '0')}/${_dateFin!.year}'
+                                    : 'Date fin',
+                                style: TextStyle(
+                                  color: _dateFin != null ? Colors.black : Colors.grey.shade600,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Libellé
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Libellé', style: TextStyle(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _libelleController,
+                      decoration: const InputDecoration(
+                        hintText: 'Filtrer par libellé',
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                      ),
+                      style: const TextStyle(fontSize: 12),
+                      onChanged: (value) {
+                        setState(() {
+                          _libelleFilter = value;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Débit
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Débit', style: TextStyle(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _debitMinController,
+                            decoration: const InputDecoration(
+                              hintText: 'Min',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            ),
+                            style: const TextStyle(fontSize: 12),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              setState(() {
+                                _debitMin = double.tryParse(value);
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _debitMaxController,
+                            decoration: const InputDecoration(
+                              hintText: 'Max',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            ),
+                            style: const TextStyle(fontSize: 12),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              setState(() {
+                                _debitMax = double.tryParse(value);
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Crédit
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Crédit', style: TextStyle(fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _creditMinController,
+                            decoration: const InputDecoration(
+                              hintText: 'Min',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            ),
+                            style: const TextStyle(fontSize: 12),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              setState(() {
+                                _creditMin = double.tryParse(value);
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _creditMaxController,
+                            decoration: const InputDecoration(
+                              hintText: 'Max',
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                            ),
+                            style: const TextStyle(fontSize: 12),
+                            keyboardType: TextInputType.number,
+                            onChanged: (value) {
+                              setState(() {
+                                _creditMax = double.tryParse(value);
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Bouton effacer
+              Column(
+                children: [
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _clearFilters,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    child: const Text('Effacer', style: TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectDate(bool isStartDate) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: isStartDate ? (_dateDebut ?? DateTime.now()) : (_dateFin ?? DateTime.now()),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (picked != null) {
+      setState(() {
+        if (isStartDate) {
+          _dateDebut = picked;
+        } else {
+          _dateFin = picked;
+        }
+      });
+    }
+  }
+
+  void _clearFilters() {
+    setState(() {
+      _dateDebut = null;
+      _dateFin = null;
+      _libelleFilter = '';
+      _debitMin = null;
+      _debitMax = null;
+      _creditMin = null;
+      _creditMax = null;
+    });
+
+    _libelleController.clear();
+    _debitMinController.clear();
+    _debitMaxController.clear();
+    _creditMinController.clear();
+    _creditMaxController.clear();
+  }
+
   @override
   void dispose() {
     _keyboardFocusNode.dispose();
     _searchController.dispose();
+    _libelleController.dispose();
+    _debitMinController.dispose();
+    _debitMaxController.dispose();
+    _creditMinController.dispose();
+    _creditMaxController.dispose();
     super.dispose();
   }
 }

@@ -2422,11 +2422,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             if (isShiftPressed) {
                                               _quantiteFocusNode.requestFocus();
                                             } else {
-                                              if (_isArticleFormValid() && _statutAchatActuel != 'JOURNAL') {
-                                                _validerFocusNode.requestFocus();
-                                              } else {
-                                                _nFactFocusNode.requestFocus();
-                                              }
+                                              _depotFocusNode.requestFocus();
                                             }
                                             return KeyEventResult.handled;
                                           }

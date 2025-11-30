@@ -1938,10 +1938,10 @@ class AppDatabase extends _$AppDatabase {
     ).get();
 
     return result.map((row) => {
-      'fournisseur': row.read<String>('fournisseur') ?? '',
-      'nombre_achats': row.read<int>('nombre_achats') ?? 0,
-      'montant_total': row.read<double>('montant_total') ?? 0.0,
-      'montant_moyen': row.read<double>('montant_moyen') ?? 0.0,
+      'fournisseur': row.read<String>('fournisseur'),
+      'nombre_achats': row.read<int>('nombre_achats'),
+      'montant_total': row.read<double>('montant_total'),
+      'montant_moyen': row.read<double>('montant_moyen'),
       'premier_achat': row.readNullable<String>('premier_achat'),
       'dernier_achat': row.readNullable<String>('dernier_achat'),
       'telephone': row.readNullable<String>('telephone') ?? '',

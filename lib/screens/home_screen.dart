@@ -121,6 +121,17 @@ class _HomeScreenState extends State<HomeScreen> {
       stats['articles'] = totalArticles;
       stats['lastUpdate'] = now;
 
+      // Charger les données communes pour toutes les cartes additionnelles
+      final retourVentes = await _getRetourVentes();
+      final retourAchats = await _getRetourAchats();
+      final journalCaisse = await _getJournalCaisse();
+      final journalBanque = await _getJournalBanque();
+      
+      stats['retourVentes'] = retourVentes;
+      stats['retourAchats'] = retourAchats;
+      stats['journalCaisse'] = journalCaisse;
+      stats['journalBanque'] = journalBanque;
+
       if (userRole == 'Administrateur') {
         final totalStock = await db.getTotalStockValue();
         final totalAchats = await db.getTotalAchats();
@@ -536,6 +547,8 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context) => const VentesSelectionModal(),
         ).then((_) => _resumeUpdates());
       }
+    } else if (iconLabel == 'Articles à commander') {
+      _showModal('Niveau des stocks (Articles à commandées)');
     } else {
       _showModal(iconLabel);
     }
@@ -625,17 +638,52 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildStatsGrid(String userRole) {
+    return Column(
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            int crossAxisCount;
+            if (constraints.maxWidth > 1400) {
+              crossAxisCount = userRole == 'Administrateur' ? 9 : 8;
+            } else if (constraints.maxWidth > 1000) {
+              crossAxisCount = userRole == 'Administrateur' ? 7 : 6;
+            } else if (constraints.maxWidth > 600) {
+              crossAxisCount = 5;
+            } else {
+              crossAxisCount = 2;
+            }
+
+            return GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 8,
+              mainAxisSpacing: 8,
+              childAspectRatio: 1.2,
+              children: [
+                if (userRole == 'Administrateur') ..._buildAdminStats(),
+                if (userRole == 'Caisse') ..._buildCaisseStats(),
+                if (userRole == 'Vendeur') ..._buildVendeurStats(),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        _buildAdditionalStats(),
+      ],
+    );
+  }
+
+  Widget _buildAdditionalStats() {
     return LayoutBuilder(
       builder: (context, constraints) {
         int crossAxisCount;
-        if (constraints.maxWidth > 1400) {
-          crossAxisCount = userRole == 'Administrateur' ? 9 : 8;
-        } else if (constraints.maxWidth > 1000) {
-          crossAxisCount = userRole == 'Administrateur' ? 7 : 6;
-        } else if (constraints.maxWidth > 600) {
-          crossAxisCount = 5;
-        } else {
+        if (constraints.maxWidth > 1200) {
+          crossAxisCount = 4;
+        } else if (constraints.maxWidth > 800) {
           crossAxisCount = 2;
+        } else {
+          crossAxisCount = 1;
         }
 
         return GridView.count(
@@ -646,9 +694,10 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisSpacing: 8,
           childAspectRatio: 1.2,
           children: [
-            if (userRole == 'Administrateur') ..._buildAdminStats(),
-            if (userRole == 'Caisse') ..._buildCaisseStats(),
-            if (userRole == 'Vendeur') ..._buildVendeurStats(),
+            _buildStatCard('Retour Ventes', '${(_stats['retourVentes'] ?? 0).toInt()}', Icons.undo, Colors.red),
+            _buildStatCard('Retour Achats', '${(_stats['retourAchats'] ?? 0).toInt()}', Icons.keyboard_return, Colors.orange),
+            _buildStatCard('Journal Caisse', '${_formatNumber(_stats['journalCaisse'] ?? 0)} Ar', Icons.account_balance_wallet, Colors.green),
+            _buildStatCard('Journal Banque', '${_formatNumber(_stats['journalBanque'] ?? 0)} Ar', Icons.account_balance, Colors.blue),
           ],
         );
       },
@@ -836,6 +885,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Articles Stock':
         _showModal('Articles');
         break;
+
       case 'Total Achats':
         _showModal('Liste des achats');
         break;
@@ -886,6 +936,18 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 'Objectif Mois':
         // Pas de modal spécifique pour les objectifs
+        break;
+      case 'Retour Ventes':
+        _showModal('Sur Ventes');
+        break;
+      case 'Retour Achats':
+        _showModal('Retours achats');
+        break;
+      case 'Journal Caisse':
+        _showModal('Journal de caisse');
+        break;
+      case 'Journal Banque':
+        _showModal('Journal des banques');
         break;
       default:
         // Pas d'action pour les autres cartes
@@ -1202,6 +1264,58 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}';
+  }
+
+  Future<double> _getRetourVentes() async {
+    try {
+      final db = DatabaseService().database;
+      final retours = await db.customSelect(
+        'SELECT COUNT(*) as count FROM ventes WHERE contre = "1"'
+      ).getSingleOrNull();
+      return (retours?.read<int>('count') ?? 0).toDouble();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  Future<double> _getRetourAchats() async {
+    try {
+      final db = DatabaseService().database;
+      final retours = await db.customSelect(
+        'SELECT COUNT(*) as count FROM achats WHERE contre = "1"'
+      ).getSingleOrNull();
+      return (retours?.read<int>('count') ?? 0).toDouble();
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  Future<double> _getJournalCaisse() async {
+    try {
+      final db = DatabaseService().database;
+      // Récupérer le solde actuel de la caisse comme dans le modal
+      final mouvements = await db.getAllCaisses();
+      if (mouvements.isEmpty) return 0.0;
+      
+      // Trier par date et prendre le solde du mouvement le plus récent
+      mouvements.sort((a, b) => (a.daty ?? DateTime.now()).compareTo(b.daty ?? DateTime.now()));
+      return mouvements.last.soldes ?? 0.0;
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  Future<double> _getJournalBanque() async {
+    try {
+      final db = DatabaseService().database;
+      // Calculer le solde des comptes banques
+      final solde = await db.customSelect(
+        'SELECT COALESCE(SUM(solde), 0) as total FROM banques'
+      ).getSingleOrNull();
+      return solde?.read<double>('total') ?? 0.0;
+    } catch (e) {
+      return 0.0;
+    }
   }
 
   void _showVenteDetails(Map<String, dynamic> sale) async {

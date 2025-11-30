@@ -4,7 +4,10 @@ import '../widgets/modals/a_propos_modal.dart';
 import '../widgets/modals/achats_modal.dart';
 import '../widgets/modals/amortissement_immobilisations_modal.dart';
 import '../widgets/modals/approximation_stocks_modal.dart';
+
 import '../widgets/modals/articles_modal.dart';
+import '../widgets/modals/balance_comptes_clients_modal.dart';
+import '../widgets/modals/balance_comptes_fournisseurs_modal.dart';
 import '../widgets/modals/banques_modal.dart';
 import '../widgets/modals/bilan_compte_resultat_modal.dart';
 import '../widgets/modals/cheques_modal.dart';
@@ -25,10 +28,11 @@ import '../widgets/modals/etats_autres_comptes_modal.dart';
 import '../widgets/modals/etats_clients_modal.dart';
 import '../widgets/modals/etats_commerciaux_modal.dart';
 import '../widgets/modals/etats_fournisseurs_modal.dart';
-import '../widgets/modals/fiche_fournisseurs_modal.dart';
-import '../widgets/modals/balance_comptes_fournisseurs_modal.dart';
 import '../widgets/modals/etats_immobilisations_modal.dart';
 import '../widgets/modals/etiquettes_prix_modal.dart';
+import '../widgets/modals/fiche_clients_modal.dart';
+import '../widgets/modals/fiche_enumeration_clients_modal.dart';
+import '../widgets/modals/fiche_fournisseurs_modal.dart';
 import '../widgets/modals/fiche_stocks_modal.dart';
 import '../widgets/modals/fournisseurs_modal.dart';
 import '../widgets/modals/gestion_emballages_modal.dart';
@@ -75,6 +79,7 @@ class ModalLoader {
       'Informations sur la société': () => const CompanyInfoModal(),
       'Dépôts': () => const DepotsModal(),
       'Articles': () => const ArticlesModal(),
+
       'Clients': () => const ClientsModal(),
       'Fournisseurs': () => const FournisseursModal(),
       'Gestion fournisseurs': () => const FournisseursModal(),
@@ -103,6 +108,9 @@ class ModalLoader {
       'Fiche Fournisseurs': () => const FicheFournisseursModal(),
       'Balance des comptes Fournisseurs': () => const BalanceComptesFournisseursModal(),
       'Etats Clients': () => const EtatsClientsModal(),
+      'Fiche Clients': () => const FicheClientsModal(),
+      'Balance des comptes Clients': () => const BalanceComptesClientsModal(),
+      'Fiche d\'énumération Clients': () => const FicheEnumerationClientsModal(),
       'Etats Articles': () => const EtatsArticlesModal(),
       'Etiquettes de prix': () => const EtiquettesPrixModal(),
       'Etat tarifaire': () => const EtatTarifaireModal(),
