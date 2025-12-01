@@ -14,6 +14,7 @@ import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/vente_service.dart';
 import '../../utils/stock_converter.dart';
+import '../../widgets/common/article_navigation_autocomplete.dart';
 import '../../widgets/common/enhanced_autocomplete.dart';
 import '../../widgets/common/mode_paiement_dropdown.dart';
 import '../common/tab_navigation_widget.dart';
@@ -56,6 +57,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   final TextEditingController _echeanceController = TextEditingController();
   TextEditingController? _autocompleteController;
   final TextEditingController _depotController = TextEditingController();
+  final TextEditingController _uniteController = TextEditingController();
   final TextEditingController _searchVentesController = TextEditingController();
   final TextEditingController _searchArticleController = TextEditingController();
 
@@ -80,6 +82,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   // String? _selectedCommercial;
   int? _selectedRowIndex;
   bool _isExistingPurchase = false;
+  bool _isModifyingLine = false;
+  int? _modifyingLineIndex;
+  Map<String, dynamic>? originalLineData;
   String _defaultDepot = 'MAG';
   bool _showCreditMode = true;
 
@@ -112,10 +117,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   // Focus nodes for tab navigation
   late final FocusNode _clientFocusNode;
   late final FocusNode _designationFocusNode;
+  late final FocusNode _depotFocusNode;
   late final FocusNode _uniteFocusNode;
   late final FocusNode _quantiteFocusNode;
   late final FocusNode _prixFocusNode;
-  late final FocusNode _depotFocusNode;
   late final FocusNode _ajouterFocusNode;
   late final FocusNode _annulerFocusNode;
   late final FocusNode _montantRecuFocusNode;
@@ -130,10 +135,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     // Initialize focus nodes with tab navigation
     _clientFocusNode = createFocusNode();
     _designationFocusNode = createFocusNode();
+    _depotFocusNode = createFocusNode();
     _uniteFocusNode = createFocusNode();
     _quantiteFocusNode = createFocusNode();
     _prixFocusNode = createFocusNode();
-    _depotFocusNode = createFocusNode();
     _ajouterFocusNode = createFocusNode();
     _annulerFocusNode = createFocusNode();
     _montantRecuFocusNode = createFocusNode();
@@ -579,6 +584,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     _montantARendreController.dispose();
     _echeanceController.dispose();
     _depotController.dispose();
+    _uniteController.dispose();
     _searchVentesController.dispose();
     _searchArticleController.dispose();
     _soldeAnterieurController.dispose();
@@ -692,13 +698,21 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     setState(() {
       _selectedArticle = article;
       if (article != null) {
-        _quantiteController.text = '';
+        // Ne vider la quantité que si on n'est pas en mode modification
+        if (!_isModifyingLine) {
+          _quantiteController.text = '';
+        }
         _montantController.text = '';
         _uniteAffichage = _formaterUniteAffichage(article);
+        // Vider le champ unité seulement si ce n'est pas une modification de ligne existante
+        if (_selectedUnite == null) {
+          _uniteController.clear();
+        }
       }
     });
 
-    if (article != null) {
+    // Ne vérifier le stock que si on n'est pas en mode modification
+    if (article != null && !_isModifyingLine) {
       await _verifierStockEtBasculer(article);
     }
   }
@@ -811,10 +825,53 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     setState(() {
       _selectedUnite = unite;
       _calculerPrixPourUnite(_selectedArticle!, unite);
-      _quantiteController.text = '';
     });
+    _isModifyingLine ? null : await _verifierStock(_selectedArticle!);
+  }
 
-    await _verifierStock(_selectedArticle!);
+  Future<void> _verifierDepot(String depot) async {
+    if (depot.trim().isEmpty) return;
+
+    // Vérifier si le dépôt existe dans la base de données
+    final depotExiste = _depots.any((d) => d.depots == depot.trim());
+
+    if (!depotExiste) {
+      // Afficher modal d'erreur
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Dépôt invalide'),
+            content: Text('Le dépôt "${depot.trim()}" n\'existe pas.\n\n'
+                'Dépôts disponibles: ${_depots.map((d) => d.depots).join(", ")}'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                autofocus: true,
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Remettre le dépôt par défaut
+      setState(() {
+        _selectedDepot = _defaultDepot;
+        _depotController.text = _defaultDepot;
+      });
+
+      // Repositionner le curseur dans le champ dépôt
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _depotFocusNode.requestFocus();
+        }
+      });
+      return;
+    }
+
+    _onDepotChanged(depot.trim());
   }
 
   void _onDepotChanged(String? depot) async {
@@ -824,7 +881,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       _selectedDepot = depot;
     });
 
-    await _verifierStockEtBasculer(_selectedArticle!);
+    _isModifyingLine ? null : await _verifierStockEtBasculer(_selectedArticle!);
+
+    // Vérifier la quantité après changement de dépôt
+    if (_quantiteController.text.isNotEmpty) {
+      _validerQuantite(_quantiteController.text);
+    }
   }
 
   Future<void> _verifierStockEtBasculer(Article article) async {
@@ -940,6 +1002,40 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
 
     return 0.0;
+  }
+
+  // Obtient les stocks de toutes les unités pour un article et dépôt donnés
+  Future<String> _getStocksToutesUnites(Article article, String depot) async {
+    try {
+      final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
+          .getSingleOrNull();
+
+      // Calculer le stock total en unité de base (U3)
+      double stockTotalU3 = StockConverter.calculerStockTotalU3(
+        article: article,
+        stockU1: stockDepart?.stocksu1 ?? 0.0,
+        stockU2: stockDepart?.stocksu2 ?? 0.0,
+        stockU3: stockDepart?.stocksu3 ?? 0.0,
+      );
+
+      // Convertir le stock total vers les unités optimales
+      final stocksOptimaux = StockConverter.convertirStockOptimal(
+        article: article,
+        quantiteU1: 0.0,
+        quantiteU2: 0.0,
+        quantiteU3: stockTotalU3,
+      );
+
+      return StockConverter.formaterAffichageStock(
+        article: article,
+        stockU1: stocksOptimaux['u1']!,
+        stockU2: stocksOptimaux['u2']!,
+        stockU3: stocksOptimaux['u3']!,
+      );
+    } catch (e) {
+      return '';
+    }
   }
 
   Future<void> _gererStockInsuffisant(Article article, String depotActuel) async {
@@ -1067,19 +1163,44 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
   }
 
-  void _validerQuantite(String value) {
+  void _validerQuantite(String value) async {
     if (!_isClientSelected || _selectedArticle == null) return;
 
     double quantite = double.tryParse(value) ?? 0.0;
 
-    // Si stock insuffisant et quantité > stock disponible, forcer le mode brouillard
-    if (quantite > _stockDisponible && _stockDisponible <= 0) {
+    // Si stock insuffisant, afficher modal d'avertissement
+    if (quantite > _stockDisponible) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Stock insuffisant'),
+          content: Text(
+              'Attention: Vous allez vendre ${quantite.toStringAsFixed(0)} ${_selectedUnite ?? ''} de "${_selectedArticle!.designation}" '
+              'mais le stock disponible est de ${_stockDisponible.toStringAsFixed(0)} ${_selectedUnite ?? ''}.\n\n'
+              'Voulez-vous continuer ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              autofocus: true,
+              child: const Text('Continuer'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) {
+        // Remettre la quantité à la valeur du stock disponible
+        _quantiteController.text = _stockDisponible > 0 ? _stockDisponible.toStringAsFixed(0) : '';
+        return;
+      }
+
+      // Forcer le mode brouillard
       setState(() {
         _statutVente = StatutVente.brouillard;
-      });
-    } else if (quantite > _stockDisponible && _stockDisponible > 0) {
-      setState(() {
-        _quantiteController.text = _stockDisponible.toStringAsFixed(0);
       });
     }
 
@@ -1099,6 +1220,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     if (article.u2?.isNotEmpty == true) unites.add(article.u2!);
     if (article.u3?.isNotEmpty == true) unites.add(article.u3!);
     return unites.join(' / ');
+  }
+
+  Article? _getLastAddedArticle() {
+    if (_lignesVente.isEmpty) return null;
+    final lastDesignation = _lignesVente.last['designation'] as String?;
+    if (lastDesignation == null) return null;
+    return _articles.where((a) => a.designation == lastDesignation).firstOrNull;
   }
 
   String _calculateRemiseAmount() {
@@ -1335,6 +1463,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         'stockInsuffisant': quantite > _stockDisponible,
         'diffPrix': diffPrix,
       });
+      _isModifyingLine = false;
+      _modifyingLineIndex = null;
+      originalLineData = null;
     });
 
     _calculerTotaux();
@@ -1347,8 +1478,29 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     _resetArticleForm();
   }
 
-  void _chargerLigneArticle(int index) {
-    final ligne = _lignesVente[index];
+  Future<void> _chargerLigneArticle(int index) async {
+    debugPrint('=== DÉBUT _chargerLigneArticle - Index: $index ===');
+
+    // Ajuster l'index si on restaure une ligne précédente
+    int adjustedIndex = index;
+
+    // Si on est déjà en train de modifier une ligne, la restaurer d'abord
+    if (_isModifyingLine && _modifyingLineIndex != null && originalLineData != null) {
+      debugPrint('Restauration ligne précédente - Index: $_modifyingLineIndex');
+      setState(() {
+        _lignesVente.insert(_modifyingLineIndex!, Map<String, dynamic>.from(originalLineData!));
+      });
+      _calculerTotaux();
+
+      // Ajuster l'index si la ligne restaurée est avant la ligne à modifier
+      if (_modifyingLineIndex! <= index) {
+        adjustedIndex = index + 1;
+        debugPrint('Index ajusté: $adjustedIndex');
+      }
+    }
+
+    final ligne = _lignesVente[adjustedIndex];
+    debugPrint('Ligne à modifier: $ligne');
 
     // Trouver l'article correspondant
     Article? article;
@@ -1364,26 +1516,62 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       }
     }
 
+    // Sauvegarder les données originales AVANT toute modification
+    final originalData = Map<String, dynamic>.from(ligne);
+
+    // Sauvegarder la quantité originale pour la préserver
+    final quantiteOriginale = ligne['quantite'].toString();
+    debugPrint('Quantité originale: $quantiteOriginale');
+
     setState(() {
       _selectedArticle = article;
       _selectedUnite = ligne['unites'];
       _selectedDepot = ligne['depot'];
-      _depotController.text = ligne['depot'];
-      _quantiteController.text = ligne['quantite'].toString();
-      _prixController.text = AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
+      _isModifyingLine = true;
+      _modifyingLineIndex = adjustedIndex;
+      originalLineData = originalData;
       _uniteAffichage = _formaterUniteAffichage(article!);
     });
+    debugPrint('setState terminé - Variables mises à jour');
 
-    // Supprimer la ligne de la table pour éviter les doublons
-    _supprimerLigne(index);
+    // Remplir les contrôleurs IMMÉDIATEMENT après setState
+    _depotController.text = ligne['depot'];
+    _uniteController.text = ligne['unites'];
+    _quantiteController.text = quantiteOriginale;
+    _prixController.text = AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
+    debugPrint('Contrôleurs remplis - Quantité: ${_quantiteController.text}');
 
-    // Vérifier le stock pour l'article sélectionné
-    _verifierStockEtBasculer(article);
+    // Vérifier le stock APRES avoir rempli les contrôleurs
+    debugPrint('AVANT _verifierStockEtBasculer - Quantité: ${_quantiteController.text}');
+    await _verifierStockEtBasculer(article);
+    debugPrint('APRÈS _verifierStockEtBasculer - Quantité: ${_quantiteController.text}');
+
+    // CRITIQUE: Toujours restaurer la quantité originale après la vérification du stock
+    // car la vérification peut vider le champ quantité
+    _quantiteController.text = quantiteOriginale;
+    debugPrint('Quantité restaurée: ${_quantiteController.text}');
+
+    // Supprimer la ligne après un délai
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (mounted && _isModifyingLine && _modifyingLineIndex == adjustedIndex) {
+        debugPrint('Suppression ligne - Index: $adjustedIndex, Quantité avant: ${_quantiteController.text}');
+        setState(() {
+          _lignesVente.removeAt(adjustedIndex);
+        });
+        _calculerTotaux();
+        debugPrint('Ligne supprimée - Quantité après: ${_quantiteController.text}');
+      }
+    });
 
     // Focus sur le champ quantité pour modification rapide
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _quantiteFocusNode.requestFocus();
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) {
+        debugPrint('Focus sur quantité - Valeur actuelle: ${_quantiteController.text}');
+        _quantiteFocusNode.requestFocus();
+      }
     });
+
+    debugPrint('=== FIN _chargerLigneArticle ===');
   }
 
   Future<void> _chargerSoldeClient(String? client) async {
@@ -1442,15 +1630,32 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       _prixController.clear();
       _montantController.clear();
       _depotController.text = _defaultDepot; // Remplir avec le dernier dépôt utilisé
+      _uniteController.clear(); // Vider le champ unité
       _stockDisponible = 0.0;
       _stockInsuffisant = false;
       _uniteAffichage = '';
+      _isModifyingLine = false;
+      _modifyingLineIndex = null;
+      originalLineData = null;
     });
 
     // Retourner le focus au champ désignation pour une nouvelle saisie
     Future.delayed(const Duration(milliseconds: 100), () {
       _designationFocusNode.requestFocus();
     });
+  }
+
+  void _annulerModificationLigne() {
+    if (_isModifyingLine && _modifyingLineIndex != null && originalLineData != null) {
+      // Restaurer la ligne originale avec les données sauvegardées
+      setState(() {
+        _lignesVente.insert(_modifyingLineIndex!, Map<String, dynamic>.from(originalLineData!));
+      });
+
+      _calculerTotaux();
+    }
+
+    _resetArticleForm();
   }
 
   void _supprimerLigne(int index) async {
@@ -1466,6 +1671,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   bool _shouldShowAddButton() {
+    if (_isModifyingLine) {
+      // En mode modification, afficher les boutons si on a un article sélectionné
+      return _isClientSelected && _selectedArticle != null;
+    }
+    // En mode normal, vérifier tous les champs
     return _isClientSelected && _selectedArticle != null && _quantiteController.text.isNotEmpty;
   }
 
@@ -2875,9 +3085,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         }
       }
       // Escape : Fermer
-      else if (event.logicalKey == LogicalKeyboardKey.escape) {
-        Navigator.of(context).pop();
-      }
+      // else if (event.logicalKey == LogicalKeyboardKey.escape) {
+      //   Navigator.of(context).pop();
+      // }
 
       // Gestion de la navigation Tab/Shift+Tab
       final tabResult = handleTabNavigation(event);
@@ -3525,11 +3735,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                    final isShiftPressed = HardwareKeyboard
+                                                            .instance.logicalKeysPressed
+                                                            .contains(LogicalKeyboardKey.shiftLeft) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftRight);
-                                                    
+                                                            .contains(LogicalKeyboardKey.shiftRight);
+
                                                     if (isShiftPressed) {
                                                       // Pas de champ précédent, rester sur le client
                                                       return KeyEventResult.ignored;
@@ -3598,6 +3809,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   padding: const EdgeInsets.all(8),
                                   child: Row(
                                     children: [
+                                      //Désignation Articles, champ autocomplete avec navigation au clavier
                                       Expanded(
                                         flex: 2,
                                         child: Column(
@@ -3612,36 +3824,37 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                    final isShiftPressed = HardwareKeyboard
+                                                            .instance.logicalKeysPressed
+                                                            .contains(LogicalKeyboardKey.shiftLeft) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftRight);
-                                                    
+                                                            .contains(LogicalKeyboardKey.shiftRight);
+
                                                     if (isShiftPressed) {
                                                       _clientFocusNode.requestFocus();
                                                     } else {
-                                                      _uniteFocusNode.requestFocus();
+                                                      widget.tousDepots
+                                                          ? _depotFocusNode.requestFocus()
+                                                          : _uniteFocusNode.requestFocus();
                                                     }
                                                     return KeyEventResult.handled;
                                                   }
                                                   return KeyEventResult.ignored;
                                                 },
-                                                child: EnhancedAutocomplete<Article>(
-                                                  options: _articles,
-                                                  displayStringForOption: (article) => article.designation,
-                                                  onSelected: (article) {
+                                                child: ArticleNavigationAutocomplete(
+                                                  articles: _articles,
+                                                  initialArticle: _getLastAddedArticle(),
+                                                  onArticleChanged: (article) {
                                                     _onArticleSelected(article);
-                                                    // Navigate to next field on selection
-                                                    _uniteFocusNode.requestFocus();
                                                   },
                                                   focusNode: _designationFocusNode,
                                                   hintText: _isClientSelected
-                                                      ? 'Rechercher un article...'
+                                                      ? 'Rechercher un article... (← → pour naviguer)'
                                                       : 'Sélectionnez d\'abord un client',
                                                   decoration: InputDecoration(
                                                     border: const OutlineInputBorder(),
-                                                    contentPadding:
-                                                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 4, vertical: 2),
                                                     focusedBorder: const OutlineInputBorder(
                                                       borderSide: BorderSide(color: Colors.blue, width: 2),
                                                     ),
@@ -3651,8 +3864,19 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   style: TextStyle(
                                                       fontSize: 12,
                                                       color: _isClientSelected ? Colors.black : Colors.grey),
-                                                  onTabPressed: () => _uniteFocusNode.requestFocus(),
+                                                  onTabPressed: () => widget.tousDepots
+                                                      ? _depotFocusNode.requestFocus()
+                                                      : _uniteFocusNode.requestFocus(),
                                                   onShiftTabPressed: () => _clientFocusNode.requestFocus(),
+                                                  onNextArticleSet: () {
+                                                    // Vider le champ unité seulement si on n'est pas en mode modification
+                                                    if (!_isModifyingLine) {
+                                                      setState(() {
+                                                        _selectedUnite = null;
+                                                        _uniteController.clear();
+                                                      });
+                                                    }
+                                                  },
                                                   enabled: _isClientSelected,
                                                 ),
                                               ),
@@ -3666,6 +3890,87 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
+                                      // Dépôts autocomplete
+                                      if (widget.tousDepots) ...[
+                                        Expanded(
+                                          flex: 2,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text('Dépôts', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(height: 4),
+                                              SizedBox(
+                                                height: 25,
+                                                child: Focus(
+                                                  onKeyEvent: (node, event) {
+                                                    if (event is KeyDownEvent &&
+                                                        event.logicalKey == LogicalKeyboardKey.tab) {
+                                                      final isShiftPressed = HardwareKeyboard
+                                                              .instance.logicalKeysPressed
+                                                              .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                          HardwareKeyboard.instance.logicalKeysPressed
+                                                              .contains(LogicalKeyboardKey.shiftRight);
+
+                                                      if (isShiftPressed) {
+                                                        _designationFocusNode.requestFocus();
+                                                      } else {
+                                                        _uniteFocusNode.requestFocus();
+                                                      }
+                                                      return KeyEventResult.handled;
+                                                    }
+                                                    return KeyEventResult.ignored;
+                                                  },
+                                                  child: EnhancedAutocomplete<String>(
+                                                    options: _depots.map((depot) => depot.depots).toList(),
+                                                    displayStringForOption: (depot) => depot,
+                                                    controller: _depotController,
+                                                    focusNode: _depotFocusNode,
+                                                    onSelected: (depot) {
+                                                      _onDepotChanged(depot);
+                                                      _uniteFocusNode.requestFocus();
+                                                    },
+                                                    onSubmitted: (value) async {
+                                                      await _verifierDepot(value);
+                                                      _uniteFocusNode.requestFocus();
+                                                    },
+                                                    onTabPressed: () async {
+                                                      await _verifierDepot(_depotController.text);
+                                                      _uniteFocusNode.requestFocus();
+                                                    },
+                                                    onShiftTabPressed: () =>
+                                                        _designationFocusNode.requestFocus(),
+                                                    onFocusLost: (value) async {
+                                                      await _verifierDepot(value);
+                                                    },
+                                                    hintText: 'Dépôt...',
+                                                    decoration: InputDecoration(
+                                                      border: const OutlineInputBorder(),
+                                                      contentPadding: const EdgeInsets.symmetric(
+                                                          horizontal: 4, vertical: 2),
+                                                      focusedBorder: const OutlineInputBorder(
+                                                        borderSide: BorderSide(color: Colors.blue, width: 2),
+                                                      ),
+                                                      fillColor: _isClientSelected ? null : Colors.grey[200],
+                                                      filled: !_isClientSelected,
+                                                    ),
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        color:
+                                                            _isClientSelected ? Colors.black : Colors.grey),
+                                                    enabled: _isClientSelected,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (_selectedArticle != null)
+                                                const SizedBox(
+                                                  height: 16,
+                                                )
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                      ],
+                                      //Unités disponible de l'article
                                       Expanded(
                                         flex: 1,
                                         child: Column(
@@ -3679,13 +3984,16 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                    final isShiftPressed = HardwareKeyboard
+                                                            .instance.logicalKeysPressed
+                                                            .contains(LogicalKeyboardKey.shiftLeft) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftRight);
-                                                    
+                                                            .contains(LogicalKeyboardKey.shiftRight);
+
                                                     if (isShiftPressed) {
-                                                      _designationFocusNode.requestFocus();
+                                                      widget.tousDepots
+                                                          ? _depotFocusNode.requestFocus()
+                                                          : _designationFocusNode.requestFocus();
                                                     } else {
                                                       _quantiteFocusNode.requestFocus();
                                                     }
@@ -3700,6 +4008,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                           .toList()
                                                       : [''],
                                                   displayStringForOption: (unit) => unit,
+                                                  controller: _uniteController,
                                                   onSelected: (unit) {
                                                     if (_selectedArticle != null) {
                                                       _verifierUniteArticle(unit);
@@ -3710,8 +4019,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   hintText: 'Unité...',
                                                   decoration: InputDecoration(
                                                     border: const OutlineInputBorder(),
-                                                    contentPadding:
-                                                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 4, vertical: 2),
                                                     fillColor: _isClientSelected ? null : Colors.grey[200],
                                                     filled: !_isClientSelected,
                                                   ),
@@ -3725,7 +4034,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     _quantiteFocusNode.requestFocus();
                                                   },
                                                   onTabPressed: () => _quantiteFocusNode.requestFocus(),
-                                                  onShiftTabPressed: () => _designationFocusNode.requestFocus(),
+                                                  onShiftTabPressed: () => widget.tousDepots
+                                                      ? _depotFocusNode.requestFocus()
+                                                      : _designationFocusNode.requestFocus(),
                                                   onFocusLost: (value) {
                                                     if (_selectedArticle != null && value.isNotEmpty) {
                                                       _verifierUniteArticle(value);
@@ -3745,6 +4056,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
+                                      //Quantités avec stock disponible en rouge si insuffisant
                                       Expanded(
                                         flex: 1,
                                         child: Column(
@@ -3758,14 +4070,16 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                    final isShiftPressed = HardwareKeyboard
+                                                            .instance.logicalKeysPressed
+                                                            .contains(LogicalKeyboardKey.shiftLeft) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftRight);
-                                                    
+                                                            .contains(LogicalKeyboardKey.shiftRight);
+
                                                     if (isShiftPressed) {
                                                       _uniteFocusNode.requestFocus();
                                                     } else {
+                                                      _validerQuantite(_quantiteController.text);
                                                       _prixFocusNode.requestFocus();
                                                     }
                                                     return KeyEventResult.handled;
@@ -3775,6 +4089,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 child: TextField(
                                                   controller: _quantiteController,
                                                   focusNode: _quantiteFocusNode,
+                                                  inputFormatters: [
+                                                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                                                  ],
                                                   decoration: InputDecoration(
                                                     border: OutlineInputBorder(
                                                       borderSide: BorderSide(
@@ -3814,18 +4131,39 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                             : Colors.black,
                                                   ),
                                                   onChanged: (value) {
-                                                    _validerQuantite(value);
                                                     setState(() {}); // Refresh to update color
                                                   },
                                                   // ENTER/TAB in Quantités goes to Prix
-                                                  onSubmitted: (value) => _prixFocusNode.requestFocus(),
+                                                  onSubmitted: (value) {
+                                                    _prixFocusNode.requestFocus();
+                                                  },
                                                   onTap: () => updateFocusIndex(_quantiteFocusNode),
                                                   readOnly: _selectedVerification == 'JOURNAL' ||
                                                       !_isClientSelected,
                                                 ),
                                               ),
                                             ),
-                                            if (_selectedArticle != null)
+                                            if (_selectedArticle != null && _selectedDepot != null)
+                                              FutureBuilder<String>(
+                                                future: _getStocksToutesUnites(
+                                                    _selectedArticle!, _selectedDepot!),
+                                                builder: (context, snapshot) {
+                                                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                                    return Text(
+                                                      '${snapshot.data}',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: _stockInsuffisant
+                                                            ? Colors.red
+                                                            : Colors.green[700],
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    );
+                                                  }
+                                                  return const SizedBox.shrink();
+                                                },
+                                              ),
+                                            if (_selectedArticle != null && _selectedUnite == "")
                                               const SizedBox(
                                                 height: 16,
                                               )
@@ -3833,6 +4171,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                         ),
                                       ),
                                       const SizedBox(width: 8),
+                                      //Prix de vente unitaire HT de l'article
                                       Expanded(
                                         flex: 1,
                                         child: Column(
@@ -3851,17 +4190,16 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                    final isShiftPressed = HardwareKeyboard
+                                                            .instance.logicalKeysPressed
+                                                            .contains(LogicalKeyboardKey.shiftLeft) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftRight);
-                                                    
+                                                            .contains(LogicalKeyboardKey.shiftRight);
+
                                                     if (isShiftPressed) {
                                                       _quantiteFocusNode.requestFocus();
                                                     } else {
-                                                      widget.tousDepots
-                                                          ? _depotFocusNode.requestFocus()
-                                                          : _ajouterFocusNode.requestFocus();
+                                                      _ajouterFocusNode.requestFocus();
                                                     }
                                                     return KeyEventResult.handled;
                                                   }
@@ -3884,10 +4222,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                       fontSize: 12,
                                                       color: _isClientSelected ? Colors.black : Colors.grey),
                                                   // onChanged: (value) => _calculerMontant(),
-                                                  // ENTER in Prix goes to Dépôts
-                                                  onSubmitted: (value) => widget.tousDepots
-                                                      ? _depotFocusNode.requestFocus()
-                                                      : _ajouterFocusNode.requestFocus(),
+                                                  // ENTER in Prix goes to Ajouter
+                                                  onSubmitted: (value) => _ajouterFocusNode.requestFocus(),
                                                   readOnly: _selectedVerification == 'JOURNAL' ||
                                                       !_isClientSelected,
                                                 ),
@@ -3900,54 +4236,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                           ],
                                         ),
                                       ),
-                                      if (widget.tousDepots) ...[
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          flex: 2,
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Text('Dépôts', style: TextStyle(fontSize: 12)),
-                                              const SizedBox(height: 4),
-                                              SizedBox(
-                                                height: 25,
-                                                child: EnhancedAutocomplete<String>(
-                                                  options: _depots.map((depot) => depot.depots).toList(),
-                                                  displayStringForOption: (depot) => depot,
-                                                  controller: _depotController,
-                                                  focusNode: _depotFocusNode,
-                                                  onSelected: (depot) {
-                                                    _onDepotChanged(depot);
-                                                    _ajouterFocusNode.requestFocus();
-                                                  },
-                                                  onSubmitted: (_) => _ajouterFocusNode.requestFocus(),
-                                                  onTabPressed: () => _ajouterFocusNode.requestFocus(),
-                                                  onShiftTabPressed: () => _prixFocusNode.requestFocus(),
-                                                  hintText: 'Dépôt...',
-                                                  decoration: InputDecoration(
-                                                    border: const OutlineInputBorder(),
-                                                    contentPadding: const EdgeInsets.symmetric(
-                                                        horizontal: 4, vertical: 2),
-                                                    focusedBorder: const OutlineInputBorder(
-                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
-                                                    ),
-                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
-                                                    filled: !_isClientSelected,
-                                                  ),
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: _isClientSelected ? Colors.black : Colors.grey),
-                                                  enabled: _isClientSelected,
-                                                ),
-                                              ),
-                                              if (_selectedArticle != null)
-                                                const SizedBox(
-                                                  height: 16,
-                                                )
-                                            ],
-                                          ),
-                                        ),
-                                      ],
+
+                                      //Bouton Ajouter et Annuler
                                       if (_shouldShowAddButton()) ...[
                                         const SizedBox(width: 8),
                                         Column(
@@ -3957,7 +4247,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               children: [
                                                 Row(
                                                   children: [
-                                                    // AJOUTER BUTTON
+                                                    // AJOUTER/MODIFIER BUTTON
                                                     ElevatedButton(
                                                       focusNode: _ajouterFocusNode,
                                                       onPressed: _isClientSelected ? _ajouterLigne : null,
@@ -3968,16 +4258,20 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         foregroundColor: Colors.white,
                                                         minimumSize: const Size(60, 35),
                                                       ),
-                                                      child: const Text(
-                                                        'Ajouter',
-                                                        style: TextStyle(fontSize: 12),
+                                                      child: Text(
+                                                        _isModifyingLine ? 'Modifier' : 'Ajouter',
+                                                        style: const TextStyle(fontSize: 12),
                                                       ),
                                                     ),
                                                     const SizedBox(width: 4),
                                                     // ANNULER BUTTON
                                                     ElevatedButton(
                                                       focusNode: _annulerFocusNode,
-                                                      onPressed: _isClientSelected ? _resetArticleForm : null,
+                                                      onPressed: _isClientSelected
+                                                          ? (_isModifyingLine
+                                                              ? _annulerModificationLigne
+                                                              : _resetArticleForm)
+                                                          : null,
                                                       style: ElevatedButton.styleFrom(
                                                         backgroundColor:
                                                             _isClientSelected ? Colors.orange : Colors.grey,
@@ -4001,7 +4295,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ),
                                 ),
 
-                                // Articles table
+                                // Articles table: // Lignes de vente list section
                                 Expanded(
                                   child: Container(
                                     margin: const EdgeInsets.all(8),
@@ -4746,7 +5040,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                           child: ElevatedButton(
                                             onPressed: _creerNouvelleVente,
                                             style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                            child: const Text('Créer', style: TextStyle(fontSize: 12)),
+                                            child:
+                                                const Text('Créer (Ctrl+N)', style: TextStyle(fontSize: 12)),
                                           ),
                                         ),
                                         if (_peutValiderBrouillard()) ...[
