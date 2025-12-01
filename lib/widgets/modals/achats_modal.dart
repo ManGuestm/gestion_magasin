@@ -13,6 +13,7 @@ import '../../utils/cmup_calculator.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
 import '../../utils/stock_converter.dart';
+import '../common/article_navigation_autocomplete.dart';
 import '../common/enhanced_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
 import 'add_fournisseur_modal.dart';
@@ -421,12 +422,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       // _uniteController.text = article.u1 ?? '';
       _depotController.text = article.dep ?? 'MAG';
 
-      _quantiteController.text = '';
-
-      // Focus automatique sur le champ unité après sélection
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _uniteFocusNode.requestFocus();
-      });
+      // Ne vider la quantité que si on n'est pas en mode modification
+      if (!_isModifyingArticle) {
+        _quantiteController.text = '';
+      }
     });
   }
 
@@ -606,8 +605,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   void _validerAjout() async {
     if (_isModifyingArticle && _originalArticleData != null) {
-      // En mode modification : mettre à jour les stocks
-      await _mettreAJourStocksModification();
+      // En mode modification : supprimer l'ancienne ligne
+      final originalIndex = _lignesAchat.indexWhere((ligne) =>
+          ligne['designation'] == _originalArticleData!['designation'] &&
+          ligne['unites'] == _originalArticleData!['unites'] &&
+          ligne['depot'] == _originalArticleData!['depot']);
+
+      if (originalIndex != -1) {
+        _supprimerLigne(originalIndex);
+      }
     }
     _ajouterLigne();
     _resetArticleForm();
@@ -616,36 +622,21 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   void _resetArticleForm() async {
     final lastDepot = await _getLastUsedDepot();
 
-    // Sauvegarder le dernier article ajouté avant de réinitialiser
-    String? lastArticleDesignation;
-    if (_lignesAchat.isNotEmpty) {
-      lastArticleDesignation = _lignesAchat.last['designation'];
-    }
-
     setState(() {
       _selectedArticle = null;
       _selectedUnite = null;
       _selectedDepot = lastDepot;
       _isModifyingArticle = false;
       _originalArticleData = null;
-      if (_autocompleteController != null) {
-        _autocompleteController!.clear();
-      }
       _uniteController.clear();
       _depotController.text = lastDepot;
       _quantiteController.clear();
       _prixController.clear();
     });
 
-    // Focus automatique sur Désignation Articles avec pré-sélection du dernier article
+    // Focus automatique sur Désignation Articles
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _articleFocusNode.requestFocus();
-
-      // Pré-remplir le dernier article ajouté avec curseur à la fin
-      if (lastArticleDesignation != null && _autocompleteController != null) {
-        _autocompleteController!.text = lastArticleDesignation;
-        _autocompleteController!.selection = TextSelection.collapsed(offset: lastArticleDesignation.length);
-      }
     });
   }
 
@@ -653,10 +644,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     final ligne = _lignesAchat[index];
 
     // Trouver l'article correspondant
-    Article? article = _articles.firstWhere(
-      (a) => a.designation == ligne['designation'],
-      orElse: () => _articles.first,
-    );
+    Article? article = _articles
+        .where(
+          (a) => a.designation == ligne['designation'],
+        )
+        .firstOrNull;
 
     setState(() {
       _selectedArticle = article;
@@ -665,17 +657,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       _isModifyingArticle = true;
       _originalArticleData = Map<String, dynamic>.from(ligne);
 
-      if (_autocompleteController != null) {
-        _autocompleteController!.text = ligne['designation'];
-      }
       _uniteController.text = ligne['unites'];
       _depotController.text = ligne['depot'];
       _quantiteController.text = ligne['quantite'].toString();
       _prixController.text = NumberUtils.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
     });
 
-    // Supprimer la ligne de la table pour éviter les doublons
-    _supprimerLigne(index);
+    // Focus sur le champ désignation après chargement
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _articleFocusNode.requestFocus();
+    });
   }
 
   Future<void> _chargerAchatExistant(String numAchats) async {
@@ -1239,65 +1230,34 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         .write(ArticlesCompanion(cmup: Value(nouveauCMUP)));
   }
 
-  Future<void> _mettreAJourStocksModification() async {
-    if (_originalArticleData == null || _selectedArticle == null) return;
-
+  Future<String> _getStocksToutesUnites(Article article, String depot) async {
     try {
-      // Quantités originales et nouvelles
-      double ancienneQuantite = _originalArticleData!['quantite'] ?? 0.0;
-      double nouvelleQuantite = double.tryParse(_quantiteController.text) ?? 0.0;
-      double differenceQuantite = nouvelleQuantite - ancienneQuantite;
-
-      String unite = _selectedUnite ?? '';
-      String depot = _selectedDepot ?? '';
-
-      // Mettre à jour les stocks par dépôt dans la table Depart
-      final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
-            ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
+      final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
           .getSingleOrNull();
 
-      if (existingDepart != null) {
-        // Mettre à jour le stock existant pour ce dépôt
-        if (unite == _selectedArticle!.u1) {
-          double newStock = (existingDepart.stocksu1 ?? 0) + differenceQuantite;
-          await (_databaseService.database.update(_databaseService.database.depart)
-                ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
-              .write(DepartCompanion(
-            stocksu1: Value(newStock >= 0 ? newStock : 0),
-          ));
-        } else if (unite == _selectedArticle!.u2) {
-          double newStock = (existingDepart.stocksu2 ?? 0) + differenceQuantite;
-          await (_databaseService.database.update(_databaseService.database.depart)
-                ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
-              .write(DepartCompanion(
-            stocksu2: Value(newStock >= 0 ? newStock : 0),
-          ));
-        } else if (unite == _selectedArticle!.u3) {
-          double newStock = (existingDepart.stocksu3 ?? 0) + differenceQuantite;
-          await (_databaseService.database.update(_databaseService.database.depart)
-                ..where((d) => d.designation.equals(_selectedArticle!.designation) & d.depots.equals(depot)))
-              .write(DepartCompanion(
-            stocksu3: Value(newStock >= 0 ? newStock : 0),
-          ));
-        }
-      } else if (differenceQuantite > 0) {
-        // Créer une nouvelle entrée pour ce dépôt si la différence est positive
-        await _databaseService.database.into(_databaseService.database.depart).insert(
-              DepartCompanion.insert(
-                designation: _selectedArticle!.designation,
-                depots: depot,
-                stocksu1: Value(unite == _selectedArticle!.u1 ? differenceQuantite : 0.0),
-                stocksu2: Value(unite == _selectedArticle!.u2 ? differenceQuantite : 0.0),
-                stocksu3: Value(unite == _selectedArticle!.u3 ? differenceQuantite : 0.0),
-              ),
-            );
-      }
+      double stockTotalU3 = StockConverter.calculerStockTotalU3(
+        article: article,
+        stockU1: stockDepart?.stocksu1 ?? 0.0,
+        stockU2: stockDepart?.stocksu2 ?? 0.0,
+        stockU3: stockDepart?.stocksu3 ?? 0.0,
+      );
+
+      final stocksOptimaux = StockConverter.convertirStockOptimal(
+        article: article,
+        quantiteU1: 0.0,
+        quantiteU2: 0.0,
+        quantiteU3: stockTotalU3,
+      );
+
+      return StockConverter.formaterAffichageStock(
+        article: article,
+        stockU1: stocksOptimaux['u1']!,
+        stockU2: stocksOptimaux['u2']!,
+        stockU3: stocksOptimaux['u3']!,
+      );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la mise à jour des stocks: $e')),
-        );
-      }
+      return '';
     }
   }
 
@@ -1560,10 +1520,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       // F2 : Achat suivant
       else if (event.logicalKey == LogicalKeyboardKey.f2) {
         if (_achatsNumbers.isNotEmpty) _naviguerAchat(true);
-      }
-      // Escape : Fermer
-      else if (event.logicalKey == LogicalKeyboardKey.escape) {
-        Navigator.of(context).pop();
       }
     }
   }
@@ -1948,7 +1904,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             child: Text('Date', style: TextStyle(fontSize: 12))),
                                         const SizedBox(width: 4),
                                         SizedBox(
-                                          width: 120,
+                                          width: 140,
                                           height: 25,
                                           child: ExcludeFocus(
                                             child: TextField(
@@ -2111,148 +2067,55 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     const SizedBox(height: 4),
                                     SizedBox(
                                       height: 30,
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Focus(
-                                              onKeyEvent: (node, event) {
-                                                if (event is KeyDownEvent &&
-                                                    event.logicalKey == LogicalKeyboardKey.tab) {
-                                                  final isShiftPressed = HardwareKeyboard
-                                                          .instance.logicalKeysPressed
-                                                          .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                      HardwareKeyboard.instance.logicalKeysPressed
-                                                          .contains(LogicalKeyboardKey.shiftRight);
-
-                                                  if (isShiftPressed) {
-                                                    _fournisseurFocusNode.requestFocus();
-                                                  } else {
-                                                    _uniteFocusNode.requestFocus();
-                                                  }
-                                                  return KeyEventResult.handled;
-                                                }
-                                                return KeyEventResult.ignored;
-                                              },
-                                              child: Focus(
-                                                onKeyEvent: (node, event) {
-                                                  if (event is KeyDownEvent &&
-                                                      _statutAchatActuel != 'JOURNAL') {
-                                                    // Navigation avec flèches gauche/droite dans les articles
-                                                    if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
-                                                        event.logicalKey == LogicalKeyboardKey.arrowRight) {
-                                                      final currentText = _autocompleteController?.text ?? '';
-                                                      if (currentText.isNotEmpty) {
-                                                        final currentIndex = _articles
-                                                            .indexWhere((a) => a.designation == currentText);
-                                                        if (currentIndex != -1) {
-                                                          int newIndex;
-                                                          if (event.logicalKey ==
-                                                              LogicalKeyboardKey.arrowRight) {
-                                                            newIndex = (currentIndex + 1) % _articles.length;
-                                                          } else {
-                                                            newIndex = (currentIndex - 1 + _articles.length) %
-                                                                _articles.length;
-                                                          }
-                                                          final newArticle = _articles[newIndex];
-                                                          _autocompleteController?.text =
-                                                              newArticle.designation;
-                                                          _autocompleteController?.selection = TextSelection(
-                                                              baseOffset: 0,
-                                                              extentOffset: newArticle.designation.length);
-                                                          _onArticleSelected(newArticle);
-                                                          return KeyEventResult.handled;
-                                                        }
-                                                      } else if (_lignesAchat.isNotEmpty) {
-                                                        // Si le champ est vide, commencer par le dernier article ajouté
-                                                        final lastArticle = _lignesAchat.last['designation'];
-                                                        final articleIndex = _articles
-                                                            .indexWhere((a) => a.designation == lastArticle);
-                                                        if (articleIndex != -1) {
-                                                          final article = _articles[articleIndex];
-                                                          _autocompleteController?.text = article.designation;
-                                                          _autocompleteController?.selection = TextSelection(
-                                                              baseOffset: 0,
-                                                              extentOffset: article.designation.length);
-                                                          _onArticleSelected(article);
-                                                          return KeyEventResult.handled;
-                                                        }
-                                                      }
-                                                    }
-                                                    // Tab pour passer au champ suivant
-                                                    else if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                      final isShiftPressed = HardwareKeyboard
-                                                              .instance.logicalKeysPressed
-                                                              .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                          HardwareKeyboard.instance.logicalKeysPressed
-                                                              .contains(LogicalKeyboardKey.shiftRight);
-
-                                                      if (isShiftPressed) {
-                                                        _fournisseurFocusNode.requestFocus();
-                                                      } else {
-                                                        _uniteFocusNode.requestFocus();
-                                                      }
-                                                      return KeyEventResult.handled;
-                                                    }
-                                                  }
-                                                  return KeyEventResult.ignored;
-                                                },
-                                                child: EnhancedAutocomplete<Article>(
-                                                  controller: _autocompleteController,
-                                                  focusNode: _articleFocusNode,
-                                                  options: _articles,
-                                                  displayStringForOption: (article) => article.designation,
-                                                  onSelected: (article) {
-                                                    if (_statutAchatActuel != 'JOURNAL') {
-                                                      _onArticleSelected(article);
-                                                    }
-                                                  },
-                                                  onTabPressed: () => _uniteFocusNode.requestFocus(),
-                                                  onShiftTabPressed: () =>
-                                                      _fournisseurFocusNode.requestFocus(),
-                                                  onFieldSubmitted: (_) => _uniteFocusNode.requestFocus(),
-                                                  onTextChanged: (text) {
-                                                    if (text.isEmpty) {
-                                                      setState(() {
-                                                        _selectedArticle = null;
-                                                      });
-                                                    }
-                                                  },
-                                                  hintText: 'Rechercher article... (← → pour naviguer)',
-                                                  decoration: InputDecoration(
-                                                    border: const OutlineInputBorder(),
-                                                    contentPadding: const EdgeInsets.symmetric(
-                                                        horizontal: 4, vertical: 2),
-                                                    fillColor: _statutAchatActuel == 'JOURNAL'
-                                                        ? Colors.grey.shade200
-                                                        : null,
-                                                    filled: _statutAchatActuel == 'JOURNAL',
-                                                  ),
-                                                  style: const TextStyle(fontSize: 12),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                      child: ArticleNavigationAutocomplete(
+                                        articles: _articles,
+                                        initialArticle: _lignesAchat.isNotEmpty
+                                            ? _articles
+                                                .where(
+                                                    (a) => a.designation == _lignesAchat.last['designation'])
+                                                .firstOrNull
+                                            : null,
+                                        selectedArticle: _selectedArticle, // Ajouter la synchronisation
+                                        onArticleChanged: _onArticleSelected,
+                                        focusNode: _articleFocusNode,
+                                        enabled: _statutAchatActuel != 'JOURNAL',
+                                        hintText: 'Rechercher article... (← → pour naviguer)',
+                                        decoration: InputDecoration(
+                                          border: const OutlineInputBorder(),
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          fillColor:
+                                              _statutAchatActuel == 'JOURNAL' ? Colors.grey.shade200 : null,
+                                          filled: _statutAchatActuel == 'JOURNAL',
+                                        ),
+                                        style: const TextStyle(fontSize: 12),
+                                        onTabPressed: () => _uniteFocusNode.requestFocus(),
+                                        onShiftTabPressed: () => _fournisseurFocusNode.requestFocus(),
                                       ),
                                     ),
-                                    // Affichage des unités disponibles
+                                    // Affichage des unités disponibles et stock
                                     if (_selectedArticle == null) ...[
                                       const SizedBox(height: 19),
                                     ],
                                     if (_selectedArticle != null) ...[
                                       const SizedBox(height: 2),
-                                      Text(
-                                        'Unités disponible: ${[
-                                          _selectedArticle!.u1,
-                                          _selectedArticle!.u2,
-                                          _selectedArticle!.u3
-                                        ].where((u) => u != null && u.isNotEmpty).join(' - ')}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.blue.shade700,
-                                          fontWeight: FontWeight.w500,
+                                      if (_selectedDepot != null)
+                                        FutureBuilder<String>(
+                                          future: _getStocksToutesUnites(_selectedArticle!, _selectedDepot!),
+                                          builder: (context, snapshot) {
+                                            if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                              return Text(
+                                                'Stock: ${snapshot.data}',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.green.shade700,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              );
+                                            }
+                                            return const SizedBox.shrink();
+                                          },
                                         ),
-                                      ),
                                     ],
                                   ],
                                 ),

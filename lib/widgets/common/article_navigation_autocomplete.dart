@@ -14,6 +14,7 @@ class ArticleNavigationAutocomplete extends StatefulWidget {
   final VoidCallback? onTabPressed;
   final VoidCallback? onShiftTabPressed;
   final VoidCallback? onNextArticleSet;
+  final Article? selectedArticle; // Nouvel paramètre pour synchronisation
 
   const ArticleNavigationAutocomplete({
     super.key,
@@ -28,6 +29,7 @@ class ArticleNavigationAutocomplete extends StatefulWidget {
     this.onTabPressed,
     this.onShiftTabPressed,
     this.onNextArticleSet,
+    this.selectedArticle, // Nouvel paramètre
   });
 
   @override
@@ -66,6 +68,15 @@ class _ArticleNavigationAutocompleteState extends State<ArticleNavigationAutocom
     if (widget.initialArticle != oldWidget.initialArticle && widget.initialArticle != null) {
       _setNextArticle(widget.initialArticle!);
     }
+    
+    // Update if selected article changed (for line modification)
+    if (widget.selectedArticle != oldWidget.selectedArticle) {
+      if (widget.selectedArticle != null) {
+        _setSelectedArticle(widget.selectedArticle!);
+      } else {
+        _clearSelection();
+      }
+    }
   }
 
   void _setNextArticle(Article lastAddedArticle) {
@@ -81,6 +92,30 @@ class _ArticleNavigationAutocompleteState extends State<ArticleNavigationAutocom
         widget.onArticleChanged(nextArticle);
         widget.onNextArticleSet?.call();
       }
+    });
+  }
+  
+  void _setSelectedArticle(Article article) {
+    final index = widget.articles.indexWhere((a) => a.designation == article.designation);
+    if (index != -1) {
+      _controller.text = article.designation;
+      _currentIndex = index;
+      _userInput = article.designation;
+      _isNavigationMode = true;
+      setState(() {
+        _showSuggestion = false;
+      });
+    }
+  }
+  
+  void _clearSelection() {
+    _controller.clear();
+    _userInput = '';
+    _currentIndex = -1;
+    _isNavigationMode = false;
+    setState(() {
+      _showSuggestion = false;
+      _filteredOptions = widget.articles;
     });
   }
 

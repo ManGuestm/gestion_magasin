@@ -219,7 +219,8 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
   Future<void> _processClientPayment(double amount) async {
     final ref = 'ENC${DateTime.now().millisecondsSinceEpoch}';
-    final libelle = 'Règlement client $_paymentMethod - ${_referenceController.text}';
+    final libelle =
+        'Règlement client ${_selectedClient!.rsoc} $_paymentMethod - ${_referenceController.text}';
 
     // 1. Mettre à jour le solde client
     final nouveauSolde = _clientBalance - amount;
@@ -240,10 +241,12 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
     // 3. Encaissement selon le mode de paiement
     if (_paymentMethod == 'Espèces') {
       // Récupérer le dernier solde de caisse
-      final dernierMouvement = await _databaseService.database.customSelect(
-        'SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1',
-      ).getSingleOrNull();
-      
+      final dernierMouvement = await _databaseService.database
+          .customSelect(
+            'SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1',
+          )
+          .getSingleOrNull();
+
       final dernierSolde = dernierMouvement?.data['soldes'] as double? ?? 0.0;
       final nouveauSolde = dernierSolde + amount;
 
@@ -279,7 +282,8 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
   Future<void> _processSupplierPayment(double amount) async {
     final ref = 'DEC${DateTime.now().millisecondsSinceEpoch}';
-    final libelle = 'Règlement fournisseur $_paymentMethod - ${_referenceController.text}';
+    final libelle =
+        'Règlement fournisseur ${_selectedClient!.rsoc} $_paymentMethod - ${_referenceController.text}';
 
     // 1. Mettre à jour le solde fournisseur
     final nouveauSolde = _supplierBalance - amount;
@@ -306,10 +310,12 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
     // 4. Décaissement selon le mode de paiement
     if (_paymentMethod == 'Espèces') {
       // Récupérer le dernier solde de caisse
-      final dernierMouvement = await _databaseService.database.customSelect(
-        'SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1',
-      ).getSingleOrNull();
-      
+      final dernierMouvement = await _databaseService.database
+          .customSelect(
+            'SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1',
+          )
+          .getSingleOrNull();
+
       final dernierSolde = dernierMouvement?.data['soldes'] as double? ?? 0.0;
       final nouveauSolde = dernierSolde - amount;
 
