@@ -2007,6 +2007,12 @@ class AppDatabase extends _$AppDatabase {
   Future<int> toggleUserStatus(String id, bool actif) =>
       (update(users)..where((u) => u.id.equals(id))).write(UsersCompanion(actif: Value(actif)));
 
+  /// Vérifie si un utilisateur existe
+  Future<bool> userExists(String username) async {
+    final user = await (select(users)..where((u) => u.username.equals(username))).getSingleOrNull();
+    return user != null;
+  }
+
   /// Authentifie un utilisateur
   Future<User?> authenticateUser(String username, String motDePasse) async {
     final user = await (select(users)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../database/database_service.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 
@@ -43,22 +44,42 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final success = await AuthService().login(
-        _usernameController.text.trim(),
-        _passwordController.text,
-      );
+      final db = DatabaseService().database;
+      final username = _usernameController.text.trim();
+      final password = _passwordController.text;
+
+      // Vérifier d'abord si l'utilisateur existe
+      final userExists = await db.userExists(username);
+
+      if (!userExists) {
+        // Nom d'utilisateur incorrect - focus sur username
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Nom d\'utilisateur incorrect'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          _usernameFocus.requestFocus();
+        }
+        return;
+      }
+
+      final success = await AuthService().login(username, password);
 
       if (success && mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const HomeScreen()),
         );
       } else if (mounted) {
+        // Mot de passe incorrect - focus sur password
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Nom d\'utilisateur ou mot de passe incorrect'),
+            content: Text('Mot de passe incorrect'),
             backgroundColor: Colors.red,
           ),
         );
+        _passwordFocus.requestFocus();
       }
     } catch (e) {
       if (mounted) {
