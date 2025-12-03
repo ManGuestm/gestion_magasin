@@ -1366,6 +1366,179 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     );
   }
 
+  Future<void> _importerLignesAchat() async {
+    final choix = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Importer lignes d\'achat'),
+        content: const Text('Choisissez la source d\'importation :'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('base_actuelle'),
+            child: const Text('Base actuelle'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('base_externe'),
+            child: const Text('Base externe'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+        ],
+      ),
+    );
+
+    if (choix == 'base_actuelle') {
+      await _importerDepuisBaseActuelle();
+    } else if (choix == 'base_externe') {
+      await _importerDepuisBaseExterne();
+    }
+  }
+
+  Future<void> _importerDepuisBaseActuelle() async {
+    // Récupérer tous les achats avec leurs détails
+    final achatsAvecDetails = <Map<String, dynamic>>[];
+    
+    for (final numAchat in _achatsNumbers) {
+      final details = await (_databaseService.database.select(_databaseService.database.detachats)
+            ..where((d) => d.numachats.equals(numAchat)))
+          .get();
+      
+      if (details.isNotEmpty) {
+        achatsAvecDetails.add({
+          'numAchat': numAchat,
+          'statut': _achatsStatuts[numAchat] ?? 'BROUILLARD',
+          'nbLignes': details.length,
+        });
+      }
+    }
+
+    if (achatsAvecDetails.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucun achat avec des lignes trouvé')),
+      );
+      return;
+    }
+
+    // Afficher la liste des achats pour sélection
+    final selectedAchat = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sélectionner un achat'),
+        content: SizedBox(
+          width: 300,
+          height: 400,
+          child: ListView.builder(
+            itemCount: achatsAvecDetails.length,
+            itemBuilder: (context, index) {
+              final achat = achatsAvecDetails[index];
+              return ListTile(
+                title: Text('N° ${achat['numAchat']}'),
+                subtitle: Text('${achat['nbLignes']} lignes - ${achat['statut']}'),
+                onTap: () => Navigator.of(context).pop(achat['numAchat']),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedAchat != null) {
+      await _copierLignesAchat(selectedAchat);
+    }
+  }
+
+  Future<void> _copierLignesAchat(String numAchatSource) async {
+    try {
+      final details = await (_databaseService.database.select(_databaseService.database.detachats)
+            ..where((d) => d.numachats.equals(numAchatSource)))
+          .get();
+
+      if (details.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucune ligne trouvée pour cet achat')),
+        );
+        return;
+      }
+
+      // Vérifier si des articles existent encore
+      final lignesValides = <Map<String, dynamic>>[];
+      for (final detail in details) {
+        final articleExiste = _articles.any((a) => a.designation == detail.designation);
+        if (articleExiste) {
+          lignesValides.add({
+            'designation': detail.designation ?? '',
+            'unites': detail.unites ?? '',
+            'quantite': detail.q ?? 0.0,
+            'prixUnitaire': detail.pu ?? 0.0,
+            'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
+            'depot': detail.depots ?? 'MAG',
+          });
+        }
+      }
+
+      if (lignesValides.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucun article de cet achat n\'existe plus')),
+        );
+        return;
+      }
+
+      // Confirmation avant importation
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Confirmation'),
+          content: Text(
+              'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Importer'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm == true) {
+        setState(() {
+          _lignesAchat.clear();
+          _lignesAchat.addAll(lignesValides);
+        });
+        _calculerTotaux();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${lignesValides.length} lignes importées avec succès')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l\'importation: $e')),
+      );
+    }
+  }
+
+  Future<void> _importerDepuisBaseExterne() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Fonctionnalité d\'importation depuis base externe à implémenter'),
+        duration: Duration(seconds: 3),
+      ),
+    );
+    // TODO: Implémenter l'importation depuis un fichier de base de données externe
+  }
+
   Future<void> _creerNouvelAchat() async {
     debugPrint('=== DÉBUT CRÉATION NOUVEL ACHAT ===');
     setState(() {
@@ -3238,6 +3411,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                       onPressed: _creerNouvelAchat,
                                       style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
                                       child: const Text('Créer (Ctrl+N)', style: TextStyle(fontSize: 12)),
+                                    ),
+                                  ),
+                                  Tooltip(
+                                    message: 'Importer lignes d\'achat',
+                                    child: ElevatedButton(
+                                      onPressed: _statutAchatActuel == 'JOURNAL' ? null : _importerLignesAchat,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.orange,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(60, 30),
+                                      ),
+                                      child: const Text('Importer', style: TextStyle(fontSize: 12)),
                                     ),
                                   ),
                                   if (_statutAchatActuel == 'BROUILLARD') ...[

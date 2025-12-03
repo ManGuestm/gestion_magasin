@@ -646,9 +646,9 @@ class _HomeScreenState extends State<HomeScreen> {
             if (constraints.maxWidth > 1400) {
               crossAxisCount = userRole == 'Administrateur' ? 9 : 8;
             } else if (constraints.maxWidth > 1000) {
-              crossAxisCount = userRole == 'Administrateur' ? 7 : 6;
+              crossAxisCount = userRole == 'Administrateur' ? 6 : 5;
             } else if (constraints.maxWidth > 600) {
-              crossAxisCount = 5;
+              crossAxisCount = 4;
             } else {
               crossAxisCount = 2;
             }
