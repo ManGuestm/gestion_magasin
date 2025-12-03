@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:drift/drift.dart';
 
 import 'database.dart';
@@ -6,6 +8,14 @@ class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
   factory DatabaseService() => _instance;
   DatabaseService._internal();
+  
+  // Constructor for external database
+  DatabaseService._external(this._database);
+  
+  static DatabaseService fromPath(String filePath) {
+    final externalDb = AppDatabase.fromFile(File(filePath));
+    return DatabaseService._external(externalDb);
+  }
 
   AppDatabase? _database;
   bool _isInitialized = false;

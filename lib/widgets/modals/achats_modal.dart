@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart' hide Column;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
@@ -546,13 +547,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     debugPrint('Ajout ligne: $designation, Qté: $quantite, Prix: $prix, Unité: $unite, Dépôt: $depot');
 
-    // Chercher si l'article existe déjà avec la MÊME unité et le même dépôt
+    // Chercher si l'article existe déjà avec la MÊME unité, le même dépôt ET le même prix
     int existingIndex = _lignesAchat.indexWhere((ligne) =>
-        ligne['designation'] == designation && ligne['depot'] == depot && ligne['unites'] == unite);
+        ligne['designation'] == designation &&
+        ligne['depot'] == depot &&
+        ligne['unites'] == unite &&
+        ligne['prixUnitaire'] == prix);
 
     setState(() {
       if (existingIndex != -1) {
-        // Cumuler les quantités si même article, même unité et même dépôt
+        // Cumuler les quantités si même article, même unité, même dépôt ET même prix
         double existingQuantite = _lignesAchat[existingIndex]['quantite'] ?? 0.0;
         double newQuantite = existingQuantite + quantite;
         double newMontant = newQuantite * prix;
@@ -560,7 +564,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         _lignesAchat[existingIndex]['quantite'] = newQuantite;
         _lignesAchat[existingIndex]['montant'] = newMontant;
       } else {
-        // Ajouter nouvelle ligne pour chaque unité différente
+        // Ajouter nouvelle ligne si prix différent ou autres critères différents
         _lignesAchat.add({
           'designation': designation,
           'unites': unite,
@@ -1119,9 +1123,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<void> _contrePasserAchat() async {
     if (!_isExistingPurchase) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun achat sélectionné à contre-passer')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucun achat sélectionné à contre-passer')),
+        );
+      }
       return;
     }
 
@@ -1130,41 +1136,40 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           ..where((a) => a.numachats.equals(_numAchatsController.text)))
         .getSingleOrNull();
 
-    if (mounted) {
-      if (achatActuel?.contre == '1') {
+    if (achatActuel?.contre == '1') {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cet achat est déjà contre-passé')),
         );
-        return;
       }
+      return;
     }
 
     // Vérifier si l'achat est journalisé
     final isJournalise = achatActuel?.verification == 'JOURNAL';
 
     // Confirmation avec message adapté
-    if (mounted) {
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Confirmation'),
-          content: Text(
-              'Voulez-vous vraiment contre-passer l\'achat N° ${_numAchatsController.text} ?\n\n${isJournalise ? "Cet achat journalisé sera marqué comme contre-passé et exclu des listes." : "Cet achat brouillard sera SUPPRIMÉ DÉFINITIVEMENT."}'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Annuler'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('Confirmer'),
-            ),
-          ],
-        ),
-      );
-      if (confirm != true) return;
-    }
+    if (!mounted) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: Text(
+            'Voulez-vous vraiment contre-passer l\'achat N° ${_numAchatsController.text} ?\n\n${isJournalise ? "Cet achat journalisé sera marqué comme contre-passé et exclu des listes." : "Cet achat brouillard sera SUPPRIMÉ DÉFINITIVEMENT."}'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Confirmer'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
 
     try {
       // Utiliser le service pour contre-passer l'achat
@@ -1204,15 +1209,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     debugPrint('Achat existant: $_isExistingPurchase');
     debugPrint('Statut achat actuel: $_statutAchatActuel');
     debugPrint('Numéro achat: ${_numAchatsController.text}');
-    
+
     // Vérifier le statut réel dans la base de données
     final achatActuel = await (_databaseService.database.select(_databaseService.database.achats)
           ..where((a) => a.numachats.equals(_numAchatsController.text)))
         .getSingleOrNull();
-    
+
     final statutReel = achatActuel?.verification ?? 'BROUILLARD';
     debugPrint('Statut réel en base: $statutReel');
-    
+
     // Synchroniser le statut si nécessaire
     if (_statutAchatActuel != statutReel) {
       debugPrint('Synchronisation du statut: $_statutAchatActuel -> $statutReel');
@@ -1225,27 +1230,31 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (!_isExistingPurchase || _statutAchatActuel != 'BROUILLARD') {
       debugPrint('ERREUR: Conditions non remplies pour validation brouillard');
       debugPrint('isExistingPurchase: $_isExistingPurchase, statutActuel: $_statutAchatActuel');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aucun achat en brouillard sélectionné')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucun achat en brouillard sélectionné')),
+        );
+      }
       return;
     }
 
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Validation'),
-        content: Text(
-            'Enregistrer l\'achat N° ${_numAchatsController.text} vers le journal ?\n\nCette action créera les mouvements de stock.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-          TextButton(
-              autofocus: true,
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Enregistrer')),
-        ],
-      ),
-    );
+    final confirm = mounted
+        ? await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Validation'),
+              content: Text(
+                  'Enregistrer l\'achat N° ${_numAchatsController.text} vers le journal ?\n\nCette action créera les mouvements de stock.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+                TextButton(
+                    autofocus: true,
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Enregistrer')),
+              ],
+            ),
+          )
+        : null;
 
     if (confirm != true) return;
 
@@ -1439,7 +1448,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       }
     }
 
-    if (achatsAvecDetails.isEmpty) {
+    if (achatsAvecDetails.isEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Aucun achat avec des lignes trouvé')),
       );
@@ -1447,33 +1456,35 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     }
 
     // Afficher la liste des achats pour sélection
-    final selectedAchat = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sélectionner un achat'),
-        content: SizedBox(
-          width: 300,
-          height: 400,
-          child: ListView.builder(
-            itemCount: achatsAvecDetails.length,
-            itemBuilder: (context, index) {
-              final achat = achatsAvecDetails[index];
-              return ListTile(
-                title: Text('N° ${achat['numAchat']}'),
-                subtitle: Text('${achat['nbLignes']} lignes - ${achat['statut']}'),
-                onTap: () => Navigator.of(context).pop(achat['numAchat']),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annuler'),
-          ),
-        ],
-      ),
-    );
+    final selectedAchat = mounted
+        ? await showDialog<String>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Sélectionner un achat'),
+              content: SizedBox(
+                width: 300,
+                height: 400,
+                child: ListView.builder(
+                  itemCount: achatsAvecDetails.length,
+                  itemBuilder: (context, index) {
+                    final achat = achatsAvecDetails[index];
+                    return ListTile(
+                      title: Text('N° ${achat['numAchat']}'),
+                      subtitle: Text('${achat['nbLignes']} lignes - ${achat['statut']}'),
+                      onTap: () => Navigator.of(context).pop(achat['numAchat']),
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Annuler'),
+                ),
+              ],
+            ),
+          )
+        : null;
 
     if (selectedAchat != null) {
       await _copierLignesAchat(selectedAchat);
@@ -1486,7 +1497,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             ..where((d) => d.numachats.equals(numAchatSource)))
           .get();
 
-      if (details.isEmpty) {
+      if (details.isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Aucune ligne trouvée pour cet achat')),
         );
@@ -1509,7 +1520,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         }
       }
 
-      if (lignesValides.isEmpty) {
+      if (lignesValides.isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Aucun article de cet achat n\'existe plus')),
         );
@@ -1517,24 +1528,26 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       }
 
       // Confirmation avant importation
-      final confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Confirmation'),
-          content: Text(
-              'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Annuler'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Importer'),
-            ),
-          ],
-        ),
-      );
+      final confirm = mounted
+          ? await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Confirmation'),
+                content: Text(
+                    'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Annuler'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Importer'),
+                  ),
+                ],
+              ),
+            )
+          : null;
 
       if (confirm == true) {
         setState(() {
@@ -1543,25 +1556,186 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         });
         _calculerTotaux();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${lignesValides.length} lignes importées avec succès')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${lignesValides.length} lignes importées avec succès')),
+          );
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de l\'importation: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'importation: $e')),
+        );
+      }
     }
   }
 
   Future<void> _importerDepuisBaseExterne() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Fonctionnalité d\'importation depuis base externe à implémenter'),
-        duration: Duration(seconds: 3),
-      ),
-    );
-    // TODO: Implémenter l'importation depuis un fichier de base de données externe
+    try {
+      // Sélectionner le fichier de base de données
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['db', 'sqlite', 'sqlite3'],
+        dialogTitle: 'Sélectionner une base de données',
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final filePath = result.files.first.path;
+      if (filePath == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erreur: Chemin de fichier invalide')),
+          );
+        }
+        return;
+      }
+
+      // Ouvrir la base externe
+      final externalDbService = DatabaseService.fromPath(filePath);
+      await externalDbService.initialize();
+
+      // Récupérer les achats de la base externe
+      final achatsExternes = await externalDbService.database.select(externalDbService.database.achats).get();
+
+      if (achatsExternes.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucun achat trouvé dans la base externe')),
+          );
+        }
+        return;
+      }
+
+      // Afficher la liste des achats pour sélection
+      final selectedAchat = mounted
+          ? await showDialog<String>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Sélectionner un achat'),
+                content: SizedBox(
+                  width: 300,
+                  height: 400,
+                  child: ListView.builder(
+                    itemCount: achatsExternes.length,
+                    itemBuilder: (context, index) {
+                      final achat = achatsExternes[index];
+                      return ListTile(
+                        title: Text('N° ${achat.numachats ?? "Sans numéro"}'),
+                        subtitle: Text('${achat.frns ?? ""} - ${achat.nfact ?? ""}'),
+                        onTap: () => Navigator.of(context).pop(achat.numachats),
+                      );
+                    },
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Annuler'),
+                  ),
+                ],
+              ),
+            )
+          : null;
+
+      if (selectedAchat != null) {
+        await _copierLignesAchatExterne(externalDbService, selectedAchat);
+      }
+
+      // Fermer la base externe
+      await externalDbService.database.close();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'importation: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _copierLignesAchatExterne(DatabaseService externalDb, String numAchatSource) async {
+    try {
+      final details = await (externalDb.database.select(externalDb.database.detachats)
+            ..where((d) => d.numachats.equals(numAchatSource)))
+          .get();
+
+      if (details.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucune ligne trouvée pour cet achat')),
+          );
+        }
+        return;
+      }
+
+      // Vérifier si des articles existent dans la base actuelle
+      final lignesValides = <Map<String, dynamic>>[];
+      for (final detail in details) {
+        final articleExiste = _articles.any((a) => a.designation == detail.designation);
+        if (articleExiste) {
+          lignesValides.add({
+            'designation': detail.designation ?? '',
+            'unites': detail.unites ?? '',
+            'quantite': detail.q ?? 0.0,
+            'prixUnitaire': detail.pu ?? 0.0,
+            'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
+            'depot': detail.depots ?? 'MAG',
+          });
+        }
+      }
+
+      if (lignesValides.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucun article de cet achat n\'existe dans la base actuelle')),
+          );
+        }
+        return;
+      }
+
+      // Confirmation avant importation
+      final confirm = mounted
+          ? await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Confirmation'),
+                content: Text(
+                    'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Annuler'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Importer'),
+                  ),
+                ],
+              ),
+            )
+          : null;
+
+      if (confirm == true) {
+        setState(() {
+          _lignesAchat.clear();
+          _lignesAchat.addAll(lignesValides);
+        });
+        _calculerTotaux();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${lignesValides.length} lignes importées avec succès')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'importation: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _creerNouvelAchat() async {
@@ -2995,92 +3169,65 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           itemExtent: 18,
                                           itemBuilder: (context, index) {
                                             final ligne = _lignesAchat[index];
-                                            return GestureDetector(
-                                              onTap: () {
+                                            return MouseRegion(
+                                              onEnter: (_) {
                                                 setState(() {
                                                   _selectedRowIndex = index;
                                                 });
                                               },
-                                              onSecondaryTapUp: _statutAchatActuel == 'JOURNAL'
-                                                  ? null
-                                                  : (details) {
-                                                      showMenu(
-                                                        context: context,
-                                                        position: RelativeRect.fromLTRB(
-                                                          details.globalPosition.dx,
-                                                          details.globalPosition.dy,
-                                                          details.globalPosition.dx,
-                                                          details.globalPosition.dy,
-                                                        ),
-                                                        items: [
-                                                          const PopupMenuItem(
-                                                            value: 'modifier_ligne',
-                                                            child: Text('Modifier',
-                                                                style: TextStyle(fontSize: 12)),
+                                              onExit: (_) {
+                                                setState(() {
+                                                  _selectedRowIndex = index;
+                                                });
+                                              },
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  setState(() {
+                                                    _selectedRowIndex = index;
+                                                  });
+                                                },
+                                                onSecondaryTapUp: _statutAchatActuel == 'JOURNAL'
+                                                    ? null
+                                                    : (details) {
+                                                        showMenu(
+                                                          context: context,
+                                                          position: RelativeRect.fromLTRB(
+                                                            details.globalPosition.dx,
+                                                            details.globalPosition.dy,
+                                                            details.globalPosition.dx,
+                                                            details.globalPosition.dy,
                                                           ),
-                                                          const PopupMenuItem(
-                                                            value: 'supprimer_ligne',
-                                                            child: Text('Supprimer',
-                                                                style: TextStyle(fontSize: 12)),
-                                                          ),
-                                                        ],
-                                                      ).then((value) {
-                                                        if (value == 'modifier_ligne') {
-                                                          _chargerLigneArticle(index);
-                                                        } else if (value == 'supprimer_ligne') {
-                                                          _supprimerLigne(index);
-                                                        }
-                                                      });
-                                                    },
-                                              child: Container(
-                                                height: 18,
-                                                decoration: BoxDecoration(
-                                                  color: _selectedRowIndex == index
-                                                      ? Colors.blue[200]
-                                                      : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Container(
-                                                      width: 50,
-                                                      alignment: Alignment.center,
-                                                      decoration: const BoxDecoration(
-                                                        border: Border(
-                                                          right: BorderSide(color: Colors.grey, width: 1),
-                                                          bottom: BorderSide(color: Colors.grey, width: 1),
-                                                        ),
-                                                      ),
-                                                      child: IconButton(
-                                                        icon: const Icon(Icons.close, size: 12),
-                                                        onPressed: _statutAchatActuel == 'JOURNAL'
-                                                            ? null
-                                                            : () => _supprimerLigne(index),
-                                                        padding: EdgeInsets.zero,
-                                                        constraints: const BoxConstraints(),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 3,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.only(left: 4),
-                                                        alignment: Alignment.centerLeft,
-                                                        decoration: const BoxDecoration(
-                                                          border: Border(
-                                                            right: BorderSide(color: Colors.grey, width: 1),
-                                                            bottom: BorderSide(color: Colors.grey, width: 1),
-                                                          ),
-                                                        ),
-                                                        child: Text(
-                                                          ligne['designation'] ?? '',
-                                                          style: const TextStyle(fontSize: 11),
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 1,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                          items: [
+                                                            const PopupMenuItem(
+                                                              value: 'modifier_ligne',
+                                                              child: Text('Modifier',
+                                                                  style: TextStyle(fontSize: 12)),
+                                                            ),
+                                                            const PopupMenuItem(
+                                                              value: 'supprimer_ligne',
+                                                              child: Text('Supprimer',
+                                                                  style: TextStyle(fontSize: 12)),
+                                                            ),
+                                                          ],
+                                                        ).then((value) {
+                                                          if (value == 'modifier_ligne') {
+                                                            _chargerLigneArticle(index);
+                                                          } else if (value == 'supprimer_ligne') {
+                                                            _supprimerLigne(index);
+                                                          }
+                                                        });
+                                                      },
+                                                child: Container(
+                                                  height: 18,
+                                                  decoration: BoxDecoration(
+                                                    color: _selectedRowIndex == index
+                                                        ? Colors.blue[300]
+                                                        : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        width: 50,
                                                         alignment: Alignment.center,
                                                         decoration: const BoxDecoration(
                                                           border: Border(
@@ -3088,84 +3235,129 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                             bottom: BorderSide(color: Colors.grey, width: 1),
                                                           ),
                                                         ),
-                                                        child: Text(
-                                                          ligne['unites'] ?? '',
-                                                          style: const TextStyle(fontSize: 11),
+                                                        child: IconButton(
+                                                          icon: const Icon(Icons.close, size: 12),
+                                                          onPressed: _statutAchatActuel == 'JOURNAL'
+                                                              ? null
+                                                              : () => _supprimerLigne(index),
+                                                          padding: EdgeInsets.zero,
+                                                          constraints: const BoxConstraints(),
                                                         ),
                                                       ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 1,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                        alignment: Alignment.center,
-                                                        decoration: const BoxDecoration(
-                                                          border: Border(
-                                                            right: BorderSide(color: Colors.grey, width: 1),
-                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      Expanded(
+                                                        flex: 3,
+                                                        child: Container(
+                                                          padding: const EdgeInsets.only(left: 4),
+                                                          alignment: Alignment.centerLeft,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            ligne['designation'] ?? '',
+                                                            style: const TextStyle(fontSize: 11),
+                                                            overflow: TextOverflow.ellipsis,
                                                           ),
                                                         ),
-                                                        child: Text(
-                                                          (ligne['quantite'] as double?)
-                                                                  ?.round()
-                                                                  .toString() ??
-                                                              '0',
-                                                          style: const TextStyle(fontSize: 11),
-                                                        ),
                                                       ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                        alignment: Alignment.center,
-                                                        decoration: const BoxDecoration(
-                                                          border: Border(
-                                                            right: BorderSide(color: Colors.grey, width: 1),
-                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      Expanded(
+                                                        flex: 1,
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                          alignment: Alignment.center,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            ligne['unites'] ?? '',
+                                                            style: const TextStyle(fontSize: 11),
                                                           ),
                                                         ),
-                                                        child: Text(
-                                                          NumberUtils.formatNumber(
-                                                              ligne['prixUnitaire']?.toDouble() ?? 0),
-                                                          style: const TextStyle(fontSize: 11),
-                                                        ),
                                                       ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                                                        alignment: Alignment.center,
-                                                        decoration: const BoxDecoration(
-                                                          border: Border(
-                                                            right: BorderSide(color: Colors.grey, width: 1),
-                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      Expanded(
+                                                        flex: 1,
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                          alignment: Alignment.center,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            (ligne['quantite'] as double?)
+                                                                    ?.round()
+                                                                    .toString() ??
+                                                                '0',
+                                                            style: const TextStyle(fontSize: 11),
                                                           ),
                                                         ),
-                                                        child: Text(
-                                                          NumberUtils.formatNumber(
-                                                              ligne['montant']?.toDouble() ?? 0),
-                                                          style: const TextStyle(fontSize: 11),
-                                                        ),
                                                       ),
-                                                    ),
-                                                    Expanded(
-                                                      flex: 1,
-                                                      child: Container(
-                                                        alignment: Alignment.center,
-                                                        decoration: const BoxDecoration(
-                                                          border: Border(
-                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                          alignment: Alignment.center,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            NumberUtils.formatNumber(
+                                                                ligne['prixUnitaire']?.toDouble() ?? 0),
+                                                            style: const TextStyle(fontSize: 11),
                                                           ),
                                                         ),
-                                                        child: Text(
-                                                          ligne['depot'] ?? '',
-                                                          style: const TextStyle(fontSize: 11),
+                                                      ),
+                                                      Expanded(
+                                                        flex: 2,
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                          alignment: Alignment.center,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            NumberUtils.formatNumber(
+                                                                ligne['montant']?.toDouble() ?? 0),
+                                                            style: const TextStyle(fontSize: 11),
+                                                          ),
                                                         ),
                                                       ),
-                                                    ),
-                                                  ],
+                                                      Expanded(
+                                                        flex: 1,
+                                                        child: Container(
+                                                          alignment: Alignment.center,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              bottom:
+                                                                  BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            ligne['depot'] ?? '',
+                                                            style: const TextStyle(fontSize: 11),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
                                               ),
                                             );

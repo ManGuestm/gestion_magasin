@@ -781,6 +781,9 @@ class AppDatabase extends _$AppDatabase {
   /// Constructeur de la base de données
   /// Initialise la connexion à la base de données SQLite locale
   AppDatabase() : super(_openConnection());
+  
+  /// Constructeur pour ouvrir une base de données externe
+  AppDatabase.fromFile(File file) : super(NativeDatabase(file));
 
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
