@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io';
+
 import 'package:collection/collection.dart';
 import 'package:drift/drift.dart' as drift hide Column;
 import 'package:file_picker/file_picker.dart';
@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
-import 'package:pdf/widgets.dart' as pw;
 
 import '../../../constants/app_functions.dart';
 import '../../../constants/client_categories.dart';
@@ -16,7 +15,6 @@ import '../../../database/database_service.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/vente_service.dart';
 import '../../../utils/stock_converter.dart';
-import '../../common/tab_navigation_widget.dart';
 import 'ventes_pdf_generator.dart';
 
 enum StatutVente { brouillard, journal }
@@ -25,7 +23,7 @@ class VentesController with ChangeNotifier {
   final DatabaseService _databaseService = DatabaseService();
   final VenteService _venteService = VenteService();
   final VentesPdfGenerator _pdfGenerator = VentesPdfGenerator();
-  
+
   // Contrôleurs
   final TextEditingController numVentesController = TextEditingController();
   final TextEditingController dateController = TextEditingController();
@@ -45,7 +43,7 @@ class VentesController with ChangeNotifier {
   final TextEditingController searchVentesController = TextEditingController();
   final TextEditingController searchArticleController = TextEditingController();
   final TextEditingController soldeAnterieurController = TextEditingController();
-  
+
   // Focus nodes
   late final FocusNode clientFocusNode;
   late final FocusNode designationFocusNode;
@@ -57,20 +55,20 @@ class VentesController with ChangeNotifier {
   late final FocusNode annulerFocusNode;
   late final FocusNode searchArticleFocusNode;
   final FocusNode keyboardFocusNode = FocusNode();
-  
+
   // Listes de données
   List<Article> _articles = [];
   List<CltData> _clients = [];
   List<Depot> _depots = [];
   final List<Map<String, dynamic>> _lignesVente = [];
-  
+
   // États
   Article? _selectedArticle;
   String? _selectedUnite;
   String? _selectedDepot;
   String? _selectedModePaiement = 'A crédit';
   String? _selectedClient;
-  int? _selectedRowIndex;
+  int? selectedRowIndex;
   bool _isExistingPurchase = false;
   bool _isModifyingLine = false;
   int? _modifyingLineIndex;
@@ -78,37 +76,37 @@ class VentesController with ChangeNotifier {
   String _defaultDepot = 'MAG';
   bool _showCreditMode = true;
   bool _tousDepots = false;
-  
+
   // Recherche
   String _searchVentesText = '';
   Article? _searchedArticle;
-  
+
   // Stock
   double _stockDisponible = 0.0;
   bool _stockInsuffisant = false;
-  String _uniteAffichage = '';
-  
+  String uniteAffichage = '';
+
   // Solde client
   double _soldeAnterieur = 0.0;
-  
+
   // Format papier
   String _selectedFormat = 'A6';
   final ValueNotifier<String> selectedFormatNotifier = ValueNotifier('A6');
-  
+
   // Workflow
   String _selectedVerification = 'BROUILLARD';
-  StatutVente _statutVente = StatutVente.brouillard;
+  StatutVente statutVente = StatutVente.brouillard;
   StatutVente? _statutVenteActuelle;
-  
+
   // Sidebar
   final ValueNotifier<bool> _isRightSidebarCollapsed = ValueNotifier(false);
-  
+
   // Cache ventes
   Future<List<Map<String, dynamic>>>? _ventesFuture;
   List<Map<String, dynamic>>? _cachedVentes;
   DateTime? _lastVentesLoad;
   static const _cacheDuration = Duration(seconds: 30);
-  
+
   // Getters
   List<Article> get articles => _articles;
   List<CltData> get clients => _clients;
@@ -130,12 +128,12 @@ class VentesController with ChangeNotifier {
   Article? get searchedArticle => _searchedArticle;
   double get stockDisponible => _stockDisponible;
   bool get stockInsuffisant => _stockInsuffisant;
-  
+
   bool get isClientSelected => _selectedClient != null && _selectedClient!.isNotEmpty;
-  
+
   Future<void> initialize(bool tousDepots) async {
     _tousDepots = tousDepots;
-    
+
     // Initialiser les focus nodes
     clientFocusNode = FocusNode();
     designationFocusNode = FocusNode();
@@ -146,31 +144,32 @@ class VentesController with ChangeNotifier {
     ajouterFocusNode = FocusNode();
     annulerFocusNode = FocusNode();
     searchArticleFocusNode = FocusNode();
-    
+
     // Charger les données
     await _loadData();
     await _loadDefaultDepot(tousDepots);
     await _initializeForm(tousDepots);
-    
+
     // Configurer les listeners
     searchVentesController.addListener(() {
       _searchVentesText = searchVentesController.text.toLowerCase();
       notifyListeners();
     });
-    
+
     searchArticleController.addListener(() {
       _onSearchArticleChanged(searchArticleController.text);
     });
-    
+
     // Focus initial
     Future.delayed(const Duration(milliseconds: 200), () {
       clientFocusNode.requestFocus();
     });
-    
+
     // Charger les ventes
     _ventesFuture = _getVentesAvecStatut(tousDepots);
   }
-  
+
+  @override
   void dispose() {
     autocompleteController?.dispose();
     numVentesController.dispose();
@@ -191,7 +190,7 @@ class VentesController with ChangeNotifier {
     searchArticleController.dispose();
     soldeAnterieurController.dispose();
     keyboardFocusNode.dispose();
-    
+
     clientFocusNode.dispose();
     designationFocusNode.dispose();
     depotFocusNode.dispose();
@@ -201,26 +200,26 @@ class VentesController with ChangeNotifier {
     ajouterFocusNode.dispose();
     annulerFocusNode.dispose();
     searchArticleFocusNode.dispose();
-    
+
     super.dispose();
   }
-  
+
   // Méthodes de gestion d'état
   void setSelectedFormat(String format) {
     _selectedFormat = format;
     selectedFormatNotifier.value = format;
     notifyListeners();
   }
-  
+
   void setSearchedArticle(Article? article) {
     _searchedArticle = article;
     notifyListeners();
   }
-  
+
   void toggleRightSidebar() {
     _isRightSidebarCollapsed.value = !_isRightSidebarCollapsed.value;
   }
-  
+
   void setSelectedModePaiement(String? value) {
     if (value != null) {
       _selectedModePaiement = value;
@@ -231,45 +230,43 @@ class VentesController with ChangeNotifier {
     }
     calculerTotaux();
   }
-  
+
   void setSelectedVerification(String value) {
     _selectedVerification = value;
-    _statutVente = value == 'JOURNAL' ? StatutVente.journal : StatutVente.brouillard;
+    statutVente = value == 'JOURNAL' ? StatutVente.journal : StatutVente.brouillard;
     notifyListeners();
   }
-  
+
   // ============ MÉTHODES DE LOGIQUE MÉTIER ============
-  
+
   Future<void> _loadData() async {
     try {
       final articles = await _databaseService.database.getAllArticles();
       final allClients = await _databaseService.database.getAllClients();
       final depots = await _databaseService.database.getAllDepots();
-      
+
       // Filtrer les clients selon le rôle
       final filteredClients = _filterClientsByRole(allClients);
-      
+
       _articles = articles;
       _clients = filteredClients;
       _depots = depots;
-      
+
       notifyListeners();
     } catch (e) {
       debugPrint('Erreur lors du chargement des données: $e');
     }
   }
-  
+
   List<CltData> _filterClientsByRole(List<CltData> allClients) {
     final authService = AuthService();
     if (authService.currentUserRole == 'Vendeur') {
       // Pour les vendeurs, ne montrer que leurs clients
-      return allClients
-          .where((client) => client.commercial == authService.currentUser?.nom)
-          .toList();
+      return allClients.where((client) => client.commercial == authService.currentUser?.nom).toList();
     }
     return allClients;
   }
-  
+
   Future<void> _loadDefaultDepot(bool tousDepots) async {
     if (!tousDepots) {
       // Pour vente MAG seulement, forcer le dépôt MAG
@@ -297,7 +294,7 @@ class VentesController with ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   Future<void> _initializeForm(bool tousDepots) async {
     final now = DateTime.now();
     dateController.text =
@@ -317,7 +314,7 @@ class VentesController with ChangeNotifier {
 
     notifyListeners();
   }
-  
+
   Future<String> _getNextNumVentes() async {
     try {
       final ventes = await _databaseService.database.select(_databaseService.database.ventes).get();
@@ -335,7 +332,7 @@ class VentesController with ChangeNotifier {
       return '2607';
     }
   }
-  
+
   Future<String> _getNextNumBL(bool tousDepots) async {
     try {
       final prefix = tousDepots ? 'DEP' : 'MAG';
@@ -355,9 +352,9 @@ class VentesController with ChangeNotifier {
       return '${prefix}0001';
     }
   }
-  
+
   // ============ GESTION DES VENTES ============
-  
+
   Future<void> chargerVenteExistante(String numVentes) async {
     if (numVentes.isEmpty) {
       _isExistingPurchase = false;
@@ -434,19 +431,19 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur lors du chargement de la vente: $e');
     }
   }
-  
+
   bool _shouldShowCreditMode(CltData? client) {
     if (client == null) return true;
     return client.categorie == null || client.categorie == ClientCategory.tousDepots.label;
   }
-  
+
   bool isVendeur() {
     final authService = AuthService();
     return authService.currentUserRole == 'Vendeur';
   }
-  
+
   // ============ GESTION DES ARTICLES ============
-  
+
   Future<void> onArticleSelected(Article? article) async {
     if (!isClientSelected) {
       return;
@@ -458,7 +455,7 @@ class VentesController with ChangeNotifier {
         quantiteController.text = '';
       }
       montantController.text = '';
-      _uniteAffichage = _formaterUniteAffichage(article);
+      uniteAffichage = _formaterUniteAffichage(article);
       if (_selectedUnite == null) {
         uniteController.clear();
       }
@@ -470,7 +467,7 @@ class VentesController with ChangeNotifier {
       await _verifierStockEtBasculer(article);
     }
   }
-  
+
   void _onSearchArticleChanged(String text) async {
     if (text.trim().isEmpty) {
       _searchedArticle = null;
@@ -489,7 +486,7 @@ class VentesController with ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   Future<void> verifierUniteArticle(String unite) async {
     if (_selectedArticle == null || unite.trim().isEmpty) return;
 
@@ -505,7 +502,7 @@ class VentesController with ChangeNotifier {
 
     onUniteChanged(unite.trim());
   }
-  
+
   void onUniteChanged(String? unite) async {
     if (!isClientSelected || _selectedArticle == null || unite == null) return;
 
@@ -516,7 +513,7 @@ class VentesController with ChangeNotifier {
     }
     notifyListeners();
   }
-  
+
   Future<void> verifierDepot(String depot) async {
     if (depot.trim().isEmpty) return;
 
@@ -531,7 +528,7 @@ class VentesController with ChangeNotifier {
 
     onDepotChanged(depot.trim());
   }
-  
+
   void onDepotChanged(String? depot) async {
     if (_selectedArticle == null || depot == null) return;
 
@@ -546,7 +543,7 @@ class VentesController with ChangeNotifier {
       validerQuantite(quantiteController.text);
     }
   }
-  
+
   Future<void> _verifierStockEtBasculer(Article article) async {
     try {
       String depot = _selectedDepot ?? 'MAG';
@@ -583,7 +580,7 @@ class VentesController with ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   Future<void> _verifierStock(Article article) async {
     try {
       String depot = _selectedDepot ?? 'MAG';
@@ -611,13 +608,13 @@ class VentesController with ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   Future<void> _calculerPrixPourUnite(Article article, String unite) async {
     final prixStandard = await _getPrixVenteStandard(article, unite);
     prixController.text = prixStandard > 0 ? AppFunctions.formatNumber(prixStandard) : '';
     notifyListeners();
   }
-  
+
   double _calculerStockPourUnite(Article article, String unite, double stockTotalU3) {
     if (stockTotalU3 <= 0) return 0.0;
 
@@ -631,7 +628,7 @@ class VentesController with ChangeNotifier {
 
     return 0.0;
   }
-  
+
   Future<String> getStocksToutesUnites(Article article, String depot) async {
     try {
       final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
@@ -662,11 +659,11 @@ class VentesController with ChangeNotifier {
       return '';
     }
   }
-  
+
   Future<void> _gererStockInsuffisant(Article article, String depotActuel) async {
     await _verifierStocksAutresDepots(article, depotActuel);
   }
-  
+
   Future<List<Map<String, dynamic>>> _verifierStocksAutresDepots(Article article, String depotActuel) async {
     final autresStocks = <Map<String, dynamic>>[];
 
@@ -702,7 +699,7 @@ class VentesController with ChangeNotifier {
 
     return autresStocks;
   }
-  
+
   double _calculerStockTotalEnU3(Article article, double stockU1, double stockU2, double stockU3) {
     return StockConverter.calculerStockTotalU3(
       article: article,
@@ -711,7 +708,7 @@ class VentesController with ChangeNotifier {
       stockU3: stockU3,
     );
   }
-  
+
   Future<double> _getPrixVenteStandard(Article article, String unite) async {
     if (unite == article.u1) {
       return article.pvu1 ?? 0.0;
@@ -722,7 +719,7 @@ class VentesController with ChangeNotifier {
     }
     return 0.0;
   }
-  
+
   Future<double> _getPrixAchatPourUnite(Article article, String unite) async {
     double cmup = article.cmup ?? 0.0;
     if (cmup == 0.0) return 0.0;
@@ -736,9 +733,9 @@ class VentesController with ChangeNotifier {
     }
     return cmup;
   }
-  
+
   // ============ GESTION DES LIGNES DE VENTE ============
-  
+
   void validerQuantite(String value) async {
     if (!isClientSelected || _selectedArticle == null) return;
 
@@ -746,14 +743,14 @@ class VentesController with ChangeNotifier {
 
     if (quantite > _stockDisponible) {
       setState(() {
-        _statutVente = StatutVente.brouillard;
+        statutVente = StatutVente.brouillard;
       });
     }
 
     calculerMontant();
     notifyListeners();
   }
-  
+
   void calculerMontant() {
     double quantite = double.tryParse(quantiteController.text) ?? 0.0;
     double prix = double.tryParse(prixController.text.replaceAll(' ', '')) ?? 0.0;
@@ -761,13 +758,13 @@ class VentesController with ChangeNotifier {
     montantController.text = montant > 0 ? AppFunctions.formatNumber(montant) : '';
     notifyListeners();
   }
-  
+
   bool isQuantiteInsuffisante() {
     if (_selectedArticle == null) return false;
     double quantite = double.tryParse(quantiteController.text) ?? 0.0;
     return quantite > _stockDisponible;
   }
-  
+
   String _formaterUniteAffichage(Article article) {
     final unites = <String>[];
     if (article.u1?.isNotEmpty == true) unites.add(article.u1!);
@@ -775,14 +772,14 @@ class VentesController with ChangeNotifier {
     if (article.u3?.isNotEmpty == true) unites.add(article.u3!);
     return unites.join(' / ');
   }
-  
+
   Article? getLastAddedArticle() {
     if (_lignesVente.isEmpty) return null;
     final lastDesignation = _lignesVente.last['designation'] as String?;
     if (lastDesignation == null) return null;
     return _articles.where((a) => a.designation == lastDesignation).firstOrNull;
   }
-  
+
   List<String> getUnitsForSelectedArticle() {
     if (_selectedArticle == null) {
       return [''];
@@ -801,9 +798,9 @@ class VentesController with ChangeNotifier {
 
     return units.isEmpty ? [''] : units;
   }
-  
+
   // ============ AJOUT ET MODIFICATION DE LIGNES ============
-  
+
   Future<void> ajouterLigne() async {
     if (_selectedArticle == null) return;
 
@@ -834,7 +831,7 @@ class VentesController with ChangeNotifier {
 
     if (quantite > _stockDisponible) {
       setState(() {
-        _statutVente = StatutVente.brouillard;
+        statutVente = StatutVente.brouillard;
       });
     }
 
@@ -867,7 +864,7 @@ class VentesController with ChangeNotifier {
 
     resetArticleForm();
   }
-  
+
   Future<bool> _verifierPrixVente(double prixVente, double prixAchat, String unite) async {
     if (prixVente == 0) {
       return true;
@@ -876,7 +873,7 @@ class VentesController with ChangeNotifier {
     }
     return true;
   }
-  
+
   Future<void> chargerLigneArticle(int index) async {
     int adjustedIndex = index;
 
@@ -913,7 +910,7 @@ class VentesController with ChangeNotifier {
     _isModifyingLine = true;
     _modifyingLineIndex = adjustedIndex;
     originalLineData = originalData;
-    _uniteAffichage = _formaterUniteAffichage(article);
+    uniteAffichage = _formaterUniteAffichage(article);
 
     depotController.text = ligne['depot'];
     uniteController.text = ligne['unites'];
@@ -937,7 +934,7 @@ class VentesController with ChangeNotifier {
       quantiteFocusNode.requestFocus();
     });
   }
-  
+
   void annulerModificationLigne() {
     if (_isModifyingLine && _modifyingLineIndex != null && originalLineData != null) {
       _lignesVente.insert(_modifyingLineIndex!, Map<String, dynamic>.from(originalLineData!));
@@ -947,7 +944,7 @@ class VentesController with ChangeNotifier {
 
     resetArticleForm();
   }
-  
+
   void supprimerLigne(int index) async {
     _lignesVente.removeAt(index);
     calculerTotaux();
@@ -957,14 +954,14 @@ class VentesController with ChangeNotifier {
       await _sauvegarderModificationsBrouillard();
     }
   }
-  
+
   bool shouldShowAddButton() {
     if (_isModifyingLine) {
       return isClientSelected && _selectedArticle != null;
     }
     return isClientSelected && _selectedArticle != null && quantiteController.text.isNotEmpty;
   }
-  
+
   void resetArticleForm() {
     _selectedArticle = null;
     _selectedUnite = null;
@@ -979,7 +976,7 @@ class VentesController with ChangeNotifier {
     uniteController.clear();
     _stockDisponible = 0.0;
     _stockInsuffisant = false;
-    _uniteAffichage = '';
+    uniteAffichage = '';
     _isModifyingLine = false;
     _modifyingLineIndex = null;
     originalLineData = null;
@@ -990,9 +987,9 @@ class VentesController with ChangeNotifier {
       designationFocusNode.requestFocus();
     });
   }
-  
+
   // ============ CALCUL DES TOTAUX ============
-  
+
   void calculerTotaux() {
     double totalHT = 0;
     for (var ligne in _lignesVente) {
@@ -1012,10 +1009,10 @@ class VentesController with ChangeNotifier {
 
     totalTTCController.text = AppFunctions.formatNumber(totalTTC);
     nouveauSoldeController.text = AppFunctions.formatNumber(nouveauSolde);
-    
+
     notifyListeners();
   }
-  
+
   String calculateRemiseAmount() {
     double totalHT = 0;
     for (var ligne in _lignesVente) {
@@ -1025,7 +1022,7 @@ class VentesController with ChangeNotifier {
     double remiseAmount = totalHT * remise / 100;
     return AppFunctions.formatNumber(remiseAmount);
   }
-  
+
   double calculateTotalDiffPrix() {
     double total = 0.0;
     for (var ligne in _lignesVente) {
@@ -1033,9 +1030,9 @@ class VentesController with ChangeNotifier {
     }
     return total;
   }
-  
+
   // ============ GESTION DU SOLDE CLIENT ============
-  
+
   Future<void> _chargerSoldeClient(String? client) async {
     if (client == null || client.isEmpty) {
       _soldeAnterieur = 0.0;
@@ -1068,9 +1065,9 @@ class VentesController with ChangeNotifier {
       notifyListeners();
     }
   }
-  
+
   // ============ VALIDATION ET ENREGISTREMENT ============
-  
+
   Future<void> validerVente() async {
     if (_lignesVente.isEmpty) {
       return;
@@ -1113,12 +1110,9 @@ class VentesController with ChangeNotifier {
           date: DateTime.tryParse(dateController.text) ?? DateTime.now(),
           client: _selectedClient,
           modePaiement: _selectedModePaiement,
-          totalHT: 0,
           totalTTC: double.tryParse(totalTTCController.text.replaceAll(' ', '')) ?? 0,
-          tva: 0,
           avance: double.tryParse(avanceController.text) ?? 0,
           commercial: commercialName,
-          commission: 0,
           remise: double.tryParse(remiseController.text) ?? 0,
           lignesVente: lignesVenteData,
           heure: heureController.text,
@@ -1130,12 +1124,9 @@ class VentesController with ChangeNotifier {
           date: DateTime.tryParse(dateController.text) ?? DateTime.now(),
           client: _selectedClient,
           modePaiement: _selectedModePaiement,
-          totalHT: 0,
           totalTTC: double.tryParse(totalTTCController.text.replaceAll(' ', '')) ?? 0,
-          tva: 0,
           avance: double.tryParse(avanceController.text) ?? 0,
           commercial: commercialName,
-          commission: 0,
           remise: double.tryParse(remiseController.text) ?? 0,
           lignesVente: lignesVenteData,
           heure: heureController.text,
@@ -1148,7 +1139,7 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur lors de la validation: $e');
     }
   }
-  
+
   Future<void> modifierVente() async {
     if (_selectedClient == null || _lignesVente.isEmpty) {
       return;
@@ -1210,16 +1201,16 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur lors de la modification: $e');
     }
   }
-  
+
   void reinitialiserFormulaire() {
     _isExistingPurchase = false;
-    _selectedRowIndex = null;
+    selectedRowIndex = null;
     _lignesVente.clear();
     clientController.clear();
     _selectedClient = null;
     _statutVenteActuelle = null;
     _selectedVerification = 'BROUILLARD';
-    _statutVente = StatutVente.brouillard;
+    statutVente = StatutVente.brouillard;
     _showCreditMode = _shouldShowCreditMode(null);
     if (autocompleteController != null) {
       autocompleteController!.clear();
@@ -1235,18 +1226,18 @@ class VentesController with ChangeNotifier {
     _chargerSoldeClient(null);
     notifyListeners();
   }
-  
+
   void creerNouvelleVente() {
     _reloadVentesList();
 
     _isExistingPurchase = false;
-    _selectedRowIndex = null;
+    selectedRowIndex = null;
     _lignesVente.clear();
     clientController.clear();
     _selectedClient = null;
     _statutVenteActuelle = null;
     _selectedVerification = 'BROUILLARD';
-    _statutVente = StatutVente.brouillard;
+    statutVente = StatutVente.brouillard;
     _showCreditMode = _shouldShowCreditMode(null);
     if (autocompleteController != null) {
       autocompleteController!.clear();
@@ -1262,18 +1253,18 @@ class VentesController with ChangeNotifier {
     _chargerSoldeClient(null);
     notifyListeners();
   }
-  
+
   // ============ GESTION BROUILLARD/JOURNAL ============
-  
+
   bool peutValiderBrouillard() {
     if (!_isExistingPurchase || numVentesController.text.isEmpty) return false;
     return _isVenteBrouillard();
   }
-  
+
   bool _isVenteBrouillard() {
     return _statutVenteActuelle == StatutVente.brouillard;
   }
-  
+
   Future<bool> isVenteContrePassee() async {
     if (!_isExistingPurchase || numVentesController.text.isEmpty) return false;
 
@@ -1287,7 +1278,7 @@ class VentesController with ChangeNotifier {
       return false;
     }
   }
-  
+
   Future<void> _sauvegarderModificationsBrouillard() async {
     if (!_isExistingPurchase || numVentesController.text.isEmpty) return;
 
@@ -1335,7 +1326,7 @@ class VentesController with ChangeNotifier {
       }
     });
   }
-  
+
   Future<void> validerBrouillardVersJournal() async {
     if (!_isExistingPurchase || numVentesController.text.isEmpty) return;
 
@@ -1355,12 +1346,9 @@ class VentesController with ChangeNotifier {
         nFacture: nFactureController.text,
         client: _selectedClient,
         modePaiement: _selectedModePaiement,
-        totalHT: 0,
         totalTTC: double.tryParse(totalTTCController.text.replaceAll(' ', '')) ?? 0,
-        tva: 0,
         avance: double.tryParse(avanceController.text) ?? 0,
         remise: double.tryParse(remiseController.text) ?? 0,
-        commission: 0,
       );
 
       _reloadVentesList();
@@ -1368,13 +1356,13 @@ class VentesController with ChangeNotifier {
 
       setState(() {
         _selectedVerification = 'JOURNAL';
-        _statutVente = StatutVente.journal;
+        statutVente = StatutVente.journal;
       });
     } catch (e) {
       debugPrint('Erreur lors de la validation: $e');
     }
   }
-  
+
   Future<bool> _verifierStockPourValidation() async {
     if (!_isExistingPurchase || numVentesController.text.isEmpty) return false;
 
@@ -1416,9 +1404,9 @@ class VentesController with ChangeNotifier {
       return !_tousDepots;
     }
   }
-  
+
   // ============ CONTRE-PASSATION ============
-  
+
   Future<void> contrePasserVente() async {
     if (!_isExistingPurchase) {
       return;
@@ -1434,7 +1422,7 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur lors de la contre-passation: $e');
     }
   }
-  
+
   Future<void> contrePasserVenteBrouillard() async {
     if (!_isExistingPurchase || !_isVenteBrouillard()) {
       return;
@@ -1450,9 +1438,9 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur lors de la contre-passation brouillard: $e');
     }
   }
-  
+
   // ============ IMPORTATION ============
-  
+
   Future<void> importerLignesVente() async {
     final choix = 'base_actuelle'; // À implémenter avec un dialogue
 
@@ -1462,7 +1450,7 @@ class VentesController with ChangeNotifier {
       await _importerDepuisBaseExterne();
     }
   }
-  
+
   Future<void> _importerDepuisBaseActuelle() async {
     final ventes = await _getVentesAvecStatut(_tousDepots);
     final ventesAvecDetails = <Map<String, dynamic>>[];
@@ -1491,7 +1479,7 @@ class VentesController with ChangeNotifier {
       await _copierLignesVente(selectedVente);
     }
   }
-  
+
   Future<void> _copierLignesVente(String numVenteSource) async {
     try {
       final details = await (_databaseService.database.select(_databaseService.database.detventes)
@@ -1530,7 +1518,7 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur lors de l\'importation: $e');
     }
   }
-  
+
   Future<void> _importerDepuisBaseExterne() async {
     try {
       final result = await FilePicker.platform.pickFiles(
@@ -1565,7 +1553,7 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur lors de l\'importation: $e');
     }
   }
-  
+
   Future<void> _copierLignesVenteExterne(DatabaseService externalDb, String numVenteSource) async {
     try {
       final details = await (externalDb.database.select(externalDb.database.detventes)
@@ -1604,9 +1592,9 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur lors de l\'importation: $e');
     }
   }
-  
+
   // ============ GESTION DES CLIENTS ============
-  
+
   Future<void> verifierEtCreerClient(String nomClient) async {
     if (nomClient.trim().isEmpty) return;
 
@@ -1617,8 +1605,8 @@ class VentesController with ChangeNotifier {
         await _databaseService.database.into(_databaseService.database.clt).insert(
               CltCompanion.insert(
                 rsoc: nomClient,
-                categorie: drift.Value(
-                    _tousDepots ? ClientCategory.tousDepots.label : ClientCategory.magasin.label),
+                categorie:
+                    drift.Value(_tousDepots ? ClientCategory.tousDepots.label : ClientCategory.magasin.label),
                 commercial: drift.Value(AuthService().currentUser?.nom ?? ''),
                 taux: drift.Value(0),
                 soldes: drift.Value(0),
@@ -1637,7 +1625,7 @@ class VentesController with ChangeNotifier {
         if ((!_showCreditMode || isVendeur()) && _selectedModePaiement == 'A crédit') {
           _selectedModePaiement = 'Espèces';
         }
-        
+
         notifyListeners();
         await _chargerSoldeClient(nomClient);
 
@@ -1661,18 +1649,18 @@ class VentesController with ChangeNotifier {
       if ((!_showCreditMode || isVendeur()) && _selectedModePaiement == 'A crédit') {
         _selectedModePaiement = 'Espèces';
       }
-      
+
       notifyListeners();
       await _chargerSoldeClient(client.rsoc);
     }
   }
-  
+
   bool _shouldFocusOnClient() {
     return !_tousDepots && isVendeur();
   }
-  
+
   // ============ IMPRESSION ET PDF ============
-  
+
   Future<void> imprimerFacture() async {
     if (_lignesVente.isEmpty) {
       return;
@@ -1720,7 +1708,7 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur d\'impression: $e');
     }
   }
-  
+
   Future<void> apercuFacture() async {
     if (_lignesVente.isEmpty) {
       return;
@@ -1729,12 +1717,32 @@ class VentesController with ChangeNotifier {
     try {
       final societe =
           await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
-      // À implémenter avec un dialogue d'aperçu
+      final pdf = await _pdfGenerator.generateFacturePdf(
+        numVente: numVentesController.text,
+        nFacture: nFactureController.text,
+        date: dateController.text,
+        client: _selectedClient ?? '',
+        lignesVente: _lignesVente,
+        totalTTC: double.tryParse(totalTTCController.text.replaceAll(' ', '')) ?? 0,
+        remise: double.tryParse(remiseController.text) ?? 0,
+        selectedFormat: _selectedFormat,
+        societe: societe,
+        modePaiement: _selectedModePaiement ?? 'A crédit',
+      );
+      final bytes = await pdf.save();
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => bytes,
+        name: 'Apercu_Facture_${nFactureController.text}_${dateController.text.replaceAll('/', '-')}.pdf',
+        format: _selectedFormat == 'A4'
+            ? PdfPageFormat.a4
+            : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
+      );
     } catch (e) {
       debugPrint('Erreur lors de l\'ouverture de l\'aperçu: $e');
     }
   }
-  
+
   Future<void> imprimerBL() async {
     if (_lignesVente.isEmpty) {
       return;
@@ -1780,7 +1788,7 @@ class VentesController with ChangeNotifier {
       debugPrint('Erreur d\'impression: $e');
     }
   }
-  
+
   Future<void> apercuBL() async {
     if (_lignesVente.isEmpty) {
       return;
@@ -1789,14 +1797,32 @@ class VentesController with ChangeNotifier {
     try {
       final societe =
           await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
-      // À implémenter avec un dialogue d'aperçu
+      final pdf = await _pdfGenerator.generateBLPdf(
+        numVente: numVentesController.text,
+        nFacture: nFactureController.text,
+        date: dateController.text,
+        client: _selectedClient ?? '',
+        lignesVente: _lignesVente,
+        selectedFormat: _selectedFormat,
+        societe: societe,
+        tousDepots: _tousDepots,
+      );
+      final bytes = await pdf.save();
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => bytes,
+        name: 'Apercu_BL_${nFactureController.text}_${dateController.text.replaceAll('/', '-')}.pdf',
+        format: _selectedFormat == 'A4'
+            ? PdfPageFormat.a4
+            : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
+      );
     } catch (e) {
       debugPrint('Erreur lors de l\'ouverture de l\'aperçu: $e');
     }
   }
-  
+
   // ============ GESTION DES VENTES (LISTE) ============
-  
+
   Future<List<Map<String, dynamic>>> _getVentesAvecStatut(bool tousDepots) async {
     final now = DateTime.now();
     if (_cachedVentes != null &&
@@ -1851,18 +1877,18 @@ class VentesController with ChangeNotifier {
       return [];
     }
   }
-  
+
   void _reloadVentesList() {
     _invalidateVentesCache();
     _ventesFuture = _getVentesAvecStatut(_tousDepots);
     notifyListeners();
   }
-  
+
   void _invalidateVentesCache() {
     _cachedVentes = null;
     _lastVentesLoad = null;
   }
-  
+
   Widget buildVentesListByStatus(String statut, BuildContext context) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _ventesFuture,
@@ -1986,9 +2012,9 @@ class VentesController with ChangeNotifier {
       },
     );
   }
-  
+
   // ============ RACCOURCIS CLAVIER ============
-  
+
   void handleKeyboardShortcut(KeyEvent event) {
     if (event is KeyDownEvent) {
       final isCtrl = HardwareKeyboard.instance.isControlPressed;
@@ -2055,9 +2081,60 @@ class VentesController with ChangeNotifier {
       }
     }
   }
-  
+
+  KeyEventResult handleTabNavigation(KeyEvent event) {
+    if (event.logicalKey == LogicalKeyboardKey.tab) {
+      final isShift = HardwareKeyboard.instance.isShiftPressed;
+
+      if (isShift) {
+        // Navigation arrière
+        if (ajouterFocusNode.hasFocus) {
+          prixFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (prixFocusNode.hasFocus) {
+          quantiteFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (quantiteFocusNode.hasFocus) {
+          uniteFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (uniteFocusNode.hasFocus) {
+          depotFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (depotFocusNode.hasFocus) {
+          designationFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (designationFocusNode.hasFocus) {
+          clientFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+      } else {
+        // Navigation avant
+        if (clientFocusNode.hasFocus) {
+          designationFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (designationFocusNode.hasFocus) {
+          depotFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (depotFocusNode.hasFocus) {
+          uniteFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (uniteFocusNode.hasFocus) {
+          quantiteFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (quantiteFocusNode.hasFocus) {
+          prixFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (prixFocusNode.hasFocus) {
+          ajouterFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
   // ============ MÉTHODES AUXILIAIRES ============
-  
+
   void setState(VoidCallback fn) {
     fn();
     notifyListeners();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../database/database.dart';
 import '../../common/article_navigation_autocomplete.dart';
 import '../../common/enhanced_autocomplete.dart';
@@ -66,9 +67,7 @@ class VentesFormSection extends StatelessWidget {
         Container(
           width: 120,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-          color: controller.selectedVerification == 'JOURNAL'
-              ? Colors.green
-              : Colors.orange,
+          color: controller.selectedVerification == 'JOURNAL' ? Colors.green : Colors.orange,
           child: const Text(
             'Enregistrement',
             style: TextStyle(color: Colors.white, fontSize: 12),
@@ -297,9 +296,7 @@ class VentesFormSection extends StatelessWidget {
           SizedBox(
             height: 25,
             child: EnhancedAutocomplete<String>(
-              options: controller.selectedArticle != null
-                  ? _getUnitsForSelectedArticle()
-                  : [''],
+              options: controller.selectedArticle != null ? _getUnitsForSelectedArticle() : [''],
               displayStringForOption: (unit) => unit,
               controller: controller.uniteController,
               onSelected: (unit) {
@@ -417,9 +414,7 @@ class VentesFormSection extends StatelessWidget {
             ElevatedButton(
               focusNode: controller.annulerFocusNode,
               onPressed: controller.isClientSelected
-                  ? (controller.isModifyingLine
-                      ? _annulerModificationLigne
-                      : _resetArticleForm)
+                  ? (controller.isModifyingLine ? _annulerModificationLigne : _resetArticleForm)
                   : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: controller.isClientSelected ? Colors.orange : Colors.grey,
@@ -428,7 +423,7 @@ class VentesFormSection extends StatelessWidget {
               ),
               child: const Text(
                 'Annuler',
-                style: const TextStyle(fontSize: 12),
+                style: TextStyle(fontSize: 12),
               ),
             ),
           ],
@@ -442,20 +437,18 @@ class VentesFormSection extends StatelessWidget {
     if (controller.lignesVente.isEmpty) return null;
     final lastDesignation = controller.lignesVente.last['designation'] as String?;
     if (lastDesignation == null) return null;
-    return controller.articles
-        .where((a) => a.designation == lastDesignation)
-        .firstOrNull;
+    return controller.articles.where((a) => a.designation == lastDesignation).firstOrNull;
   }
 
   List<String> _getUnitsForSelectedArticle() {
     if (controller.selectedArticle == null) return [''];
-    
+
     final article = controller.selectedArticle!;
     final units = <String>[];
     if (article.u1?.isNotEmpty == true) units.add(article.u1!);
     if (article.u2?.isNotEmpty == true) units.add(article.u2!);
     if (article.u3?.isNotEmpty == true) units.add(article.u3!);
-    
+
     return units;
   }
 

@@ -225,14 +225,8 @@ class VentesSidebar extends StatelessWidget {
   }
 
   Widget _buildVentesListByStatus(String statut) {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: controller.ventesFuture,
-      builder: (context, snapshot) {
-        // Implémenter la liste des ventes
-        return const Center(
-          child: Text('Liste des ventes'),
-        );
-      },
+    return Builder(
+      builder: (context) => controller.buildVentesListByStatus(statut, context),
     );
   }
 }

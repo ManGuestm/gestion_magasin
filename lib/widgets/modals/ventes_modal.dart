@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/app_functions.dart';
-import '../../constants/vente_types.dart';
 import '../../database/database.dart';
 import '../common/enhanced_autocomplete.dart';
 import 'ventes_modal/ventes_controller.dart';
@@ -164,7 +163,7 @@ class _VentesModalState extends State<VentesModal> {
 
                         // Right sidebar - Article details
                         ValueListenableBuilder<bool>(
-                          valueListenable: _controller.isRightSidebarCollapsed,
+                          valueListenable: _controller.isRightSidebarCollapsedNotifier,
                           builder: (context, isCollapsed, _) {
                             return AnimatedContainer(
                               duration: const Duration(milliseconds: 300),
