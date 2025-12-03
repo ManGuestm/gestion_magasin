@@ -2040,9 +2040,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyN) {
         _creerNouvelAchat();
       }
-      // Ctrl+P : Aperçu BR
+      // Ctrl+P : Imprimer BR
       else if (isCtrl && !isShift && event.logicalKey == LogicalKeyboardKey.keyP) {
-        _ouvrirApercuBR();
+        _imprimerBonReception();
       }
       // Ctrl+Shift+P : Imprimer BR
       else if (isCtrl && isShift && event.logicalKey == LogicalKeyboardKey.keyP) {
@@ -4070,7 +4070,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               children: [
                                 _buildPdfInfoRow('N° DOCUMENT:', _numAchatsController.text, pdfFontSize),
                                 _buildPdfInfoRow('DATE:', _dateController.text, pdfFontSize),
-                                _buildPdfInfoRow('N° FACTURE:', _nFactController.text, pdfFontSize),
+                                _buildPdfInfoRow('N° FACTURE/BL:', _nFactController.text, pdfFontSize),
                                 _buildPdfInfoRow('FOURNISSEUR:', _selectedFournisseur ?? "", pdfFontSize),
                                 if (totalPages > 1)
                                   _buildPdfInfoRow('PAGE:', '${pageIndex + 1}/$totalPages', pdfFontSize),
@@ -4145,13 +4145,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                   children: [
                                     _buildPdfTableCell(globalIndex.toString(), pdfFontSize),
                                     _buildPdfTableCell(ligne['designation'] ?? '', pdfFontSize),
-                                    _buildPdfTableCell(ligne['depot'] ?? '', pdfFontSize),
+                                    _buildPdfTableCell(ligne['depot'] ?? '', isAmount: true, pdfFontSize),
                                     _buildPdfTableCell(
                                         AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
                                         pdfFontSize),
                                     _buildPdfTableCell(ligne['unites'] ?? '', pdfFontSize),
                                     _buildPdfTableCell(
                                         AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                        isAmount: true,
                                         pdfFontSize),
                                     _buildPdfTableCell(
                                         AppFunctions.formatNumber(ligne['montant']?.toDouble() ?? 0),
@@ -4432,7 +4433,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     );
   }
 
-  pw.Widget _buildPdfTableCell(String text, double fontSize, {bool isHeader = false, bool isAmount = false}) {
+  pw.Widget _buildPdfTableCell(String text, double fontSize,
+      {bool isHeader = false, bool isAmount = false, bool isPu = false}) {
     return pw.Container(
       padding: pw.EdgeInsets.symmetric(
           horizontal: _selectedFormat == 'A6' ? 3 : 5, vertical: _selectedFormat == 'A6' ? 2 : 5),
@@ -4444,7 +4446,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         ),
         textAlign: isHeader
             ? pw.TextAlign.center
-            : (isAmount || RegExp(r'^\d+$').hasMatch(text) ? pw.TextAlign.right : pw.TextAlign.left),
+            : (isAmount || RegExp(r'^\d+$').hasMatch(text)
+                ? pw.TextAlign.right
+                : isPu
+                    ? pw.TextAlign.right
+                    : pw.TextAlign.left),
       ),
     );
   }

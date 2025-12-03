@@ -252,14 +252,14 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
                     ),
                   ),
                   Expanded(
-                    flex: 2,
+                    flex: 3,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildInfoRow('N° DOCUMENT:', widget.numAchats),
                         _buildInfoRow('DATE:',
                             '${widget.date.day.toString().padLeft(2, '0')}/${widget.date.month.toString().padLeft(2, '0')}/${widget.date.year}'),
-                        if (widget.nFact?.isNotEmpty == true) _buildInfoRow('N° FACTURE:', widget.nFact!),
+                        if (widget.nFact?.isNotEmpty == true) _buildInfoRow('N° FACTURE/ BL:', widget.nFact!),
                         _buildInfoRow('FOURNISSEUR:', widget.fournisseur),
                       ],
                     ),
@@ -334,10 +334,10 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
                       children: [
                         _buildTableCell(index.toString()),
                         _buildTableCell(ligne['designation'] ?? ''),
-                        _buildTableCell(ligne['depot'] ?? ''),
+                        _buildTableCell(ligne['depot'] ?? '', isAmount: true),
                         _buildTableCell(_formatNumber(ligne['quantite']?.toDouble() ?? 0)),
                         _buildTableCell(ligne['unites'] ?? ''),
-                        _buildTableCell(_formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0)),
+                        _buildTableCell(_formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0), isPu: true),
                         _buildTableCell(_formatNumber(ligne['montant']?.toDouble() ?? 0), isAmount: true),
                       ],
                     );
@@ -534,7 +534,7 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
     );
   }
 
-  Widget _buildTableCell(String text, {bool isHeader = false, bool isAmount = false}) {
+  Widget _buildTableCell(String text, {bool isHeader = false, bool isAmount = false, bool isPu = false}) {
     return Container(
       padding: EdgeInsets.all(widget.format == 'A6' ? 3 : 6),
       decoration: isHeader
@@ -550,7 +550,11 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
         ),
         textAlign: isHeader
             ? TextAlign.center
-            : (isAmount || text.contains(RegExp(r'^\d+$')) ? TextAlign.center : TextAlign.left),
+            : (isAmount || text.contains(RegExp(r'^\d+$'))
+                ? TextAlign.center
+                : isPu
+                    ? TextAlign.right
+                    : TextAlign.left),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -567,8 +571,6 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
     }
     return formatted;
   }
-
-  
 
   // Générer le document PDF
   Future<pw.Document> _generatePdf() async {
@@ -660,9 +662,10 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
                               ),
                             ),
                             pw.Expanded(
-                              flex: 2,
+                              flex: 3,
                               child: pw.Column(
                                 crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                mainAxisAlignment: pw.MainAxisAlignment.start,
                                 children: [
                                   _buildPdfInfoRow('N° DOCUMENT:', widget.numAchats, pdfFontSize),
                                   _buildPdfInfoRow(
@@ -670,7 +673,7 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
                                       '${widget.date.day.toString().padLeft(2, '0')}/${widget.date.month.toString().padLeft(2, '0')}/${widget.date.year}',
                                       pdfFontSize),
                                   if (widget.nFact?.isNotEmpty == true)
-                                    _buildPdfInfoRow('N° FACTURE:', widget.nFact!, pdfFontSize),
+                                    _buildPdfInfoRow('N° FACTURE/BL:', widget.nFact!, pdfFontSize),
                                   _buildPdfInfoRow('FOURNISSEUR:', widget.fournisseur, pdfFontSize),
                                   if (totalPages > 1)
                                     _buildPdfInfoRow('PAGE:', '${pageIndex + 1}/$totalPages', pdfFontSize),
@@ -714,7 +717,7 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
                                 children: [
                                   _buildPdfTableCell('N°', pdfFontSize, isHeader: true),
                                   _buildPdfTableCell('DÉSIGNATION', pdfFontSize, isHeader: true),
-                                  _buildPdfTableCell('DÉPÔT', pdfFontSize, isHeader: true),
+                                  _buildPdfTableCell('DÉP.', pdfFontSize, isHeader: true),
                                   _buildPdfTableCell('QTÉ', pdfFontSize, isHeader: true),
                                   _buildPdfTableCell('UNITÉ', pdfFontSize, isHeader: true),
                                   _buildPdfTableCell('PU HT', pdfFontSize, isHeader: true),
@@ -909,7 +912,8 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
     return pdf;
   }
 
-  pw.Widget _buildPdfTableCell(String text, double fontSize, {bool isHeader = false, bool isAmount = false}) {
+  pw.Widget _buildPdfTableCell(String text, double fontSize,
+      {bool isHeader = false, bool isAmount = false, bool isPu = false}) {
     return pw.Container(
       padding: pw.EdgeInsets.all(widget.format == 'A6' ? 3 : 5),
       child: pw.Text(
@@ -920,7 +924,11 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
         ),
         textAlign: isHeader
             ? pw.TextAlign.center
-            : (isAmount || RegExp(r'^\d+$').hasMatch(text) ? pw.TextAlign.center : pw.TextAlign.left),
+            : (isAmount || RegExp(r'^\d+$').hasMatch(text)
+                ? pw.TextAlign.center
+                : isPu
+                    ? pw.TextAlign.right
+                    : pw.TextAlign.left),
       ),
     );
   }
@@ -930,17 +938,16 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
       padding: const pw.EdgeInsets.symmetric(vertical: 1),
       child: pw.Row(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
+        mainAxisAlignment: pw.MainAxisAlignment.start,
         children: [
-          pw.SizedBox(
-            width: 90,
-            child: pw.Text(
-              label,
-              style: pw.TextStyle(
-                fontSize: fontSize - 1,
-                fontWeight: pw.FontWeight.normal,
-              ),
+          pw.Text(
+            label,
+            style: pw.TextStyle(
+              fontSize: fontSize - 1,
+              fontWeight: pw.FontWeight.normal,
             ),
           ),
+          pw.SizedBox(width: 4),
           pw.Expanded(
             child: pw.Text(
               value,

@@ -1305,7 +1305,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => Dialog(
         child: Container(
           width: 600,
-          height: 700,
+          height: MediaQuery.of(context).size.height * 0.9,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
@@ -1492,63 +1492,63 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                const Spacer(),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Container(
-                                      decoration: const BoxDecoration(
-                                        border: Border(top: BorderSide(color: Colors.black)),
-                                      ),
-                                      child: _buildInvoiceTotalRow('TOTAL HT:',
-                                          '${_formatNumber(venteData?.read<double>('totalnt') ?? 0)} Ar',
-                                          isBold: true),
-                                    ),
-                                    _buildInvoiceTotalRow('Remise:',
-                                        '${_formatNumber(venteData?.read<double>('remise') ?? 0)} %',
-                                        isBold: true),
-                                    if ((venteData?.read<double>('tva') ?? 0) > 0)
-                                      _buildInvoiceTotalRow(
-                                          'TVA:', '${_formatNumber(venteData?.read('tva') ?? 0)} Ar',
-                                          isBold: true),
-                                    _buildInvoiceTotalRow('TOTAL TTC:',
-                                        '${_formatNumber(venteData?.read<double>('totalttc') ?? 0)} Ar',
-                                        isBold: true),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.black, width: 0.5),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                'Arrêté à la somme de ${AppFunctions.numberToWords((venteData?.read<double>('totalttc') ?? 0).toInt())} Ariary',
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black),
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const Spacer(),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              decoration: const BoxDecoration(
+                                border: Border(top: BorderSide(color: Colors.black)),
+                              ),
+                              child: _buildInvoiceTotalRow(
+                                  'TOTAL HT:', '${_formatNumber(venteData?.read<double>('totalnt') ?? 0)} Ar',
+                                  isBold: true),
+                            ),
+                            _buildInvoiceTotalRow(
+                                'Remise:', '${_formatNumber(venteData?.read<double>('remise') ?? 0)} %',
+                                isBold: true),
+                            if ((venteData?.read<double>('tva') ?? 0) > 0)
+                              _buildInvoiceTotalRow(
+                                  'TVA:', '${_formatNumber(venteData?.read('tva') ?? 0)} Ar',
+                                  isBold: true),
+                            _buildInvoiceTotalRow(
+                                'TOTAL TTC:', '${_formatNumber(venteData?.read<double>('totalttc') ?? 0)} Ar',
+                                isBold: true),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black, width: 0.5),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Arrêté à la somme de ${AppFunctions.numberToWords((venteData?.read<double>('totalttc') ?? 0).toInt())} Ariary',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1574,7 +1574,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => Dialog(
         child: Container(
           width: 600,
-          height: 700,
+          height: MediaQuery.of(context).size.height * 0.9,
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
@@ -1606,95 +1606,123 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        decoration: const BoxDecoration(
-                          border: Border(
-                            top: BorderSide(color: Colors.black, width: 2),
-                            bottom: BorderSide(color: Colors.black, width: 2),
-                          ),
-                        ),
-                        child: const Text(
-                          'BON DE LIVRAISON',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 3,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'SOCIÉTÉ:',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-                                ),
-                                Text(
-                                  societe?.rsoc ?? 'SOCIÉTÉ',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                ),
-                                if (societe?.activites != null)
-                                  Text(societe!.activites!, style: const TextStyle(fontSize: 10)),
-                                if (societe?.adr != null)
-                                  Text(societe!.adr!, style: const TextStyle(fontSize: 10)),
-                                if (societe?.rcs != null)
-                                  Text('RCS: ${societe!.rcs!}', style: const TextStyle(fontSize: 9)),
-                                if (societe?.nif != null)
-                                  Text('NIF: ${societe!.nif!}', style: const TextStyle(fontSize: 9)),
-                                if (societe?.stat != null)
-                                  Text('STAT: ${societe!.stat!}', style: const TextStyle(fontSize: 9)),
-                                if (societe?.email != null)
-                                  Text('Email: ${societe!.email!}', style: const TextStyle(fontSize: 9)),
-                                if (societe?.port != null)
-                                  Text('Tél: ${societe!.port!}', style: const TextStyle(fontSize: 9)),
-                              ],
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            decoration: const BoxDecoration(
+                              border: Border(
+                                top: BorderSide(color: Colors.black, width: 2),
+                                bottom: BorderSide(color: Colors.black, width: 2),
+                              ),
+                            ),
+                            child: const Text(
+                              'BON DE LIVRAISON',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                letterSpacing: 2,
+                              ),
                             ),
                           ),
-                          Expanded(
-                            flex: 2,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildInvoiceInfoRow('N° BL:', '${achat['nfact']}'),
-                                _buildInvoiceInfoRow('N° ACHAT:', '${achat['numachats']}'),
-                                _buildInvoiceInfoRow('DATE:', _formatDateOnly(achat['date'])),
-                                _buildInvoiceInfoRow('FOURNISSEUR:', '${achat['fournisseur']}'),
-                              ],
-                            ),
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black),
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black),
-                      ),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          children: [
-                            Container(
-                              color: Colors.grey[200],
-                              child: Table(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'SOCIÉTÉ:',
+                                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                    ),
+                                    Text(
+                                      societe?.rsoc ?? 'SOCIÉTÉ',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    ),
+                                    if (societe?.activites != null)
+                                      Text(societe!.activites!, style: const TextStyle(fontSize: 10)),
+                                    if (societe?.adr != null)
+                                      Text(societe!.adr!, style: const TextStyle(fontSize: 10)),
+                                    if (societe?.rcs != null)
+                                      Text('RCS: ${societe!.rcs!}', style: const TextStyle(fontSize: 9)),
+                                    if (societe?.nif != null)
+                                      Text('NIF: ${societe!.nif!}', style: const TextStyle(fontSize: 9)),
+                                    if (societe?.stat != null)
+                                      Text('STAT: ${societe!.stat!}', style: const TextStyle(fontSize: 9)),
+                                    if (societe?.email != null)
+                                      Text('Email: ${societe!.email!}', style: const TextStyle(fontSize: 9)),
+                                    if (societe?.port != null)
+                                      Text('Tél: ${societe!.port!}', style: const TextStyle(fontSize: 9)),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildInvoiceInfoRow('N° BL:', '${achat['nfact']}'),
+                                    _buildInvoiceInfoRow('N° ACHAT:', '${achat['numachats']}'),
+                                    _buildInvoiceInfoRow('DATE:', _formatDateOnly(achat['date'])),
+                                    _buildInvoiceInfoRow('FOURNISSEUR:', '${achat['fournisseur']}'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                color: Colors.grey[200],
+                                child: Table(
+                                  border: const TableBorder(
+                                    horizontalInside: BorderSide(color: Colors.black, width: 0.5),
+                                    verticalInside: BorderSide(color: Colors.black, width: 0.5),
+                                  ),
+                                  columnWidths: const {
+                                    0: FlexColumnWidth(0.5),
+                                    1: FlexColumnWidth(3),
+                                    2: FlexColumnWidth(1),
+                                    3: FlexColumnWidth(1),
+                                    4: FlexColumnWidth(1.5),
+                                    5: FlexColumnWidth(1.5),
+                                  },
+                                  children: [
+                                    TableRow(
+                                      children: [
+                                        _buildInvoiceTableCell('N°', isHeader: true),
+                                        _buildInvoiceTableCell('DÉSIGNATION', isHeader: true),
+                                        _buildInvoiceTableCell('QTÉ', isHeader: true),
+                                        _buildInvoiceTableCell('UNITÉ', isHeader: true),
+                                        _buildInvoiceTableCell('PU', isHeader: true),
+                                        _buildInvoiceTableCell('MONTANT', isHeader: true),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Table(
                                 border: const TableBorder(
                                   horizontalInside: BorderSide(color: Colors.black, width: 0.5),
                                   verticalInside: BorderSide(color: Colors.black, width: 0.5),
@@ -1708,57 +1736,31 @@ class _HomeScreenState extends State<HomeScreen> {
                                   5: FlexColumnWidth(1.5),
                                 },
                                 children: [
-                                  TableRow(
-                                    children: [
-                                      _buildInvoiceTableCell('N°', isHeader: true),
-                                      _buildInvoiceTableCell('DÉSIGNATION', isHeader: true),
-                                      _buildInvoiceTableCell('QTÉ', isHeader: true),
-                                      _buildInvoiceTableCell('UNITÉ', isHeader: true),
-                                      _buildInvoiceTableCell('PU', isHeader: true),
-                                      _buildInvoiceTableCell('MONTANT', isHeader: true),
-                                    ],
+                                  ...details.asMap().entries.map(
+                                    (entry) {
+                                      final index = entry.key + 1;
+                                      final item = entry.value;
+                                      final montant = (item['q'] ?? 0) * (item['pu'] ?? 0);
+                                      return TableRow(
+                                        children: [
+                                          _buildInvoiceTableCell(index.toString()),
+                                          _buildInvoiceTableCell(item['designation'] ?? ''),
+                                          _buildInvoiceTableCell('${item['q'] ?? 0}'),
+                                          _buildInvoiceTableCell(item['unites'] ?? ''),
+                                          _buildInvoiceTableCell(_formatNumber(item['pu'] ?? 0)),
+                                          _buildInvoiceTableCell(_formatNumber(montant), isAmount: true),
+                                        ],
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
-                            ),
-                            Table(
-                              border: const TableBorder(
-                                horizontalInside: BorderSide(color: Colors.black, width: 0.5),
-                                verticalInside: BorderSide(color: Colors.black, width: 0.5),
-                              ),
-                              columnWidths: const {
-                                0: FlexColumnWidth(0.5),
-                                1: FlexColumnWidth(3),
-                                2: FlexColumnWidth(1),
-                                3: FlexColumnWidth(1),
-                                4: FlexColumnWidth(1.5),
-                                5: FlexColumnWidth(1.5),
-                              },
-                              children: [
-                                ...details.asMap().entries.map(
-                                  (entry) {
-                                    final index = entry.key + 1;
-                                    final item = entry.value;
-                                    final montant = (item['q'] ?? 0) * (item['pu'] ?? 0);
-                                    return TableRow(
-                                      children: [
-                                        _buildInvoiceTableCell(index.toString()),
-                                        _buildInvoiceTableCell(item['designation'] ?? ''),
-                                        _buildInvoiceTableCell('${item['q'] ?? 0}'),
-                                        _buildInvoiceTableCell(item['unites'] ?? ''),
-                                        _buildInvoiceTableCell(_formatNumber(item['pu'] ?? 0)),
-                                        _buildInvoiceTableCell(_formatNumber(montant), isAmount: true),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 20),

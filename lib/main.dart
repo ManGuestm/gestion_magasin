@@ -55,6 +55,10 @@ class MyApp extends StatelessWidget {
       visualDensity: VisualDensity.compact,
       // Optimisations de performance
       splashFactory: InkRipple.splashFactory,
+      // Fix SnackBar configuration
+      snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }
