@@ -550,43 +550,36 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
         return 'Aucun stock';
       }
 
-      List<String> stockTexts = [];
       double totalU1 = 0, totalU2 = 0, totalU3 = 0;
 
       for (var stock in stocksDepart) {
-        final u1 = stock.stocksu1 ?? 0.0;
-        final u2 = stock.stocksu2 ?? 0.0;
-        final u3 = stock.stocksu3 ?? 0.0;
-
-        totalU1 += u1;
-        totalU2 += u2;
-        totalU3 += u3;
-
-        // Afficher TOUS les stocks par dépôt (même à 0 pour debug)
-        final stockFormate = StockConverter.formaterAffichageStock(
-          article: article,
-          stockU1: u1,
-          stockU2: u2,
-          stockU3: u3,
-        );
-
-        stockTexts.add('${stock.depots}: $stockFormate');
+        totalU1 += stock.stocksu1 ?? 0.0;
+        totalU2 += stock.stocksu2 ?? 0.0;
+        totalU3 += stock.stocksu3 ?? 0.0;
       }
 
-      // Toujours afficher le total
-      final totalFormate = StockConverter.formaterAffichageStock(
+      // Calculer le stock total en unité de base (U3) DIRECTEMENT
+      double stockTotalU3 = StockConverter.calculerStockTotalU3(
         article: article,
         stockU1: totalU1,
         stockU2: totalU2,
         stockU3: totalU3,
       );
 
-      if (stocksDepart.length > 1) {
-        return totalFormate;
-        // return 'Total: $totalFormate | ${stockTexts.join(' | ')}';
-      } else {
-        return stockTexts.first;
-      }
+      // Convertir le stock total vers les unités optimales
+      final stocksOptimaux = StockConverter.convertirStockOptimal(
+        article: article,
+        quantiteU1: 0.0,
+        quantiteU2: 0.0,
+        quantiteU3: stockTotalU3,
+      );
+
+      return StockConverter.formaterAffichageStock(
+        article: article,
+        stockU1: stocksOptimaux['u1']!,
+        stockU2: stocksOptimaux['u2']!,
+        stockU3: stocksOptimaux['u3']!,
+      );
     } catch (e) {
       return 'Erreur: ${e.toString()}';
     }
@@ -621,16 +614,30 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     final u2 = depart.stocksu2 ?? 0.0;
     final u3 = depart.stocksu3 ?? 0.0;
 
-    // Afficher les stocks réels avec formatage approprié
-    final stockFormate = StockConverter.formaterAffichageStock(
+    if (u1 == 0 && u2 == 0 && u3 == 0) return '0';
+
+    // Calculer le stock total en unité de base (U3) DIRECTEMENT
+    double stockTotalU3 = StockConverter.calculerStockTotalU3(
       article: _selectedArticle!,
       stockU1: u1,
       stockU2: u2,
       stockU3: u3,
     );
 
-    // Retourner 0 si aucun stock, sinon le stock formaté
-    return (u1 == 0 && u2 == 0 && u3 == 0) ? '0' : stockFormate;
+    // Convertir le stock total vers les unités optimales
+    final stocksOptimaux = StockConverter.convertirStockOptimal(
+      article: _selectedArticle!,
+      quantiteU1: 0.0,
+      quantiteU2: 0.0,
+      quantiteU3: stockTotalU3,
+    );
+
+    return StockConverter.formaterAffichageStock(
+      article: _selectedArticle!,
+      stockU1: stocksOptimaux['u1']!,
+      stockU2: stocksOptimaux['u2']!,
+      stockU3: stocksOptimaux['u3']!,
+    );
   }
 
   Future<void> _loadArticles() async {

@@ -1592,12 +1592,69 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         return;
       }
 
+      debugPrint('Tentative d\'ouverture de la base externe: $filePath');
+
       // Ouvrir la base externe
       final externalDbService = DatabaseService.fromPath(filePath);
       await externalDbService.initialize();
+      debugPrint('Base externe initialisée avec succès');
+
+      // Vérifier les tables disponibles dans la base externe
+      try {
+        final tablesResult = await externalDbService.database
+            .customSelect("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .get();
+        final tableNames = tablesResult.map((row) => row.read<String>('name')).toList();
+        debugPrint('Tables disponibles dans la base externe: $tableNames');
+
+        // Vérifier spécifiquement les tables achats et detachats
+        final hasAchats = tableNames.contains('achats');
+        final hasDetachats = tableNames.contains('detachats');
+        debugPrint('Table achats présente: $hasAchats');
+        debugPrint('Table detachats présente: $hasDetachats');
+
+        if (!hasAchats) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('La table "achats" n\'existe pas dans la base externe')),
+            );
+          }
+          await externalDbService.database.close();
+          return;
+        }
+
+        if (!hasDetachats) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('La table "detachats" n\'existe pas dans la base externe')),
+            );
+          }
+          await externalDbService.database.close();
+          return;
+        }
+      } catch (e) {
+        debugPrint('Erreur lors de la vérification des tables: $e');
+      }
 
       // Récupérer les achats de la base externe
       final achatsExternes = await externalDbService.database.select(externalDbService.database.achats).get();
+      debugPrint('Nombre d\'achats trouvés dans la base externe: ${achatsExternes.length}');
+
+      // Vérifier aussi la table detachats pour s'assurer qu'il y a des détails
+      final detailsExternes =
+          await externalDbService.database.select(externalDbService.database.detachats).get();
+      debugPrint('Nombre de détails d\'achats trouvés: ${detailsExternes.length}');
+
+      // Afficher quelques exemples d'achats pour debug
+      if (achatsExternes.isNotEmpty) {
+        debugPrint(
+            'Premier achat: numachats=${achatsExternes.first.numachats}, frns=${achatsExternes.first.frns}');
+      }
+
+      if (detailsExternes.isNotEmpty) {
+        debugPrint(
+            'Premier détail: numachats=${detailsExternes.first.numachats}, designation=${detailsExternes.first.designation}');
+      }
 
       if (achatsExternes.isEmpty) {
         if (mounted) {
@@ -1605,6 +1662,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             const SnackBar(content: Text('Aucun achat trouvé dans la base externe')),
           );
         }
+        await externalDbService.database.close();
         return;
       }
 
@@ -1640,12 +1698,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           : null;
 
       if (selectedAchat != null) {
+        debugPrint('Achat sélectionné pour importation: $selectedAchat');
         await _copierLignesAchatExterne(externalDbService, selectedAchat);
+      } else {
+        debugPrint('Aucun achat sélectionné pour importation');
       }
 
       // Fermer la base externe
       await externalDbService.database.close();
+      debugPrint('Base externe fermée');
     } catch (e) {
+      debugPrint('ERREUR lors de l\'importation depuis base externe: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors de l\'importation: $e')),
@@ -1656,11 +1720,22 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<void> _copierLignesAchatExterne(DatabaseService externalDb, String numAchatSource) async {
     try {
+      debugPrint('=== DÉBUT COPIE LIGNES ACHAT EXTERNE ===');
+      debugPrint('Numéro achat source: $numAchatSource');
+
       final details = await (externalDb.database.select(externalDb.database.detachats)
             ..where((d) => d.numachats.equals(numAchatSource)))
           .get();
 
+      debugPrint('Nombre de détails trouvés pour l\'achat $numAchatSource: ${details.length}');
+
+      if (details.isNotEmpty) {
+        debugPrint(
+            'Premier détail: designation=${details.first.designation}, q=${details.first.q}, pu=${details.first.pu}');
+      }
+
       if (details.isEmpty) {
+        debugPrint('ERREUR: Aucune ligne trouvée pour l\'achat $numAchatSource');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Aucune ligne trouvée pour cet achat')),
@@ -1671,24 +1746,41 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       // Vérifier si des articles existent dans la base actuelle
       final lignesValides = <Map<String, dynamic>>[];
+      final articlesNonTrouves = <String>[];
+
+      debugPrint('Vérification des articles dans la base actuelle...');
+      debugPrint('Nombre d\'articles dans la base actuelle: ${_articles.length}');
+
       for (final detail in details) {
-        final articleExiste = _articles.any((a) => a.designation == detail.designation);
+        final designation = detail.designation ?? '';
+        final articleExiste = _articles.any((a) => a.designation == designation);
+
+        debugPrint('Article "$designation" existe dans base actuelle: $articleExiste');
+
         if (articleExiste) {
           lignesValides.add({
-            'designation': detail.designation ?? '',
+            'designation': designation,
             'unites': detail.unites ?? '',
             'quantite': detail.q ?? 0.0,
             'prixUnitaire': detail.pu ?? 0.0,
             'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
             'depot': detail.depots ?? 'MAG',
           });
+        } else {
+          articlesNonTrouves.add(designation);
         }
       }
 
+      debugPrint('Lignes valides: ${lignesValides.length}');
+      debugPrint('Articles non trouvés: $articlesNonTrouves');
+
       if (lignesValides.isEmpty) {
+        debugPrint('ERREUR: Aucun article de cet achat n\'existe dans la base actuelle');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Aucun article de cet achat n\'existe dans la base actuelle')),
+            SnackBar(
+                content: Text(
+                    'Aucun article de cet achat n\'existe dans la base actuelle.\nArticles manquants: ${articlesNonTrouves.join(", ")}')),
           );
         }
         return;
@@ -1717,19 +1809,26 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           : null;
 
       if (confirm == true) {
+        debugPrint('Confirmation reçue, importation des lignes...');
         setState(() {
           _lignesAchat.clear();
           _lignesAchat.addAll(lignesValides);
         });
         _calculerTotaux();
+        debugPrint('Lignes importées et totaux recalculés');
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('${lignesValides.length} lignes importées avec succès')),
           );
         }
+      } else {
+        debugPrint('Importation annulée par l\'utilisateur');
       }
+      debugPrint('=== FIN COPIE LIGNES ACHAT EXTERNE ===');
     } catch (e) {
+      debugPrint('ERREUR lors de la copie des lignes externes: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors de l\'importation: $e')),
@@ -1922,7 +2021,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       final isCtrl = HardwareKeyboard.instance.isControlPressed;
       final isShift = HardwareKeyboard.instance.isShiftPressed;
 
-      // F3 : Enregistrer brouillard (priorité absolue, fonctionne sans focus)
+      // F3 : Valider l\'achat (priorité absolue, fonctionne sans focus)
       if (event.logicalKey == LogicalKeyboardKey.f3) {
         if (_isExistingPurchase && _statutAchatActuel == 'BROUILLARD') {
           _validerAchatBrouillard();
@@ -3657,7 +3756,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                   ),
                                   if (_statutAchatActuel == 'BROUILLARD') ...[
                                     Tooltip(
-                                      message: 'Enregistrer brouillard (F3)',
+                                      message: 'Valider l\'achat (F3)',
                                       child: ElevatedButton(
                                         onPressed: _validerAchatBrouillard,
                                         style: ElevatedButton.styleFrom(
@@ -3665,7 +3764,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           foregroundColor: Colors.white,
                                           minimumSize: const Size(80, 30),
                                         ),
-                                        child: const Text('Enregistrer Brouillard (F3)',
+                                        child: const Text('Valider l\'achat (F3)',
                                             style: TextStyle(fontSize: 12)),
                                       ),
                                     ),

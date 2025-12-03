@@ -1,5 +1,6 @@
 import 'package:collection/collection.dart';
 import 'package:drift/drift.dart' as drift hide Column;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
@@ -1160,6 +1161,350 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       return false; // Tous les stocks sont suffisants ou autorisés
     } catch (e) {
       return !widget.tousDepots; // En cas d'erreur, bloquer seulement pour MAG
+    }
+  }
+
+  Future<void> _importerLignesVente() async {
+    final choix = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Importer lignes de vente'),
+        content: const Text('Choisissez la source d\'importation :'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('base_actuelle'),
+            child: const Text('Base actuelle'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('base_externe'),
+            child: const Text('Base externe'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Annuler'),
+          ),
+        ],
+      ),
+    );
+
+    if (choix == 'base_actuelle') {
+      await _importerDepuisBaseActuelle();
+    } else if (choix == 'base_externe') {
+      await _importerDepuisBaseExterne();
+    }
+  }
+
+  Future<void> _importerDepuisBaseActuelle() async {
+    // Récupérer toutes les ventes avec leurs détails
+    final ventesAvecDetails = <Map<String, dynamic>>[];
+
+    // Utiliser le Future existant pour récupérer les ventes
+    final ventes = await _getVentesAvecStatut();
+
+    for (final vente in ventes) {
+      final details = await (_databaseService.database.select(_databaseService.database.detventes)
+            ..where((d) => d.numventes.equals(vente['numventes'])))
+          .get();
+
+      if (details.isNotEmpty) {
+        ventesAvecDetails.add({
+          'numVente': vente['numventes'],
+          'statut': vente['verification'] ?? 'JOURNAL',
+          'nbLignes': details.length,
+          'nfact': vente['nfact'] ?? '',
+        });
+      }
+    }
+
+    if (ventesAvecDetails.isEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aucune vente avec des lignes trouvée')),
+      );
+      return;
+    }
+
+    // Afficher la liste des ventes pour sélection
+    final selectedVente = mounted
+        ? await showDialog<String>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Sélectionner une vente'),
+              content: SizedBox(
+                width: 300,
+                height: 400,
+                child: ListView.builder(
+                  itemCount: ventesAvecDetails.length,
+                  itemBuilder: (context, index) {
+                    final vente = ventesAvecDetails[index];
+                    return ListTile(
+                      title: Text('N° ${vente['numVente']}'),
+                      subtitle: Text('${vente['nbLignes']} lignes - ${vente['statut']} - ${vente['nfact']}'),
+                      onTap: () => Navigator.of(context).pop(vente['numVente']),
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Annuler'),
+                ),
+              ],
+            ),
+          )
+        : null;
+
+    if (selectedVente != null) {
+      await _copierLignesVente(selectedVente);
+    }
+  }
+
+  Future<void> _copierLignesVente(String numVenteSource) async {
+    try {
+      final details = await (_databaseService.database.select(_databaseService.database.detventes)
+            ..where((d) => d.numventes.equals(numVenteSource)))
+          .get();
+
+      if (details.isEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucune ligne trouvée pour cette vente')),
+        );
+        return;
+      }
+
+      // Vérifier si des articles existent encore
+      final lignesValides = <Map<String, dynamic>>[];
+      for (final detail in details) {
+        final articleExiste = _articles.any((a) => a.designation == detail.designation);
+        if (articleExiste) {
+          lignesValides.add({
+            'designation': detail.designation ?? '',
+            'unites': detail.unites ?? '',
+            'quantite': detail.q ?? 0.0,
+            'prixUnitaire': detail.pu ?? 0.0,
+            'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
+            'depot': detail.depots ?? 'MAG',
+            'diffPrix': (detail.diffPrix ?? 0.0) / (detail.q ?? 1.0), // Différence unitaire
+          });
+        }
+      }
+
+      if (lignesValides.isEmpty && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucun article de cette vente n\'existe plus')),
+        );
+        return;
+      }
+
+      // Confirmation avant importation
+      final confirm = mounted
+          ? await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Confirmation'),
+                content: Text(
+                    'Importer ${lignesValides.length} lignes de la vente N° $numVenteSource ?\n\nCela remplacera les lignes actuelles.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Annuler'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Importer'),
+                  ),
+                ],
+              ),
+            )
+          : null;
+
+      if (confirm == true) {
+        setState(() {
+          _lignesVente.clear();
+          _lignesVente.addAll(lignesValides);
+        });
+        _calculerTotaux();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${lignesValides.length} lignes importées avec succès')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'importation: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _importerDepuisBaseExterne() async {
+    try {
+      // Sélectionner le fichier de base de données
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['db', 'sqlite', 'sqlite3'],
+        dialogTitle: 'Sélectionner une base de données',
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final filePath = result.files.first.path;
+      if (filePath == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erreur: Chemin de fichier invalide')),
+          );
+        }
+        return;
+      }
+
+      // Ouvrir la base externe
+      final externalDbService = DatabaseService.fromPath(filePath);
+      await externalDbService.initialize();
+
+      // Récupérer les ventes de la base externe
+      final ventesExternes = await externalDbService.database.select(externalDbService.database.ventes).get();
+
+      if (ventesExternes.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucune vente trouvée dans la base externe')),
+          );
+        }
+        return;
+      }
+
+      // Afficher la liste des ventes pour sélection
+      final selectedVente = mounted
+          ? await showDialog<String>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Sélectionner une vente'),
+                content: SizedBox(
+                  width: 300,
+                  height: 400,
+                  child: ListView.builder(
+                    itemCount: ventesExternes.length,
+                    itemBuilder: (context, index) {
+                      final vente = ventesExternes[index];
+                      return ListTile(
+                        title: Text('N° ${vente.numventes ?? "Sans numéro"}'),
+                        subtitle: Text('${vente.clt ?? ""} - ${vente.nfact ?? ""}'),
+                        onTap: () => Navigator.of(context).pop(vente.numventes),
+                      );
+                    },
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Annuler'),
+                  ),
+                ],
+              ),
+            )
+          : null;
+
+      if (selectedVente != null) {
+        await _copierLignesVenteExterne(externalDbService, selectedVente);
+      }
+
+      // Fermer la base externe
+      await externalDbService.database.close();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'importation: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _copierLignesVenteExterne(DatabaseService externalDb, String numVenteSource) async {
+    try {
+      final details = await (externalDb.database.select(externalDb.database.detventes)
+            ..where((d) => d.numventes.equals(numVenteSource)))
+          .get();
+
+      if (details.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucune ligne trouvée pour cette vente')),
+          );
+        }
+        return;
+      }
+
+      // Vérifier si des articles existent dans la base actuelle
+      final lignesValides = <Map<String, dynamic>>[];
+      for (final detail in details) {
+        final articleExiste = _articles.any((a) => a.designation == detail.designation);
+        if (articleExiste) {
+          lignesValides.add({
+            'designation': detail.designation ?? '',
+            'unites': detail.unites ?? '',
+            'quantite': detail.q ?? 0.0,
+            'prixUnitaire': detail.pu ?? 0.0,
+            'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
+            'depot': detail.depots ?? 'MAG',
+            'diffPrix': (detail.diffPrix ?? 0.0) / (detail.q ?? 1.0), // Différence unitaire
+          });
+        }
+      }
+
+      if (lignesValides.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Aucun article de cette vente n\'existe dans la base actuelle')),
+          );
+        }
+        return;
+      }
+
+      // Confirmation avant importation
+      final confirm = mounted
+          ? await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Confirmation'),
+                content: Text(
+                    'Importer ${lignesValides.length} lignes de la vente N° $numVenteSource ?\n\nCela remplacera les lignes actuelles.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Annuler'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Importer'),
+                  ),
+                ],
+              ),
+            )
+          : null;
+
+      if (confirm == true) {
+        setState(() {
+          _lignesVente.clear();
+          _lignesVente.addAll(lignesValides);
+        });
+        _calculerTotaux();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${lignesValides.length} lignes importées avec succès')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'importation: $e')),
+        );
+      }
     }
   }
 
@@ -5068,7 +5413,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                         ),
                                         if (_peutValiderBrouillard()) ...[
                                           Tooltip(
-                                            message: 'Enregistrer brouillard (F3)',
+                                            message: 'Valider la vente (F3)',
                                             child: ElevatedButton(
                                               onPressed: _validerBrouillardVersJournal,
                                               style: ElevatedButton.styleFrom(
@@ -5076,7 +5421,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 foregroundColor: Colors.white,
                                                 minimumSize: const Size(80, 30),
                                               ),
-                                              child: const Text('Enregistrer Brouillard (F3)',
+                                              child: const Text('Valider la vente(F3)',
                                                   style: TextStyle(fontSize: 12)),
                                             ),
                                           ),
@@ -5096,6 +5441,20 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                           ),
                                         ],
                                       ],
+                                      // Bouton Importation
+                                      if (!_isExistingPurchase)
+                                        Tooltip(
+                                          message: 'Importer lignes d\'achat',
+                                          child: ElevatedButton(
+                                            onPressed: _importerLignesVente,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.orange,
+                                              foregroundColor: Colors.white,
+                                              minimumSize: const Size(60, 30),
+                                            ),
+                                            child: const Text('Importer', style: TextStyle(fontSize: 12)),
+                                          ),
+                                        ),
                                       if (!_peutValiderBrouillard()) ...[
                                         //Bouton Contre passer
                                         if (_isExistingPurchase) ...[
