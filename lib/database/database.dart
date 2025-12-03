@@ -148,9 +148,7 @@ class Ventes extends Table {
   TextColumn get clt => text().withLength(max: 100).nullable()();
   TextColumn get modepai => text().withLength(max: 50).nullable()();
   DateTimeColumn get echeance => dateTime().nullable()();
-  RealColumn get totalnt => real().nullable()();
   RealColumn get totalttc => real().nullable()();
-  RealColumn get tva => real().nullable()();
   TextColumn get contre => text().withLength(max: 50).nullable()();
   RealColumn get avance => real().nullable()();
   TextColumn get bq => text().withLength(max: 50).nullable()();
@@ -158,7 +156,6 @@ class Ventes extends Table {
   DateTimeColumn get datrcol => dateTime().nullable()();
   TextColumn get mregl => text().withLength(max: 50).nullable()();
   TextColumn get commerc => text().withLength(max: 100).nullable()();
-  RealColumn get commission => real().nullable()();
   RealColumn get remise => real().nullable()();
   TextColumn get verification => text().withLength(max: 50).nullable()();
   TextColumn get type => text().withLength(max: 50).nullable()();
@@ -167,8 +164,6 @@ class Ventes extends Table {
   TextColumn get transp => text().withLength(max: 100).nullable()();
   TextColumn get heure => text().withLength(max: 10).nullable()();
   TextColumn get poste => text().withLength(max: 50).nullable()();
-  RealColumn get montantRecu => real().nullable()();
-  RealColumn get monnaieARendre => real().nullable()();
 }
 
 // Table Achats - utilisée par: Menu Commerces - Achats, Menu États - Statistiques Achats
@@ -180,9 +175,7 @@ class Achats extends Table {
   TextColumn get frns => text().withLength(max: 100).nullable()();
   TextColumn get modepai => text().withLength(max: 50).nullable()();
   DateTimeColumn get echeance => dateTime().nullable()();
-  RealColumn get totalnt => real().nullable()();
   RealColumn get totalttc => real().nullable()();
-  RealColumn get tva => real().nullable()();
   TextColumn get contre => text().withLength(max: 50).nullable()();
   TextColumn get bq => text().withLength(max: 50).nullable()();
   RealColumn get regl => real().nullable()();
@@ -569,9 +562,7 @@ class Retachats extends Table {
   TextColumn get frns => text().withLength(max: 100).nullable()();
   TextColumn get modepai => text().withLength(max: 50).nullable()();
   DateTimeColumn get echeance => dateTime().nullable()();
-  RealColumn get totalnt => real().nullable()();
   RealColumn get totalttc => real().nullable()();
-  RealColumn get tva => real().nullable()();
   TextColumn get contre => text().withLength(max: 50).nullable()();
   TextColumn get bq => text().withLength(max: 50).nullable()();
   TextColumn get verification => text().withLength(max: 50).nullable()();
@@ -610,14 +601,11 @@ class Retventes extends Table {
   TextColumn get clt => text().withLength(max: 100).nullable()();
   TextColumn get modepai => text().withLength(max: 50).nullable()();
   DateTimeColumn get echeance => dateTime().nullable()();
-  RealColumn get totalnt => real().nullable()();
   RealColumn get totalttc => real().nullable()();
-  RealColumn get tva => real().nullable()();
   TextColumn get contre => text().withLength(max: 50).nullable()();
   RealColumn get avance => real().nullable()();
   TextColumn get bq => text().withLength(max: 50).nullable()();
   TextColumn get commerc => text().withLength(max: 100).nullable()();
-  RealColumn get commission => real().nullable()();
   RealColumn get remise => real().nullable()();
   TextColumn get verification => text().withLength(max: 50).nullable()();
   TextColumn get type => text().withLength(max: 50).nullable()();
@@ -788,7 +776,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
   @override
-  int get schemaVersion => 44;
+  int get schemaVersion => 45;
 
   /// Stratégie de migration de la base de données
   /// Gère la création initiale et les mises à jour de schéma
@@ -909,9 +897,7 @@ class AppDatabase extends _$AppDatabase {
             await m.deleteTable('depart');
             await m.createTable(depart);
           } else if (from == 39) {
-            // Ajouter les colonnes montantRecu et monnaieARendre à la table ventes
-            await m.addColumn(ventes, ventes.montantRecu as GeneratedColumn);
-            await m.addColumn(ventes, ventes.monnaieARendre as GeneratedColumn);
+            // Migration 39 - colonnes supprimées
           } else if (from == 40) {
             // Ajouter la table Users pour l'authentification
             await m.createTable(users);
@@ -925,6 +911,17 @@ class AppDatabase extends _$AppDatabase {
           } else if (from == 43) {
             // Ajouter la table CmupHistory
             await m.createTable(cmupHistory);
+          } else if (from == 44) {
+            // Supprimer les colonnes totalnt, tva, commission, montantRecu, monnaieARendre
+            // Recréer les tables avec les nouvelles structures
+            await m.deleteTable('ventes');
+            await m.createTable(ventes);
+            await m.deleteTable('achats');
+            await m.createTable(achats);
+            await m.deleteTable('retachats');
+            await m.createTable(retachats);
+            await m.deleteTable('retventes');
+            await m.createTable(retventes);
           }
         },
       );
@@ -1824,18 +1821,15 @@ class AppDatabase extends _$AppDatabase {
 
     final ventesListe = await ventesQuery.get();
 
-    double totalHT = 0;
     double totalTTC = 0;
     int nombreVentes = ventesListe.length;
 
     for (var vente in ventesListe) {
-      totalHT += vente.totalnt ?? 0;
       totalTTC += vente.totalttc ?? 0;
     }
 
     return {
       'nombreVentes': nombreVentes,
-      'totalHT': totalHT,
       'totalTTC': totalTTC,
       'moyenneVente': nombreVentes > 0 ? totalTTC / nombreVentes : 0,
     };
@@ -2240,7 +2234,6 @@ class AppDatabase extends _$AppDatabase {
               'pu': row.readTable(detventes).pu,
               'modepai': row.readTable(ventes).modepai,
               'remise': row.readTable(ventes).remise,
-              'totalHT': row.readTable(ventes).totalnt,
               'totalTTC': row.readTable(ventes).totalttc,
             })
         .toList();

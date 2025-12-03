@@ -9,9 +9,6 @@ class DatabaseService {
   factory DatabaseService() => _instance;
   DatabaseService._internal();
 
-  // // Constructor for external database
-  // DatabaseService._external(this._database);
-
   // Constructor for external database
   DatabaseService._external(this._database) : _isInitialized = true; // ✅ Marquer comme initialisé
 
@@ -28,14 +25,6 @@ class DatabaseService {
   final Map<String, DateTime> _cacheTimestamps = {};
   static const Duration _cacheExpiry = Duration(minutes: 5);
 
-  // AppDatabase get database {
-  //   if (!_isInitialized) {
-  //     throw StateError('Database not initialized. Call initialize() first.');
-  //   }
-  //   _database ??= AppDatabase();
-  //   return _database!;
-  // }
-
   AppDatabase get database {
     if (!_isInitialized) {
       throw StateError('Database not initialized. Call initialize() first.');
@@ -46,21 +35,6 @@ class DatabaseService {
     return _database!;
   }
 
-  // Future<void> initialize() async {
-  //   try {
-  // Configurer Drift pour éviter les warnings
-  //     driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
-
-  // Initialiser la base de données
-  //     _database = AppDatabase();
-  //     _isInitialized = true;
-
-  // Créer l'utilisateur administrateur par défaut
-  //     await _database?.createDefaultAdmin();
-  //   } catch (e) {
-  //     throw Exception('Failed to initialize database: $e');
-  //   }
-  // }
 
   Future<void> initialize() async {
     try {

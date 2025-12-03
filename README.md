@@ -57,3 +57,5 @@ L'application utilise une architecture modulaire avec :
 - Sous-menu contextuel pour les États
 - Interface adaptée pour desktop Windows
 - Thème Material Design 3
+
+

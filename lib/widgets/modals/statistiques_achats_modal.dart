@@ -257,23 +257,6 @@ class _StatistiquesAchatsModalState extends State<StatistiquesAchatsModal> with 
                                               Expanded(
                                                 child: Center(
                                                   child: Text(
-                                                    NumberUtils.formatNumber(achat.totalnt ?? 0),
-                                                    style: const TextStyle(fontSize: 11),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Center(
-                                                  child: Text(
-                                                    NumberUtils.formatNumber(achat.tva ?? 0),
-                                                    style:
-                                                        const TextStyle(fontSize: 11, color: Colors.orange),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Center(
-                                                  child: Text(
                                                     NumberUtils.formatNumber(achat.totalttc ?? 0),
                                                     style: const TextStyle(
                                                         fontSize: 11,

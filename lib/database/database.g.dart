@@ -4179,22 +4179,11 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
   late final GeneratedColumn<DateTime> echeance = GeneratedColumn<DateTime>(
       'echeance', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
-  static const VerificationMeta _totalntMeta =
-      const VerificationMeta('totalnt');
-  @override
-  late final GeneratedColumn<double> totalnt = GeneratedColumn<double>(
-      'totalnt', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _totalttcMeta =
       const VerificationMeta('totalttc');
   @override
   late final GeneratedColumn<double> totalttc = GeneratedColumn<double>(
       'totalttc', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
-  static const VerificationMeta _tvaMeta = const VerificationMeta('tva');
-  @override
-  late final GeneratedColumn<double> tva = GeneratedColumn<double>(
-      'tva', aliasedName, true,
       type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _contreMeta = const VerificationMeta('contre');
   @override
@@ -4241,12 +4230,6 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
       additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
       type: DriftSqlType.string,
       requiredDuringInsert: false);
-  static const VerificationMeta _commissionMeta =
-      const VerificationMeta('commission');
-  @override
-  late final GeneratedColumn<double> commission = GeneratedColumn<double>(
-      'commission', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _remiseMeta = const VerificationMeta('remise');
   @override
   late final GeneratedColumn<double> remise = GeneratedColumn<double>(
@@ -4302,18 +4285,6 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
       additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
       type: DriftSqlType.string,
       requiredDuringInsert: false);
-  static const VerificationMeta _montantRecuMeta =
-      const VerificationMeta('montantRecu');
-  @override
-  late final GeneratedColumn<double> montantRecu = GeneratedColumn<double>(
-      'montant_recu', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
-  static const VerificationMeta _monnaieARendreMeta =
-      const VerificationMeta('monnaieARendre');
-  @override
-  late final GeneratedColumn<double> monnaieARendre = GeneratedColumn<double>(
-      'monnaie_a_rendre', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         num,
@@ -4323,9 +4294,7 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
         clt,
         modepai,
         echeance,
-        totalnt,
         totalttc,
-        tva,
         contre,
         avance,
         bq,
@@ -4333,7 +4302,6 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
         datrcol,
         mregl,
         commerc,
-        commission,
         remise,
         verification,
         type,
@@ -4341,9 +4309,7 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
         emb,
         transp,
         heure,
-        poste,
-        montantRecu,
-        monnaieARendre
+        poste
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -4383,17 +4349,9 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
       context.handle(_echeanceMeta,
           echeance.isAcceptableOrUnknown(data['echeance']!, _echeanceMeta));
     }
-    if (data.containsKey('totalnt')) {
-      context.handle(_totalntMeta,
-          totalnt.isAcceptableOrUnknown(data['totalnt']!, _totalntMeta));
-    }
     if (data.containsKey('totalttc')) {
       context.handle(_totalttcMeta,
           totalttc.isAcceptableOrUnknown(data['totalttc']!, _totalttcMeta));
-    }
-    if (data.containsKey('tva')) {
-      context.handle(
-          _tvaMeta, tva.isAcceptableOrUnknown(data['tva']!, _tvaMeta));
     }
     if (data.containsKey('contre')) {
       context.handle(_contreMeta,
@@ -4421,12 +4379,6 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
     if (data.containsKey('commerc')) {
       context.handle(_commercMeta,
           commerc.isAcceptableOrUnknown(data['commerc']!, _commercMeta));
-    }
-    if (data.containsKey('commission')) {
-      context.handle(
-          _commissionMeta,
-          commission.isAcceptableOrUnknown(
-              data['commission']!, _commissionMeta));
     }
     if (data.containsKey('remise')) {
       context.handle(_remiseMeta,
@@ -4461,18 +4413,6 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
       context.handle(
           _posteMeta, poste.isAcceptableOrUnknown(data['poste']!, _posteMeta));
     }
-    if (data.containsKey('montant_recu')) {
-      context.handle(
-          _montantRecuMeta,
-          montantRecu.isAcceptableOrUnknown(
-              data['montant_recu']!, _montantRecuMeta));
-    }
-    if (data.containsKey('monnaie_a_rendre')) {
-      context.handle(
-          _monnaieARendreMeta,
-          monnaieARendre.isAcceptableOrUnknown(
-              data['monnaie_a_rendre']!, _monnaieARendreMeta));
-    }
     return context;
   }
 
@@ -4496,12 +4436,8 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
           .read(DriftSqlType.string, data['${effectivePrefix}modepai']),
       echeance: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}echeance']),
-      totalnt: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}totalnt']),
       totalttc: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}totalttc']),
-      tva: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}tva']),
       contre: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}contre']),
       avance: attachedDatabase.typeMapping
@@ -4516,8 +4452,6 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
           .read(DriftSqlType.string, data['${effectivePrefix}mregl']),
       commerc: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}commerc']),
-      commission: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}commission']),
       remise: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}remise']),
       verification: attachedDatabase.typeMapping
@@ -4534,10 +4468,6 @@ class $VentesTable extends Ventes with TableInfo<$VentesTable, Vente> {
           .read(DriftSqlType.string, data['${effectivePrefix}heure']),
       poste: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}poste']),
-      montantRecu: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}montant_recu']),
-      monnaieARendre: attachedDatabase.typeMapping.read(
-          DriftSqlType.double, data['${effectivePrefix}monnaie_a_rendre']),
     );
   }
 
@@ -4555,9 +4485,7 @@ class Vente extends DataClass implements Insertable<Vente> {
   final String? clt;
   final String? modepai;
   final DateTime? echeance;
-  final double? totalnt;
   final double? totalttc;
-  final double? tva;
   final String? contre;
   final double? avance;
   final String? bq;
@@ -4565,7 +4493,6 @@ class Vente extends DataClass implements Insertable<Vente> {
   final DateTime? datrcol;
   final String? mregl;
   final String? commerc;
-  final double? commission;
   final double? remise;
   final String? verification;
   final String? type;
@@ -4574,8 +4501,6 @@ class Vente extends DataClass implements Insertable<Vente> {
   final String? transp;
   final String? heure;
   final String? poste;
-  final double? montantRecu;
-  final double? monnaieARendre;
   const Vente(
       {required this.num,
       this.numventes,
@@ -4584,9 +4509,7 @@ class Vente extends DataClass implements Insertable<Vente> {
       this.clt,
       this.modepai,
       this.echeance,
-      this.totalnt,
       this.totalttc,
-      this.tva,
       this.contre,
       this.avance,
       this.bq,
@@ -4594,7 +4517,6 @@ class Vente extends DataClass implements Insertable<Vente> {
       this.datrcol,
       this.mregl,
       this.commerc,
-      this.commission,
       this.remise,
       this.verification,
       this.type,
@@ -4602,9 +4524,7 @@ class Vente extends DataClass implements Insertable<Vente> {
       this.emb,
       this.transp,
       this.heure,
-      this.poste,
-      this.montantRecu,
-      this.monnaieARendre});
+      this.poste});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -4627,14 +4547,8 @@ class Vente extends DataClass implements Insertable<Vente> {
     if (!nullToAbsent || echeance != null) {
       map['echeance'] = Variable<DateTime>(echeance);
     }
-    if (!nullToAbsent || totalnt != null) {
-      map['totalnt'] = Variable<double>(totalnt);
-    }
     if (!nullToAbsent || totalttc != null) {
       map['totalttc'] = Variable<double>(totalttc);
-    }
-    if (!nullToAbsent || tva != null) {
-      map['tva'] = Variable<double>(tva);
     }
     if (!nullToAbsent || contre != null) {
       map['contre'] = Variable<String>(contre);
@@ -4656,9 +4570,6 @@ class Vente extends DataClass implements Insertable<Vente> {
     }
     if (!nullToAbsent || commerc != null) {
       map['commerc'] = Variable<String>(commerc);
-    }
-    if (!nullToAbsent || commission != null) {
-      map['commission'] = Variable<double>(commission);
     }
     if (!nullToAbsent || remise != null) {
       map['remise'] = Variable<double>(remise);
@@ -4684,12 +4595,6 @@ class Vente extends DataClass implements Insertable<Vente> {
     if (!nullToAbsent || poste != null) {
       map['poste'] = Variable<String>(poste);
     }
-    if (!nullToAbsent || montantRecu != null) {
-      map['montant_recu'] = Variable<double>(montantRecu);
-    }
-    if (!nullToAbsent || monnaieARendre != null) {
-      map['monnaie_a_rendre'] = Variable<double>(monnaieARendre);
-    }
     return map;
   }
 
@@ -4709,13 +4614,9 @@ class Vente extends DataClass implements Insertable<Vente> {
       echeance: echeance == null && nullToAbsent
           ? const Value.absent()
           : Value(echeance),
-      totalnt: totalnt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(totalnt),
       totalttc: totalttc == null && nullToAbsent
           ? const Value.absent()
           : Value(totalttc),
-      tva: tva == null && nullToAbsent ? const Value.absent() : Value(tva),
       contre:
           contre == null && nullToAbsent ? const Value.absent() : Value(contre),
       avance:
@@ -4730,9 +4631,6 @@ class Vente extends DataClass implements Insertable<Vente> {
       commerc: commerc == null && nullToAbsent
           ? const Value.absent()
           : Value(commerc),
-      commission: commission == null && nullToAbsent
-          ? const Value.absent()
-          : Value(commission),
       remise:
           remise == null && nullToAbsent ? const Value.absent() : Value(remise),
       verification: verification == null && nullToAbsent
@@ -4747,12 +4645,6 @@ class Vente extends DataClass implements Insertable<Vente> {
           heure == null && nullToAbsent ? const Value.absent() : Value(heure),
       poste:
           poste == null && nullToAbsent ? const Value.absent() : Value(poste),
-      montantRecu: montantRecu == null && nullToAbsent
-          ? const Value.absent()
-          : Value(montantRecu),
-      monnaieARendre: monnaieARendre == null && nullToAbsent
-          ? const Value.absent()
-          : Value(monnaieARendre),
     );
   }
 
@@ -4767,9 +4659,7 @@ class Vente extends DataClass implements Insertable<Vente> {
       clt: serializer.fromJson<String?>(json['clt']),
       modepai: serializer.fromJson<String?>(json['modepai']),
       echeance: serializer.fromJson<DateTime?>(json['echeance']),
-      totalnt: serializer.fromJson<double?>(json['totalnt']),
       totalttc: serializer.fromJson<double?>(json['totalttc']),
-      tva: serializer.fromJson<double?>(json['tva']),
       contre: serializer.fromJson<String?>(json['contre']),
       avance: serializer.fromJson<double?>(json['avance']),
       bq: serializer.fromJson<String?>(json['bq']),
@@ -4777,7 +4667,6 @@ class Vente extends DataClass implements Insertable<Vente> {
       datrcol: serializer.fromJson<DateTime?>(json['datrcol']),
       mregl: serializer.fromJson<String?>(json['mregl']),
       commerc: serializer.fromJson<String?>(json['commerc']),
-      commission: serializer.fromJson<double?>(json['commission']),
       remise: serializer.fromJson<double?>(json['remise']),
       verification: serializer.fromJson<String?>(json['verification']),
       type: serializer.fromJson<String?>(json['type']),
@@ -4786,8 +4675,6 @@ class Vente extends DataClass implements Insertable<Vente> {
       transp: serializer.fromJson<String?>(json['transp']),
       heure: serializer.fromJson<String?>(json['heure']),
       poste: serializer.fromJson<String?>(json['poste']),
-      montantRecu: serializer.fromJson<double?>(json['montantRecu']),
-      monnaieARendre: serializer.fromJson<double?>(json['monnaieARendre']),
     );
   }
   @override
@@ -4801,9 +4688,7 @@ class Vente extends DataClass implements Insertable<Vente> {
       'clt': serializer.toJson<String?>(clt),
       'modepai': serializer.toJson<String?>(modepai),
       'echeance': serializer.toJson<DateTime?>(echeance),
-      'totalnt': serializer.toJson<double?>(totalnt),
       'totalttc': serializer.toJson<double?>(totalttc),
-      'tva': serializer.toJson<double?>(tva),
       'contre': serializer.toJson<String?>(contre),
       'avance': serializer.toJson<double?>(avance),
       'bq': serializer.toJson<String?>(bq),
@@ -4811,7 +4696,6 @@ class Vente extends DataClass implements Insertable<Vente> {
       'datrcol': serializer.toJson<DateTime?>(datrcol),
       'mregl': serializer.toJson<String?>(mregl),
       'commerc': serializer.toJson<String?>(commerc),
-      'commission': serializer.toJson<double?>(commission),
       'remise': serializer.toJson<double?>(remise),
       'verification': serializer.toJson<String?>(verification),
       'type': serializer.toJson<String?>(type),
@@ -4820,8 +4704,6 @@ class Vente extends DataClass implements Insertable<Vente> {
       'transp': serializer.toJson<String?>(transp),
       'heure': serializer.toJson<String?>(heure),
       'poste': serializer.toJson<String?>(poste),
-      'montantRecu': serializer.toJson<double?>(montantRecu),
-      'monnaieARendre': serializer.toJson<double?>(monnaieARendre),
     };
   }
 
@@ -4833,9 +4715,7 @@ class Vente extends DataClass implements Insertable<Vente> {
           Value<String?> clt = const Value.absent(),
           Value<String?> modepai = const Value.absent(),
           Value<DateTime?> echeance = const Value.absent(),
-          Value<double?> totalnt = const Value.absent(),
           Value<double?> totalttc = const Value.absent(),
-          Value<double?> tva = const Value.absent(),
           Value<String?> contre = const Value.absent(),
           Value<double?> avance = const Value.absent(),
           Value<String?> bq = const Value.absent(),
@@ -4843,7 +4723,6 @@ class Vente extends DataClass implements Insertable<Vente> {
           Value<DateTime?> datrcol = const Value.absent(),
           Value<String?> mregl = const Value.absent(),
           Value<String?> commerc = const Value.absent(),
-          Value<double?> commission = const Value.absent(),
           Value<double?> remise = const Value.absent(),
           Value<String?> verification = const Value.absent(),
           Value<String?> type = const Value.absent(),
@@ -4851,9 +4730,7 @@ class Vente extends DataClass implements Insertable<Vente> {
           Value<String?> emb = const Value.absent(),
           Value<String?> transp = const Value.absent(),
           Value<String?> heure = const Value.absent(),
-          Value<String?> poste = const Value.absent(),
-          Value<double?> montantRecu = const Value.absent(),
-          Value<double?> monnaieARendre = const Value.absent()}) =>
+          Value<String?> poste = const Value.absent()}) =>
       Vente(
         num: num ?? this.num,
         numventes: numventes.present ? numventes.value : this.numventes,
@@ -4862,9 +4739,7 @@ class Vente extends DataClass implements Insertable<Vente> {
         clt: clt.present ? clt.value : this.clt,
         modepai: modepai.present ? modepai.value : this.modepai,
         echeance: echeance.present ? echeance.value : this.echeance,
-        totalnt: totalnt.present ? totalnt.value : this.totalnt,
         totalttc: totalttc.present ? totalttc.value : this.totalttc,
-        tva: tva.present ? tva.value : this.tva,
         contre: contre.present ? contre.value : this.contre,
         avance: avance.present ? avance.value : this.avance,
         bq: bq.present ? bq.value : this.bq,
@@ -4872,7 +4747,6 @@ class Vente extends DataClass implements Insertable<Vente> {
         datrcol: datrcol.present ? datrcol.value : this.datrcol,
         mregl: mregl.present ? mregl.value : this.mregl,
         commerc: commerc.present ? commerc.value : this.commerc,
-        commission: commission.present ? commission.value : this.commission,
         remise: remise.present ? remise.value : this.remise,
         verification:
             verification.present ? verification.value : this.verification,
@@ -4882,9 +4756,6 @@ class Vente extends DataClass implements Insertable<Vente> {
         transp: transp.present ? transp.value : this.transp,
         heure: heure.present ? heure.value : this.heure,
         poste: poste.present ? poste.value : this.poste,
-        montantRecu: montantRecu.present ? montantRecu.value : this.montantRecu,
-        monnaieARendre:
-            monnaieARendre.present ? monnaieARendre.value : this.monnaieARendre,
       );
   Vente copyWithCompanion(VentesCompanion data) {
     return Vente(
@@ -4895,9 +4766,7 @@ class Vente extends DataClass implements Insertable<Vente> {
       clt: data.clt.present ? data.clt.value : this.clt,
       modepai: data.modepai.present ? data.modepai.value : this.modepai,
       echeance: data.echeance.present ? data.echeance.value : this.echeance,
-      totalnt: data.totalnt.present ? data.totalnt.value : this.totalnt,
       totalttc: data.totalttc.present ? data.totalttc.value : this.totalttc,
-      tva: data.tva.present ? data.tva.value : this.tva,
       contre: data.contre.present ? data.contre.value : this.contre,
       avance: data.avance.present ? data.avance.value : this.avance,
       bq: data.bq.present ? data.bq.value : this.bq,
@@ -4905,8 +4774,6 @@ class Vente extends DataClass implements Insertable<Vente> {
       datrcol: data.datrcol.present ? data.datrcol.value : this.datrcol,
       mregl: data.mregl.present ? data.mregl.value : this.mregl,
       commerc: data.commerc.present ? data.commerc.value : this.commerc,
-      commission:
-          data.commission.present ? data.commission.value : this.commission,
       remise: data.remise.present ? data.remise.value : this.remise,
       verification: data.verification.present
           ? data.verification.value
@@ -4917,11 +4784,6 @@ class Vente extends DataClass implements Insertable<Vente> {
       transp: data.transp.present ? data.transp.value : this.transp,
       heure: data.heure.present ? data.heure.value : this.heure,
       poste: data.poste.present ? data.poste.value : this.poste,
-      montantRecu:
-          data.montantRecu.present ? data.montantRecu.value : this.montantRecu,
-      monnaieARendre: data.monnaieARendre.present
-          ? data.monnaieARendre.value
-          : this.monnaieARendre,
     );
   }
 
@@ -4935,9 +4797,7 @@ class Vente extends DataClass implements Insertable<Vente> {
           ..write('clt: $clt, ')
           ..write('modepai: $modepai, ')
           ..write('echeance: $echeance, ')
-          ..write('totalnt: $totalnt, ')
           ..write('totalttc: $totalttc, ')
-          ..write('tva: $tva, ')
           ..write('contre: $contre, ')
           ..write('avance: $avance, ')
           ..write('bq: $bq, ')
@@ -4945,7 +4805,6 @@ class Vente extends DataClass implements Insertable<Vente> {
           ..write('datrcol: $datrcol, ')
           ..write('mregl: $mregl, ')
           ..write('commerc: $commerc, ')
-          ..write('commission: $commission, ')
           ..write('remise: $remise, ')
           ..write('verification: $verification, ')
           ..write('type: $type, ')
@@ -4953,9 +4812,7 @@ class Vente extends DataClass implements Insertable<Vente> {
           ..write('emb: $emb, ')
           ..write('transp: $transp, ')
           ..write('heure: $heure, ')
-          ..write('poste: $poste, ')
-          ..write('montantRecu: $montantRecu, ')
-          ..write('monnaieARendre: $monnaieARendre')
+          ..write('poste: $poste')
           ..write(')'))
         .toString();
   }
@@ -4969,9 +4826,7 @@ class Vente extends DataClass implements Insertable<Vente> {
         clt,
         modepai,
         echeance,
-        totalnt,
         totalttc,
-        tva,
         contre,
         avance,
         bq,
@@ -4979,7 +4834,6 @@ class Vente extends DataClass implements Insertable<Vente> {
         datrcol,
         mregl,
         commerc,
-        commission,
         remise,
         verification,
         type,
@@ -4987,9 +4841,7 @@ class Vente extends DataClass implements Insertable<Vente> {
         emb,
         transp,
         heure,
-        poste,
-        montantRecu,
-        monnaieARendre
+        poste
       ]);
   @override
   bool operator ==(Object other) =>
@@ -5002,9 +4854,7 @@ class Vente extends DataClass implements Insertable<Vente> {
           other.clt == this.clt &&
           other.modepai == this.modepai &&
           other.echeance == this.echeance &&
-          other.totalnt == this.totalnt &&
           other.totalttc == this.totalttc &&
-          other.tva == this.tva &&
           other.contre == this.contre &&
           other.avance == this.avance &&
           other.bq == this.bq &&
@@ -5012,7 +4862,6 @@ class Vente extends DataClass implements Insertable<Vente> {
           other.datrcol == this.datrcol &&
           other.mregl == this.mregl &&
           other.commerc == this.commerc &&
-          other.commission == this.commission &&
           other.remise == this.remise &&
           other.verification == this.verification &&
           other.type == this.type &&
@@ -5020,9 +4869,7 @@ class Vente extends DataClass implements Insertable<Vente> {
           other.emb == this.emb &&
           other.transp == this.transp &&
           other.heure == this.heure &&
-          other.poste == this.poste &&
-          other.montantRecu == this.montantRecu &&
-          other.monnaieARendre == this.monnaieARendre);
+          other.poste == this.poste);
 }
 
 class VentesCompanion extends UpdateCompanion<Vente> {
@@ -5033,9 +4880,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
   final Value<String?> clt;
   final Value<String?> modepai;
   final Value<DateTime?> echeance;
-  final Value<double?> totalnt;
   final Value<double?> totalttc;
-  final Value<double?> tva;
   final Value<String?> contre;
   final Value<double?> avance;
   final Value<String?> bq;
@@ -5043,7 +4888,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
   final Value<DateTime?> datrcol;
   final Value<String?> mregl;
   final Value<String?> commerc;
-  final Value<double?> commission;
   final Value<double?> remise;
   final Value<String?> verification;
   final Value<String?> type;
@@ -5052,8 +4896,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
   final Value<String?> transp;
   final Value<String?> heure;
   final Value<String?> poste;
-  final Value<double?> montantRecu;
-  final Value<double?> monnaieARendre;
   const VentesCompanion({
     this.num = const Value.absent(),
     this.numventes = const Value.absent(),
@@ -5062,9 +4904,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     this.clt = const Value.absent(),
     this.modepai = const Value.absent(),
     this.echeance = const Value.absent(),
-    this.totalnt = const Value.absent(),
     this.totalttc = const Value.absent(),
-    this.tva = const Value.absent(),
     this.contre = const Value.absent(),
     this.avance = const Value.absent(),
     this.bq = const Value.absent(),
@@ -5072,7 +4912,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     this.datrcol = const Value.absent(),
     this.mregl = const Value.absent(),
     this.commerc = const Value.absent(),
-    this.commission = const Value.absent(),
     this.remise = const Value.absent(),
     this.verification = const Value.absent(),
     this.type = const Value.absent(),
@@ -5081,8 +4920,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     this.transp = const Value.absent(),
     this.heure = const Value.absent(),
     this.poste = const Value.absent(),
-    this.montantRecu = const Value.absent(),
-    this.monnaieARendre = const Value.absent(),
   });
   VentesCompanion.insert({
     this.num = const Value.absent(),
@@ -5092,9 +4929,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     this.clt = const Value.absent(),
     this.modepai = const Value.absent(),
     this.echeance = const Value.absent(),
-    this.totalnt = const Value.absent(),
     this.totalttc = const Value.absent(),
-    this.tva = const Value.absent(),
     this.contre = const Value.absent(),
     this.avance = const Value.absent(),
     this.bq = const Value.absent(),
@@ -5102,7 +4937,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     this.datrcol = const Value.absent(),
     this.mregl = const Value.absent(),
     this.commerc = const Value.absent(),
-    this.commission = const Value.absent(),
     this.remise = const Value.absent(),
     this.verification = const Value.absent(),
     this.type = const Value.absent(),
@@ -5111,8 +4945,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     this.transp = const Value.absent(),
     this.heure = const Value.absent(),
     this.poste = const Value.absent(),
-    this.montantRecu = const Value.absent(),
-    this.monnaieARendre = const Value.absent(),
   });
   static Insertable<Vente> custom({
     Expression<int>? num,
@@ -5122,9 +4954,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     Expression<String>? clt,
     Expression<String>? modepai,
     Expression<DateTime>? echeance,
-    Expression<double>? totalnt,
     Expression<double>? totalttc,
-    Expression<double>? tva,
     Expression<String>? contre,
     Expression<double>? avance,
     Expression<String>? bq,
@@ -5132,7 +4962,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     Expression<DateTime>? datrcol,
     Expression<String>? mregl,
     Expression<String>? commerc,
-    Expression<double>? commission,
     Expression<double>? remise,
     Expression<String>? verification,
     Expression<String>? type,
@@ -5141,8 +4970,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     Expression<String>? transp,
     Expression<String>? heure,
     Expression<String>? poste,
-    Expression<double>? montantRecu,
-    Expression<double>? monnaieARendre,
   }) {
     return RawValuesInsertable({
       if (num != null) 'num': num,
@@ -5152,9 +4979,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       if (clt != null) 'clt': clt,
       if (modepai != null) 'modepai': modepai,
       if (echeance != null) 'echeance': echeance,
-      if (totalnt != null) 'totalnt': totalnt,
       if (totalttc != null) 'totalttc': totalttc,
-      if (tva != null) 'tva': tva,
       if (contre != null) 'contre': contre,
       if (avance != null) 'avance': avance,
       if (bq != null) 'bq': bq,
@@ -5162,7 +4987,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       if (datrcol != null) 'datrcol': datrcol,
       if (mregl != null) 'mregl': mregl,
       if (commerc != null) 'commerc': commerc,
-      if (commission != null) 'commission': commission,
       if (remise != null) 'remise': remise,
       if (verification != null) 'verification': verification,
       if (type != null) 'type': type,
@@ -5171,8 +4995,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       if (transp != null) 'transp': transp,
       if (heure != null) 'heure': heure,
       if (poste != null) 'poste': poste,
-      if (montantRecu != null) 'montant_recu': montantRecu,
-      if (monnaieARendre != null) 'monnaie_a_rendre': monnaieARendre,
     });
   }
 
@@ -5184,9 +5006,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       Value<String?>? clt,
       Value<String?>? modepai,
       Value<DateTime?>? echeance,
-      Value<double?>? totalnt,
       Value<double?>? totalttc,
-      Value<double?>? tva,
       Value<String?>? contre,
       Value<double?>? avance,
       Value<String?>? bq,
@@ -5194,7 +5014,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       Value<DateTime?>? datrcol,
       Value<String?>? mregl,
       Value<String?>? commerc,
-      Value<double?>? commission,
       Value<double?>? remise,
       Value<String?>? verification,
       Value<String?>? type,
@@ -5202,9 +5021,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       Value<String?>? emb,
       Value<String?>? transp,
       Value<String?>? heure,
-      Value<String?>? poste,
-      Value<double?>? montantRecu,
-      Value<double?>? monnaieARendre}) {
+      Value<String?>? poste}) {
     return VentesCompanion(
       num: num ?? this.num,
       numventes: numventes ?? this.numventes,
@@ -5213,9 +5030,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       clt: clt ?? this.clt,
       modepai: modepai ?? this.modepai,
       echeance: echeance ?? this.echeance,
-      totalnt: totalnt ?? this.totalnt,
       totalttc: totalttc ?? this.totalttc,
-      tva: tva ?? this.tva,
       contre: contre ?? this.contre,
       avance: avance ?? this.avance,
       bq: bq ?? this.bq,
@@ -5223,7 +5038,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       datrcol: datrcol ?? this.datrcol,
       mregl: mregl ?? this.mregl,
       commerc: commerc ?? this.commerc,
-      commission: commission ?? this.commission,
       remise: remise ?? this.remise,
       verification: verification ?? this.verification,
       type: type ?? this.type,
@@ -5232,8 +5046,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
       transp: transp ?? this.transp,
       heure: heure ?? this.heure,
       poste: poste ?? this.poste,
-      montantRecu: montantRecu ?? this.montantRecu,
-      monnaieARendre: monnaieARendre ?? this.monnaieARendre,
     );
   }
 
@@ -5261,14 +5073,8 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     if (echeance.present) {
       map['echeance'] = Variable<DateTime>(echeance.value);
     }
-    if (totalnt.present) {
-      map['totalnt'] = Variable<double>(totalnt.value);
-    }
     if (totalttc.present) {
       map['totalttc'] = Variable<double>(totalttc.value);
-    }
-    if (tva.present) {
-      map['tva'] = Variable<double>(tva.value);
     }
     if (contre.present) {
       map['contre'] = Variable<String>(contre.value);
@@ -5290,9 +5096,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     }
     if (commerc.present) {
       map['commerc'] = Variable<String>(commerc.value);
-    }
-    if (commission.present) {
-      map['commission'] = Variable<double>(commission.value);
     }
     if (remise.present) {
       map['remise'] = Variable<double>(remise.value);
@@ -5318,12 +5121,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
     if (poste.present) {
       map['poste'] = Variable<String>(poste.value);
     }
-    if (montantRecu.present) {
-      map['montant_recu'] = Variable<double>(montantRecu.value);
-    }
-    if (monnaieARendre.present) {
-      map['monnaie_a_rendre'] = Variable<double>(monnaieARendre.value);
-    }
     return map;
   }
 
@@ -5337,9 +5134,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
           ..write('clt: $clt, ')
           ..write('modepai: $modepai, ')
           ..write('echeance: $echeance, ')
-          ..write('totalnt: $totalnt, ')
           ..write('totalttc: $totalttc, ')
-          ..write('tva: $tva, ')
           ..write('contre: $contre, ')
           ..write('avance: $avance, ')
           ..write('bq: $bq, ')
@@ -5347,7 +5142,6 @@ class VentesCompanion extends UpdateCompanion<Vente> {
           ..write('datrcol: $datrcol, ')
           ..write('mregl: $mregl, ')
           ..write('commerc: $commerc, ')
-          ..write('commission: $commission, ')
           ..write('remise: $remise, ')
           ..write('verification: $verification, ')
           ..write('type: $type, ')
@@ -5355,9 +5149,7 @@ class VentesCompanion extends UpdateCompanion<Vente> {
           ..write('emb: $emb, ')
           ..write('transp: $transp, ')
           ..write('heure: $heure, ')
-          ..write('poste: $poste, ')
-          ..write('montantRecu: $montantRecu, ')
-          ..write('monnaieARendre: $monnaieARendre')
+          ..write('poste: $poste')
           ..write(')'))
         .toString();
   }
@@ -5418,22 +5210,11 @@ class $AchatsTable extends Achats with TableInfo<$AchatsTable, Achat> {
   late final GeneratedColumn<DateTime> echeance = GeneratedColumn<DateTime>(
       'echeance', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
-  static const VerificationMeta _totalntMeta =
-      const VerificationMeta('totalnt');
-  @override
-  late final GeneratedColumn<double> totalnt = GeneratedColumn<double>(
-      'totalnt', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _totalttcMeta =
       const VerificationMeta('totalttc');
   @override
   late final GeneratedColumn<double> totalttc = GeneratedColumn<double>(
       'totalttc', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
-  static const VerificationMeta _tvaMeta = const VerificationMeta('tva');
-  @override
-  late final GeneratedColumn<double> tva = GeneratedColumn<double>(
-      'tva', aliasedName, true,
       type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _contreMeta = const VerificationMeta('contre');
   @override
@@ -5512,9 +5293,7 @@ class $AchatsTable extends Achats with TableInfo<$AchatsTable, Achat> {
         frns,
         modepai,
         echeance,
-        totalnt,
         totalttc,
-        tva,
         contre,
         bq,
         regl,
@@ -5564,17 +5343,9 @@ class $AchatsTable extends Achats with TableInfo<$AchatsTable, Achat> {
       context.handle(_echeanceMeta,
           echeance.isAcceptableOrUnknown(data['echeance']!, _echeanceMeta));
     }
-    if (data.containsKey('totalnt')) {
-      context.handle(_totalntMeta,
-          totalnt.isAcceptableOrUnknown(data['totalnt']!, _totalntMeta));
-    }
     if (data.containsKey('totalttc')) {
       context.handle(_totalttcMeta,
           totalttc.isAcceptableOrUnknown(data['totalttc']!, _totalttcMeta));
-    }
-    if (data.containsKey('tva')) {
-      context.handle(
-          _tvaMeta, tva.isAcceptableOrUnknown(data['tva']!, _tvaMeta));
     }
     if (data.containsKey('contre')) {
       context.handle(_contreMeta,
@@ -5639,12 +5410,8 @@ class $AchatsTable extends Achats with TableInfo<$AchatsTable, Achat> {
           .read(DriftSqlType.string, data['${effectivePrefix}modepai']),
       echeance: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}echeance']),
-      totalnt: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}totalnt']),
       totalttc: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}totalttc']),
-      tva: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}tva']),
       contre: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}contre']),
       bq: attachedDatabase.typeMapping
@@ -5682,9 +5449,7 @@ class Achat extends DataClass implements Insertable<Achat> {
   final String? frns;
   final String? modepai;
   final DateTime? echeance;
-  final double? totalnt;
   final double? totalttc;
-  final double? tva;
   final String? contre;
   final String? bq;
   final double? regl;
@@ -5703,9 +5468,7 @@ class Achat extends DataClass implements Insertable<Achat> {
       this.frns,
       this.modepai,
       this.echeance,
-      this.totalnt,
       this.totalttc,
-      this.tva,
       this.contre,
       this.bq,
       this.regl,
@@ -5738,14 +5501,8 @@ class Achat extends DataClass implements Insertable<Achat> {
     if (!nullToAbsent || echeance != null) {
       map['echeance'] = Variable<DateTime>(echeance);
     }
-    if (!nullToAbsent || totalnt != null) {
-      map['totalnt'] = Variable<double>(totalnt);
-    }
     if (!nullToAbsent || totalttc != null) {
       map['totalttc'] = Variable<double>(totalttc);
-    }
-    if (!nullToAbsent || tva != null) {
-      map['tva'] = Variable<double>(tva);
     }
     if (!nullToAbsent || contre != null) {
       map['contre'] = Variable<String>(contre);
@@ -5796,13 +5553,9 @@ class Achat extends DataClass implements Insertable<Achat> {
       echeance: echeance == null && nullToAbsent
           ? const Value.absent()
           : Value(echeance),
-      totalnt: totalnt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(totalnt),
       totalttc: totalttc == null && nullToAbsent
           ? const Value.absent()
           : Value(totalttc),
-      tva: tva == null && nullToAbsent ? const Value.absent() : Value(tva),
       contre:
           contre == null && nullToAbsent ? const Value.absent() : Value(contre),
       bq: bq == null && nullToAbsent ? const Value.absent() : Value(bq),
@@ -5834,9 +5587,7 @@ class Achat extends DataClass implements Insertable<Achat> {
       frns: serializer.fromJson<String?>(json['frns']),
       modepai: serializer.fromJson<String?>(json['modepai']),
       echeance: serializer.fromJson<DateTime?>(json['echeance']),
-      totalnt: serializer.fromJson<double?>(json['totalnt']),
       totalttc: serializer.fromJson<double?>(json['totalttc']),
-      tva: serializer.fromJson<double?>(json['tva']),
       contre: serializer.fromJson<String?>(json['contre']),
       bq: serializer.fromJson<String?>(json['bq']),
       regl: serializer.fromJson<double?>(json['regl']),
@@ -5860,9 +5611,7 @@ class Achat extends DataClass implements Insertable<Achat> {
       'frns': serializer.toJson<String?>(frns),
       'modepai': serializer.toJson<String?>(modepai),
       'echeance': serializer.toJson<DateTime?>(echeance),
-      'totalnt': serializer.toJson<double?>(totalnt),
       'totalttc': serializer.toJson<double?>(totalttc),
-      'tva': serializer.toJson<double?>(tva),
       'contre': serializer.toJson<String?>(contre),
       'bq': serializer.toJson<String?>(bq),
       'regl': serializer.toJson<double?>(regl),
@@ -5884,9 +5633,7 @@ class Achat extends DataClass implements Insertable<Achat> {
           Value<String?> frns = const Value.absent(),
           Value<String?> modepai = const Value.absent(),
           Value<DateTime?> echeance = const Value.absent(),
-          Value<double?> totalnt = const Value.absent(),
           Value<double?> totalttc = const Value.absent(),
-          Value<double?> tva = const Value.absent(),
           Value<String?> contre = const Value.absent(),
           Value<String?> bq = const Value.absent(),
           Value<double?> regl = const Value.absent(),
@@ -5905,9 +5652,7 @@ class Achat extends DataClass implements Insertable<Achat> {
         frns: frns.present ? frns.value : this.frns,
         modepai: modepai.present ? modepai.value : this.modepai,
         echeance: echeance.present ? echeance.value : this.echeance,
-        totalnt: totalnt.present ? totalnt.value : this.totalnt,
         totalttc: totalttc.present ? totalttc.value : this.totalttc,
-        tva: tva.present ? tva.value : this.tva,
         contre: contre.present ? contre.value : this.contre,
         bq: bq.present ? bq.value : this.bq,
         regl: regl.present ? regl.value : this.regl,
@@ -5929,9 +5674,7 @@ class Achat extends DataClass implements Insertable<Achat> {
       frns: data.frns.present ? data.frns.value : this.frns,
       modepai: data.modepai.present ? data.modepai.value : this.modepai,
       echeance: data.echeance.present ? data.echeance.value : this.echeance,
-      totalnt: data.totalnt.present ? data.totalnt.value : this.totalnt,
       totalttc: data.totalttc.present ? data.totalttc.value : this.totalttc,
-      tva: data.tva.present ? data.tva.value : this.tva,
       contre: data.contre.present ? data.contre.value : this.contre,
       bq: data.bq.present ? data.bq.value : this.bq,
       regl: data.regl.present ? data.regl.value : this.regl,
@@ -5957,9 +5700,7 @@ class Achat extends DataClass implements Insertable<Achat> {
           ..write('frns: $frns, ')
           ..write('modepai: $modepai, ')
           ..write('echeance: $echeance, ')
-          ..write('totalnt: $totalnt, ')
           ..write('totalttc: $totalttc, ')
-          ..write('tva: $tva, ')
           ..write('contre: $contre, ')
           ..write('bq: $bq, ')
           ..write('regl: $regl, ')
@@ -5983,9 +5724,7 @@ class Achat extends DataClass implements Insertable<Achat> {
       frns,
       modepai,
       echeance,
-      totalnt,
       totalttc,
-      tva,
       contre,
       bq,
       regl,
@@ -6007,9 +5746,7 @@ class Achat extends DataClass implements Insertable<Achat> {
           other.frns == this.frns &&
           other.modepai == this.modepai &&
           other.echeance == this.echeance &&
-          other.totalnt == this.totalnt &&
           other.totalttc == this.totalttc &&
-          other.tva == this.tva &&
           other.contre == this.contre &&
           other.bq == this.bq &&
           other.regl == this.regl &&
@@ -6030,9 +5767,7 @@ class AchatsCompanion extends UpdateCompanion<Achat> {
   final Value<String?> frns;
   final Value<String?> modepai;
   final Value<DateTime?> echeance;
-  final Value<double?> totalnt;
   final Value<double?> totalttc;
-  final Value<double?> tva;
   final Value<String?> contre;
   final Value<String?> bq;
   final Value<double?> regl;
@@ -6051,9 +5786,7 @@ class AchatsCompanion extends UpdateCompanion<Achat> {
     this.frns = const Value.absent(),
     this.modepai = const Value.absent(),
     this.echeance = const Value.absent(),
-    this.totalnt = const Value.absent(),
     this.totalttc = const Value.absent(),
-    this.tva = const Value.absent(),
     this.contre = const Value.absent(),
     this.bq = const Value.absent(),
     this.regl = const Value.absent(),
@@ -6073,9 +5806,7 @@ class AchatsCompanion extends UpdateCompanion<Achat> {
     this.frns = const Value.absent(),
     this.modepai = const Value.absent(),
     this.echeance = const Value.absent(),
-    this.totalnt = const Value.absent(),
     this.totalttc = const Value.absent(),
-    this.tva = const Value.absent(),
     this.contre = const Value.absent(),
     this.bq = const Value.absent(),
     this.regl = const Value.absent(),
@@ -6095,9 +5826,7 @@ class AchatsCompanion extends UpdateCompanion<Achat> {
     Expression<String>? frns,
     Expression<String>? modepai,
     Expression<DateTime>? echeance,
-    Expression<double>? totalnt,
     Expression<double>? totalttc,
-    Expression<double>? tva,
     Expression<String>? contre,
     Expression<String>? bq,
     Expression<double>? regl,
@@ -6117,9 +5846,7 @@ class AchatsCompanion extends UpdateCompanion<Achat> {
       if (frns != null) 'frns': frns,
       if (modepai != null) 'modepai': modepai,
       if (echeance != null) 'echeance': echeance,
-      if (totalnt != null) 'totalnt': totalnt,
       if (totalttc != null) 'totalttc': totalttc,
-      if (tva != null) 'tva': tva,
       if (contre != null) 'contre': contre,
       if (bq != null) 'bq': bq,
       if (regl != null) 'regl': regl,
@@ -6141,9 +5868,7 @@ class AchatsCompanion extends UpdateCompanion<Achat> {
       Value<String?>? frns,
       Value<String?>? modepai,
       Value<DateTime?>? echeance,
-      Value<double?>? totalnt,
       Value<double?>? totalttc,
-      Value<double?>? tva,
       Value<String?>? contre,
       Value<String?>? bq,
       Value<double?>? regl,
@@ -6162,9 +5887,7 @@ class AchatsCompanion extends UpdateCompanion<Achat> {
       frns: frns ?? this.frns,
       modepai: modepai ?? this.modepai,
       echeance: echeance ?? this.echeance,
-      totalnt: totalnt ?? this.totalnt,
       totalttc: totalttc ?? this.totalttc,
-      tva: tva ?? this.tva,
       contre: contre ?? this.contre,
       bq: bq ?? this.bq,
       regl: regl ?? this.regl,
@@ -6202,14 +5925,8 @@ class AchatsCompanion extends UpdateCompanion<Achat> {
     if (echeance.present) {
       map['echeance'] = Variable<DateTime>(echeance.value);
     }
-    if (totalnt.present) {
-      map['totalnt'] = Variable<double>(totalnt.value);
-    }
     if (totalttc.present) {
       map['totalttc'] = Variable<double>(totalttc.value);
-    }
-    if (tva.present) {
-      map['tva'] = Variable<double>(tva.value);
     }
     if (contre.present) {
       map['contre'] = Variable<String>(contre.value);
@@ -6254,9 +5971,7 @@ class AchatsCompanion extends UpdateCompanion<Achat> {
           ..write('frns: $frns, ')
           ..write('modepai: $modepai, ')
           ..write('echeance: $echeance, ')
-          ..write('totalnt: $totalnt, ')
           ..write('totalttc: $totalttc, ')
-          ..write('tva: $tva, ')
           ..write('contre: $contre, ')
           ..write('bq: $bq, ')
           ..write('regl: $regl, ')
@@ -17893,22 +17608,11 @@ class $RetachatsTable extends Retachats
   late final GeneratedColumn<DateTime> echeance = GeneratedColumn<DateTime>(
       'echeance', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
-  static const VerificationMeta _totalntMeta =
-      const VerificationMeta('totalnt');
-  @override
-  late final GeneratedColumn<double> totalnt = GeneratedColumn<double>(
-      'totalnt', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _totalttcMeta =
       const VerificationMeta('totalttc');
   @override
   late final GeneratedColumn<double> totalttc = GeneratedColumn<double>(
       'totalttc', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
-  static const VerificationMeta _tvaMeta = const VerificationMeta('tva');
-  @override
-  late final GeneratedColumn<double> tva = GeneratedColumn<double>(
-      'tva', aliasedName, true,
       type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _contreMeta = const VerificationMeta('contre');
   @override
@@ -17956,9 +17660,7 @@ class $RetachatsTable extends Retachats
         frns,
         modepai,
         echeance,
-        totalnt,
         totalttc,
-        tva,
         contre,
         bq,
         verification,
@@ -18003,17 +17705,9 @@ class $RetachatsTable extends Retachats
       context.handle(_echeanceMeta,
           echeance.isAcceptableOrUnknown(data['echeance']!, _echeanceMeta));
     }
-    if (data.containsKey('totalnt')) {
-      context.handle(_totalntMeta,
-          totalnt.isAcceptableOrUnknown(data['totalnt']!, _totalntMeta));
-    }
     if (data.containsKey('totalttc')) {
       context.handle(_totalttcMeta,
           totalttc.isAcceptableOrUnknown(data['totalttc']!, _totalttcMeta));
-    }
-    if (data.containsKey('tva')) {
-      context.handle(
-          _tvaMeta, tva.isAcceptableOrUnknown(data['tva']!, _tvaMeta));
     }
     if (data.containsKey('contre')) {
       context.handle(_contreMeta,
@@ -18061,12 +17755,8 @@ class $RetachatsTable extends Retachats
           .read(DriftSqlType.string, data['${effectivePrefix}modepai']),
       echeance: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}echeance']),
-      totalnt: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}totalnt']),
       totalttc: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}totalttc']),
-      tva: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}tva']),
       contre: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}contre']),
       bq: attachedDatabase.typeMapping
@@ -18094,9 +17784,7 @@ class Retachat extends DataClass implements Insertable<Retachat> {
   final String? frns;
   final String? modepai;
   final DateTime? echeance;
-  final double? totalnt;
   final double? totalttc;
-  final double? tva;
   final String? contre;
   final String? bq;
   final String? verification;
@@ -18110,9 +17798,7 @@ class Retachat extends DataClass implements Insertable<Retachat> {
       this.frns,
       this.modepai,
       this.echeance,
-      this.totalnt,
       this.totalttc,
-      this.tva,
       this.contre,
       this.bq,
       this.verification,
@@ -18140,14 +17826,8 @@ class Retachat extends DataClass implements Insertable<Retachat> {
     if (!nullToAbsent || echeance != null) {
       map['echeance'] = Variable<DateTime>(echeance);
     }
-    if (!nullToAbsent || totalnt != null) {
-      map['totalnt'] = Variable<double>(totalnt);
-    }
     if (!nullToAbsent || totalttc != null) {
       map['totalttc'] = Variable<double>(totalttc);
-    }
-    if (!nullToAbsent || tva != null) {
-      map['tva'] = Variable<double>(tva);
     }
     if (!nullToAbsent || contre != null) {
       map['contre'] = Variable<String>(contre);
@@ -18183,13 +17863,9 @@ class Retachat extends DataClass implements Insertable<Retachat> {
       echeance: echeance == null && nullToAbsent
           ? const Value.absent()
           : Value(echeance),
-      totalnt: totalnt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(totalnt),
       totalttc: totalttc == null && nullToAbsent
           ? const Value.absent()
           : Value(totalttc),
-      tva: tva == null && nullToAbsent ? const Value.absent() : Value(tva),
       contre:
           contre == null && nullToAbsent ? const Value.absent() : Value(contre),
       bq: bq == null && nullToAbsent ? const Value.absent() : Value(bq),
@@ -18214,9 +17890,7 @@ class Retachat extends DataClass implements Insertable<Retachat> {
       frns: serializer.fromJson<String?>(json['frns']),
       modepai: serializer.fromJson<String?>(json['modepai']),
       echeance: serializer.fromJson<DateTime?>(json['echeance']),
-      totalnt: serializer.fromJson<double?>(json['totalnt']),
       totalttc: serializer.fromJson<double?>(json['totalttc']),
-      tva: serializer.fromJson<double?>(json['tva']),
       contre: serializer.fromJson<String?>(json['contre']),
       bq: serializer.fromJson<String?>(json['bq']),
       verification: serializer.fromJson<String?>(json['verification']),
@@ -18235,9 +17909,7 @@ class Retachat extends DataClass implements Insertable<Retachat> {
       'frns': serializer.toJson<String?>(frns),
       'modepai': serializer.toJson<String?>(modepai),
       'echeance': serializer.toJson<DateTime?>(echeance),
-      'totalnt': serializer.toJson<double?>(totalnt),
       'totalttc': serializer.toJson<double?>(totalttc),
-      'tva': serializer.toJson<double?>(tva),
       'contre': serializer.toJson<String?>(contre),
       'bq': serializer.toJson<String?>(bq),
       'verification': serializer.toJson<String?>(verification),
@@ -18254,9 +17926,7 @@ class Retachat extends DataClass implements Insertable<Retachat> {
           Value<String?> frns = const Value.absent(),
           Value<String?> modepai = const Value.absent(),
           Value<DateTime?> echeance = const Value.absent(),
-          Value<double?> totalnt = const Value.absent(),
           Value<double?> totalttc = const Value.absent(),
-          Value<double?> tva = const Value.absent(),
           Value<String?> contre = const Value.absent(),
           Value<String?> bq = const Value.absent(),
           Value<String?> verification = const Value.absent(),
@@ -18270,9 +17940,7 @@ class Retachat extends DataClass implements Insertable<Retachat> {
         frns: frns.present ? frns.value : this.frns,
         modepai: modepai.present ? modepai.value : this.modepai,
         echeance: echeance.present ? echeance.value : this.echeance,
-        totalnt: totalnt.present ? totalnt.value : this.totalnt,
         totalttc: totalttc.present ? totalttc.value : this.totalttc,
-        tva: tva.present ? tva.value : this.tva,
         contre: contre.present ? contre.value : this.contre,
         bq: bq.present ? bq.value : this.bq,
         verification:
@@ -18289,9 +17957,7 @@ class Retachat extends DataClass implements Insertable<Retachat> {
       frns: data.frns.present ? data.frns.value : this.frns,
       modepai: data.modepai.present ? data.modepai.value : this.modepai,
       echeance: data.echeance.present ? data.echeance.value : this.echeance,
-      totalnt: data.totalnt.present ? data.totalnt.value : this.totalnt,
       totalttc: data.totalttc.present ? data.totalttc.value : this.totalttc,
-      tva: data.tva.present ? data.tva.value : this.tva,
       contre: data.contre.present ? data.contre.value : this.contre,
       bq: data.bq.present ? data.bq.value : this.bq,
       verification: data.verification.present
@@ -18313,9 +17979,7 @@ class Retachat extends DataClass implements Insertable<Retachat> {
           ..write('frns: $frns, ')
           ..write('modepai: $modepai, ')
           ..write('echeance: $echeance, ')
-          ..write('totalnt: $totalnt, ')
           ..write('totalttc: $totalttc, ')
-          ..write('tva: $tva, ')
           ..write('contre: $contre, ')
           ..write('bq: $bq, ')
           ..write('verification: $verification, ')
@@ -18326,22 +17990,8 @@ class Retachat extends DataClass implements Insertable<Retachat> {
   }
 
   @override
-  int get hashCode => Object.hash(
-      num,
-      numachats,
-      nfact,
-      daty,
-      frns,
-      modepai,
-      echeance,
-      totalnt,
-      totalttc,
-      tva,
-      contre,
-      bq,
-      verification,
-      type,
-      numachats1);
+  int get hashCode => Object.hash(num, numachats, nfact, daty, frns, modepai,
+      echeance, totalttc, contre, bq, verification, type, numachats1);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -18353,9 +18003,7 @@ class Retachat extends DataClass implements Insertable<Retachat> {
           other.frns == this.frns &&
           other.modepai == this.modepai &&
           other.echeance == this.echeance &&
-          other.totalnt == this.totalnt &&
           other.totalttc == this.totalttc &&
-          other.tva == this.tva &&
           other.contre == this.contre &&
           other.bq == this.bq &&
           other.verification == this.verification &&
@@ -18371,9 +18019,7 @@ class RetachatsCompanion extends UpdateCompanion<Retachat> {
   final Value<String?> frns;
   final Value<String?> modepai;
   final Value<DateTime?> echeance;
-  final Value<double?> totalnt;
   final Value<double?> totalttc;
-  final Value<double?> tva;
   final Value<String?> contre;
   final Value<String?> bq;
   final Value<String?> verification;
@@ -18387,9 +18033,7 @@ class RetachatsCompanion extends UpdateCompanion<Retachat> {
     this.frns = const Value.absent(),
     this.modepai = const Value.absent(),
     this.echeance = const Value.absent(),
-    this.totalnt = const Value.absent(),
     this.totalttc = const Value.absent(),
-    this.tva = const Value.absent(),
     this.contre = const Value.absent(),
     this.bq = const Value.absent(),
     this.verification = const Value.absent(),
@@ -18404,9 +18048,7 @@ class RetachatsCompanion extends UpdateCompanion<Retachat> {
     this.frns = const Value.absent(),
     this.modepai = const Value.absent(),
     this.echeance = const Value.absent(),
-    this.totalnt = const Value.absent(),
     this.totalttc = const Value.absent(),
-    this.tva = const Value.absent(),
     this.contre = const Value.absent(),
     this.bq = const Value.absent(),
     this.verification = const Value.absent(),
@@ -18421,9 +18063,7 @@ class RetachatsCompanion extends UpdateCompanion<Retachat> {
     Expression<String>? frns,
     Expression<String>? modepai,
     Expression<DateTime>? echeance,
-    Expression<double>? totalnt,
     Expression<double>? totalttc,
-    Expression<double>? tva,
     Expression<String>? contre,
     Expression<String>? bq,
     Expression<String>? verification,
@@ -18438,9 +18078,7 @@ class RetachatsCompanion extends UpdateCompanion<Retachat> {
       if (frns != null) 'frns': frns,
       if (modepai != null) 'modepai': modepai,
       if (echeance != null) 'echeance': echeance,
-      if (totalnt != null) 'totalnt': totalnt,
       if (totalttc != null) 'totalttc': totalttc,
-      if (tva != null) 'tva': tva,
       if (contre != null) 'contre': contre,
       if (bq != null) 'bq': bq,
       if (verification != null) 'verification': verification,
@@ -18457,9 +18095,7 @@ class RetachatsCompanion extends UpdateCompanion<Retachat> {
       Value<String?>? frns,
       Value<String?>? modepai,
       Value<DateTime?>? echeance,
-      Value<double?>? totalnt,
       Value<double?>? totalttc,
-      Value<double?>? tva,
       Value<String?>? contre,
       Value<String?>? bq,
       Value<String?>? verification,
@@ -18473,9 +18109,7 @@ class RetachatsCompanion extends UpdateCompanion<Retachat> {
       frns: frns ?? this.frns,
       modepai: modepai ?? this.modepai,
       echeance: echeance ?? this.echeance,
-      totalnt: totalnt ?? this.totalnt,
       totalttc: totalttc ?? this.totalttc,
-      tva: tva ?? this.tva,
       contre: contre ?? this.contre,
       bq: bq ?? this.bq,
       verification: verification ?? this.verification,
@@ -18508,14 +18142,8 @@ class RetachatsCompanion extends UpdateCompanion<Retachat> {
     if (echeance.present) {
       map['echeance'] = Variable<DateTime>(echeance.value);
     }
-    if (totalnt.present) {
-      map['totalnt'] = Variable<double>(totalnt.value);
-    }
     if (totalttc.present) {
       map['totalttc'] = Variable<double>(totalttc.value);
-    }
-    if (tva.present) {
-      map['tva'] = Variable<double>(tva.value);
     }
     if (contre.present) {
       map['contre'] = Variable<String>(contre.value);
@@ -18545,9 +18173,7 @@ class RetachatsCompanion extends UpdateCompanion<Retachat> {
           ..write('frns: $frns, ')
           ..write('modepai: $modepai, ')
           ..write('echeance: $echeance, ')
-          ..write('totalnt: $totalnt, ')
           ..write('totalttc: $totalttc, ')
-          ..write('tva: $tva, ')
           ..write('contre: $contre, ')
           ..write('bq: $bq, ')
           ..write('verification: $verification, ')
@@ -19376,22 +19002,11 @@ class $RetventesTable extends Retventes
   late final GeneratedColumn<DateTime> echeance = GeneratedColumn<DateTime>(
       'echeance', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
-  static const VerificationMeta _totalntMeta =
-      const VerificationMeta('totalnt');
-  @override
-  late final GeneratedColumn<double> totalnt = GeneratedColumn<double>(
-      'totalnt', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _totalttcMeta =
       const VerificationMeta('totalttc');
   @override
   late final GeneratedColumn<double> totalttc = GeneratedColumn<double>(
       'totalttc', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
-  static const VerificationMeta _tvaMeta = const VerificationMeta('tva');
-  @override
-  late final GeneratedColumn<double> tva = GeneratedColumn<double>(
-      'tva', aliasedName, true,
       type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _contreMeta = const VerificationMeta('contre');
   @override
@@ -19420,12 +19035,6 @@ class $RetventesTable extends Retventes
       additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 100),
       type: DriftSqlType.string,
       requiredDuringInsert: false);
-  static const VerificationMeta _commissionMeta =
-      const VerificationMeta('commission');
-  @override
-  late final GeneratedColumn<double> commission = GeneratedColumn<double>(
-      'commission', aliasedName, true,
-      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _remiseMeta = const VerificationMeta('remise');
   @override
   late final GeneratedColumn<double> remise = GeneratedColumn<double>(
@@ -19463,14 +19072,11 @@ class $RetventesTable extends Retventes
         clt,
         modepai,
         echeance,
-        totalnt,
         totalttc,
-        tva,
         contre,
         avance,
         bq,
         commerc,
-        commission,
         remise,
         verification,
         type,
@@ -19514,17 +19120,9 @@ class $RetventesTable extends Retventes
       context.handle(_echeanceMeta,
           echeance.isAcceptableOrUnknown(data['echeance']!, _echeanceMeta));
     }
-    if (data.containsKey('totalnt')) {
-      context.handle(_totalntMeta,
-          totalnt.isAcceptableOrUnknown(data['totalnt']!, _totalntMeta));
-    }
     if (data.containsKey('totalttc')) {
       context.handle(_totalttcMeta,
           totalttc.isAcceptableOrUnknown(data['totalttc']!, _totalttcMeta));
-    }
-    if (data.containsKey('tva')) {
-      context.handle(
-          _tvaMeta, tva.isAcceptableOrUnknown(data['tva']!, _tvaMeta));
     }
     if (data.containsKey('contre')) {
       context.handle(_contreMeta,
@@ -19540,12 +19138,6 @@ class $RetventesTable extends Retventes
     if (data.containsKey('commerc')) {
       context.handle(_commercMeta,
           commerc.isAcceptableOrUnknown(data['commerc']!, _commercMeta));
-    }
-    if (data.containsKey('commission')) {
-      context.handle(
-          _commissionMeta,
-          commission.isAcceptableOrUnknown(
-              data['commission']!, _commissionMeta));
     }
     if (data.containsKey('remise')) {
       context.handle(_remiseMeta,
@@ -19590,12 +19182,8 @@ class $RetventesTable extends Retventes
           .read(DriftSqlType.string, data['${effectivePrefix}modepai']),
       echeance: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}echeance']),
-      totalnt: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}totalnt']),
       totalttc: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}totalttc']),
-      tva: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}tva']),
       contre: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}contre']),
       avance: attachedDatabase.typeMapping
@@ -19604,8 +19192,6 @@ class $RetventesTable extends Retventes
           .read(DriftSqlType.string, data['${effectivePrefix}bq']),
       commerc: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}commerc']),
-      commission: attachedDatabase.typeMapping
-          .read(DriftSqlType.double, data['${effectivePrefix}commission']),
       remise: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}remise']),
       verification: attachedDatabase.typeMapping
@@ -19631,14 +19217,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
   final String? clt;
   final String? modepai;
   final DateTime? echeance;
-  final double? totalnt;
   final double? totalttc;
-  final double? tva;
   final String? contre;
   final double? avance;
   final String? bq;
   final String? commerc;
-  final double? commission;
   final double? remise;
   final String? verification;
   final String? type;
@@ -19651,14 +19234,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
       this.clt,
       this.modepai,
       this.echeance,
-      this.totalnt,
       this.totalttc,
-      this.tva,
       this.contre,
       this.avance,
       this.bq,
       this.commerc,
-      this.commission,
       this.remise,
       this.verification,
       this.type,
@@ -19685,14 +19265,8 @@ class Retvente extends DataClass implements Insertable<Retvente> {
     if (!nullToAbsent || echeance != null) {
       map['echeance'] = Variable<DateTime>(echeance);
     }
-    if (!nullToAbsent || totalnt != null) {
-      map['totalnt'] = Variable<double>(totalnt);
-    }
     if (!nullToAbsent || totalttc != null) {
       map['totalttc'] = Variable<double>(totalttc);
-    }
-    if (!nullToAbsent || tva != null) {
-      map['tva'] = Variable<double>(tva);
     }
     if (!nullToAbsent || contre != null) {
       map['contre'] = Variable<String>(contre);
@@ -19705,9 +19279,6 @@ class Retvente extends DataClass implements Insertable<Retvente> {
     }
     if (!nullToAbsent || commerc != null) {
       map['commerc'] = Variable<String>(commerc);
-    }
-    if (!nullToAbsent || commission != null) {
-      map['commission'] = Variable<double>(commission);
     }
     if (!nullToAbsent || remise != null) {
       map['remise'] = Variable<double>(remise);
@@ -19740,13 +19311,9 @@ class Retvente extends DataClass implements Insertable<Retvente> {
       echeance: echeance == null && nullToAbsent
           ? const Value.absent()
           : Value(echeance),
-      totalnt: totalnt == null && nullToAbsent
-          ? const Value.absent()
-          : Value(totalnt),
       totalttc: totalttc == null && nullToAbsent
           ? const Value.absent()
           : Value(totalttc),
-      tva: tva == null && nullToAbsent ? const Value.absent() : Value(tva),
       contre:
           contre == null && nullToAbsent ? const Value.absent() : Value(contre),
       avance:
@@ -19755,9 +19322,6 @@ class Retvente extends DataClass implements Insertable<Retvente> {
       commerc: commerc == null && nullToAbsent
           ? const Value.absent()
           : Value(commerc),
-      commission: commission == null && nullToAbsent
-          ? const Value.absent()
-          : Value(commission),
       remise:
           remise == null && nullToAbsent ? const Value.absent() : Value(remise),
       verification: verification == null && nullToAbsent
@@ -19781,14 +19345,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
       clt: serializer.fromJson<String?>(json['clt']),
       modepai: serializer.fromJson<String?>(json['modepai']),
       echeance: serializer.fromJson<DateTime?>(json['echeance']),
-      totalnt: serializer.fromJson<double?>(json['totalnt']),
       totalttc: serializer.fromJson<double?>(json['totalttc']),
-      tva: serializer.fromJson<double?>(json['tva']),
       contre: serializer.fromJson<String?>(json['contre']),
       avance: serializer.fromJson<double?>(json['avance']),
       bq: serializer.fromJson<String?>(json['bq']),
       commerc: serializer.fromJson<String?>(json['commerc']),
-      commission: serializer.fromJson<double?>(json['commission']),
       remise: serializer.fromJson<double?>(json['remise']),
       verification: serializer.fromJson<String?>(json['verification']),
       type: serializer.fromJson<String?>(json['type']),
@@ -19806,14 +19367,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
       'clt': serializer.toJson<String?>(clt),
       'modepai': serializer.toJson<String?>(modepai),
       'echeance': serializer.toJson<DateTime?>(echeance),
-      'totalnt': serializer.toJson<double?>(totalnt),
       'totalttc': serializer.toJson<double?>(totalttc),
-      'tva': serializer.toJson<double?>(tva),
       'contre': serializer.toJson<String?>(contre),
       'avance': serializer.toJson<double?>(avance),
       'bq': serializer.toJson<String?>(bq),
       'commerc': serializer.toJson<String?>(commerc),
-      'commission': serializer.toJson<double?>(commission),
       'remise': serializer.toJson<double?>(remise),
       'verification': serializer.toJson<String?>(verification),
       'type': serializer.toJson<String?>(type),
@@ -19829,14 +19387,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
           Value<String?> clt = const Value.absent(),
           Value<String?> modepai = const Value.absent(),
           Value<DateTime?> echeance = const Value.absent(),
-          Value<double?> totalnt = const Value.absent(),
           Value<double?> totalttc = const Value.absent(),
-          Value<double?> tva = const Value.absent(),
           Value<String?> contre = const Value.absent(),
           Value<double?> avance = const Value.absent(),
           Value<String?> bq = const Value.absent(),
           Value<String?> commerc = const Value.absent(),
-          Value<double?> commission = const Value.absent(),
           Value<double?> remise = const Value.absent(),
           Value<String?> verification = const Value.absent(),
           Value<String?> type = const Value.absent(),
@@ -19849,14 +19404,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
         clt: clt.present ? clt.value : this.clt,
         modepai: modepai.present ? modepai.value : this.modepai,
         echeance: echeance.present ? echeance.value : this.echeance,
-        totalnt: totalnt.present ? totalnt.value : this.totalnt,
         totalttc: totalttc.present ? totalttc.value : this.totalttc,
-        tva: tva.present ? tva.value : this.tva,
         contre: contre.present ? contre.value : this.contre,
         avance: avance.present ? avance.value : this.avance,
         bq: bq.present ? bq.value : this.bq,
         commerc: commerc.present ? commerc.value : this.commerc,
-        commission: commission.present ? commission.value : this.commission,
         remise: remise.present ? remise.value : this.remise,
         verification:
             verification.present ? verification.value : this.verification,
@@ -19872,15 +19424,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
       clt: data.clt.present ? data.clt.value : this.clt,
       modepai: data.modepai.present ? data.modepai.value : this.modepai,
       echeance: data.echeance.present ? data.echeance.value : this.echeance,
-      totalnt: data.totalnt.present ? data.totalnt.value : this.totalnt,
       totalttc: data.totalttc.present ? data.totalttc.value : this.totalttc,
-      tva: data.tva.present ? data.tva.value : this.tva,
       contre: data.contre.present ? data.contre.value : this.contre,
       avance: data.avance.present ? data.avance.value : this.avance,
       bq: data.bq.present ? data.bq.value : this.bq,
       commerc: data.commerc.present ? data.commerc.value : this.commerc,
-      commission:
-          data.commission.present ? data.commission.value : this.commission,
       remise: data.remise.present ? data.remise.value : this.remise,
       verification: data.verification.present
           ? data.verification.value
@@ -19901,14 +19449,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
           ..write('clt: $clt, ')
           ..write('modepai: $modepai, ')
           ..write('echeance: $echeance, ')
-          ..write('totalnt: $totalnt, ')
           ..write('totalttc: $totalttc, ')
-          ..write('tva: $tva, ')
           ..write('contre: $contre, ')
           ..write('avance: $avance, ')
           ..write('bq: $bq, ')
           ..write('commerc: $commerc, ')
-          ..write('commission: $commission, ')
           ..write('remise: $remise, ')
           ..write('verification: $verification, ')
           ..write('type: $type, ')
@@ -19926,14 +19471,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
       clt,
       modepai,
       echeance,
-      totalnt,
       totalttc,
-      tva,
       contre,
       avance,
       bq,
       commerc,
-      commission,
       remise,
       verification,
       type,
@@ -19949,14 +19491,11 @@ class Retvente extends DataClass implements Insertable<Retvente> {
           other.clt == this.clt &&
           other.modepai == this.modepai &&
           other.echeance == this.echeance &&
-          other.totalnt == this.totalnt &&
           other.totalttc == this.totalttc &&
-          other.tva == this.tva &&
           other.contre == this.contre &&
           other.avance == this.avance &&
           other.bq == this.bq &&
           other.commerc == this.commerc &&
-          other.commission == this.commission &&
           other.remise == this.remise &&
           other.verification == this.verification &&
           other.type == this.type &&
@@ -19971,14 +19510,11 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
   final Value<String?> clt;
   final Value<String?> modepai;
   final Value<DateTime?> echeance;
-  final Value<double?> totalnt;
   final Value<double?> totalttc;
-  final Value<double?> tva;
   final Value<String?> contre;
   final Value<double?> avance;
   final Value<String?> bq;
   final Value<String?> commerc;
-  final Value<double?> commission;
   final Value<double?> remise;
   final Value<String?> verification;
   final Value<String?> type;
@@ -19991,14 +19527,11 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
     this.clt = const Value.absent(),
     this.modepai = const Value.absent(),
     this.echeance = const Value.absent(),
-    this.totalnt = const Value.absent(),
     this.totalttc = const Value.absent(),
-    this.tva = const Value.absent(),
     this.contre = const Value.absent(),
     this.avance = const Value.absent(),
     this.bq = const Value.absent(),
     this.commerc = const Value.absent(),
-    this.commission = const Value.absent(),
     this.remise = const Value.absent(),
     this.verification = const Value.absent(),
     this.type = const Value.absent(),
@@ -20012,14 +19545,11 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
     this.clt = const Value.absent(),
     this.modepai = const Value.absent(),
     this.echeance = const Value.absent(),
-    this.totalnt = const Value.absent(),
     this.totalttc = const Value.absent(),
-    this.tva = const Value.absent(),
     this.contre = const Value.absent(),
     this.avance = const Value.absent(),
     this.bq = const Value.absent(),
     this.commerc = const Value.absent(),
-    this.commission = const Value.absent(),
     this.remise = const Value.absent(),
     this.verification = const Value.absent(),
     this.type = const Value.absent(),
@@ -20033,14 +19563,11 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
     Expression<String>? clt,
     Expression<String>? modepai,
     Expression<DateTime>? echeance,
-    Expression<double>? totalnt,
     Expression<double>? totalttc,
-    Expression<double>? tva,
     Expression<String>? contre,
     Expression<double>? avance,
     Expression<String>? bq,
     Expression<String>? commerc,
-    Expression<double>? commission,
     Expression<double>? remise,
     Expression<String>? verification,
     Expression<String>? type,
@@ -20054,14 +19581,11 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
       if (clt != null) 'clt': clt,
       if (modepai != null) 'modepai': modepai,
       if (echeance != null) 'echeance': echeance,
-      if (totalnt != null) 'totalnt': totalnt,
       if (totalttc != null) 'totalttc': totalttc,
-      if (tva != null) 'tva': tva,
       if (contre != null) 'contre': contre,
       if (avance != null) 'avance': avance,
       if (bq != null) 'bq': bq,
       if (commerc != null) 'commerc': commerc,
-      if (commission != null) 'commission': commission,
       if (remise != null) 'remise': remise,
       if (verification != null) 'verification': verification,
       if (type != null) 'type': type,
@@ -20077,14 +19601,11 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
       Value<String?>? clt,
       Value<String?>? modepai,
       Value<DateTime?>? echeance,
-      Value<double?>? totalnt,
       Value<double?>? totalttc,
-      Value<double?>? tva,
       Value<String?>? contre,
       Value<double?>? avance,
       Value<String?>? bq,
       Value<String?>? commerc,
-      Value<double?>? commission,
       Value<double?>? remise,
       Value<String?>? verification,
       Value<String?>? type,
@@ -20097,14 +19618,11 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
       clt: clt ?? this.clt,
       modepai: modepai ?? this.modepai,
       echeance: echeance ?? this.echeance,
-      totalnt: totalnt ?? this.totalnt,
       totalttc: totalttc ?? this.totalttc,
-      tva: tva ?? this.tva,
       contre: contre ?? this.contre,
       avance: avance ?? this.avance,
       bq: bq ?? this.bq,
       commerc: commerc ?? this.commerc,
-      commission: commission ?? this.commission,
       remise: remise ?? this.remise,
       verification: verification ?? this.verification,
       type: type ?? this.type,
@@ -20136,14 +19654,8 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
     if (echeance.present) {
       map['echeance'] = Variable<DateTime>(echeance.value);
     }
-    if (totalnt.present) {
-      map['totalnt'] = Variable<double>(totalnt.value);
-    }
     if (totalttc.present) {
       map['totalttc'] = Variable<double>(totalttc.value);
-    }
-    if (tva.present) {
-      map['tva'] = Variable<double>(tva.value);
     }
     if (contre.present) {
       map['contre'] = Variable<String>(contre.value);
@@ -20156,9 +19668,6 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
     }
     if (commerc.present) {
       map['commerc'] = Variable<String>(commerc.value);
-    }
-    if (commission.present) {
-      map['commission'] = Variable<double>(commission.value);
     }
     if (remise.present) {
       map['remise'] = Variable<double>(remise.value);
@@ -20185,14 +19694,11 @@ class RetventesCompanion extends UpdateCompanion<Retvente> {
           ..write('clt: $clt, ')
           ..write('modepai: $modepai, ')
           ..write('echeance: $echeance, ')
-          ..write('totalnt: $totalnt, ')
           ..write('totalttc: $totalttc, ')
-          ..write('tva: $tva, ')
           ..write('contre: $contre, ')
           ..write('avance: $avance, ')
           ..write('bq: $bq, ')
           ..write('commerc: $commerc, ')
-          ..write('commission: $commission, ')
           ..write('remise: $remise, ')
           ..write('verification: $verification, ')
           ..write('type: $type, ')
@@ -24545,9 +24051,7 @@ typedef $$VentesTableCreateCompanionBuilder = VentesCompanion Function({
   Value<String?> clt,
   Value<String?> modepai,
   Value<DateTime?> echeance,
-  Value<double?> totalnt,
   Value<double?> totalttc,
-  Value<double?> tva,
   Value<String?> contre,
   Value<double?> avance,
   Value<String?> bq,
@@ -24555,7 +24059,6 @@ typedef $$VentesTableCreateCompanionBuilder = VentesCompanion Function({
   Value<DateTime?> datrcol,
   Value<String?> mregl,
   Value<String?> commerc,
-  Value<double?> commission,
   Value<double?> remise,
   Value<String?> verification,
   Value<String?> type,
@@ -24564,8 +24067,6 @@ typedef $$VentesTableCreateCompanionBuilder = VentesCompanion Function({
   Value<String?> transp,
   Value<String?> heure,
   Value<String?> poste,
-  Value<double?> montantRecu,
-  Value<double?> monnaieARendre,
 });
 typedef $$VentesTableUpdateCompanionBuilder = VentesCompanion Function({
   Value<int> num,
@@ -24575,9 +24076,7 @@ typedef $$VentesTableUpdateCompanionBuilder = VentesCompanion Function({
   Value<String?> clt,
   Value<String?> modepai,
   Value<DateTime?> echeance,
-  Value<double?> totalnt,
   Value<double?> totalttc,
-  Value<double?> tva,
   Value<String?> contre,
   Value<double?> avance,
   Value<String?> bq,
@@ -24585,7 +24084,6 @@ typedef $$VentesTableUpdateCompanionBuilder = VentesCompanion Function({
   Value<DateTime?> datrcol,
   Value<String?> mregl,
   Value<String?> commerc,
-  Value<double?> commission,
   Value<double?> remise,
   Value<String?> verification,
   Value<String?> type,
@@ -24594,8 +24092,6 @@ typedef $$VentesTableUpdateCompanionBuilder = VentesCompanion Function({
   Value<String?> transp,
   Value<String?> heure,
   Value<String?> poste,
-  Value<double?> montantRecu,
-  Value<double?> monnaieARendre,
 });
 
 class $$VentesTableFilterComposer
@@ -24628,14 +24124,8 @@ class $$VentesTableFilterComposer
   ColumnFilters<DateTime> get echeance => $composableBuilder(
       column: $table.echeance, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<double> get totalnt => $composableBuilder(
-      column: $table.totalnt, builder: (column) => ColumnFilters(column));
-
   ColumnFilters<double> get totalttc => $composableBuilder(
       column: $table.totalttc, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<double> get tva => $composableBuilder(
-      column: $table.tva, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnFilters(column));
@@ -24657,9 +24147,6 @@ class $$VentesTableFilterComposer
 
   ColumnFilters<String> get commerc => $composableBuilder(
       column: $table.commerc, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<double> get commission => $composableBuilder(
-      column: $table.commission, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<double> get remise => $composableBuilder(
       column: $table.remise, builder: (column) => ColumnFilters(column));
@@ -24684,13 +24171,6 @@ class $$VentesTableFilterComposer
 
   ColumnFilters<String> get poste => $composableBuilder(
       column: $table.poste, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<double> get montantRecu => $composableBuilder(
-      column: $table.montantRecu, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<double> get monnaieARendre => $composableBuilder(
-      column: $table.monnaieARendre,
-      builder: (column) => ColumnFilters(column));
 }
 
 class $$VentesTableOrderingComposer
@@ -24723,14 +24203,8 @@ class $$VentesTableOrderingComposer
   ColumnOrderings<DateTime> get echeance => $composableBuilder(
       column: $table.echeance, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<double> get totalnt => $composableBuilder(
-      column: $table.totalnt, builder: (column) => ColumnOrderings(column));
-
   ColumnOrderings<double> get totalttc => $composableBuilder(
       column: $table.totalttc, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<double> get tva => $composableBuilder(
-      column: $table.tva, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnOrderings(column));
@@ -24752,9 +24226,6 @@ class $$VentesTableOrderingComposer
 
   ColumnOrderings<String> get commerc => $composableBuilder(
       column: $table.commerc, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<double> get commission => $composableBuilder(
-      column: $table.commission, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<double> get remise => $composableBuilder(
       column: $table.remise, builder: (column) => ColumnOrderings(column));
@@ -24780,13 +24251,6 @@ class $$VentesTableOrderingComposer
 
   ColumnOrderings<String> get poste => $composableBuilder(
       column: $table.poste, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<double> get montantRecu => $composableBuilder(
-      column: $table.montantRecu, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<double> get monnaieARendre => $composableBuilder(
-      column: $table.monnaieARendre,
-      builder: (column) => ColumnOrderings(column));
 }
 
 class $$VentesTableAnnotationComposer
@@ -24819,14 +24283,8 @@ class $$VentesTableAnnotationComposer
   GeneratedColumn<DateTime> get echeance =>
       $composableBuilder(column: $table.echeance, builder: (column) => column);
 
-  GeneratedColumn<double> get totalnt =>
-      $composableBuilder(column: $table.totalnt, builder: (column) => column);
-
   GeneratedColumn<double> get totalttc =>
       $composableBuilder(column: $table.totalttc, builder: (column) => column);
-
-  GeneratedColumn<double> get tva =>
-      $composableBuilder(column: $table.tva, builder: (column) => column);
 
   GeneratedColumn<String> get contre =>
       $composableBuilder(column: $table.contre, builder: (column) => column);
@@ -24848,9 +24306,6 @@ class $$VentesTableAnnotationComposer
 
   GeneratedColumn<String> get commerc =>
       $composableBuilder(column: $table.commerc, builder: (column) => column);
-
-  GeneratedColumn<double> get commission => $composableBuilder(
-      column: $table.commission, builder: (column) => column);
 
   GeneratedColumn<double> get remise =>
       $composableBuilder(column: $table.remise, builder: (column) => column);
@@ -24875,12 +24330,6 @@ class $$VentesTableAnnotationComposer
 
   GeneratedColumn<String> get poste =>
       $composableBuilder(column: $table.poste, builder: (column) => column);
-
-  GeneratedColumn<double> get montantRecu => $composableBuilder(
-      column: $table.montantRecu, builder: (column) => column);
-
-  GeneratedColumn<double> get monnaieARendre => $composableBuilder(
-      column: $table.monnaieARendre, builder: (column) => column);
 }
 
 class $$VentesTableTableManager extends RootTableManager<
@@ -24913,9 +24362,7 @@ class $$VentesTableTableManager extends RootTableManager<
             Value<String?> clt = const Value.absent(),
             Value<String?> modepai = const Value.absent(),
             Value<DateTime?> echeance = const Value.absent(),
-            Value<double?> totalnt = const Value.absent(),
             Value<double?> totalttc = const Value.absent(),
-            Value<double?> tva = const Value.absent(),
             Value<String?> contre = const Value.absent(),
             Value<double?> avance = const Value.absent(),
             Value<String?> bq = const Value.absent(),
@@ -24923,7 +24370,6 @@ class $$VentesTableTableManager extends RootTableManager<
             Value<DateTime?> datrcol = const Value.absent(),
             Value<String?> mregl = const Value.absent(),
             Value<String?> commerc = const Value.absent(),
-            Value<double?> commission = const Value.absent(),
             Value<double?> remise = const Value.absent(),
             Value<String?> verification = const Value.absent(),
             Value<String?> type = const Value.absent(),
@@ -24932,8 +24378,6 @@ class $$VentesTableTableManager extends RootTableManager<
             Value<String?> transp = const Value.absent(),
             Value<String?> heure = const Value.absent(),
             Value<String?> poste = const Value.absent(),
-            Value<double?> montantRecu = const Value.absent(),
-            Value<double?> monnaieARendre = const Value.absent(),
           }) =>
               VentesCompanion(
             num: num,
@@ -24943,9 +24387,7 @@ class $$VentesTableTableManager extends RootTableManager<
             clt: clt,
             modepai: modepai,
             echeance: echeance,
-            totalnt: totalnt,
             totalttc: totalttc,
-            tva: tva,
             contre: contre,
             avance: avance,
             bq: bq,
@@ -24953,7 +24395,6 @@ class $$VentesTableTableManager extends RootTableManager<
             datrcol: datrcol,
             mregl: mregl,
             commerc: commerc,
-            commission: commission,
             remise: remise,
             verification: verification,
             type: type,
@@ -24962,8 +24403,6 @@ class $$VentesTableTableManager extends RootTableManager<
             transp: transp,
             heure: heure,
             poste: poste,
-            montantRecu: montantRecu,
-            monnaieARendre: monnaieARendre,
           ),
           createCompanionCallback: ({
             Value<int> num = const Value.absent(),
@@ -24973,9 +24412,7 @@ class $$VentesTableTableManager extends RootTableManager<
             Value<String?> clt = const Value.absent(),
             Value<String?> modepai = const Value.absent(),
             Value<DateTime?> echeance = const Value.absent(),
-            Value<double?> totalnt = const Value.absent(),
             Value<double?> totalttc = const Value.absent(),
-            Value<double?> tva = const Value.absent(),
             Value<String?> contre = const Value.absent(),
             Value<double?> avance = const Value.absent(),
             Value<String?> bq = const Value.absent(),
@@ -24983,7 +24420,6 @@ class $$VentesTableTableManager extends RootTableManager<
             Value<DateTime?> datrcol = const Value.absent(),
             Value<String?> mregl = const Value.absent(),
             Value<String?> commerc = const Value.absent(),
-            Value<double?> commission = const Value.absent(),
             Value<double?> remise = const Value.absent(),
             Value<String?> verification = const Value.absent(),
             Value<String?> type = const Value.absent(),
@@ -24992,8 +24428,6 @@ class $$VentesTableTableManager extends RootTableManager<
             Value<String?> transp = const Value.absent(),
             Value<String?> heure = const Value.absent(),
             Value<String?> poste = const Value.absent(),
-            Value<double?> montantRecu = const Value.absent(),
-            Value<double?> monnaieARendre = const Value.absent(),
           }) =>
               VentesCompanion.insert(
             num: num,
@@ -25003,9 +24437,7 @@ class $$VentesTableTableManager extends RootTableManager<
             clt: clt,
             modepai: modepai,
             echeance: echeance,
-            totalnt: totalnt,
             totalttc: totalttc,
-            tva: tva,
             contre: contre,
             avance: avance,
             bq: bq,
@@ -25013,7 +24445,6 @@ class $$VentesTableTableManager extends RootTableManager<
             datrcol: datrcol,
             mregl: mregl,
             commerc: commerc,
-            commission: commission,
             remise: remise,
             verification: verification,
             type: type,
@@ -25022,8 +24453,6 @@ class $$VentesTableTableManager extends RootTableManager<
             transp: transp,
             heure: heure,
             poste: poste,
-            montantRecu: montantRecu,
-            monnaieARendre: monnaieARendre,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -25052,9 +24481,7 @@ typedef $$AchatsTableCreateCompanionBuilder = AchatsCompanion Function({
   Value<String?> frns,
   Value<String?> modepai,
   Value<DateTime?> echeance,
-  Value<double?> totalnt,
   Value<double?> totalttc,
-  Value<double?> tva,
   Value<String?> contre,
   Value<String?> bq,
   Value<double?> regl,
@@ -25074,9 +24501,7 @@ typedef $$AchatsTableUpdateCompanionBuilder = AchatsCompanion Function({
   Value<String?> frns,
   Value<String?> modepai,
   Value<DateTime?> echeance,
-  Value<double?> totalnt,
   Value<double?> totalttc,
-  Value<double?> tva,
   Value<String?> contre,
   Value<String?> bq,
   Value<double?> regl,
@@ -25119,14 +24544,8 @@ class $$AchatsTableFilterComposer
   ColumnFilters<DateTime> get echeance => $composableBuilder(
       column: $table.echeance, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<double> get totalnt => $composableBuilder(
-      column: $table.totalnt, builder: (column) => ColumnFilters(column));
-
   ColumnFilters<double> get totalttc => $composableBuilder(
       column: $table.totalttc, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<double> get tva => $composableBuilder(
-      column: $table.tva, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnFilters(column));
@@ -25189,14 +24608,8 @@ class $$AchatsTableOrderingComposer
   ColumnOrderings<DateTime> get echeance => $composableBuilder(
       column: $table.echeance, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<double> get totalnt => $composableBuilder(
-      column: $table.totalnt, builder: (column) => ColumnOrderings(column));
-
   ColumnOrderings<double> get totalttc => $composableBuilder(
       column: $table.totalttc, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<double> get tva => $composableBuilder(
-      column: $table.tva, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnOrderings(column));
@@ -25260,14 +24673,8 @@ class $$AchatsTableAnnotationComposer
   GeneratedColumn<DateTime> get echeance =>
       $composableBuilder(column: $table.echeance, builder: (column) => column);
 
-  GeneratedColumn<double> get totalnt =>
-      $composableBuilder(column: $table.totalnt, builder: (column) => column);
-
   GeneratedColumn<double> get totalttc =>
       $composableBuilder(column: $table.totalttc, builder: (column) => column);
-
-  GeneratedColumn<double> get tva =>
-      $composableBuilder(column: $table.tva, builder: (column) => column);
 
   GeneratedColumn<String> get contre =>
       $composableBuilder(column: $table.contre, builder: (column) => column);
@@ -25330,9 +24737,7 @@ class $$AchatsTableTableManager extends RootTableManager<
             Value<String?> frns = const Value.absent(),
             Value<String?> modepai = const Value.absent(),
             Value<DateTime?> echeance = const Value.absent(),
-            Value<double?> totalnt = const Value.absent(),
             Value<double?> totalttc = const Value.absent(),
-            Value<double?> tva = const Value.absent(),
             Value<String?> contre = const Value.absent(),
             Value<String?> bq = const Value.absent(),
             Value<double?> regl = const Value.absent(),
@@ -25352,9 +24757,7 @@ class $$AchatsTableTableManager extends RootTableManager<
             frns: frns,
             modepai: modepai,
             echeance: echeance,
-            totalnt: totalnt,
             totalttc: totalttc,
-            tva: tva,
             contre: contre,
             bq: bq,
             regl: regl,
@@ -25374,9 +24777,7 @@ class $$AchatsTableTableManager extends RootTableManager<
             Value<String?> frns = const Value.absent(),
             Value<String?> modepai = const Value.absent(),
             Value<DateTime?> echeance = const Value.absent(),
-            Value<double?> totalnt = const Value.absent(),
             Value<double?> totalttc = const Value.absent(),
-            Value<double?> tva = const Value.absent(),
             Value<String?> contre = const Value.absent(),
             Value<String?> bq = const Value.absent(),
             Value<double?> regl = const Value.absent(),
@@ -25396,9 +24797,7 @@ class $$AchatsTableTableManager extends RootTableManager<
             frns: frns,
             modepai: modepai,
             echeance: echeance,
-            totalnt: totalnt,
             totalttc: totalttc,
-            tva: tva,
             contre: contre,
             bq: bq,
             regl: regl,
@@ -30934,9 +30333,7 @@ typedef $$RetachatsTableCreateCompanionBuilder = RetachatsCompanion Function({
   Value<String?> frns,
   Value<String?> modepai,
   Value<DateTime?> echeance,
-  Value<double?> totalnt,
   Value<double?> totalttc,
-  Value<double?> tva,
   Value<String?> contre,
   Value<String?> bq,
   Value<String?> verification,
@@ -30951,9 +30348,7 @@ typedef $$RetachatsTableUpdateCompanionBuilder = RetachatsCompanion Function({
   Value<String?> frns,
   Value<String?> modepai,
   Value<DateTime?> echeance,
-  Value<double?> totalnt,
   Value<double?> totalttc,
-  Value<double?> tva,
   Value<String?> contre,
   Value<String?> bq,
   Value<String?> verification,
@@ -30991,14 +30386,8 @@ class $$RetachatsTableFilterComposer
   ColumnFilters<DateTime> get echeance => $composableBuilder(
       column: $table.echeance, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<double> get totalnt => $composableBuilder(
-      column: $table.totalnt, builder: (column) => ColumnFilters(column));
-
   ColumnFilters<double> get totalttc => $composableBuilder(
       column: $table.totalttc, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<double> get tva => $composableBuilder(
-      column: $table.tva, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnFilters(column));
@@ -31046,14 +30435,8 @@ class $$RetachatsTableOrderingComposer
   ColumnOrderings<DateTime> get echeance => $composableBuilder(
       column: $table.echeance, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<double> get totalnt => $composableBuilder(
-      column: $table.totalnt, builder: (column) => ColumnOrderings(column));
-
   ColumnOrderings<double> get totalttc => $composableBuilder(
       column: $table.totalttc, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<double> get tva => $composableBuilder(
-      column: $table.tva, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnOrderings(column));
@@ -31102,14 +30485,8 @@ class $$RetachatsTableAnnotationComposer
   GeneratedColumn<DateTime> get echeance =>
       $composableBuilder(column: $table.echeance, builder: (column) => column);
 
-  GeneratedColumn<double> get totalnt =>
-      $composableBuilder(column: $table.totalnt, builder: (column) => column);
-
   GeneratedColumn<double> get totalttc =>
       $composableBuilder(column: $table.totalttc, builder: (column) => column);
-
-  GeneratedColumn<double> get tva =>
-      $composableBuilder(column: $table.tva, builder: (column) => column);
 
   GeneratedColumn<String> get contre =>
       $composableBuilder(column: $table.contre, builder: (column) => column);
@@ -31157,9 +30534,7 @@ class $$RetachatsTableTableManager extends RootTableManager<
             Value<String?> frns = const Value.absent(),
             Value<String?> modepai = const Value.absent(),
             Value<DateTime?> echeance = const Value.absent(),
-            Value<double?> totalnt = const Value.absent(),
             Value<double?> totalttc = const Value.absent(),
-            Value<double?> tva = const Value.absent(),
             Value<String?> contre = const Value.absent(),
             Value<String?> bq = const Value.absent(),
             Value<String?> verification = const Value.absent(),
@@ -31174,9 +30549,7 @@ class $$RetachatsTableTableManager extends RootTableManager<
             frns: frns,
             modepai: modepai,
             echeance: echeance,
-            totalnt: totalnt,
             totalttc: totalttc,
-            tva: tva,
             contre: contre,
             bq: bq,
             verification: verification,
@@ -31191,9 +30564,7 @@ class $$RetachatsTableTableManager extends RootTableManager<
             Value<String?> frns = const Value.absent(),
             Value<String?> modepai = const Value.absent(),
             Value<DateTime?> echeance = const Value.absent(),
-            Value<double?> totalnt = const Value.absent(),
             Value<double?> totalttc = const Value.absent(),
-            Value<double?> tva = const Value.absent(),
             Value<String?> contre = const Value.absent(),
             Value<String?> bq = const Value.absent(),
             Value<String?> verification = const Value.absent(),
@@ -31208,9 +30579,7 @@ class $$RetachatsTableTableManager extends RootTableManager<
             frns: frns,
             modepai: modepai,
             echeance: echeance,
-            totalnt: totalnt,
             totalttc: totalttc,
-            tva: tva,
             contre: contre,
             bq: bq,
             verification: verification,
@@ -31632,14 +31001,11 @@ typedef $$RetventesTableCreateCompanionBuilder = RetventesCompanion Function({
   Value<String?> clt,
   Value<String?> modepai,
   Value<DateTime?> echeance,
-  Value<double?> totalnt,
   Value<double?> totalttc,
-  Value<double?> tva,
   Value<String?> contre,
   Value<double?> avance,
   Value<String?> bq,
   Value<String?> commerc,
-  Value<double?> commission,
   Value<double?> remise,
   Value<String?> verification,
   Value<String?> type,
@@ -31653,14 +31019,11 @@ typedef $$RetventesTableUpdateCompanionBuilder = RetventesCompanion Function({
   Value<String?> clt,
   Value<String?> modepai,
   Value<DateTime?> echeance,
-  Value<double?> totalnt,
   Value<double?> totalttc,
-  Value<double?> tva,
   Value<String?> contre,
   Value<double?> avance,
   Value<String?> bq,
   Value<String?> commerc,
-  Value<double?> commission,
   Value<double?> remise,
   Value<String?> verification,
   Value<String?> type,
@@ -31697,14 +31060,8 @@ class $$RetventesTableFilterComposer
   ColumnFilters<DateTime> get echeance => $composableBuilder(
       column: $table.echeance, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<double> get totalnt => $composableBuilder(
-      column: $table.totalnt, builder: (column) => ColumnFilters(column));
-
   ColumnFilters<double> get totalttc => $composableBuilder(
       column: $table.totalttc, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<double> get tva => $composableBuilder(
-      column: $table.tva, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnFilters(column));
@@ -31717,9 +31074,6 @@ class $$RetventesTableFilterComposer
 
   ColumnFilters<String> get commerc => $composableBuilder(
       column: $table.commerc, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<double> get commission => $composableBuilder(
-      column: $table.commission, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<double> get remise => $composableBuilder(
       column: $table.remise, builder: (column) => ColumnFilters(column));
@@ -31764,14 +31118,8 @@ class $$RetventesTableOrderingComposer
   ColumnOrderings<DateTime> get echeance => $composableBuilder(
       column: $table.echeance, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<double> get totalnt => $composableBuilder(
-      column: $table.totalnt, builder: (column) => ColumnOrderings(column));
-
   ColumnOrderings<double> get totalttc => $composableBuilder(
       column: $table.totalttc, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<double> get tva => $composableBuilder(
-      column: $table.tva, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnOrderings(column));
@@ -31784,9 +31132,6 @@ class $$RetventesTableOrderingComposer
 
   ColumnOrderings<String> get commerc => $composableBuilder(
       column: $table.commerc, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<double> get commission => $composableBuilder(
-      column: $table.commission, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<double> get remise => $composableBuilder(
       column: $table.remise, builder: (column) => ColumnOrderings(column));
@@ -31832,14 +31177,8 @@ class $$RetventesTableAnnotationComposer
   GeneratedColumn<DateTime> get echeance =>
       $composableBuilder(column: $table.echeance, builder: (column) => column);
 
-  GeneratedColumn<double> get totalnt =>
-      $composableBuilder(column: $table.totalnt, builder: (column) => column);
-
   GeneratedColumn<double> get totalttc =>
       $composableBuilder(column: $table.totalttc, builder: (column) => column);
-
-  GeneratedColumn<double> get tva =>
-      $composableBuilder(column: $table.tva, builder: (column) => column);
 
   GeneratedColumn<String> get contre =>
       $composableBuilder(column: $table.contre, builder: (column) => column);
@@ -31852,9 +31191,6 @@ class $$RetventesTableAnnotationComposer
 
   GeneratedColumn<String> get commerc =>
       $composableBuilder(column: $table.commerc, builder: (column) => column);
-
-  GeneratedColumn<double> get commission => $composableBuilder(
-      column: $table.commission, builder: (column) => column);
 
   GeneratedColumn<double> get remise =>
       $composableBuilder(column: $table.remise, builder: (column) => column);
@@ -31899,14 +31235,11 @@ class $$RetventesTableTableManager extends RootTableManager<
             Value<String?> clt = const Value.absent(),
             Value<String?> modepai = const Value.absent(),
             Value<DateTime?> echeance = const Value.absent(),
-            Value<double?> totalnt = const Value.absent(),
             Value<double?> totalttc = const Value.absent(),
-            Value<double?> tva = const Value.absent(),
             Value<String?> contre = const Value.absent(),
             Value<double?> avance = const Value.absent(),
             Value<String?> bq = const Value.absent(),
             Value<String?> commerc = const Value.absent(),
-            Value<double?> commission = const Value.absent(),
             Value<double?> remise = const Value.absent(),
             Value<String?> verification = const Value.absent(),
             Value<String?> type = const Value.absent(),
@@ -31920,14 +31253,11 @@ class $$RetventesTableTableManager extends RootTableManager<
             clt: clt,
             modepai: modepai,
             echeance: echeance,
-            totalnt: totalnt,
             totalttc: totalttc,
-            tva: tva,
             contre: contre,
             avance: avance,
             bq: bq,
             commerc: commerc,
-            commission: commission,
             remise: remise,
             verification: verification,
             type: type,
@@ -31941,14 +31271,11 @@ class $$RetventesTableTableManager extends RootTableManager<
             Value<String?> clt = const Value.absent(),
             Value<String?> modepai = const Value.absent(),
             Value<DateTime?> echeance = const Value.absent(),
-            Value<double?> totalnt = const Value.absent(),
             Value<double?> totalttc = const Value.absent(),
-            Value<double?> tva = const Value.absent(),
             Value<String?> contre = const Value.absent(),
             Value<double?> avance = const Value.absent(),
             Value<String?> bq = const Value.absent(),
             Value<String?> commerc = const Value.absent(),
-            Value<double?> commission = const Value.absent(),
             Value<double?> remise = const Value.absent(),
             Value<String?> verification = const Value.absent(),
             Value<String?> type = const Value.absent(),
@@ -31962,14 +31289,11 @@ class $$RetventesTableTableManager extends RootTableManager<
             clt: clt,
             modepai: modepai,
             echeance: echeance,
-            totalnt: totalnt,
             totalttc: totalttc,
-            tva: tva,
             contre: contre,
             avance: avance,
             bq: bq,
             commerc: commerc,
-            commission: commission,
             remise: remise,
             verification: verification,
             type: type,

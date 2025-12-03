@@ -52,8 +52,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   final TextEditingController _fournisseurController = TextEditingController();
   final TextEditingController _modePaiementController = TextEditingController();
   final TextEditingController _echeanceController = TextEditingController();
-  final TextEditingController _totalHTController = TextEditingController();
-  final TextEditingController _tvaController = TextEditingController();
+
   final TextEditingController _totalTTCController = TextEditingController();
   final TextEditingController _totalFMGController = TextEditingController();
   final TextEditingController _articleSearchController = TextEditingController();
@@ -226,8 +225,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     _selectedDepot = lastDepot;
     _depotController.text = lastDepot;
 
-    _tvaController.text = '0';
-    _totalHTController.text = '0';
     _totalTTCController.text = '0';
     _totalFMGController.text = '0';
 
@@ -591,12 +588,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       totalHT += ligne['montant'] ?? 0;
     }
 
-    double tva = double.tryParse(_tvaController.text) ?? 0;
-    double totalTTC = totalHT + (totalHT * tva / 100);
+  
+    double totalTTC = totalHT;
     double totalFMG = totalTTC * 5;
 
     setState(() {
-      _totalHTController.text = NumberUtils.formatNumber(totalHT);
       _totalTTCController.text = NumberUtils.formatNumber(totalTTC);
       _totalFMGController.text = NumberUtils.formatNumber(totalFMG);
     });
@@ -739,7 +735,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               _echeanceController.text = app_date.AppDateUtils.formatDate(echeanceDefaut);
             }
           }
-          _tvaController.text = (achat.tva ?? 0).toString();
           _statutAchatActuel = achat.verification ?? 'BROUILLARD';
           _selectedStatut = _statutAchatActuel == 'JOURNAL' ? 'Journal' : 'Brouillard';
           debugPrint('Statut achat actuel: $_statutAchatActuel');
@@ -956,8 +951,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           frns: Value(_selectedFournisseur!),
           modepai: Value(_selectedModePaiement),
           echeance: Value(dateEcheance),
-          totalnt: Value(double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0),
-          tva: Value(double.tryParse(_tvaController.text) ?? 0.0),
           totalttc: Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
           verification: Value(_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'),
         ));
@@ -1390,8 +1383,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           fournisseur: _selectedFournisseur ?? '',
           modePaiement: _selectedModePaiement,
           lignesAchat: _lignesAchat,
-          totalHT: double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0,
-          tva: double.tryParse(_tvaController.text) ?? 0.0,
           totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0,
           format: _selectedFormat,
           societe: _societe,
@@ -1853,8 +1844,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     // Réinitialiser tous les contrôleurs
     _nFactController.clear();
     _fournisseurController.clear();
-    _tvaController.text = '0';
-    _totalHTController.text = '0';
     _totalTTCController.text = '0';
     _totalFMGController.text = '0';
     debugPrint('Contrôleurs réinitialisés');
@@ -1932,8 +1921,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             DateTime(int.parse(echeanceParts[2]), int.parse(echeanceParts[1]), int.parse(echeanceParts[0]));
       }
 
-      double totalHT = double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0.0;
-      double tva = double.tryParse(_tvaController.text) ?? 0.0;
       double totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0;
 
       // Préparer les données de l'achat
@@ -1958,9 +1945,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           fournisseur: _selectedFournisseur,
           modePaiement: _selectedModePaiement,
           echeance: echeanceForDB,
-          totalHT: totalHT,
           totalTTC: totalTTC,
-          tva: tva,
           lignesAchat: lignesAchatData,
         );
         debugPrint('Service traiterAchatJournal terminé');
@@ -1973,9 +1958,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           fournisseur: _selectedFournisseur,
           modePaiement: _selectedModePaiement,
           echeance: echeanceForDB,
-          totalHT: totalHT,
           totalTTC: totalTTC,
-          tva: tva,
           lignesAchat: lignesAchatData,
         );
         debugPrint('Service traiterAchatBrouillard terminé');
@@ -3584,46 +3567,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                 children: [
                                   Row(
                                     children: [
-                                      const Text('Total HT', style: TextStyle(fontSize: 12)),
-                                      const SizedBox(width: 16),
-                                      SizedBox(
-                                        width: 100,
-                                        height: 25,
-                                        child: TextField(
-                                          controller: _totalHTController,
-                                          textAlign: TextAlign.right,
-                                          readOnly: true,
-                                          decoration: const InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      const Text('TVA', style: TextStyle(fontSize: 12)),
-                                      const SizedBox(width: 16),
-                                      SizedBox(
-                                        width: 100,
-                                        height: 25,
-                                        child: TextField(
-                                          controller: _tvaController,
-                                          textAlign: TextAlign.right,
-                                          decoration: const InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          ),
-                                          onChanged: (value) => _calculerTotaux(),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
                                       const Text('Total TTC', style: TextStyle(fontSize: 12)),
                                       const SizedBox(width: 16),
                                       SizedBox(
@@ -4311,13 +4254,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                 children: [
-                  _buildPdfTotalRow(
-                      'TOTAL HT:',
-                      AppFunctions.formatNumber(
-                          double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0),
-                      pdfFontSize),
-                  _buildPdfTotalRow('TVA:',
-                      AppFunctions.formatNumber(double.tryParse(_tvaController.text) ?? 0), pdfFontSize),
                   pw.Container(
                     decoration: const pw.BoxDecoration(
                       border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
@@ -4500,8 +4436,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     _fournisseurController.dispose();
     _modePaiementController.dispose();
     _echeanceController.dispose();
-    _totalHTController.dispose();
-    _tvaController.dispose();
     _totalTTCController.dispose();
     _articleSearchController.dispose();
     _autocompleteController?.dispose();

@@ -103,7 +103,6 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
           'date': retour.daty != null ? app_date.AppDateUtils.formatDate(retour.daty!) : '',
           'fournisseur': retour.frns ?? '',
           'nFacture': retour.nfact ?? '',
-          'totalHT': retour.totalnt ?? 0.0,
           'totalTTC': retour.totalttc ?? 0.0,
         });
       }
@@ -263,9 +262,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
         frns: Value(_selectedFournisseur!),
         modepai: Value(_selectedModePaiement),
         echeance: Value(echeanceForDB),
-        totalnt: Value(_totalHT),
         totalttc: Value(_totalTTC),
-        tva: const Value(0),
         verification: const Value(null),
       );
 

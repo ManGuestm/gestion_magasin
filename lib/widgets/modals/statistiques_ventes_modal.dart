@@ -257,23 +257,6 @@ class _StatistiquesVentesModalState extends State<StatistiquesVentesModal> with 
                                               Expanded(
                                                 child: Center(
                                                   child: Text(
-                                                    NumberUtils.formatNumber(vente.totalnt ?? 0),
-                                                    style: const TextStyle(fontSize: 11),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Center(
-                                                  child: Text(
-                                                    NumberUtils.formatNumber(vente.tva ?? 0),
-                                                    style:
-                                                        const TextStyle(fontSize: 11, color: Colors.orange),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                child: Center(
-                                                  child: Text(
                                                     NumberUtils.formatNumber(vente.totalttc ?? 0),
                                                     style: const TextStyle(
                                                         fontSize: 11,

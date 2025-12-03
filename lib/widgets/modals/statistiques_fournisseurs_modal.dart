@@ -101,7 +101,6 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
             numachats: Value(achat['numachats'] as String),
             frns: Value(achat['frns'] as String),
             totalttc: Value(achat['totalttc'] as double),
-            totalnt: Value(achat['totalnt'] as double),
             daty: Value(achat['daty'] as DateTime),
             verification: const Value('JOURNAL'),
           ),

@@ -1510,21 +1510,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Container(
-                              decoration: const BoxDecoration(
-                                border: Border(top: BorderSide(color: Colors.black)),
-                              ),
-                              child: _buildInvoiceTotalRow(
-                                  'TOTAL HT:', '${_formatNumber(venteData?.read<double>('totalnt') ?? 0)} Ar',
-                                  isBold: true),
-                            ),
                             _buildInvoiceTotalRow(
                                 'Remise:', '${_formatNumber(venteData?.read<double>('remise') ?? 0)} %',
                                 isBold: true),
-                            if ((venteData?.read<double>('tva') ?? 0) > 0)
-                              _buildInvoiceTotalRow(
-                                  'TVA:', '${_formatNumber(venteData?.read('tva') ?? 0)} Ar',
-                                  isBold: true),
                             _buildInvoiceTotalRow(
                                 'TOTAL TTC:', '${_formatNumber(venteData?.read<double>('totalttc') ?? 0)} Ar',
                                 isBold: true),
@@ -1778,18 +1766,6 @@ class _HomeScreenState extends State<HomeScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            if ((achatData?.read<double>('tva') ?? 0) > 0)
-                              Container(
-                                decoration: const BoxDecoration(
-                                  border: Border(top: BorderSide(color: Colors.black)),
-                                ),
-                                child: _buildInvoiceTotalRow('TOTAL HT:',
-                                    '${_formatNumber(achatData?.read<double>('totalnt') ?? 0)} Ar',
-                                    isBold: true),
-                              ),
-                            if ((achatData?.read<double>('tva') ?? 0) > 0)
-                              _buildInvoiceTotalRow('TVA:', '${_formatNumber(achatData?.read('tva') ?? 0)} %',
-                                  isBold: true),
                             _buildInvoiceTotalRow(
                                 'TOTAL TTC:', '${_formatNumber(achatData?.read<double>('totalttc') ?? 0)} Ar',
                                 isBold: true),

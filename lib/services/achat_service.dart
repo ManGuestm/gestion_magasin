@@ -16,9 +16,7 @@ class AchatService {
     required String? fournisseur,
     required String? modePaiement,
     DateTime? echeance,
-    required double totalHT,
     required double totalTTC,
-    required double tva,
     required List<Map<String, dynamic>> lignesAchat,
   }) async {
     await _databaseService.database.transaction(() async {
@@ -31,9 +29,7 @@ class AchatService {
               frns: Value(fournisseur),
               modepai: Value(modePaiement),
               echeance: Value(echeance),
-              totalnt: Value(totalHT),
               totalttc: Value(totalTTC),
-              tva: Value(tva),
               verification: const Value('BROUILLARD'),
             ),
           );
@@ -63,9 +59,7 @@ class AchatService {
     required String? fournisseur,
     required String? modePaiement,
     required DateTime? echeance,
-    required double totalHT,
     required double totalTTC,
-    required double tva,
     required List<Map<String, dynamic>> lignesAchat,
   }) async {
     await _databaseService.database.transaction(() async {
@@ -77,9 +71,7 @@ class AchatService {
         fournisseur: fournisseur,
         modePaiement: modePaiement,
         echeance: echeance,
-        totalHT: totalHT,
         totalTTC: totalTTC,
-        tva: tva,
       );
 
       // 2. Traiter chaque ligne d'achat
@@ -123,9 +115,7 @@ class AchatService {
     required String? fournisseur,
     required String? modePaiement,
     required DateTime? echeance,
-    required double totalHT,
     required double totalTTC,
-    required double tva,
   }) async {
     await _databaseService.database.into(_databaseService.database.achats).insert(
           AchatsCompanion.insert(
@@ -135,9 +125,7 @@ class AchatService {
             frns: Value(fournisseur),
             modepai: Value(modePaiement),
             echeance: Value(echeance),
-            totalnt: Value(totalHT),
             totalttc: Value(totalTTC),
-            tva: Value(tva),
             verification: const Value('JOURNAL'),
           ),
         );

@@ -14,8 +14,6 @@ class BonReceptionPreview extends StatefulWidget {
   final String fournisseur;
   final String? modePaiement;
   final List<Map<String, dynamic>> lignesAchat;
-  final double totalHT;
-  final double tva;
   final double totalTTC;
   final String format;
   final SocData? societe;
@@ -28,8 +26,6 @@ class BonReceptionPreview extends StatefulWidget {
     required this.fournisseur,
     this.modePaiement,
     required this.lignesAchat,
-    required this.totalHT,
-    required this.tva,
     required this.totalTTC,
     required this.format,
     this.societe,
@@ -364,8 +360,6 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _buildTotalRow('TOTAL HT:', _formatNumber(widget.totalHT)),
-                      _buildTotalRow('TVA:', _formatNumber(widget.tva)),
                       Container(
                         decoration: const BoxDecoration(
                           border: Border(top: BorderSide(color: Colors.black)),
@@ -786,8 +780,6 @@ class _BonReceptionPreviewState extends State<BonReceptionPreview> with TabNavig
                               pw.Column(
                                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                                 children: [
-                                  _buildPdfTotalRow('TOTAL HT:', _formatNumber(widget.totalHT), pdfFontSize),
-                                  _buildPdfTotalRow('TVA:', _formatNumber(widget.tva), pdfFontSize),
                                   pw.Container(
                                     decoration: const pw.BoxDecoration(
                                       border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),

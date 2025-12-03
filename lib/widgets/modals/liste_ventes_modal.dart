@@ -252,15 +252,6 @@ class _ListeVentesModalState extends State<ListeVentesModal> with TabNavigationM
                                                 flex: 2,
                                                 child: Center(
                                                   child: Text(
-                                                    NumberUtils.formatNumber(vente.totalnt ?? 0),
-                                                    style: const TextStyle(fontSize: 12),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Center(
-                                                  child: Text(
                                                     NumberUtils.formatNumber(vente.totalttc ?? 0),
                                                     style: const TextStyle(fontSize: 12),
                                                   ),

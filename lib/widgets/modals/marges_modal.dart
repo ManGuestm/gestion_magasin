@@ -65,7 +65,7 @@ class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
     for (var vente in _ventes) {
       String client = vente.clt ?? 'Client inconnu';
       double montant = vente.totalttc ?? 0;
-      double cout = (vente.totalnt ?? 0) * 0.7; // Estimation du coût
+      double cout = (vente.totalttc ?? 0) * 0.7; // Estimation du coût
 
       totalVentes[client] = (totalVentes[client] ?? 0) + montant;
       totalCouts[client] = (totalCouts[client] ?? 0) + cout;
