@@ -543,6 +543,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     String designation = _selectedArticle!.designation;
     String depot = _selectedDepot ?? 'MAG';
     String unite = _selectedUnite ?? 'Pce';
+    
+    debugPrint('Ajout ligne: $designation, Qté: $quantite, Prix: $prix, Unité: $unite, Dépôt: $depot');
 
     // Chercher si l'article existe déjà avec la MÊME unité et le même dépôt
     int existingIndex = _lignesAchat.indexWhere((ligne) =>
@@ -604,7 +606,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   void _validerAjout() async {
+    debugPrint('Validation ajout - Mode modification: $_isModifyingArticle');
     if (_isModifyingArticle && _originalArticleData != null) {
+      debugPrint('Suppression ancienne ligne: ${_originalArticleData!['designation']}');
       // En mode modification : supprimer l'ancienne ligne
       final originalIndex = _lignesAchat.indexWhere((ligne) =>
           ligne['designation'] == _originalArticleData!['designation'] &&
@@ -617,6 +621,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     }
     _ajouterLigne();
     _resetArticleForm();
+    debugPrint('Nombre total de lignes après ajout: ${_lignesAchat.length}');
   }
 
   void _resetArticleForm() async {
@@ -670,7 +675,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   Future<void> _chargerAchatExistant(String numAchats) async {
+    debugPrint('=== CHARGEMENT ACHAT EXISTANT ===');
+    debugPrint('Numéro achat à charger: $numAchats');
+    
     if (numAchats.isEmpty) {
+      debugPrint('Numéro achat vide, réinitialisation');
       setState(() {
         _isExistingPurchase = false;
       });
@@ -688,6 +697,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         // IMPORTANT: Mettre à jour le numéro d'achat AVANT tout autre traitement
         _numAchatsController.text = numAchats;
       });
+      
+      debugPrint('Achat trouvé: ${achat != null}');
+      if (achat != null) {
+        debugPrint('Statut achat: ${achat.verification}');
+        debugPrint('Contre-passé: ${achat.contre}');
+      }
 
       if (achat != null) {
         // Charger les détails de l'achat
@@ -723,6 +738,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           _tvaController.text = (achat.tva ?? 0).toString();
           _statutAchatActuel = achat.verification ?? 'BROUILLARD';
           _selectedStatut = _statutAchatActuel == 'JOURNAL' ? 'Journal' : 'Brouillard';
+          debugPrint('Statut achat actuel: $_statutAchatActuel');
+          debugPrint('Statut sélectionné: $_selectedStatut');
 
           // Vérifier si l'achat est contre-passé
           final isContrePasse = achat.contre == '1';
@@ -732,6 +749,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
           // Remplir les lignes d'achat
           _lignesAchat.clear();
+          debugPrint('Chargement de ${details.length} lignes de détail');
           for (var detail in details) {
             _lignesAchat.add({
               'designation': detail.designation ?? '',
@@ -745,22 +763,27 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         });
 
         _calculerTotaux();
+        debugPrint('Totaux recalculés');
 
         // Mettre à jour l'index de navigation
         currentAchatIndex = _achatsNumbers.indexOf(numAchats);
+        debugPrint('Index de navigation: $currentAchatIndex');
 
         // Donner le focus au champ Désignation Articles après le chargement
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _articleFocusNode.requestFocus();
         });
       } else {
+        debugPrint('Achat non trouvé dans la base de données');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Achat N° $numAchats non trouvé')),
           );
         }
       }
+      debugPrint('=== FIN CHARGEMENT ACHAT EXISTANT ===');
     } catch (e) {
+      debugPrint('ERREUR lors du chargement: $e');
       setState(() {
         _isExistingPurchase = false;
       });
@@ -773,7 +796,17 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   Future<void> _modifierAchat() async {
+    debugPrint('=== DÉBUT MODIFICATION ACHAT ===');
+    debugPrint('Numéro achat: ${_numAchatsController.text}');
+    debugPrint('Fournisseur sélectionné: $_selectedFournisseur');
+    debugPrint('N° Facture: ${_nFactController.text}');
+    debugPrint('Nombre de lignes: ${_lignesAchat.length}');
+    debugPrint('Mode achat existant: $_isExistingPurchase');
+    debugPrint('Statut sélectionné: $_selectedStatut');
+    debugPrint('Statut achat actuel: $_statutAchatActuel');
+    
     if (_selectedFournisseur == null || _nFactController.text.isEmpty || _lignesAchat.isEmpty) {
+      debugPrint('ERREUR: Données manquantes pour la modification');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text(
@@ -784,6 +817,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     // Vérifier que nous sommes bien en mode modification d'un achat existant
     if (!_isExistingPurchase || _numAchatsController.text.isEmpty) {
+      debugPrint('ERREUR: Pas en mode modification ou numéro achat vide');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Aucun achat sélectionné pour modification')),
@@ -815,6 +849,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (confirm != true) return;
 
     try {
+      debugPrint('Début de la transaction de modification');
       await _databaseService.database.transaction(() async {
         List<String> dateParts = _dateController.text.split('-');
         DateTime dateForDB =
@@ -824,6 +859,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         final anciennesLignes = await (_databaseService.database.select(_databaseService.database.detachats)
               ..where((d) => d.numachats.equals(_numAchatsController.text)))
             .get();
+        debugPrint('Anciennes lignes trouvées: ${anciennesLignes.length}');
 
         // Recharger les articles pour avoir les stocks actuels
         _articles = await _databaseService.database.getAllArticles();
@@ -906,6 +942,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         }
 
         // Mettre à jour l'achat principal (GARDER LE MÊME NUMÉRO)
+        debugPrint('Mise à jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}');
         await (_databaseService.database.update(_databaseService.database.achats)
               ..where((a) => a.numachats.equals(_numAchatsController.text)))
             .write(AchatsCompanion(
@@ -924,6 +961,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         _articles = await _databaseService.database.getAllArticles();
 
         // Insérer les nouvelles lignes avec le MÊME numéro d'achat
+        debugPrint('Insertion de ${_lignesAchat.length} nouvelles lignes');
         for (var ligne in _lignesAchat) {
           await _databaseService.database.into(_databaseService.database.detachats).insert(
                 DetachatsCompanion.insert(
@@ -1039,9 +1077,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           }
         }
       });
+      
+      debugPrint('Transaction de modification terminée avec succès');
 
       // Recharger la liste des achats
       await _loadAchatsNumbers();
+      debugPrint('Liste des achats rechargée');
 
       // Recharger les données pour mettre à jour l'interface
       await _loadData();
@@ -1057,7 +1098,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           const SnackBar(content: Text('Achat modifié avec succès')),
         );
       }
+      debugPrint('=== FIN MODIFICATION ACHAT RÉUSSIE ===');
     } catch (e) {
+      debugPrint('ERREUR lors de la modification: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors de la modification: $e')),
@@ -1149,7 +1193,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   Future<void> _validerAchatBrouillard() async {
+    debugPrint('=== DÉBUT VALIDATION ACHAT BROUILLARD ===');
+    debugPrint('Achat existant: $_isExistingPurchase');
+    debugPrint('Statut achat actuel: $_statutAchatActuel');
+    debugPrint('Numéro achat: ${_numAchatsController.text}');
+    
     if (!_isExistingPurchase || _statutAchatActuel != 'BROUILLARD') {
+      debugPrint('ERREUR: Conditions non remplies pour validation brouillard');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Aucun achat en brouillard sélectionné')),
       );
@@ -1175,21 +1225,28 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (confirm != true) return;
 
     try {
+      debugPrint('Appel du service de validation brouillard');
       await _achatService.validerAchatBrouillard(_numAchatsController.text);
+      debugPrint('Service de validation brouillard terminé avec succès');
 
       setState(() {
         _statutAchatActuel = 'JOURNAL';
         _achatsStatuts[_numAchatsController.text] = 'JOURNAL';
       });
+      debugPrint('État mis à jour: statut = JOURNAL');
 
       await _loadData();
+      debugPrint('Données rechargées');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Achat validé avec succès'), backgroundColor: Colors.green),
         );
       }
+      debugPrint('=== FIN VALIDATION ACHAT BROUILLARD RÉUSSIE ===');
     } catch (e) {
+      debugPrint('ERREUR lors de la validation brouillard: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Erreur lors de la validation: $e'), backgroundColor: Colors.red),
@@ -1310,6 +1367,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   Future<void> _creerNouvelAchat() async {
+    debugPrint('=== DÉBUT CRÉATION NOUVEL ACHAT ===');
     setState(() {
       _isExistingPurchase = false;
       _selectedRowIndex = null;
@@ -1319,6 +1377,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       _selectedStatut = 'Brouillard';
       _statutAchatActuel = null;
     });
+    debugPrint('Variables d\'état réinitialisées');
 
     // Réinitialiser tous les contrôleurs
     _nFactController.clear();
@@ -1327,6 +1386,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     _totalHTController.text = '0';
     _totalTTCController.text = '0';
     _totalFMGController.text = '0';
+    debugPrint('Contrôleurs réinitialisés');
 
     // Mode de paiement par défaut "A crédit"
     _selectedModePaiement = 'A crédit';
@@ -1340,6 +1400,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     // Générer un nouveau numéro d'achat SEULEMENT pour un nouvel achat
     final nextNum = await _getNextNumAchats();
     _numAchatsController.text = nextNum;
+    debugPrint('Nouveau numéro d\'achat généré: $nextNum');
 
     // Remettre la date d'aujourd'hui
     _dateController.text = app_date.AppDateUtils.formatDate(now);
@@ -1348,10 +1409,19 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nFactFocusNode.requestFocus();
     });
+    debugPrint('=== FIN CRÉATION NOUVEL ACHAT ===');
   }
 
   Future<void> _validerAchat() async {
+    debugPrint('=== DÉBUT VALIDATION ACHAT ===');
+    debugPrint('Fournisseur sélectionné: $_selectedFournisseur');
+    debugPrint('N° Facture: ${_nFactController.text}');
+    debugPrint('Nombre de lignes: ${_lignesAchat.length}');
+    debugPrint('Statut sélectionné: $_selectedStatut');
+    debugPrint('Mode achat existant: $_isExistingPurchase');
+    
     if (_selectedFournisseur == null || _nFactController.text.isEmpty || _lignesAchat.isEmpty) {
+      debugPrint('ERREUR: Données manquantes pour la validation');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text(
@@ -1361,12 +1431,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     }
 
     try {
+      debugPrint('Vérification de l\'existence du numéro d\'achat: ${_numAchatsController.text}');
       // Vérifier si le numéro d'achat existe déjà
       final existingAchat = await (_databaseService.database.select(_databaseService.database.achats)
             ..where((a) => a.numachats.equals(_numAchatsController.text)))
           .getSingleOrNull();
+      debugPrint('Achat existant trouvé: ${existingAchat != null}');
 
       if (existingAchat != null) {
+        debugPrint('ERREUR: Numéro d\'achat déjà existant');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Le N° Achats ${_numAchatsController.text} existe déjà')),
@@ -1404,7 +1477,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           .toList();
 
       // Utiliser AchatService selon le mode
+      debugPrint('Traitement selon le mode: $_selectedStatut');
       if (_selectedStatut == 'Journal') {
+        debugPrint('Appel du service traiterAchatJournal');
         await _achatService.traiterAchatJournal(
           numAchats: _numAchatsController.text,
           nFacture: _nFactController.text.isEmpty ? null : _nFactController.text,
@@ -1417,7 +1492,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           tva: tva,
           lignesAchat: lignesAchatData,
         );
+        debugPrint('Service traiterAchatJournal terminé');
       } else {
+        debugPrint('Appel du service traiterAchatBrouillard');
         await _achatService.traiterAchatBrouillard(
           numAchats: _numAchatsController.text,
           nFacture: _nFactController.text.isEmpty ? null : _nFactController.text,
@@ -1430,10 +1507,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           tva: tva,
           lignesAchat: lignesAchatData,
         );
+        debugPrint('Service traiterAchatBrouillard terminé');
       }
 
       // Recharger la liste des achats
+      debugPrint('Rechargement de la liste des achats');
       await _loadAchatsNumbers();
+      debugPrint('Liste des achats rechargée');
 
       if (mounted) {
         final message = _selectedStatut == 'Journal'
@@ -1443,12 +1523,17 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           SnackBar(content: Text(message)),
         );
         if (_selectedStatut == 'Journal') {
+          debugPrint('Fermeture du modal après enregistrement journal');
           Navigator.of(context).pop();
         } else {
+          debugPrint('Création d\'un nouvel achat après enregistrement brouillard');
           await _creerNouvelAchat();
         }
       }
+      debugPrint('=== FIN VALIDATION ACHAT RÉUSSIE ===');
     } catch (e) {
+      debugPrint('ERREUR lors de l\'enregistrement: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
