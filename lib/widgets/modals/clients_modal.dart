@@ -7,9 +7,9 @@ import '../../constants/app_constants.dart';
 import '../../constants/client_categories.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import '../common/tab_navigation_widget.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/common/base_modal.dart';
+import '../common/tab_navigation_widget.dart';
 import 'add_client_modal.dart';
 
 class ClientsModal extends StatefulWidget {
@@ -31,6 +31,8 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
   bool _isLoading = false;
   final NumberFormat _numberFormat = NumberFormat('#,##0', 'fr_FR');
   String? _selectedCategoryFilter;
+  String? _sortColumn;
+  bool _sortAscending = true;
 
   @override
   void initState() {
@@ -118,27 +120,42 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
       ),
       child: Row(
         children: [
-          _buildHeaderCell('RAISON SOCIALE', flex: 4),
-          _buildHeaderCell('SOLDES', flex: 2),
-          _buildHeaderCell('ACTION', width: 80),
+          _buildSortableHeaderCell('RAISON SOCIALE', 'rsoc', flex: 4),
+          _buildSortableHeaderCell('SOLDES', 'soldes', flex: 2),
+          _buildSortableHeaderCell('ACTION', 'action', width: 80),
         ],
       ),
     );
   }
 
-  Widget _buildHeaderCell(String text, {int? flex, double? width}) {
-    Widget cell = Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
+  Widget _buildSortableHeaderCell(String text, String column, {int? flex, double? width}) {
+    Widget cell = GestureDetector(
+      onTap: () => _sortBy(column),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
+          color: _sortColumn == column ? Colors.blue[50] : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: _sortColumn == column ? Colors.blue[800] : Colors.black87,
+              ),
+            ),
+            if (_sortColumn == column)
+              Icon(
+                _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 12,
+                color: Colors.blue[800],
+              ),
+          ],
         ),
       ),
     );
@@ -474,6 +491,18 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     _applyFilter();
   }
 
+  void _sortBy(String column) {
+    setState(() {
+      if (_sortColumn == column) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumn = column;
+        _sortAscending = true;
+      }
+    });
+    _applyFilter();
+  }
+
   Widget _buildFilterSection() {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -543,6 +572,40 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
       }
     }
 
+    // Appliquer le tri
+    if (_sortColumn != null) {
+      filtered.sort((a, b) {
+        dynamic aValue, bValue;
+        switch (_sortColumn) {
+          case 'rsoc':
+            aValue = a.rsoc;
+            bValue = b.rsoc;
+            break;
+          case 'soldes':
+            aValue = a.soldes ?? 0;
+            bValue = b.soldes ?? 0;
+            break;
+          case 'action':
+            aValue = a.action ?? 'A';
+            bValue = b.action ?? 'A';
+            break;
+          default:
+            return 0;
+        }
+
+        int result;
+        if (aValue is String && bValue is String) {
+          result = aValue.compareTo(bValue);
+        } else if (aValue is num && bValue is num) {
+          result = aValue.compareTo(bValue);
+        } else {
+          result = aValue.toString().compareTo(bValue.toString());
+        }
+
+        return _sortAscending ? result : -result;
+      });
+    }
+
     setState(() {
       _filteredClients = filtered.take(_pageSize).toList();
     });
@@ -579,6 +642,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
   }
 
   void _showContextMenu(BuildContext context, Offset position) {
+    final isActive = _selectedClient?.action == 'A';
     showMenu(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -600,6 +664,14 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
           value: 'delete',
           child: Text('Supprimer', style: TextStyle(fontSize: 12)),
         ),
+        if (_selectedClient != null)
+          PopupMenuItem(
+            value: 'toggle_status',
+            child: Text(
+              isActive ? 'Désactiver' : 'Activer',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
       ],
     ).then((value) {
       if (value != null) {
@@ -621,6 +693,11 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
       case 'delete':
         if (_selectedClient != null) {
           _deleteClient(_selectedClient!);
+        }
+        break;
+      case 'toggle_status':
+        if (_selectedClient != null) {
+          _toggleClientStatus(_selectedClient!);
         }
         break;
     }
@@ -648,6 +725,24 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     } catch (e) {
       if (mounted) {
         debugPrint('Erreur lors de la suppression: $e');
+      }
+    }
+  }
+
+  Future<void> _toggleClientStatus(CltData client) async {
+    try {
+      final newStatus = client.action == 'A' ? 'D' : 'A';
+      await DatabaseService().database.customUpdate(
+        'UPDATE clt SET action = ? WHERE rsoc = ?',
+        variables: [Variable(newStatus), Variable(client.rsoc)],
+      );
+      await _loadClients();
+      // Maintenir la sélection du client après la mise à jour
+      final updatedClient = _clients.firstWhere((c) => c.rsoc == client.rsoc);
+      _selectClient(updatedClient);
+    } catch (e) {
+      if (mounted) {
+        debugPrint('Erreur lors du changement de statut: $e');
       }
     }
   }

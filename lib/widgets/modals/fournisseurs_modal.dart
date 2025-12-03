@@ -5,8 +5,8 @@ import 'package:intl/intl.dart';
 import '../../constants/app_constants.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import '../common/tab_navigation_widget.dart';
 import '../../widgets/common/base_modal.dart';
+import '../common/tab_navigation_widget.dart';
 import 'add_fournisseur_modal.dart';
 
 class FournisseursModal extends StatefulWidget {
@@ -26,6 +26,8 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
   final int _pageSize = 100;
   bool _isLoading = false;
   final NumberFormat _numberFormat = NumberFormat('#,##0', 'fr_FR');
+  String? _sortColumn;
+  bool _sortAscending = true;
 
   @override
   void initState() {
@@ -114,27 +116,42 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
       ),
       child: Row(
         children: [
-          _buildHeaderCell('RAISON SOCIALE', flex: 4),
-          _buildHeaderCell('SOLDES', flex: 2),
-          _buildHeaderCell('ACTION', width: 80),
+          _buildSortableHeaderCell('RAISON SOCIALE', 'rsoc', flex: 4),
+          _buildSortableHeaderCell('SOLDES', 'soldes', flex: 2),
+          _buildSortableHeaderCell('ACTION', 'action', width: 80),
         ],
       ),
     );
   }
 
-  Widget _buildHeaderCell(String text, {int? flex, double? width}) {
-    Widget cell = Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
+  Widget _buildSortableHeaderCell(String text, String column, {int? flex, double? width}) {
+    Widget cell = GestureDetector(
+      onTap: () => _sortBy(column),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
+          color: _sortColumn == column ? Colors.blue[50] : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: _sortColumn == column ? Colors.blue[800] : Colors.black87,
+              ),
+            ),
+            if (_sortColumn == column)
+              Icon(
+                _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 12,
+                color: Colors.blue[800],
+              ),
+          ],
         ),
       ),
     );
@@ -397,9 +414,9 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
 
       setState(() {
         _fournisseurs = fournisseurs;
-        _filteredFournisseurs = fournisseurs.take(_pageSize).toList();
         _isLoading = false;
       });
+      _applySort();
 
       debugPrint('Fournisseurs chargés: ${_filteredFournisseurs.length}');
     } catch (e) {
@@ -456,6 +473,61 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
       _filteredFournisseurs = _fournisseurs.take(_pageSize).toList();
       _searchController.clear();
     });
+    _applySort();
+  }
+
+  void _sortBy(String column) {
+    setState(() {
+      if (_sortColumn == column) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumn = column;
+        _sortAscending = true;
+      }
+    });
+    _applySort();
+  }
+
+  void _applySort() {
+    List<Frn> toSort =
+        _filteredFournisseurs.isEmpty ? _fournisseurs.take(_pageSize).toList() : _filteredFournisseurs;
+
+    if (_sortColumn != null) {
+      toSort.sort((a, b) {
+        dynamic aValue, bValue;
+        switch (_sortColumn) {
+          case 'rsoc':
+            aValue = a.rsoc;
+            bValue = b.rsoc;
+            break;
+          case 'soldes':
+            aValue = a.soldes ?? 0;
+            bValue = b.soldes ?? 0;
+            break;
+          case 'action':
+            aValue = a.action ?? 'A';
+            bValue = b.action ?? 'A';
+            break;
+          default:
+            return 0;
+        }
+
+        int result;
+        if (aValue is String && bValue is String) {
+          result = aValue.compareTo(bValue);
+        } else if (aValue is num && bValue is num) {
+          result = aValue.compareTo(bValue);
+        } else {
+          result = aValue.toString().compareTo(bValue.toString());
+        }
+
+        return _sortAscending ? result : -result;
+      });
+    }
+
+    setState(() {
+      _filteredFournisseurs = toSort;
+    });
   }
 
   void _goToFirst() {
@@ -489,6 +561,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
   }
 
   void _showContextMenu(BuildContext context, Offset position) {
+    final isActive = _selectedFournisseur?.action == 'A';
     showMenu(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -510,6 +583,14 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
           value: 'delete',
           child: Text('Supprimer', style: TextStyle(fontSize: 12)),
         ),
+        if (_selectedFournisseur != null)
+          PopupMenuItem(
+            value: 'toggle_status',
+            child: Text(
+              isActive ? 'Désactiver' : 'Activer',
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
       ],
     ).then((value) {
       if (value != null) {
@@ -533,6 +614,11 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
           _deleteFournisseur(_selectedFournisseur!);
         }
         break;
+      case 'toggle_status':
+        if (_selectedFournisseur != null) {
+          _toggleFournisseurStatus(_selectedFournisseur!);
+        }
+        break;
     }
   }
 
@@ -554,6 +640,24 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
       }
     } catch (e) {
       debugPrint('Erreur lors de la suppression: $e');
+    }
+  }
+
+  Future<void> _toggleFournisseurStatus(Frn fournisseur) async {
+    try {
+      final newStatus = fournisseur.action == 'A' ? 'D' : 'A';
+      await DatabaseService().database.customUpdate(
+        'UPDATE frns SET action = ? WHERE rsoc = ?',
+        variables: [Variable.withString(newStatus), Variable.withString(fournisseur.rsoc)],
+      );
+      await _loadFournisseurs();
+      // Maintenir la sélection du fournisseur après la mise à jour
+      final updatedFournisseur = _fournisseurs.firstWhere((f) => f.rsoc == fournisseur.rsoc);
+      _selectFournisseur(updatedFournisseur);
+    } catch (e) {
+      if (mounted) {
+        debugPrint('Erreur lors du changement de statut: $e');
+      }
     }
   }
 

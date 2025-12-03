@@ -1,11 +1,13 @@
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
 import '../common/tab_navigation_widget.dart';
+import '../common/article_navigation_autocomplete.dart';
 
 class SurVentesModal extends StatefulWidget {
   const SurVentesModal({super.key});
@@ -19,7 +21,10 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
   final TextEditingController _numRetourController = TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _clientController = TextEditingController();
+  final FocusNode _clientFocusNode = FocusNode();
   final TextEditingController _motifController = TextEditingController();
+  final FocusNode _venteFocusNode = FocusNode();
+  final FocusNode _motifFocusNode = FocusNode();
 
   List<CltData> _clients = [];
   List<Vente> _ventes = [];
@@ -32,6 +37,9 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
     super.initState();
     _loadData();
     _initializeForm();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _clientFocusNode.requestFocus();
+    });
   }
 
   void _initializeForm() {
@@ -91,12 +99,15 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
       setState(() {
         _lignesRetour.clear();
         for (var detail in detailsVente) {
+          final montant = (detail.q ?? 0.0) * (detail.pu ?? 0.0);
           _lignesRetour.add({
             'designation': detail.designation ?? '',
             'unite': detail.unites ?? '',
             'quantite': detail.q ?? 0.0,
+            'quantiteRetour': detail.q ?? 0.0,
             'prixUnitaire': detail.pu ?? 0.0,
-            'montant': (detail.q ?? 0.0) * (detail.pu ?? 0.0),
+            'montant': montant,
+            'montantRetour': montant,
             'depot': detail.depots ?? '',
           });
         }
@@ -230,28 +241,44 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                               const Text('Client:',
                                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 4),
-                              DropdownButtonFormField<String>(
-                                initialValue: _selectedClient,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              SizedBox(
+                                height: 32,
+                                child: ArticleNavigationAutocomplete(
+                                  articles: _clients.map((c) => Article(
+                                    designation: c.rsoc,
+                                    u1: '',
+                                    u2: '',
+                                    u3: '',
+                                  )).toList(),
+                                  onArticleChanged: (article) {
+                                    if (article != null) {
+                                      setState(() {
+                                        _selectedClient = article.designation;
+                                        _selectedVente = null;
+                                        _ventes.clear();
+                                      });
+                                      _loadVentesForClient(article.designation);
+                                    }
+                                  },
+                                  onTabPressed: () {
+                                    debugPrint('Client: Tab pressed, moving to Vente');
+                                    _venteFocusNode.requestFocus();
+                                  },
+                                  onShiftTabPressed: () {
+                                    debugPrint('Client: Shift+Tab pressed, staying on Client');
+                                    _clientFocusNode.requestFocus();
+                                  },
+                                  focusNode: _clientFocusNode,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                                    ),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    hintText: 'Sélectionner un client...',
+                                  ),
+                                  style: const TextStyle(fontSize: 12),
                                 ),
-                                items: _clients.map((client) {
-                                  return DropdownMenuItem<String>(
-                                    value: client.rsoc,
-                                    child: Text(client.rsoc, style: const TextStyle(fontSize: 12)),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedClient = value;
-                                    _selectedVente = null;
-                                    _ventes.clear();
-                                  });
-                                  if (value != null) {
-                                    _loadVentesForClient(value);
-                                  }
-                                },
                               ),
                             ],
                           ),
@@ -265,24 +292,44 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                               const Text('Vente de référence:',
                                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 4),
-                              DropdownButtonFormField<String>(
-                                initialValue: _selectedVente,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                ),
-                                items: _ventes.map((vente) {
-                                  return DropdownMenuItem<String>(
-                                    value: vente.numventes,
-                                    child: Text('${vente.numventes} - ${vente.nfact ?? ''}',
-                                        style: const TextStyle(fontSize: 12)),
-                                  );
-                                }).toList(),
-                                onChanged: (value) {
-                                  setState(() {
-                                    _selectedVente = value;
-                                  });
+                              Focus(
+                                focusNode: _venteFocusNode,
+                                onKeyEvent: (node, event) {
+                                  if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                    if (HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftLeft) ||
+                                        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftRight)) {
+                                      debugPrint('Vente: Shift+Tab pressed, moving to Client');
+                                      _clientFocusNode.requestFocus();
+                                    } else {
+                                      debugPrint('Vente: Tab pressed, moving to Motif');
+                                      _motifFocusNode.requestFocus();
+                                    }
+                                    return KeyEventResult.handled;
+                                  }
+                                  return KeyEventResult.ignored;
                                 },
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: _selectedVente,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(color: Colors.blue, width: 2),
+                                    ),
+                                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  ),
+                                  items: _ventes.map((vente) {
+                                    return DropdownMenuItem<String>(
+                                      value: vente.numventes,
+                                      child: Text('${vente.numventes} - ${vente.nfact ?? ''}',
+                                          style: const TextStyle(fontSize: 12)),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedVente = value;
+                                    });
+                                  },
+                                ),
                               ),
                             ],
                           ),
@@ -299,9 +346,13 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                         const SizedBox(height: 4),
                         TextField(
                           controller: _motifController,
+                          focusNode: _motifFocusNode,
                           maxLines: 2,
                           decoration: const InputDecoration(
                             border: OutlineInputBorder(),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.blue, width: 2),
+                            ),
                             contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             hintText: 'Saisir le motif du retour...',
                           ),
@@ -427,10 +478,32 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                                         ),
                                         Expanded(
                                           flex: 1,
-                                          child: Center(
-                                            child: Text(
-                                              NumberUtils.formatNumber(ligne['quantite'] ?? 0),
-                                              style: const TextStyle(fontSize: 11),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 2),
+                                            child: TextField(
+                                              controller: TextEditingController(
+                                                text: NumberUtils.formatNumber(ligne['quantiteRetour'] ?? ligne['quantite'] ?? 0)
+                                              ),
+                                              decoration: const InputDecoration(
+                                                border: OutlineInputBorder(),
+                                                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                              ),
+                                              style: const TextStyle(fontSize: 10),
+                                              textAlign: TextAlign.center,
+                                              onChanged: (value) {
+                                                final qte = double.tryParse(value.replaceAll(' ', '')) ?? 0;
+                                                final qteMax = ligne['quantite'] ?? 0;
+                                                if (qte > qteMax) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text('Quantité max: $qteMax')),
+                                                  );
+                                                  return;
+                                                }
+                                                setState(() {
+                                                  ligne['quantiteRetour'] = qte;
+                                                  ligne['montantRetour'] = qte * (ligne['prixUnitaire'] ?? 0);
+                                                });
+                                              },
                                             ),
                                           ),
                                         ),
@@ -447,7 +520,7 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                                           flex: 2,
                                           child: Center(
                                             child: Text(
-                                              NumberUtils.formatNumber(ligne['montant'] ?? 0),
+                                              NumberUtils.formatNumber(ligne['montantRetour'] ?? ligne['montant'] ?? 0),
                                               style:
                                                   const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                             ),
@@ -527,13 +600,13 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
 
     try {
       final numRetour = _numRetourController.text;
-      List<String> dateParts = _dateController.text.split('-');
+      List<String> dateParts = _dateController.text.split('/');
       DateTime dateForDB =
           DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
 
       double totalMontant = 0;
       for (var ligne in _lignesRetour) {
-        totalMontant += ligne['montant'] ?? 0;
+        totalMontant += ligne['montantRetour'] ?? 0;
       }
 
       // Enregistrer le retour sur vente
@@ -548,24 +621,32 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
 
       // Enregistrer les détails et mettre à jour le stock
       for (var ligne in _lignesRetour) {
-        final detailCompanion = RetdeventesCompanion(
-          numventes: drift.Value(numRetour),
-          designation: drift.Value(ligne['designation']),
-          unites: drift.Value(ligne['unite']),
-          depots: drift.Value(ligne['depot']),
-          q: drift.Value(ligne['quantite']),
-          pu: drift.Value(ligne['prixUnitaire']),
-        );
-        await _databaseService.database.into(_databaseService.database.retdeventes).insert(detailCompanion);
+        if ((ligne['quantiteRetour'] ?? 0) > 0) {
+          final detailCompanion = RetdeventesCompanion(
+            numventes: drift.Value(numRetour),
+            designation: drift.Value(ligne['designation']),
+            unites: drift.Value(ligne['unite']),
+            depots: drift.Value(ligne['depot']),
+            q: drift.Value(ligne['quantiteRetour']),
+            pu: drift.Value(ligne['prixUnitaire']),
+          );
+          await _databaseService.database.into(_databaseService.database.retdeventes).insert(detailCompanion);
 
-        // Mettre à jour le stock (ENTRÉE pour retour sur vente)
-        await _mettreAJourStockRetourVente(
-          ligne['designation'],
-          ligne['depot'],
-          ligne['unite'],
-          ligne['quantite'],
-        );
+          // Mettre à jour le stock (ENTRÉE pour retour sur vente)
+          await _mettreAJourStockRetourVente(
+            ligne['designation'],
+            ligne['depot'],
+            ligne['unite'],
+            ligne['quantiteRetour'],
+          );
+        }
       }
+
+      // Ajuster le compte client (DIMINUER la dette)
+      await _ajusterCompteClient(_selectedClient!, totalMontant);
+
+      // Enregistrer le décaissement en caisse
+      await _enregistrerDecaissement(numRetour, totalMontant);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -682,12 +763,50 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
     }
   }
 
+  Future<void> _ajusterCompteClient(String client, double montant) async {
+    try {
+      final compteClient = await (_databaseService.database.select(_databaseService.database.compteclt)
+            ..where((c) => c.clt.equals(client)))
+          .getSingleOrNull();
+
+      if (compteClient != null) {
+        final nouveauSolde = (compteClient.solde ?? 0) - montant;
+        await (_databaseService.database.update(_databaseService.database.compteclt)
+              ..where((c) => c.clt.equals(client)))
+            .write(ComptecltCompanion(
+          solde: drift.Value(nouveauSolde),
+        ));
+      }
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
+  Future<void> _enregistrerDecaissement(String numRetour, double montant) async {
+    try {
+      await _databaseService.database.into(_databaseService.database.caisse).insert(
+            CaisseCompanion(
+              ref: drift.Value('RV${DateTime.now().millisecondsSinceEpoch}'),
+              daty: drift.Value(DateTime.now()),
+              lib: drift.Value('Retour sur ventes - $numRetour'),
+              debit: drift.Value(montant),
+              type: drift.Value('Retour sur ventes'),
+            ),
+          );
+    } catch (e) {
+      // Ignore errors
+    }
+  }
+
   @override
   void dispose() {
     _numRetourController.dispose();
     _dateController.dispose();
     _clientController.dispose();
+    _clientFocusNode.dispose();
+    _venteFocusNode.dispose();
     _motifController.dispose();
+    _motifFocusNode.dispose();
     super.dispose();
   }
 }

@@ -3174,25 +3174,41 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.blue[100] : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+                border: isSelected ? Border.all(color: Colors.blue[300]!, width: 1) : null,
+              ),
               child: ListTile(
                 dense: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 title: Text(
                   'Vente N° $numVente',
-                  style: const TextStyle(fontSize: 11),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                    color: isSelected ? Colors.blue[800] : Colors.black87,
+                  ),
                 ),
                 subtitle: isBrouillard
-                    ? const Text(
+                    ? Text(
                         'En attente de validation',
-                        style: TextStyle(fontSize: 9, color: Colors.orange),
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: isSelected ? Colors.orange[700] : Colors.orange,
+                          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                        ),
                       )
                     : isContrePassee
-                        ? const Text(
+                        ? Text(
                             'Contre-passée',
-                            style: TextStyle(fontSize: 9, color: Colors.red),
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: isSelected ? Colors.red[700] : Colors.red,
+                              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                            ),
                           )
                         : null,
-                selected: isSelected,
-                selectedTileColor: Colors.blue[100],
                 onTap: () {
                   _numVentesController.text = numVente;
                   _chargerVenteExistante(numVente);
@@ -3844,6 +3860,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 child: ArticleNavigationAutocomplete(
                                                   articles: _articles,
                                                   initialArticle: _getLastAddedArticle(),
+                                                  selectedArticle: _selectedArticle, // Add synchronization
                                                   onArticleChanged: (article) {
                                                     _onArticleSelected(article);
                                                   },
@@ -4428,6 +4445,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   itemBuilder: (context, index) {
                                                     final ligne = _lignesVente[index];
                                                     return GestureDetector(
+                                                      onTap: () {
+                                                        setState(() {
+                                                          _selectedRowIndex = index;
+                                                        });
+                                                      },
                                                       onSecondaryTapDown: _selectedVerification == 'JOURNAL'
                                                           ? null
                                                           : (details) =>

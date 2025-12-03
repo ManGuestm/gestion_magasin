@@ -14,7 +14,8 @@ class RetoursAchatsModal extends StatefulWidget {
   State<RetoursAchatsModal> createState() => _RetoursAchatsModalState();
 }
 
-class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTickerProviderStateMixin, TabNavigationMixin {
+class _RetoursAchatsModalState extends State<RetoursAchatsModal>
+    with SingleTickerProviderStateMixin, TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   late TabController _tabController;
 
@@ -290,6 +291,9 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
         );
       }
 
+      // Comptabilisation financière du retour
+      await _comptabiliserRetour(numRetour, dateForDB, _selectedFournisseur!, _totalTTC);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Retour d\'achat enregistré avec succès')),
@@ -313,43 +317,60 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
       autofocus: true,
       onKeyEvent: (node, event) => handleTabNavigation(event),
       child: Dialog(
-        backgroundColor: Colors.grey[100],
+        backgroundColor: Colors.transparent,
         child: Container(
           width: MediaQuery.of(context).size.width * 0.95,
           height: MediaQuery.of(context).size.height * 0.9,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            color: Colors.grey[100],
-            border: Border.all(color: Colors.blue, width: 2),
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.2),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
           ),
           child: Column(
             children: [
               // Title bar
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: const BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(6),
-                    topRight: Radius.circular(6),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.indigo.shade600, Colors.indigo.shade800],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
                   ),
                 ),
                 child: Row(
                   children: [
+                    Icon(Icons.keyboard_return, color: Colors.white, size: 24),
+                    const SizedBox(width: 12),
                     const Text(
                       'RETOUR SUR ACHATS',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
                       ),
                     ),
                     const Spacer(),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white, size: 16),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.close, color: Colors.white, size: 24),
+                      style: IconButton.styleFrom(
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -357,12 +378,17 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
 
               // Tab bar
               Container(
-                color: Colors.blue.shade50,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                ),
                 child: TabBar(
                   controller: _tabController,
-                  labelColor: Colors.blue,
-                  unselectedLabelColor: Colors.grey,
-                  indicatorColor: Colors.blue,
+                  labelColor: Colors.indigo.shade700,
+                  unselectedLabelColor: Colors.grey.shade600,
+                  indicatorColor: Colors.indigo.shade600,
+                  indicatorWeight: 3,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   tabs: const [
                     Tab(text: 'Nouveau Retour'),
                     Tab(text: 'Historique Retours'),
@@ -392,18 +418,26 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
       children: [
         // Header section
         Container(
-          color: const Color(0xFFE6E6FA),
-          padding: const EdgeInsets.all(8),
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.indigo.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.indigo.shade200),
+          ),
           child: Column(
             children: [
               Row(
                 children: [
-                  const SizedBox(
-                      width: 80,
-                      child: Text('N° Achats:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                   SizedBox(
-                    width: 120,
-                    height: 20,
+                    width: 100,
+                    child: Text('N° Achats:',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600, color: Colors.indigo.shade800)),
+                  ),
+                  SizedBox(
+                    width: 150,
+                    height: 30,
                     child: Autocomplete<String>(
                       optionsBuilder: (TextEditingValue textEditingValue) {
                         if (textEditingValue.text.isEmpty) {
@@ -427,12 +461,22 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
                           controller: controller,
                           focusNode: focusNode,
                           onEditingComplete: onEditingComplete,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.indigo.shade300),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide(color: Colors.indigo.shade600, width: 2),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             hintText: 'Tapez ou sélectionnez...',
+                            hintStyle: TextStyle(color: Colors.grey.shade500),
+                            filled: true,
+                            fillColor: Colors.white,
                           ),
-                          style: const TextStyle(fontSize: 10),
+                          style: const TextStyle(fontSize: 12),
                           onChanged: (value) {
                             _numAchatsController.text = value;
                             if (_achats.any((achat) => achat.numachats == value)) {
@@ -451,7 +495,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
                   const SizedBox(width: 10),
                   SizedBox(
                     width: 100,
-                    height: 20,
+                    height: 30,
                     child: TextField(
                       controller: _dateController,
                       decoration: const InputDecoration(
@@ -478,7 +522,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
                   const SizedBox(width: 10),
                   SizedBox(
                     width: 120,
-                    height: 20,
+                    height: 30,
                     child: TextField(
                       controller: _nFactController,
                       decoration: const InputDecoration(
@@ -499,7 +543,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
                   const SizedBox(width: 10),
                   Expanded(
                     child: SizedBox(
-                      height: 20,
+                      height: 30,
                       child: TextField(
                         controller: TextEditingController(text: _selectedFournisseur ?? ''),
                         decoration: const InputDecoration(
@@ -524,17 +568,41 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
               // Articles achetés section
               if (_articlesAchetes.isNotEmpty) ...[
                 Container(
-                  color: Colors.green.shade100,
-                  padding: const EdgeInsets.all(4),
-                  child: const Text('Articles achetés - Cliquez pour retourner',
-                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.green.shade50, Colors.green.shade100],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.shopping_cart, color: Colors.green.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Text('Articles achetés - Cliquez pour retourner',
+                          style: TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green.shade800)),
+                    ],
+                  ),
                 ),
                 Container(
                   height: 150,
-                  margin: const EdgeInsets.all(4),
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.grey.shade300),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.1),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: ListView.builder(
                     itemCount: _articlesAchetes.length,
@@ -609,17 +677,35 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
               // Articles à retourner table
               Expanded(
                 child: Container(
-                  margin: const EdgeInsets.all(4),
+                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.grey.shade300),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.1),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
                       // Table header
                       Container(
-                        color: Colors.grey.shade200,
-                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.indigo.shade50, Colors.indigo.shade100],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(12),
+                          ),
+                        ),
+                        padding: const EdgeInsets.all(12),
                         child: const Row(
                           children: [
                             Expanded(
@@ -873,49 +959,65 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
 
               // Action buttons
               Container(
-                color: Colors.orange.shade200,
-                padding: const EdgeInsets.all(4),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                ),
                 child: Row(
                   children: [
-                    ElevatedButton(
+                    ElevatedButton.icon(
                       onPressed:
                           _articlesRetour.isNotEmpty && _selectedFournisseur != null ? _saveRetour : null,
                       style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(80, 25),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: const Size(140, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
                         backgroundColor: _articlesRetour.isNotEmpty && _selectedFournisseur != null
-                            ? Colors.green
+                            ? Colors.green.shade600
                             : Colors.grey.shade300,
-                        foregroundColor: _articlesRetour.isNotEmpty && _selectedFournisseur != null
-                            ? Colors.white
-                            : Colors.grey.shade600,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: _articlesRetour.isNotEmpty && _selectedFournisseur != null ? 3 : 0,
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.save, size: 12),
-                          SizedBox(width: 4),
-                          Text('Valider Retour', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
+                      icon: const Icon(Icons.check_circle, size: 18),
+                      label: const Text('Valider Retour',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
                       onPressed: _clearForm,
                       style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(80, 20),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(120, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        backgroundColor: Colors.orange.shade500,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 2,
                       ),
-                      child: const Text('Contre Passer', style: TextStyle(fontSize: 10)),
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Réinitialiser',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                     const Spacer(),
-                    ElevatedButton(
+                    ElevatedButton.icon(
                       onPressed: () => Navigator.of(context).pop(),
                       style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(50, 20),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: const Size(100, 44),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        backgroundColor: Colors.grey.shade600,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 2,
                       ),
-                      child: const Text('Fermer', style: TextStyle(fontSize: 10)),
+                      icon: const Icon(Icons.close, size: 18),
+                      label:
+                          const Text('Fermer', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -1004,12 +1106,12 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
                           Expanded(
                             flex: 2,
                             child: Text(NumberUtils.formatNumber(retour['totalHT']),
-                                style: const TextStyle(fontSize: 9), textAlign: TextAlign.center),
+                                style: const TextStyle(fontSize: 9), textAlign: TextAlign.right),
                           ),
                           Expanded(
                             flex: 2,
                             child: Text(NumberUtils.formatNumber(retour['totalTTC']),
-                                style: const TextStyle(fontSize: 9), textAlign: TextAlign.center),
+                                style: const TextStyle(fontSize: 9), textAlign: TextAlign.right),
                           ),
                         ],
                       ),
@@ -1023,127 +1125,60 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal> with SingleTick
 
   Future<void> _mettreAJourStock(String designation, String depot, String unite, double quantite) async {
     try {
-      debugPrint('DEBUG: Mise à jour stock - Désignation: $designation, Unité: $unite, Quantité: $quantite');
+      final db = _databaseService.database;
 
-      // Créer un mouvement de SORTIE de stock pour le retour d'achat
-      final ref = 'RET${DateTime.now().millisecondsSinceEpoch}';
-      await _databaseService.database.into(_databaseService.database.stocks).insert(
-            StocksCompanion(
-              ref: Value(ref),
-              daty: Value(DateTime.now()),
-              lib: Value('RETOUR ACHAT - $designation'),
-              refart: Value(designation),
-              qs: Value(quantite),
-              sortie: Value(quantite),
-              us: Value(unite),
-              depots: Value(depot),
-            ),
-          );
+      // Rechercher l'article dans le stock par dépôt
+      final stockItem = await (db.select(db.depart)
+            ..where((s) => s.designation.equals(designation) & s.depots.equals(depot)))
+          .getSingleOrNull();
 
-      // Récupérer l'article pour mettre à jour le stock global
-      final article = await _databaseService.database.getArticleByDesignation(designation);
-      if (article != null) {
-        debugPrint(
-            'DEBUG: Stock avant - U1: ${article.stocksu1}, U2: ${article.stocksu2}, U3: ${article.stocksu3}');
-
-        double nouvelleQuantiteU1 = article.stocksu1 ?? 0;
-        double nouvelleQuantiteU2 = article.stocksu2 ?? 0;
-        double nouvelleQuantiteU3 = article.stocksu3 ?? 0;
-
-        // SOUSTRAIRE la quantité retournée selon l'unité dans la table articles
-        if (unite == 'Ctn' || unite == 'Pck' || unite == 'CTN' || unite == 'PCK') {
-          nouvelleQuantiteU1 -= quantite;
-          debugPrint('DEBUG: Soustraction U1 (Ctn/Pck): $nouvelleQuantiteU1');
-        } else if (unite == 'Kg' || unite == 'KG') {
-          nouvelleQuantiteU2 -= quantite;
-          debugPrint('DEBUG: Soustraction U2 (Kg): $nouvelleQuantiteU2');
-        } else if (unite == 'L' || unite == 'l') {
-          nouvelleQuantiteU3 -= quantite;
-          debugPrint('DEBUG: Soustraction U3 (L): $nouvelleQuantiteU3');
-        } else {
-          debugPrint('DEBUG: Unité non reconnue: $unite - Utilisation U1 par défaut');
-          nouvelleQuantiteU1 -= quantite;
-        }
-
-        // S'assurer que les stocks ne deviennent pas négatifs
-        nouvelleQuantiteU1 = nouvelleQuantiteU1 < 0 ? 0 : nouvelleQuantiteU1;
-        nouvelleQuantiteU2 = nouvelleQuantiteU2 < 0 ? 0 : nouvelleQuantiteU2;
-        nouvelleQuantiteU3 = nouvelleQuantiteU3 < 0 ? 0 : nouvelleQuantiteU3;
-
-        debugPrint(
-            'DEBUG: Stock après - U1: $nouvelleQuantiteU1, U2: $nouvelleQuantiteU2, U3: $nouvelleQuantiteU3');
-
-        // Mettre à jour le stock global dans la table articles
-        final updateResult = await (_databaseService.database.update(_databaseService.database.articles)
-              ..where((a) => a.designation.equals(designation)))
-            .write(ArticlesCompanion(
-          stocksu1: Value(nouvelleQuantiteU1),
-          stocksu2: Value(nouvelleQuantiteU2),
-          stocksu3: Value(nouvelleQuantiteU3),
-        ));
-
-        debugPrint('DEBUG: Lignes mises à jour dans articles: $updateResult');
-      } else {
-        debugPrint('DEBUG: Article non trouvé: $designation');
-      }
-
-      // Mettre à jour le stock dans la table depart (DIMINUER le stock)
-      final query = _databaseService.database.select(_databaseService.database.depart);
-      query.where((d) => d.designation.equals(designation) & d.depots.equals(depot));
-      final stockDepart = await query.getSingleOrNull();
-
-      if (stockDepart != null) {
-        debugPrint(
-            'DEBUG: Stock depart avant - U1: ${stockDepart.stocksu1}, U2: ${stockDepart.stocksu2}, U3: ${stockDepart.stocksu3}');
-
-        double nouvelleQuantiteU1 = stockDepart.stocksu1 ?? 0;
-        double nouvelleQuantiteU2 = stockDepart.stocksu2 ?? 0;
-        double nouvelleQuantiteU3 = stockDepart.stocksu3 ?? 0;
-
-        // SOUSTRAIRE la quantité retournée selon l'unité
-        if (unite == 'Ctn' || unite == 'Pck' || unite == 'CTN' || unite == 'PCK') {
-          nouvelleQuantiteU1 -= quantite;
-        } else if (unite == 'Kg' || unite == 'KG') {
-          nouvelleQuantiteU2 -= quantite;
-        } else if (unite == 'L' || unite == 'l') {
-          nouvelleQuantiteU3 -= quantite;
-        } else {
-          nouvelleQuantiteU1 -= quantite;
-        }
-
-        // S'assurer que les stocks ne deviennent pas négatifs
-        nouvelleQuantiteU1 = nouvelleQuantiteU1 < 0 ? 0 : nouvelleQuantiteU1;
-        nouvelleQuantiteU2 = nouvelleQuantiteU2 < 0 ? 0 : nouvelleQuantiteU2;
-        nouvelleQuantiteU3 = nouvelleQuantiteU3 < 0 ? 0 : nouvelleQuantiteU3;
-
-        debugPrint(
-            'DEBUG: Stock depart après - U1: $nouvelleQuantiteU1, U2: $nouvelleQuantiteU2, U3: $nouvelleQuantiteU3');
-
-        final departUpdateResult = await (_databaseService.database.update(_databaseService.database.depart)
-              ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-            .write(DepartCompanion(
-          stocksu1: Value(nouvelleQuantiteU1),
-          stocksu2: Value(nouvelleQuantiteU2),
-          stocksu3: Value(nouvelleQuantiteU3),
-        ));
-
-        debugPrint('DEBUG: Lignes mises à jour dans depart: $departUpdateResult');
-      } else {
-        debugPrint('DEBUG: Stock depart non trouvé pour: $designation dans $depot');
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Stock mis à jour: -$quantite $unite pour $designation')),
-        );
+      if (stockItem != null) {
+        // Diminuer le stock (retour = sortie de stock)
+        final newQuantity = (stockItem.stocksu1 ?? 0) - quantite;
+        await (db.update(db.depart)..where((s) => s.designation.equals(designation) & s.depots.equals(depot)))
+            .write(DepartCompanion(stocksu1: Value(newQuantity)));
       }
     } catch (e) {
-      debugPrint('DEBUG: Erreur mise à jour stock: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur mise à jour stock: $e')),
-        );
-      }
+      debugPrint('Erreur lors de la mise à jour du stock: $e');
+    }
+  }
+
+  Future<void> _comptabiliserRetour(
+      String numRetour, DateTime date, String fournisseur, double montant) async {
+    try {
+      final db = _databaseService.database;
+
+      // 1. Encaissement (remboursement du fournisseur)
+      final dernierSoldeCaisse = await (db.select(db.caisse)
+            ..orderBy([(c) => OrderingTerm.desc(c.daty)])
+            ..limit(1))
+          .getSingleOrNull();
+      final nouveauSoldeCaisse = (dernierSoldeCaisse?.soldes ?? 0) + montant;
+
+      await db.into(db.caisse).insert(CaisseCompanion(
+            ref: Value('RET-$numRetour'),
+            daty: Value(date),
+            lib: Value('Retour sur achats - $fournisseur'),
+            credit: Value(montant),
+            debit: const Value(0),
+            soldes: Value(nouveauSoldeCaisse),
+            type: const Value('Retour sur achats'),
+            frns: Value(fournisseur),
+            verification: const Value('JOURNAL'),
+          ));
+
+      // 2. Compte fournisseur (diminution de la dette)
+      await db.into(db.comptefrns).insert(ComptefrnsCompanion(
+            ref: Value('RET-$numRetour'),
+            daty: Value(date),
+            lib: Value('Retour sur achats N°$numRetour'),
+            sortie: Value(montant),
+            entres: const Value(0),
+            frns: Value(fournisseur),
+            solde: Value(-montant),
+          ));
+    } catch (e) {
+      debugPrint('Erreur comptabilisation retour: $e');
     }
   }
 }

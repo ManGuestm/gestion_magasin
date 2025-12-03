@@ -126,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final retourAchats = await _getRetourAchats();
       final journalCaisse = await _getJournalCaisse();
       final journalBanque = await _getJournalBanque();
-      
+
       stats['retourVentes'] = retourVentes;
       stats['retourAchats'] = retourAchats;
       stats['journalCaisse'] = journalCaisse;
@@ -290,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const Icon(Icons.business, size: 16, color: Colors.red),
             const SizedBox(width: 4),
             Text(
-              'GESTION COMMERCIALE - ${currentUser?.nom ?? 'Utilisateur'} (${currentUser?.role ?? 'Invité'})',
+              'Session: ${currentUser?.nom ?? 'Utilisateur'} (${currentUser?.role ?? 'Invité'})',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
             const Spacer(),
@@ -668,39 +668,7 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
-        const SizedBox(height: 16),
-        _buildAdditionalStats(),
       ],
-    );
-  }
-
-  Widget _buildAdditionalStats() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        int crossAxisCount;
-        if (constraints.maxWidth > 1200) {
-          crossAxisCount = 4;
-        } else if (constraints.maxWidth > 800) {
-          crossAxisCount = 2;
-        } else {
-          crossAxisCount = 1;
-        }
-
-        return GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
-          childAspectRatio: 1.2,
-          children: [
-            _buildStatCard('Retour Ventes', '${(_stats['retourVentes'] ?? 0).toInt()}', Icons.undo, Colors.red),
-            _buildStatCard('Retour Achats', '${(_stats['retourAchats'] ?? 0).toInt()}', Icons.keyboard_return, Colors.orange),
-            _buildStatCard('Journal Caisse', '${_formatNumber(_stats['journalCaisse'] ?? 0)} Ar', Icons.account_balance_wallet, Colors.green),
-            _buildStatCard('Journal Banque', '${_formatNumber(_stats['journalBanque'] ?? 0)} Ar', Icons.account_balance, Colors.blue),
-          ],
-        );
-      },
     );
   }
 
@@ -728,6 +696,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if ((_stats['ventesBrouillard'] ?? 0) > 0)
         _buildStatCard(
             'Ventes en attente', '${_stats['ventesBrouillard'] ?? 0}', Icons.pending_actions, Colors.orange),
+      _buildStatCard('Retour Ventes', '${(_stats['retourVentes'] ?? 0).toInt()}', Icons.undo, Colors.red),
+      _buildStatCard(
+          'Retour Achats', '${(_stats['retourAchats'] ?? 0).toInt()}', Icons.keyboard_return, Colors.orange),
+      _buildStatCard('Journal Caisse', '${_formatNumber(_stats['journalCaisse'] ?? 0)} Ar',
+          Icons.account_balance_wallet, Colors.green),
+      _buildStatCard('Journal Banque', '${_formatNumber(_stats['journalBanque'] ?? 0)} Ar',
+          Icons.account_balance, Colors.blue),
     ];
   }
 
@@ -1269,9 +1244,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<double> _getRetourVentes() async {
     try {
       final db = DatabaseService().database;
-      final retours = await db.customSelect(
-        'SELECT COUNT(*) as count FROM ventes WHERE contre = "1"'
-      ).getSingleOrNull();
+      final retours =
+          await db.customSelect('SELECT COUNT(*) as count FROM ventes WHERE contre = "1"').getSingleOrNull();
       return (retours?.read<int>('count') ?? 0).toDouble();
     } catch (e) {
       return 0.0;
@@ -1281,9 +1255,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<double> _getRetourAchats() async {
     try {
       final db = DatabaseService().database;
-      final retours = await db.customSelect(
-        'SELECT COUNT(*) as count FROM achats WHERE contre = "1"'
-      ).getSingleOrNull();
+      final retours =
+          await db.customSelect('SELECT COUNT(*) as count FROM achats WHERE contre = "1"').getSingleOrNull();
       return (retours?.read<int>('count') ?? 0).toDouble();
     } catch (e) {
       return 0.0;
@@ -1296,7 +1269,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Récupérer le solde actuel de la caisse comme dans le modal
       final mouvements = await db.getAllCaisses();
       if (mouvements.isEmpty) return 0.0;
-      
+
       // Trier par date et prendre le solde du mouvement le plus récent
       mouvements.sort((a, b) => (a.daty ?? DateTime.now()).compareTo(b.daty ?? DateTime.now()));
       return mouvements.last.soldes ?? 0.0;
@@ -1309,9 +1282,8 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final db = DatabaseService().database;
       // Calculer le solde des comptes banques
-      final solde = await db.customSelect(
-        'SELECT COALESCE(SUM(solde), 0) as total FROM banques'
-      ).getSingleOrNull();
+      final solde =
+          await db.customSelect('SELECT COALESCE(SUM(solde), 0) as total FROM banques').getSingleOrNull();
       return solde?.read<double>('total') ?? 0.0;
     } catch (e) {
       return 0.0;
