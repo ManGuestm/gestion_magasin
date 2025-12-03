@@ -543,7 +543,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     String designation = _selectedArticle!.designation;
     String depot = _selectedDepot ?? 'MAG';
     String unite = _selectedUnite ?? 'Pce';
-    
+
     debugPrint('Ajout ligne: $designation, Qté: $quantite, Prix: $prix, Unité: $unite, Dépôt: $depot');
 
     // Chercher si l'article existe déjà avec la MÊME unité et le même dépôt
@@ -677,7 +677,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   Future<void> _chargerAchatExistant(String numAchats) async {
     debugPrint('=== CHARGEMENT ACHAT EXISTANT ===');
     debugPrint('Numéro achat à charger: $numAchats');
-    
+
     if (numAchats.isEmpty) {
       debugPrint('Numéro achat vide, réinitialisation');
       setState(() {
@@ -697,7 +697,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         // IMPORTANT: Mettre à jour le numéro d'achat AVANT tout autre traitement
         _numAchatsController.text = numAchats;
       });
-      
+
       debugPrint('Achat trouvé: ${achat != null}');
       if (achat != null) {
         debugPrint('Statut achat: ${achat.verification}');
@@ -804,7 +804,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     debugPrint('Mode achat existant: $_isExistingPurchase');
     debugPrint('Statut sélectionné: $_selectedStatut');
     debugPrint('Statut achat actuel: $_statutAchatActuel');
-    
+
     if (_selectedFournisseur == null || _nFactController.text.isEmpty || _lignesAchat.isEmpty) {
       debugPrint('ERREUR: Données manquantes pour la modification');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -942,7 +942,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         }
 
         // Mettre à jour l'achat principal (GARDER LE MÊME NUMÉRO)
-        debugPrint('Mise à jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}');
+        debugPrint(
+            'Mise à jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}');
         await (_databaseService.database.update(_databaseService.database.achats)
               ..where((a) => a.numachats.equals(_numAchatsController.text)))
             .write(AchatsCompanion(
@@ -1077,7 +1078,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           }
         }
       });
-      
+
       debugPrint('Transaction de modification terminée avec succès');
 
       // Recharger la liste des achats
@@ -1197,7 +1198,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     debugPrint('Achat existant: $_isExistingPurchase');
     debugPrint('Statut achat actuel: $_statutAchatActuel');
     debugPrint('Numéro achat: ${_numAchatsController.text}');
-    
+
     if (!_isExistingPurchase || _statutAchatActuel != 'BROUILLARD') {
       debugPrint('ERREUR: Conditions non remplies pour validation brouillard');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1399,12 +1400,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   Future<void> _importerDepuisBaseActuelle() async {
     // Récupérer tous les achats avec leurs détails
     final achatsAvecDetails = <Map<String, dynamic>>[];
-    
+
     for (final numAchat in _achatsNumbers) {
       final details = await (_databaseService.database.select(_databaseService.database.detachats)
             ..where((d) => d.numachats.equals(numAchat)))
           .get();
-      
+
       if (details.isNotEmpty) {
         achatsAvecDetails.add({
           'numAchat': numAchat,
@@ -1517,7 +1518,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           _lignesAchat.addAll(lignesValides);
         });
         _calculerTotaux();
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('${lignesValides.length} lignes importées avec succès')),
         );
@@ -1592,7 +1593,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     debugPrint('Nombre de lignes: ${_lignesAchat.length}');
     debugPrint('Statut sélectionné: $_selectedStatut');
     debugPrint('Mode achat existant: $_isExistingPurchase');
-    
+
     if (_selectedFournisseur == null || _nFactController.text.isEmpty || _lignesAchat.isEmpty) {
       debugPrint('ERREUR: Données manquantes pour la validation');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -3404,6 +3405,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     ),
                                   ),
                                 ),
+                                Tooltip(
+                                  message: 'Importer lignes d\'achat',
+                                  child: ElevatedButton(
+                                    onPressed: _statutAchatActuel == 'JOURNAL' ? null : _importerLignesAchat,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.orange,
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size(60, 30),
+                                    ),
+                                    child: const Text('Importer', style: TextStyle(fontSize: 12)),
+                                  ),
+                                ),
                                 if (_isExistingPurchase) ...[
                                   Tooltip(
                                     message: 'Créer nouveau (Ctrl+N)',
@@ -3416,7 +3429,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                   Tooltip(
                                     message: 'Importer lignes d\'achat',
                                     child: ElevatedButton(
-                                      onPressed: _statutAchatActuel == 'JOURNAL' ? null : _importerLignesAchat,
+                                      onPressed:
+                                          _statutAchatActuel == 'JOURNAL' ? null : _importerLignesAchat,
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.orange,
                                         foregroundColor: Colors.white,
