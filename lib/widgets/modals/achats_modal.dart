@@ -1091,8 +1091,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       // Recalculer les totaux avec les nouvelles données
       _calculerTotaux();
 
-      // Mettre à jour l'interface
-      setState(() {});
+      // IMPORTANT: Synchroniser le statut après modification
+      final statutFinal = _selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD';
+      setState(() {
+        _statutAchatActuel = statutFinal;
+        _achatsStatuts[_numAchatsController.text] = statutFinal;
+      });
+      debugPrint('Statut synchronisé après modification: $statutFinal');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1100,6 +1105,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         );
       }
       debugPrint('=== FIN MODIFICATION ACHAT RÉUSSIE ===');
+      debugPrint('Statut final après modification: $_statutAchatActuel');
     } catch (e) {
       debugPrint('ERREUR lors de la modification: $e');
       debugPrint('Stack trace: ${StackTrace.current}');
@@ -1198,9 +1204,27 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     debugPrint('Achat existant: $_isExistingPurchase');
     debugPrint('Statut achat actuel: $_statutAchatActuel');
     debugPrint('Numéro achat: ${_numAchatsController.text}');
+    
+    // Vérifier le statut réel dans la base de données
+    final achatActuel = await (_databaseService.database.select(_databaseService.database.achats)
+          ..where((a) => a.numachats.equals(_numAchatsController.text)))
+        .getSingleOrNull();
+    
+    final statutReel = achatActuel?.verification ?? 'BROUILLARD';
+    debugPrint('Statut réel en base: $statutReel');
+    
+    // Synchroniser le statut si nécessaire
+    if (_statutAchatActuel != statutReel) {
+      debugPrint('Synchronisation du statut: $_statutAchatActuel -> $statutReel');
+      setState(() {
+        _statutAchatActuel = statutReel;
+        _selectedStatut = statutReel == 'JOURNAL' ? 'Journal' : 'Brouillard';
+      });
+    }
 
     if (!_isExistingPurchase || _statutAchatActuel != 'BROUILLARD') {
       debugPrint('ERREUR: Conditions non remplies pour validation brouillard');
+      debugPrint('isExistingPurchase: $_isExistingPurchase, statutActuel: $_statutAchatActuel');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Aucun achat en brouillard sélectionné')),
       );
