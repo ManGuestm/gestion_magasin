@@ -99,6 +99,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<double> _getCompteFournisseursSolde() async {
+    try {
+      final db = DatabaseService().database;
+      final comptes = await db.getAllComptefrns();
+      return comptes.fold<double>(0.0, (sum, compte) => sum + (compte.solde ?? 0));
+    } catch (e) {
+      debugPrint('Erreur lors du calcul du solde fournisseurs: $e');
+      return 0.0;
+    }
+  }
+
   Future<void> _loadDashboardData({bool silent = false}) async {
     if (!silent) {
       setState(() => _isLoadingStats = true);
@@ -145,6 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
         stats['totalVentes'] = totalVentes;
         stats['ventesJour'] = ventesJour;
         stats['fournisseurs'] = totalFournisseurs;
+        stats['cmpt_fournisseurs'] = await _getCompteFournisseursSolde();
         stats['benefices'] = await db.getBeneficesReels();
         stats['beneficesJour'] = await db.getBeneficesJour();
         stats['ventesBrouillard'] = ventesBrouillard;
@@ -689,6 +701,8 @@ class _HomeScreenState extends State<HomeScreen> {
       _buildStatCard('Clients Actifs', '${_stats['clients'] ?? 0}', Icons.people, Colors.teal),
       _buildStatCard('Articles', '${_stats['articles'] ?? 0}', Icons.category, Colors.indigo),
       _buildStatCard('Fournisseurs', '${_stats['fournisseurs'] ?? 0}', Icons.business, Colors.brown),
+      _buildStatCard('Comptes fournisseurs', '${_formatNumber(_stats['cmpt_fournisseurs'] ?? 0)} Ar',
+          Icons.account_balance, Colors.cyan),
       _buildStatCard(
           'Bénéfices global', '${_formatNumber(_stats['benefices'] ?? 0)} Ar', Icons.trending_up, Colors.red),
       _buildStatCard('Bénéfice du jour', '${_formatNumber(_stats['beneficesJour'] ?? 0)} Ar',
@@ -894,6 +908,9 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 'Fournisseurs':
         _showModal('Fournisseurs');
+        break;
+      case 'Comptes fournisseurs':
+        _showModal('Comptes fournisseurs');
         break;
       case 'Encaissements':
         _showModal('Encaissements');

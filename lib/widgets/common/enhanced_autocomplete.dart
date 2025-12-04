@@ -48,6 +48,8 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
   int _selectedIndex = -1;
   String _userInput = '';
   bool _showSuggestion = false;
+  bool _isNavigatingAllOptions = false;
+  int _allOptionsIndex = -1;
 
   @override
   void initState() {
@@ -62,6 +64,8 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
 
   @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChanged);
     if (widget.controller == null) _controller.dispose();
     if (widget.focusNode == null) _focusNode.dispose();
     super.dispose();
@@ -118,19 +122,25 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
     _controller.removeListener(_onTextChanged);
     _controller.clear();
     _userInput = '';
-    setState(() {
-      _filteredOptions = widget.options;
-      _selectedIndex = -1;
-      _showSuggestion = false;
-    });
+    if (mounted) {
+      setState(() {
+        _filteredOptions = widget.options;
+        _selectedIndex = -1;
+        _showSuggestion = false;
+        _isNavigatingAllOptions = false;
+        _allOptionsIndex = -1;
+      });
+    }
     _controller.addListener(_onTextChanged);
   }
 
   void _onFocusChanged() {
     if (!_focusNode.hasFocus) {
-      setState(() {
-        _showSuggestion = false;
-      });
+      if (mounted) {
+        setState(() {
+          _showSuggestion = false;
+        });
+      }
       if (widget.onFocusLost != null) {
         widget.onFocusLost!(_controller.text);
       }
@@ -141,30 +151,66 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
     final displayString = widget.displayStringForOption(option);
     _controller.text = displayString;
     _userInput = displayString;
-    setState(() {
-      _showSuggestion = false;
-      _selectedIndex = -1;
-    });
+    if (mounted) {
+      setState(() {
+        _showSuggestion = false;
+        _selectedIndex = -1;
+        _isNavigatingAllOptions = false;
+        _allOptionsIndex = -1;
+      });
+    }
     widget.onSelected(option);
   }
 
   void _navigateOptions(bool next) {
-    if (_filteredOptions.isEmpty) return;
+    if (widget.options.isEmpty) return;
 
-    if (next) {
-      _selectedIndex = (_selectedIndex + 1) % _filteredOptions.length;
+    // Si on navigue dans les suggestions filtrées et qu'on atteint les limites,
+    // basculer vers la navigation dans toutes les options
+    if (!_isNavigatingAllOptions && _filteredOptions.isNotEmpty) {
+      if (next) {
+        if (_selectedIndex >= _filteredOptions.length - 1) {
+          // Atteint la fin des suggestions, basculer vers toutes les options
+          _isNavigatingAllOptions = true;
+          _allOptionsIndex = 0;
+        } else {
+          _selectedIndex = (_selectedIndex + 1) % _filteredOptions.length;
+        }
+      } else {
+        if (_selectedIndex <= 0) {
+          // Atteint le début des suggestions, basculer vers toutes les options
+          _isNavigatingAllOptions = true;
+          _allOptionsIndex = widget.options.length - 1;
+        } else {
+          _selectedIndex = _selectedIndex - 1;
+        }
+      }
     } else {
-      _selectedIndex = _selectedIndex <= 0 ? _filteredOptions.length - 1 : _selectedIndex - 1;
+      // Navigation dans toutes les options
+      _isNavigatingAllOptions = true;
+      if (next) {
+        _allOptionsIndex = (_allOptionsIndex + 1) % widget.options.length;
+      } else {
+        _allOptionsIndex = _allOptionsIndex <= 0 ? widget.options.length - 1 : _allOptionsIndex - 1;
+      }
     }
 
-    final selectedOption = _filteredOptions[_selectedIndex];
-    final displayString = widget.displayStringForOption(selectedOption);
+    T selectedOption;
+    String displayString;
+    
+    if (_isNavigatingAllOptions) {
+      selectedOption = widget.options[_allOptionsIndex];
+      displayString = widget.displayStringForOption(selectedOption);
+    } else {
+      selectedOption = _filteredOptions[_selectedIndex];
+      displayString = widget.displayStringForOption(selectedOption);
+    }
 
     _controller.removeListener(_onTextChanged);
     _controller.value = TextEditingValue(
       text: displayString,
       selection: TextSelection(
-        baseOffset: _userInput.length,
+        baseOffset: 0,
         extentOffset: displayString.length,
       ),
     );
@@ -183,7 +229,9 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
                     HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftRight);
 
             // Si il y a une suggestion, valider d'abord
-            if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
+            if (_isNavigatingAllOptions && _allOptionsIndex >= 0) {
+              _selectOption(widget.options[_allOptionsIndex]);
+            } else if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
               _selectOption(_filteredOptions[_selectedIndex]);
               // Après sélection, naviguer selon la direction
               if (isShiftPressed && widget.onShiftTabPressed != null) {
@@ -231,7 +279,7 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
             return KeyEventResult.handled;
           }
           // Navigation dans les options avec flèches gauche/droite
-          else if (_filteredOptions.isNotEmpty) {
+          else if (widget.options.isNotEmpty) {
             if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
               _navigateOptions(true);
               return KeyEventResult.handled;
@@ -239,7 +287,10 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
               _navigateOptions(false);
               return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.enter) {
-              if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
+              if (_isNavigatingAllOptions && _allOptionsIndex >= 0) {
+                _selectOption(widget.options[_allOptionsIndex]);
+                return KeyEventResult.handled;
+              } else if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
                 _selectOption(_filteredOptions[_selectedIndex]);
                 return KeyEventResult.handled;
               }
@@ -260,13 +311,17 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
             ),
         style: widget.style,
         onTap: () {
-          setState(() {
-            _userInput = _controller.text;
-            _showSuggestion = _userInput.isNotEmpty;
-          });
+          if (mounted) {
+            setState(() {
+              _userInput = _controller.text;
+              _showSuggestion = _userInput.isNotEmpty;
+            });
+          }
         },
         onSubmitted: (value) {
-          if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
+          if (_isNavigatingAllOptions && _allOptionsIndex >= 0) {
+            _selectOption(widget.options[_allOptionsIndex]);
+          } else if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
             _selectOption(_filteredOptions[_selectedIndex]);
           } else if (widget.onFieldSubmitted != null) {
             widget.onFieldSubmitted!(value);

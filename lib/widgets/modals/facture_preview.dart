@@ -12,15 +12,11 @@ class FacturePreview extends StatelessWidget {
   final String date;
   final String client;
   final List<Map<String, dynamic>> lignesVente;
-  final double totalHT;
   final double remise;
-  final double tva;
   final double totalTTC;
   final String format;
   final SocData? societe;
   final String modePaiement;
-  final double montantRecu;
-  final double monnaieARendre;
 
   const FacturePreview({
     super.key,
@@ -29,15 +25,11 @@ class FacturePreview extends StatelessWidget {
     required this.date,
     required this.client,
     required this.lignesVente,
-    required this.totalHT,
     required this.remise,
-    required this.tva,
     required this.totalTTC,
     required this.format,
     this.societe,
     required this.modePaiement,
-    required this.montantRecu,
-    required this.monnaieARendre,
   });
 
   double get _pageWidth {
@@ -401,18 +393,14 @@ class FacturePreview extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _buildTotalRow('TOTAL HT:', _formatNumber(totalHT)),
                       if (remise > 0) _buildTotalRow('REMISE:', _formatNumber(remise)),
-                      if (tva > 0) _buildTotalRow('TVA:', _formatNumber(tva)),
+        
                       Container(
                         decoration: const BoxDecoration(
                           border: Border(top: BorderSide(color: Colors.black)),
                         ),
                         child: _buildTotalRow('TOTAL TTC:', _formatNumber(totalTTC), isBold: true),
                       ),
-                      SizedBox(height: _padding / 2),
-                      _buildTotalRow('MONTANT REÇU:', _formatNumber(montantRecu)),
-                      _buildTotalRow('MONNAIE À RENDRE:', _formatNumber(monnaieARendre)),
                     ],
                   ),
                 ],
@@ -806,10 +794,8 @@ class FacturePreview extends StatelessWidget {
                           pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.end,
                             children: [
-                              _buildPdfTotalRow('TOTAL HT:', _formatNumber(totalHT), pdfFontSize),
                               if (remise > 0)
                                 _buildPdfTotalRow('REMISE:', _formatNumber(remise), pdfFontSize),
-                              if (tva > 0) _buildPdfTotalRow('TVA:', _formatNumber(tva), pdfFontSize),
                               pw.Container(
                                 decoration: const pw.BoxDecoration(
                                   border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
@@ -817,10 +803,6 @@ class FacturePreview extends StatelessWidget {
                                 child: _buildPdfTotalRow('TOTAL TTC:', _formatNumber(totalTTC), pdfFontSize,
                                     isBold: true),
                               ),
-                              pw.SizedBox(height: pdfPadding / 2),
-                              _buildPdfTotalRow('MONTANT REÇU:', _formatNumber(montantRecu), pdfFontSize),
-                              _buildPdfTotalRow(
-                                  'MONNAIE À RENDRE:', _formatNumber(monnaieARendre), pdfFontSize),
                             ],
                           ),
                         ],

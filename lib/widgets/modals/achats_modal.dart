@@ -588,7 +588,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       totalHT += ligne['montant'] ?? 0;
     }
 
-  
     double totalTTC = totalHT;
     double totalFMG = totalTTC * 5;
 
@@ -3682,19 +3681,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                       onPressed: _creerNouvelAchat,
                                       style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
                                       child: const Text('Créer (Ctrl+N)', style: TextStyle(fontSize: 12)),
-                                    ),
-                                  ),
-                                  Tooltip(
-                                    message: 'Importer lignes d\'achat',
-                                    child: ElevatedButton(
-                                      onPressed:
-                                          _statutAchatActuel == 'JOURNAL' ? null : _importerLignesAchat,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.orange,
-                                        foregroundColor: Colors.white,
-                                        minimumSize: const Size(60, 30),
-                                      ),
-                                      child: const Text('Importer', style: TextStyle(fontSize: 12)),
                                     ),
                                   ),
                                   if (_statutAchatActuel == 'BROUILLARD') ...[

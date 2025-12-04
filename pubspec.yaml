@@ -24,6 +24,7 @@ dependencies:
   crypto: ^3.0.3
   flutter_typeahead: ^5.2.0
   flutter_launcher_icons: ^0.14.4
+  csv: ^6.0.0
 
 dev_dependencies:
   flutter_test:

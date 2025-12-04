@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../services/navigation_service.dart';
 import '../common/enhanced_autocomplete.dart';
+import '../common/tab_navigation_widget.dart';
 
 class RegularisationCompteTiersModal extends StatefulWidget {
   final VoidCallback? onPaymentSuccess;
@@ -20,9 +22,10 @@ class RegularisationCompteTiersModal extends StatefulWidget {
 }
 
 class _RegularisationCompteTiersModalState extends State<RegularisationCompteTiersModal>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   late TabController _tabController;
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
   // Client data
   List<CltData> _clients = [];
@@ -95,10 +98,6 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
     _referenceFocusNode.dispose();
     _noteFocusNode.dispose();
     super.dispose();
-  }
-
-  FocusNode createFocusNode() {
-    return FocusNode();
   }
 
   void _onTabChanged() {
@@ -283,7 +282,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
   Future<void> _processSupplierPayment(double amount) async {
     final ref = 'DEC${DateTime.now().millisecondsSinceEpoch}';
     final libelle =
-        'Règlement fournisseur ${_selectedClient!.rsoc} $_paymentMethod - ${_referenceController.text}';
+        'Règlement fournisseur ${_selectedSupplier!.rsoc} $_paymentMethod - ${_referenceController.text}';
 
     // 1. Mettre à jour le solde fournisseur
     final nouveauSolde = _supplierBalance - amount;
@@ -370,14 +369,20 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    _scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: SelectableText(message),
+        backgroundColor: Colors.red,
+      ),
     );
   }
 
   void _showSuccess(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.green),
+    _scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: SelectableText(message),
+        backgroundColor: Colors.green,
+      ),
     );
   }
 
@@ -395,46 +400,68 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f3) {
-          _processPayment();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.6,
-          height: MediaQuery.of(context).size.height * 0.95,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+    return PopScope(
+      canPop: false,
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.f3) {
+            _processPayment();
+            return KeyEventResult.handled;
+          }
+          return handleTabNavigation(event);
+        },
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Dialog(
+              alignment: Alignment.center,
+              constraints: BoxConstraints(
+                minHeight: MediaQuery.of(context).size.height * 0.6,
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+                minWidth: MediaQuery.of(context).size.width * 0.5,
+                maxWidth: MediaQuery.of(context).size.width * 0.6,
               ),
-            ],
-          ),
-          child: Column(
-            children: [
-              _buildHeader(),
-              _buildTabBar(),
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildClientTab(),
-                    _buildSupplierTab(),
-                  ],
+              child: ScaffoldMessenger(
+                key: _scaffoldMessengerKey,
+                child: Scaffold(
+                  backgroundColor: Colors.transparent,
+                  body: Container(
+                    alignment: Alignment.center,
+                    width: MediaQuery.of(context).size.width * 0.6,
+                    height: MediaQuery.of(context).size.height * 0.9,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        _buildHeader(),
+                        _buildTabBar(),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildClientTab(),
+                              _buildSupplierTab(),
+                            ],
+                          ),
+                        ),
+                        _buildFooter(),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              _buildFooter(),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -481,7 +508,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
               borderRadius: BorderRadius.circular(8),
             ),
             child: IconButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => NavigationService().pop(),
               icon: const Icon(Icons.close, color: Colors.white, size: 24),
               padding: const EdgeInsets.all(8),
             ),
@@ -613,7 +640,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                     setState(() => _selectedClient = client);
                     _loadClientMovements(client.rsoc);
                   },
-                  onTabPressed: () => _amountFocusNode.requestFocus(),
+                  onTabPressed: () => nextField(),
                   decoration: InputDecoration(
                     labelText: 'Client',
                     prefixIcon: Icon(Icons.person, color: Colors.purple[600]),
@@ -749,7 +776,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                     setState(() => _selectedSupplier = supplier);
                     _loadSupplierMovements(supplier.rsoc);
                   },
-                  onTabPressed: () => _amountFocusNode.requestFocus(),
+                  onTabPressed: () => nextField(),
                   decoration: InputDecoration(
                     labelText: 'Fournisseur',
                     prefixIcon: Icon(Icons.business, color: Colors.purple[600]),
@@ -850,7 +877,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                reference,
+                "N° Facture/BL:  $reference",
                 style: const TextStyle(fontWeight: FontWeight.w500),
               ),
               Text(
@@ -933,7 +960,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                       icon: Icons.euro,
                       keyboardType: TextInputType.number,
                       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                      onFieldSubmitted: (_) => _paymentMethodFocusNode.requestFocus(),
+                      onFieldSubmitted: (_) => nextField(),
                     ),
                     const SizedBox(height: 16),
                     Focus(
@@ -953,7 +980,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                         onSelected: (method) {
                           setState(() => _paymentMethod = method);
                         },
-                        onTabPressed: () => _dateFocusNode.requestFocus(),
+                        onTabPressed: () => nextField(),
                         decoration: InputDecoration(
                           labelText: 'Mode de paiement',
                           prefixIcon: Icon(Icons.credit_card, color: Colors.purple[600]),
@@ -976,7 +1003,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                       focusNode: _referenceFocusNode,
                       label: 'Référence',
                       icon: Icons.receipt,
-                      onFieldSubmitted: (_) => _noteFocusNode.requestFocus(),
+                      onFieldSubmitted: (_) => nextField(),
                     ),
                     const SizedBox(height: 16),
                     _buildTextField(
@@ -1063,13 +1090,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
   Widget _buildDateField() {
     return Focus(
       focusNode: _dateFocusNode,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
-          _referenceFocusNode.requestFocus();
-          return KeyEventResult.handled;
-        }
-        return KeyEventResult.ignored;
-      },
+      onKeyEvent: (node, event) => handleTabNavigation(event),
       child: InkWell(
         onTap: () async {
           final date = await showDatePicker(

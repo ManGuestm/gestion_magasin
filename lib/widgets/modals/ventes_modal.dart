@@ -45,16 +45,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   final TextEditingController _quantiteController = TextEditingController();
   final TextEditingController _prixController = TextEditingController();
   final TextEditingController _montantController = TextEditingController();
-  final TextEditingController _totalHTController = TextEditingController();
   final TextEditingController _remiseController = TextEditingController();
-  final TextEditingController _tvaController = TextEditingController();
   final TextEditingController _totalTTCController = TextEditingController();
   final TextEditingController _avanceController = TextEditingController();
   final TextEditingController _resteController = TextEditingController();
   final TextEditingController _nouveauSoldeController = TextEditingController();
-  final TextEditingController _commissionController = TextEditingController();
-  final TextEditingController _montantRecuController = TextEditingController();
-  final TextEditingController _montantARendreController = TextEditingController();
   final TextEditingController _echeanceController = TextEditingController();
   TextEditingController? _autocompleteController;
   final TextEditingController _depotController = TextEditingController();
@@ -167,6 +162,14 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           }
         });
       }
+    });
+
+    // Ajouter des listeners pour les focus nodes
+    _ajouterFocusNode.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _annulerFocusNode.addListener(() {
+      if (mounted) setState(() {});
     });
 
     // Position cursor in client field after build
@@ -301,8 +304,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
     double remise = double.tryParse(_remiseController.text) ?? 0;
     double totalApresRemise = totalHT - (totalHT * remise / 100);
-    double tva = double.tryParse(_tvaController.text) ?? 0;
-    double totalTTC = totalApresRemise + (totalApresRemise * tva / 100);
+    double totalTTC = totalApresRemise;
     double avance = double.tryParse(_avanceController.text) ?? 0;
 
     await _databaseService.database.transaction(() async {
@@ -577,16 +579,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     _quantiteController.dispose();
     _prixController.dispose();
     _montantController.dispose();
-    _totalHTController.dispose();
     _remiseController.dispose();
-    _tvaController.dispose();
     _totalTTCController.dispose();
     _avanceController.dispose();
     _resteController.dispose();
     _nouveauSoldeController.dispose();
-    _commissionController.dispose();
-    _montantRecuController.dispose();
-    _montantARendreController.dispose();
     _echeanceController.dispose();
     _depotController.dispose();
     _uniteController.dispose();
@@ -648,15 +645,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     final nextNumVentes = await _getNextNumVentes();
     _numVentesController.text = nextNumVentes;
     _nFactureController.text = await _getNextNumBL();
-
-    _totalHTController.text = '0';
     _remiseController.text = '0';
-    _tvaController.text = '0';
     _totalTTCController.text = '0';
     _avanceController.text = '0';
     _resteController.text = '0';
     _nouveauSoldeController.text = '0';
-    _commissionController.text = '0';
     _selectedVerification = 'BROUILLARD';
 
     // Focus sur client après initialisation
@@ -1599,9 +1592,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   String _calculateRemiseAmount() {
-    double totalHT = double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0;
+    double totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0;
     double remise = double.tryParse(_remiseController.text) ?? 0;
-    double remiseAmount = totalHT * remise / 100;
+    double remiseAmount = totalTTC * remise / 100;
     return AppFunctions.formatNumber(remiseAmount);
   }
 
@@ -1639,9 +1632,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
 
     double remise = double.tryParse(_remiseController.text) ?? 0;
-    double totalApresRemise = totalHT - (totalHT * remise / 100);
-    double tva = double.tryParse(_tvaController.text) ?? 0;
-    double totalTTC = totalApresRemise + (totalApresRemise * tva / 100);
+    double totalTTC = totalHT - (totalHT * remise / 100);
     double avance = double.tryParse(_avanceController.text) ?? 0;
     double reste = totalTTC - avance;
 
@@ -1651,7 +1642,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
 
     setState(() {
-      _totalHTController.text = AppFunctions.formatNumber(totalHT);
       _totalTTCController.text = AppFunctions.formatNumber(totalTTC);
       _resteController.text = AppFunctions.formatNumber(reste);
       _nouveauSoldeController.text = AppFunctions.formatNumber(nouveauSolde);
@@ -2208,16 +2198,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       }
     });
 
-    _totalHTController.text = '0';
     _remiseController.text = '0';
-    _tvaController.text = '0';
     _totalTTCController.text = '0';
     _avanceController.text = '0';
     _resteController.text = '0';
     _nouveauSoldeController.text = '0';
-    _commissionController.text = '0';
-    _montantRecuController.text = '0';
-    _montantARendreController.text = '0';
 
     _resetArticleForm();
     _initializeForm();
@@ -2350,16 +2335,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       }
     });
 
-    _totalHTController.text = '0';
     _remiseController.text = '0';
-    _tvaController.text = '0';
     _totalTTCController.text = '0';
     _avanceController.text = '0';
     _resteController.text = '0';
     _nouveauSoldeController.text = '0';
-    _commissionController.text = '0';
-    _montantRecuController.text = '0';
-    _montantARendreController.text = '0';
 
     _resetArticleForm();
     _initializeForm();
@@ -2492,15 +2472,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             date: _dateController.text,
             client: _selectedClient ?? '',
             lignesVente: _lignesVente,
-            totalHT: double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0,
             remise: double.tryParse(_remiseController.text) ?? 0,
-            tva: double.tryParse(_tvaController.text) ?? 0,
             totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
             format: _selectedFormat,
             societe: societe,
             modePaiement: _selectedModePaiement ?? 'A crédit',
-            montantRecu: double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0,
-            monnaieARendre: double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0,
           ),
         );
       }
@@ -2854,26 +2830,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                           pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.end,
                             children: [
-                              _buildPdfTotalRow(
-                                'TOTAL HT:',
-                                AppFunctions.formatNumber(
-                                  double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0,
-                                ),
-                                pdfFontSize,
-                              ),
                               if ((double.tryParse(_remiseController.text) ?? 0) > 0)
                                 _buildPdfTotalRow(
                                   'REMISE:',
                                   AppFunctions.formatNumber(
                                     double.tryParse(_remiseController.text.replaceAll(' ', '')) ?? 0,
-                                  ),
-                                  pdfFontSize,
-                                ),
-                              if ((double.tryParse(_tvaController.text) ?? 0) > 0)
-                                _buildPdfTotalRow(
-                                  'TVA:',
-                                  AppFunctions.formatNumber(
-                                    double.tryParse(_tvaController.text.replaceAll(' ', '')) ?? 0,
                                   ),
                                   pdfFontSize,
                                 ),
@@ -2889,21 +2850,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   pdfFontSize,
                                   isBold: true,
                                 ),
-                              ),
-                              pw.SizedBox(height: pdfPadding / 2),
-                              _buildPdfTotalRow(
-                                'MONTANT REÇU:',
-                                AppFunctions.formatNumber(
-                                  double.tryParse(_montantRecuController.text.replaceAll(' ', '')) ?? 0,
-                                ),
-                                pdfFontSize,
-                              ),
-                              _buildPdfTotalRow(
-                                'MONNAIE À RENDRE:',
-                                AppFunctions.formatNumber(
-                                  double.tryParse(_montantARendreController.text.replaceAll(' ', '')) ?? 0,
-                                ),
-                                pdfFontSize,
                               ),
                             ],
                           ),
@@ -3323,9 +3269,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             date: _dateController.text,
             client: _selectedClient ?? '',
             lignesVente: _lignesVente,
-            totalHT: double.tryParse(_totalHTController.text.replaceAll(' ', '')) ?? 0,
             remise: double.tryParse(_remiseController.text) ?? 0,
-            tva: double.tryParse(_tvaController.text) ?? 0,
             totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
             format: _selectedFormat,
             societe: societe,
@@ -3452,33 +3396,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           _validerVente();
         }
       }
-      // Ctrl+R : Focus sur champ montant reçu
-      else if (isCtrl && !isShift && event.logicalKey == LogicalKeyboardKey.keyR) {
-        _montantRecuFocusNode.requestFocus();
-        Future.delayed(const Duration(milliseconds: 50), () {
-          _montantRecuController.selection = TextSelection(
-            baseOffset: 0,
-            extentOffset: _montantRecuController.text.length,
-          );
-        });
-      }
-      // Ctrl+Shift+R : Focus sur champ monnaie à rendre
-      else if (isCtrl && isShift && event.logicalKey == LogicalKeyboardKey.keyR) {
-        _montantARendreFocusNode.requestFocus();
-        Future.delayed(const Duration(milliseconds: 50), () {
-          _montantARendreController.selection = TextSelection(
-            baseOffset: 0,
-            extentOffset: _montantARendreController.text.length,
-          );
-        });
-      }
-      // Ctrl+T : Focus sur champ TVA
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyT) {
-        FocusScope.of(context).requestFocus(FocusNode());
-        Future.delayed(const Duration(milliseconds: 50), () {
-          _tvaController.selection = TextSelection(baseOffset: 0, extentOffset: _tvaController.text.length);
-        });
-      }
+
       // Ctrl+J : Accéder à la dernière vente Journal
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyJ) {
         _ventesFuture?.then((ventes) {
@@ -4379,7 +4297,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       // Dépôts autocomplete
                                       if (widget.tousDepots) ...[
                                         Expanded(
-                                          flex: 2,
+                                          flex: 1,
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
@@ -4449,7 +4367,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   ),
                                                 ),
                                               ),
-                                              if (_selectedArticle != null) const SizedBox(height: 16),
+                                              if (_selectedArticle != null) const SizedBox(height: 19),
                                             ],
                                           ),
                                         ),
@@ -4462,7 +4380,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             const Text('Unités', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(height: 4),
+                                            const SizedBox(height: 3),
                                             SizedBox(
                                               height: 25,
                                               child: Focus(
@@ -4540,7 +4458,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                             if (_selectedArticle != null && _uniteAffichage.isNotEmpty)
                                               Text(
                                                 _uniteAffichage,
-                                                style: const TextStyle(fontSize: 12, color: Colors.blue),
+                                                style: const TextStyle(fontSize: 11, color: Colors.blue),
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                           ],
@@ -4549,7 +4467,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       const SizedBox(width: 8),
                                       //Quantités avec stock disponible en rouge si insuffisant
                                       Expanded(
-                                        flex: 1,
+                                        flex: 2,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
@@ -4633,7 +4551,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   onSubmitted: (value) {
                                                     _prixFocusNode.requestFocus();
                                                   },
-                                                  onTap: () => updateFocusIndex(_quantiteFocusNode),
                                                   readOnly: _selectedVerification == 'JOURNAL' ||
                                                       !_isClientSelected,
                                                 ),
@@ -4654,7 +4571,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         color: _stockInsuffisant
                                                             ? Colors.red
                                                             : Colors.green[700],
-                                                        fontWeight: FontWeight.w500,
                                                       ),
                                                     );
                                                   }
@@ -4669,7 +4585,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       const SizedBox(width: 8),
                                       //Prix de vente unitaire HT de l'article
                                       Expanded(
-                                        flex: 1,
+                                        flex: 2,
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
@@ -4745,39 +4661,154 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 Row(
                                                   children: [
                                                     // AJOUTER/MODIFIER BUTTON
-                                                    ElevatedButton(
+                                                    Focus(
                                                       focusNode: _ajouterFocusNode,
-                                                      onPressed: _isClientSelected ? _ajouterLigne : null,
-                                                      style: ElevatedButton.styleFrom(
-                                                        elevation: _ajouterFocusNode.hasFocus ? 1 : 0,
-                                                        backgroundColor:
-                                                            _isClientSelected ? Colors.green : Colors.grey,
-                                                        foregroundColor: Colors.white,
-                                                        minimumSize: const Size(60, 35),
-                                                      ),
-                                                      child: Text(
-                                                        _isModifyingLine ? 'Modifier' : 'Ajouter',
-                                                        style: const TextStyle(fontSize: 12),
+                                                      onKeyEvent: (node, event) {
+                                                        if (event is KeyDownEvent) {
+                                                          if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                            final isShiftPressed = HardwareKeyboard
+                                                                    .instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftRight);
+
+                                                            if (isShiftPressed) {
+                                                              _prixFocusNode.requestFocus();
+                                                            } else {
+                                                              _annulerFocusNode.requestFocus();
+                                                            }
+                                                            return KeyEventResult.handled;
+                                                          } else if (event.logicalKey ==
+                                                              LogicalKeyboardKey.enter) {
+                                                            if (_ajouterFocusNode.hasFocus &&
+                                                                _isClientSelected) {
+                                                              _ajouterLigne();
+                                                            }
+                                                            return KeyEventResult.handled;
+                                                          }
+                                                        }
+                                                        return KeyEventResult.ignored;
+                                                      },
+                                                      child: Container(
+                                                        decoration: BoxDecoration(
+                                                          border: _ajouterFocusNode.hasFocus
+                                                              ? Border.all(color: Colors.blue, width: 3)
+                                                              : null,
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          boxShadow: _ajouterFocusNode.hasFocus
+                                                              ? [
+                                                                  BoxShadow(
+                                                                    color: Colors.blue.withValues(alpha: 0.3),
+                                                                    blurRadius: 4,
+                                                                    spreadRadius: 1,
+                                                                  )
+                                                                ]
+                                                              : null,
+                                                        ),
+                                                        child: ElevatedButton(
+                                                          onPressed: _isClientSelected ? _ajouterLigne : null,
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor: _ajouterFocusNode.hasFocus
+                                                                ? Colors.green[600]
+                                                                : (_isClientSelected
+                                                                    ? Colors.green
+                                                                    : Colors.grey),
+                                                            foregroundColor: Colors.white,
+                                                            minimumSize: const Size(60, 35),
+                                                            elevation: _ajouterFocusNode.hasFocus ? 4 : 2,
+                                                          ),
+                                                          child: Text(
+                                                            _ajouterFocusNode.hasFocus
+                                                                ? (_isModifyingLine
+                                                                    ? 'Modifier ↵'
+                                                                    : 'Ajouter ↵')
+                                                                : (_isModifyingLine ? 'Modifier' : 'Ajouter'),
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: _ajouterFocusNode.hasFocus
+                                                                  ? FontWeight.bold
+                                                                  : FontWeight.normal,
+                                                            ),
+                                                          ),
+                                                        ),
                                                       ),
                                                     ),
                                                     const SizedBox(width: 4),
                                                     // ANNULER BUTTON
-                                                    ElevatedButton(
+                                                    Focus(
                                                       focusNode: _annulerFocusNode,
-                                                      onPressed: _isClientSelected
-                                                          ? (_isModifyingLine
-                                                              ? _annulerModificationLigne
-                                                              : _resetArticleForm)
-                                                          : null,
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            _isClientSelected ? Colors.orange : Colors.grey,
-                                                        foregroundColor: Colors.white,
-                                                        minimumSize: const Size(60, 35),
-                                                      ),
-                                                      child: const Text(
-                                                        'Annuler',
-                                                        style: TextStyle(fontSize: 12),
+                                                      onKeyEvent: (node, event) {
+                                                        if (event is KeyDownEvent) {
+                                                          if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                            final isShiftPressed = HardwareKeyboard
+                                                                    .instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftRight);
+
+                                                            if (isShiftPressed) {
+                                                              _ajouterFocusNode.requestFocus();
+                                                            } else {
+                                                              _clientFocusNode.requestFocus();
+                                                            }
+                                                            return KeyEventResult.handled;
+                                                          } else if (event.logicalKey ==
+                                                              LogicalKeyboardKey.enter) {
+                                                            if (_annulerFocusNode.hasFocus &&
+                                                                _isClientSelected) {
+                                                              _isModifyingLine
+                                                                  ? _annulerModificationLigne()
+                                                                  : _resetArticleForm();
+                                                            }
+                                                            return KeyEventResult.handled;
+                                                          }
+                                                        }
+                                                        return KeyEventResult.ignored;
+                                                      },
+                                                      child: Container(
+                                                        decoration: BoxDecoration(
+                                                          border: _annulerFocusNode.hasFocus
+                                                              ? Border.all(color: Colors.blue, width: 3)
+                                                              : null,
+                                                          borderRadius: BorderRadius.circular(4),
+                                                          boxShadow: _annulerFocusNode.hasFocus
+                                                              ? [
+                                                                  BoxShadow(
+                                                                    color: Colors.blue.withValues(alpha: 0.3),
+                                                                    blurRadius: 4,
+                                                                    spreadRadius: 1,
+                                                                  )
+                                                                ]
+                                                              : null,
+                                                        ),
+                                                        child: ElevatedButton(
+                                                          onPressed: _isClientSelected
+                                                              ? (_isModifyingLine
+                                                                  ? _annulerModificationLigne
+                                                                  : _resetArticleForm)
+                                                              : null,
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor: _annulerFocusNode.hasFocus
+                                                                ? Colors.orange[600]
+                                                                : (_isClientSelected
+                                                                    ? Colors.orange
+                                                                    : Colors.grey),
+                                                            foregroundColor: Colors.white,
+                                                            minimumSize: const Size(60, 35),
+                                                            elevation: _annulerFocusNode.hasFocus ? 4 : 2,
+                                                          ),
+                                                          child: Text(
+                                                            _annulerFocusNode.hasFocus
+                                                                ? 'Annuler ↵'
+                                                                : 'Annuler',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: _annulerFocusNode.hasFocus
+                                                                  ? FontWeight.bold
+                                                                  : FontWeight.normal,
+                                                            ),
+                                                          ),
+                                                        ),
                                                       ),
                                                     ),
                                                   ],
@@ -5208,10 +5239,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   onChanged: (value) {
                                                     setState(() {
                                                       _selectedModePaiement = value;
-                                                      if (value != 'Espèces') {
-                                                        _montantRecuController.text = '0';
-                                                        _montantARendreController.text = '0';
-                                                      }
                                                     });
                                                     _calculerTotaux();
                                                   },

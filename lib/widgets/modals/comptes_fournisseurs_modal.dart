@@ -1,9 +1,14 @@
+import 'dart:io';
+
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
+import '../common/enhanced_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
 
 class ComptesFournisseursModal extends StatefulWidget {
@@ -21,11 +26,23 @@ class _ComptesFournisseursModalState extends State<ComptesFournisseursModal> wit
   String? _selectedFournisseur;
   DateTime _dateDebut = DateTime.now().subtract(const Duration(days: 30));
   DateTime _dateFin = DateTime.now();
+  int? selectedRowIndex;
+  final FocusNode _fournisseurFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    // Focus automatique sur le champ fournisseur après construction
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fournisseurFocusNode.requestFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _fournisseurFocusNode.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -93,10 +110,51 @@ class _ComptesFournisseursModalState extends State<ComptesFournisseursModal> wit
   }
 
   Future<void> _exportData() async {
-    // TODO: Implémenter l'export CSV/Excel
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export en cours de développement')),
-    );
+    try {
+      final data = _filteredComptes;
+      if (data.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Aucune donnée à exporter')),
+        );
+        return;
+      }
+
+      // Préparer les données CSV
+      final csvData = [
+        ['Date', 'Fournisseur', 'Libellé', 'N° Achat', 'Entrées', 'Sorties', 'Solde'],
+        ...data.map((compte) => [
+              compte.daty != null ? app_date.AppDateUtils.formatDate(compte.daty!) : '',
+              compte.frns ?? '',
+              compte.lib ?? '',
+              compte.numachats ?? '',
+              (compte.entres ?? 0).toString(),
+              (compte.sortie ?? 0).toString(),
+              (compte.solde ?? 0).toString(),
+            ]),
+      ];
+
+      final csv = const ListToCsvConverter().convert(csvData);
+
+      // Sélectionner le dossier de destination
+      final directory = await FilePicker.platform.getDirectoryPath();
+      if (directory == null) return;
+
+      final fileName = 'comptes_fournisseurs_${DateTime.now().millisecondsSinceEpoch}.csv';
+      final file = File('$directory/$fileName');
+      await file.writeAsString(csv);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export réussi: $fileName')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de l\'export: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -105,288 +163,360 @@ class _ComptesFournisseursModalState extends State<ComptesFournisseursModal> wit
       autofocus: true,
       onKeyEvent: (node, event) => handleTabNavigation(event),
       child: Dialog(
-      backgroundColor: Colors.grey[100],
-      child: Container(
-        width: 1200,
-        height: MediaQuery.of(context).size.height * 0.9,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey[100],
-        ),
-        child: Column(
-          children: [
-            // Title bar
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: const BoxDecoration(
-                color: Colors.orange,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
+        backgroundColor: Colors.grey[100],
+        child: Container(
+          width: 1200,
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: Colors.grey[100],
+          ),
+          child: Column(
+            children: [
+              // Title bar
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: const BoxDecoration(
+                  color: Colors.orange,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.account_balance_wallet, color: Colors.white),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Comptes Fournisseurs',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close, color: Colors.white),
-                  ),
-                ],
-              ),
-            ),
-
-            // Filtres
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  // Sélection fournisseur
-                  Expanded(
-                    flex: 2,
-                    child: DropdownButtonFormField<String>(
-                      initialValue: _selectedFournisseur,
-                      decoration: const InputDecoration(
-                        labelText: 'Fournisseur',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: [
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text('Tous les fournisseurs'),
-                        ),
-                        ..._fournisseurs.map((frn) => DropdownMenuItem<String>(
-                              value: frn.rsoc,
-                              child: Text(frn.rsoc),
-                            )),
-                      ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedFournisseur = value;
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Date début
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _selectDate(true),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Date début',
-                          border: OutlineInputBorder(),
-                          suffixIcon: Icon(Icons.calendar_today),
-                        ),
-                        child: Text(app_date.AppDateUtils.formatDate(_dateDebut)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Date fin
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => _selectDate(false),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Date fin',
-                          border: OutlineInputBorder(),
-                          suffixIcon: Icon(Icons.calendar_today),
-                        ),
-                        child: Text(app_date.AppDateUtils.formatDate(_dateFin)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Bouton export
-                  ElevatedButton.icon(
-                    onPressed: _exportData,
-                    icon: const Icon(Icons.download),
-                    label: const Text('Exporter'),
-                  ),
-                ],
-              ),
-            ),
-
-            // Résumé
-            Container(
-              padding: const EdgeInsets.all(16),
-              color: Colors.blue.shade50,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildSummaryCard('Total Entrées', _totalEntrees, Colors.green),
-                  _buildSummaryCard('Total Sorties', _totalSorties, Colors.red),
-                  _buildSummaryCard('Solde Total', _soldeTotal, Colors.blue),
-                  _buildSummaryCard('Nb Opérations', _filteredComptes.length.toDouble(), Colors.orange),
-                ],
-              ),
-            ),
-
-            // Table des comptes
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade300),
-                ),
-                child: Column(
+                child: Row(
                   children: [
-                    // En-tête du tableau
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(8),
-                          topRight: Radius.circular(8),
-                        ),
-                      ),
-                      child: const Row(
-                        children: [
-                          Expanded(
-                              flex: 1, child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Expanded(
-                              flex: 2,
-                              child: Text('Fournisseur', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Expanded(
-                              flex: 2, child: Text('Libellé', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Expanded(
-                              flex: 1,
-                              child: Text('N° Achat', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Expanded(
-                              flex: 1, child: Text('Entrées', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Expanded(
-                              flex: 1, child: Text('Sorties', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Expanded(
-                              flex: 1, child: Text('Solde', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
+                    const Icon(Icons.account_balance_wallet, color: Colors.white),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Comptes Fournisseurs',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-
-                    // Contenu du tableau
-                    Expanded(
-                      child: _filteredComptes.isEmpty
-                          ? const Center(
-                              child: Text(
-                                'Aucune opération trouvée',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                            )
-                          : ListView.builder(
-                              itemCount: _filteredComptes.length,
-                              itemBuilder: (context, index) {
-                                final compte = _filteredComptes[index];
-                                return Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
-                                    border: Border(
-                                      bottom: BorderSide(color: Colors.grey.shade200),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 1,
-                                        child: Text(
-                                          compte.daty != null
-                                              ? app_date.AppDateUtils.formatDate(compte.daty!)
-                                              : '',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          compte.frns ?? '',
-                                          style: const TextStyle(fontSize: 12),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 2,
-                                        child: Text(
-                                          compte.lib ?? '',
-                                          style: const TextStyle(fontSize: 12),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 1,
-                                        child: Text(
-                                          compte.numachats ?? '',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 1,
-                                        child: Text(
-                                          NumberUtils.formatNumber(compte.entres ?? 0),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: (compte.entres ?? 0) > 0 ? Colors.green : Colors.black,
-                                          ),
-                                          textAlign: TextAlign.right,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 1,
-                                        child: Text(
-                                          NumberUtils.formatNumber(compte.sortie ?? 0),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: (compte.sortie ?? 0) > 0 ? Colors.red : Colors.black,
-                                          ),
-                                          textAlign: TextAlign.right,
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 1,
-                                        child: Text(
-                                          NumberUtils.formatNumber(compte.solde ?? 0),
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
-                                            color: (compte.solde ?? 0) >= 0 ? Colors.green : Colors.red,
-                                          ),
-                                          textAlign: TextAlign.right,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close, color: Colors.white),
                     ),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              // Filtres
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: Colors.white,
+                child: Row(
+                  children: [
+                    // Sélection fournisseur
+                    Expanded(
+                      flex: 2,
+                      child: EnhancedAutocomplete<Frn>(
+                        options: _fournisseurs,
+                        displayStringForOption: (frn) => frn.rsoc,
+                        focusNode: _fournisseurFocusNode,
+                        hintText: 'Tous les fournisseurs',
+                        decoration: const InputDecoration(
+                          labelText: 'Tous les fournisseurs',
+                          border: OutlineInputBorder(),
+                        ),
+                        onSelected: (frn) {
+                          setState(() {
+                            _selectedFournisseur = frn.rsoc;
+                          });
+                        },
+                        onTextChanged: (text) {
+                          setState(() {
+                            if (text.isEmpty) {
+                              _selectedFournisseur = null;
+                            } else {
+                              // Vérifier si le texte correspond à un fournisseur existant
+                              final fournisseurExistant = _fournisseurs.any((frn) => frn.rsoc == text);
+                              if (!fournisseurExistant) {
+                                _selectedFournisseur = null;
+                              }
+                            }
+                          });
+                        },
+                        onFocusLost: (text) {
+                          setState(() {
+                            if (text.isEmpty) {
+                              _selectedFournisseur = null;
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Date début
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _selectDate(true),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Date début',
+                            border: OutlineInputBorder(),
+                            suffixIcon: Icon(Icons.calendar_today),
+                          ),
+                          child: Text(app_date.AppDateUtils.formatDate(_dateDebut)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Date fin
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _selectDate(false),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Date fin',
+                            border: OutlineInputBorder(),
+                            suffixIcon: Icon(Icons.calendar_today),
+                          ),
+                          child: Text(app_date.AppDateUtils.formatDate(_dateFin)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Bouton export
+                    ElevatedButton.icon(
+                      onPressed: _exportData,
+                      icon: const Icon(Icons.download),
+                      label: const Text('Exporter'),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Résumé
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: Colors.blue.shade50,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildSummaryCard('Total Entrées', _totalEntrees, Colors.green),
+                    _buildSummaryCard('Total Sorties', _totalSorties, Colors.red),
+                    _buildSummaryCard('Solde Total', _soldeTotal, Colors.blue),
+                    _buildSummaryCard('Nb Opérations', _filteredComptes.length.toDouble(), Colors.orange),
+                  ],
+                ),
+              ),
+
+              // Table des comptes
+              Expanded(
+                child: Container(
+                  margin: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    children: [
+                      // En-tête du tableau
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(8),
+                            topRight: Radius.circular(8),
+                          ),
+                        ),
+                        child: const Row(
+                          children: [
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                'Date',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'Fournisseur',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'Libellé',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                'N° Achat',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                'Entrées',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                'Sorties',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            Expanded(
+                              flex: 1,
+                              child: Text(
+                                'Solde',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Contenu du tableau
+                      Expanded(
+                        child: _filteredComptes.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Aucune opération trouvée',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: _filteredComptes.length,
+                                itemBuilder: (context, index) {
+                                  final compte = _filteredComptes[index];
+                                  return MouseRegion(
+                                    onEnter: (_) {
+                                      setState(() {
+                                        selectedRowIndex = index;
+                                      });
+                                    },
+                                    onExit: (_) {
+                                      setState(() {
+                                        selectedRowIndex = null;
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: selectedRowIndex == index
+                                            ? Colors.blue.shade100
+                                            : (index % 2 == 0 ? Colors.white : Colors.grey.shade50),
+                                        border: Border(
+                                          bottom: BorderSide(color: Colors.grey.shade200),
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            flex: 1,
+                                            child: Text(
+                                              compte.daty != null
+                                                  ? app_date.AppDateUtils.formatDate(compte.daty!)
+                                                  : '',
+                                              style: const TextStyle(fontSize: 12),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 2,
+                                            child: Text(
+                                              compte.frns ?? '',
+                                              style: const TextStyle(fontSize: 12),
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 3,
+                                            child: Text(
+                                              compte.lib ?? '',
+                                              style: const TextStyle(fontSize: 12),
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 1,
+                                            child: Text(
+                                              compte.numachats ?? '',
+                                              style: const TextStyle(fontSize: 12),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 1,
+                                            child: Text(
+                                              NumberUtils.formatNumber(compte.entres ?? 0),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: (compte.entres ?? 0) > 0 ? Colors.green : Colors.black,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 1,
+                                            child: Text(
+                                              NumberUtils.formatNumber(compte.sortie ?? 0),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: (compte.sortie ?? 0) > 0 ? Colors.red : Colors.black,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                          Expanded(
+                                            flex: 1,
+                                            child: Text(
+                                              NumberUtils.formatNumber(compte.solde ?? 0),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: (compte.solde ?? 0) >= 0 ? Colors.green : Colors.red,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    ),);
+    );
   }
 
   Widget _buildSummaryCard(String title, double value, Color color) {

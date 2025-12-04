@@ -13,9 +13,7 @@ class BonLivraisonPreview extends StatefulWidget {
   final String date;
   final String client;
   final List<Map<String, dynamic>> lignesVente;
-  final double totalHT;
   final double remise;
-  final double tva;
   final double totalTTC;
   final String format;
   final SocData? societe;
@@ -27,9 +25,7 @@ class BonLivraisonPreview extends StatefulWidget {
     required this.date,
     required this.client,
     required this.lignesVente,
-    required this.totalHT,
     required this.remise,
-    required this.tva,
     required this.totalTTC,
     required this.format,
     this.societe,
@@ -376,9 +372,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _buildTotalRow('TOTAL HT:', _formatNumber(widget.totalHT)),
                       if (widget.remise > 0) _buildTotalRow('REMISE:', _formatNumber(widget.remise)),
-                      if (widget.tva > 0) _buildTotalRow('TVA:', _formatNumber(widget.tva)),
                       Container(
                         decoration: const BoxDecoration(
                           border: Border(top: BorderSide(color: Colors.black)),
@@ -748,10 +742,8 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                           pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.end,
                             children: [
-                              _buildPdfTotalRow('TOTAL HT:', _formatNumber(widget.totalHT), pdfFontSize),
                               if (widget.remise > 0)
                                 _buildPdfTotalRow('REMISE:', _formatNumber(widget.remise), pdfFontSize),
-                              if (widget.tva > 0) _buildPdfTotalRow('TVA:', _formatNumber(widget.tva), pdfFontSize),
                               pw.Container(
                                 decoration: const pw.BoxDecoration(
                                   border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
