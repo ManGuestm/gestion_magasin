@@ -161,8 +161,8 @@ class _HomeScreenState extends State<HomeScreen> {
         stats['beneficesJour'] = await db.getBeneficesJour();
         stats['ventesBrouillard'] = ventesBrouillard;
 
-        _recentSales = await db.getRecentSales(5);
-        _recentBuys = await db.getRecentPurchases(5);
+        _recentSales = await db.getRecentSales(10);
+        _recentBuys = await db.getRecentPurchases(10);
       } else if (userRole == 'Caisse') {
         final totalVentes = await db.getTotalVentes();
         final ventesJour = await db.getVentesToday();
@@ -631,7 +631,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(width: 16),
-              _buildRealTimeIndicator(),
+              // _buildRealTimeIndicator(),
               const Spacer(),
               _buildLastUpdateInfo(),
               const SizedBox(width: 8),
@@ -1006,6 +1006,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildRecentSales() {
     return Container(
+      padding: EdgeInsets.fromLTRB(0, 0, 0, 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
@@ -1048,13 +1049,15 @@ class _HomeScreenState extends State<HomeScreen> {
               : Expanded(
                   child: SingleChildScrollView(
                     child: ListView.separated(
+                      padding: EdgeInsets.symmetric(vertical: 0, horizontal: 2),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _recentSales.length,
-                      separatorBuilder: (context, index) => const Divider(height: 1),
+                      separatorBuilder: (context, index) => const Divider(height: 0),
                       itemBuilder: (context, index) {
                         final sale = _recentSales[index];
                         return ListTile(
+                          contentPadding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                           onTap: () => _showVenteDetails(sale),
                           leading: CircleAvatar(
                             backgroundColor: Colors.blue[100],
@@ -1062,7 +1065,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           title: Text(
                               'Vente N°${sale['numventes'] ?? index + 1} | Facture N° ${sale['nfact']}',
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           subtitle: Text(
                               'Client: ${sale['client'] ?? 'Client'} - ${_formatDate(sale['date'])} | Vendu par: ${sale['commerc']}',
                               style: const TextStyle(color: Colors.grey, fontSize: 12)),
@@ -1124,6 +1127,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : Expanded(
                   child: SingleChildScrollView(
                     child: ListView.separated(
+                      padding: EdgeInsets.symmetric(vertical: 0, horizontal: 2),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _recentBuys.length,
@@ -1131,13 +1135,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       itemBuilder: (context, index) {
                         final buy = _recentBuys[index];
                         return ListTile(
+                          contentPadding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                           onTap: () => _showAchatDetails(buy),
                           leading: CircleAvatar(
                             backgroundColor: Colors.green[100],
                             child: Text('${index + 1}', style: TextStyle(color: Colors.green[700])),
                           ),
                           title: Text('Achat N°${buy['numachats'] ?? index + 1} | BL N° ${buy['nfact']}',
-                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                           subtitle: Text(
                               'Fournisseur: ${buy['fournisseur'] ?? 'Fournisseur'} - ${_formatDateOnly(buy['date'])}',
                               style: const TextStyle(color: Colors.grey, fontSize: 12)),
@@ -1906,40 +1911,40 @@ class _HomeScreenState extends State<HomeScreen> {
     return titleToKey.containsKey(cardTitle);
   }
 
-  Widget _buildRealTimeIndicator() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: _isModalOpen ? Colors.orange[100] : Colors.green[100],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _isModalOpen ? Colors.orange[300]! : Colors.green[300]!,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: _isModalOpen ? Colors.orange : Colors.green,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            _isModalOpen ? 'En pause' : 'Temps réel',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              color: _isModalOpen ? Colors.orange[800] : Colors.green[800],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // Widget _buildRealTimeIndicator() {
+  //   return Container(
+  //     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  //     decoration: BoxDecoration(
+  //       color: _isModalOpen ? Colors.orange[100] : Colors.green[100],
+  //       borderRadius: BorderRadius.circular(12),
+  //       border: Border.all(
+  //         color: _isModalOpen ? Colors.orange[300]! : Colors.green[300]!,
+  //       ),
+  //     ),
+  //     child: Row(
+  //       mainAxisSize: MainAxisSize.min,
+  //       children: [
+  //         Container(
+  //           width: 8,
+  //           height: 8,
+  //           decoration: BoxDecoration(
+  //             color: _isModalOpen ? Colors.orange : Colors.green,
+  //             shape: BoxShape.circle,
+  //           ),
+  //         ),
+  //         const SizedBox(width: 6),
+  //         Text(
+  //           _isModalOpen ? 'En pause' : 'Temps réel',
+  //           style: TextStyle(
+  //             fontSize: 11,
+  //             fontWeight: FontWeight.w500,
+  //             color: _isModalOpen ? Colors.orange[800] : Colors.green[800],
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   Widget _buildLastUpdateInfo() {
     final now = DateTime.now();
