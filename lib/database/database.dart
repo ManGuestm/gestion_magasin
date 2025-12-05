@@ -646,6 +646,7 @@ class Transf extends Table {
   TextColumn get de => text().withLength(max: 50).nullable()();
   TextColumn get au => text().withLength(max: 50).nullable()();
   TextColumn get contre => text().withLength(max: 50).nullable()();
+  TextColumn get bonExpedition => text().withLength(max: 50).nullable()();
 }
 
 // Table Tri Banque - utilisée par: Menu Trésorerie - Tri opérations banque
@@ -776,7 +777,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
   @override
-  int get schemaVersion => 45;
+  int get schemaVersion => 46;
 
   /// Stratégie de migration de la base de données
   /// Gère la création initiale et les mises à jour de schéma
@@ -922,6 +923,9 @@ class AppDatabase extends _$AppDatabase {
             await m.createTable(retachats);
             await m.deleteTable('retventes');
             await m.createTable(retventes);
+          } else if (from == 45) {
+            // Ajouter la colonne bonExpedition à la table transf
+            await m.addColumn(transf, transf.bonExpedition as GeneratedColumn);
           }
         },
       );
@@ -1064,6 +1068,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Calcule les ventes du jour par utilisateur (non contre-passées)
+  /// Inclut les ventes créées par le vendeur ET celles validées par caissier/admin
   Future<double> getVentesTodayByUser(String userName) async {
     final today = DateTime.now();
     final startOfDay = DateTime(today.year, today.month, today.day);
@@ -1072,7 +1077,10 @@ class AppDatabase extends _$AppDatabase {
     final query = select(ventes)
       ..where((tbl) =>
           tbl.daty.isBetweenValues(startOfDay, endOfDay) &
-          tbl.commerc.equals(userName) &
+          tbl.verification.equals('JOURNAL') &
+          (tbl.commerc.equals(userName) | 
+           tbl.commerc.like('$userName + %') |
+           tbl.commerc.like('% + $userName')) &
           (tbl.contre.isNull() | tbl.contre.equals("0")));
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
@@ -1118,6 +1126,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Calcule les ventes du mois par utilisateur (non contre-passées)
+  /// Inclut les ventes créées par le vendeur ET celles validées par caissier/admin
   Future<double> getVentesThisMonthByUser(String userName) async {
     final now = DateTime.now();
     final startOfMonth = DateTime(now.year, now.month, 1);
@@ -1126,7 +1135,10 @@ class AppDatabase extends _$AppDatabase {
     final query = select(ventes)
       ..where((tbl) =>
           tbl.daty.isBetweenValues(startOfMonth, endOfMonth) &
-          tbl.commerc.equals(userName) &
+          tbl.verification.equals('JOURNAL') &
+          (tbl.commerc.equals(userName) | 
+           tbl.commerc.like('$userName + %') |
+           tbl.commerc.like('% + $userName')) &
           (tbl.contre.isNull() | tbl.contre.equals("0")));
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
@@ -1137,6 +1149,16 @@ class AppDatabase extends _$AppDatabase {
     final query = select(clt)..where((tbl) => tbl.commercial.equals(userName));
     final result = await query.get();
     return result.length;
+  }
+
+  /// Compte le nombre de ventes en brouillard par utilisateur
+  Future<int> getVentesBrouillardByUser(String userName) async {
+    final query = selectOnly(ventes)
+      ..addColumns([ventes.numventes.count()])
+      ..where(ventes.verification.equals('BROUILLARD') & ventes.commerc.equals(userName));
+
+    final result = await query.getSingle();
+    return result.read(ventes.numventes.count()) ?? 0;
   }
 
   /// Calcule le bénéfice réel des articles vendus (Prix de vente - Prix d'achat des articles vendus)

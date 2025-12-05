@@ -372,7 +372,7 @@ class AchatService {
   }) async {
     if (montant <= 0) return;
 
-    final ref = 'A-${DateTime.now().millisecondsSinceEpoch}';
+    final ref = 'A-${DateTime.now().millisecondsSinceEpoch ~/ 1000}';
 
     await _databaseService.database.into(_databaseService.database.caisse).insert(
           CaisseCompanion.insert(

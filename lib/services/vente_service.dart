@@ -526,7 +526,22 @@ class VenteService {
   }) async {
     await _databaseService.database.transaction(() async {
       final currentUser = AuthService().currentUser;
-      final commercialName = currentUser?.nom ?? '';
+      final validateur = currentUser?.nom ?? '';
+
+      // Récupérer le vendeur original de la vente brouillard
+      final venteBrouillard = await (_databaseService.database.select(_databaseService.database.ventes)
+            ..where((v) => v.numventes.equals(numVentes)))
+          .getSingleOrNull();
+
+      final vendeurOriginal = venteBrouillard?.commerc ?? '';
+
+      // Créer le champ commercial combiné : Vendeur + Validateur
+      String commercialCombine;
+      if (vendeurOriginal.isNotEmpty && vendeurOriginal != validateur) {
+        commercialCombine = '$vendeurOriginal/$validateur';
+      } else {
+        commercialCombine = validateur;
+      }
 
       // 1. Mettre à jour la vente vers JOURNAL
       await (_databaseService.database.update(_databaseService.database.ventes)
@@ -538,7 +553,7 @@ class VenteService {
         totalttc: Value(totalTTC),
         avance: Value(avance),
         remise: Value(remise),
-        commerc: Value(commercialName),
+        commerc: Value(commercialCombine),
         verification: Value('JOURNAL'),
       ));
 

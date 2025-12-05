@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/menu_data.dart';
+import '../../services/auth_service.dart';
 
 class IconBarWidget extends StatelessWidget {
   final Function(String) onIconTap;
@@ -10,6 +11,9 @@ class IconBarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
+    
+    // Filtrer les icônes selon le rôle de l'utilisateur
+    final filteredIcons = _filterIconsByRole(MenuData.iconButtons);
 
     return Container(
       width: double.infinity,
@@ -19,11 +23,32 @@ class IconBarWidget extends StatelessWidget {
         alignment: WrapAlignment.start,
         spacing: 4.0,
         runSpacing: 4.0,
-        children: MenuData.iconButtons
+        children: filteredIcons
             .map((iconData) => _buildIconButton(context, iconData.icon, iconData.label))
             .toList(),
       ),
     );
+  }
+  
+  List<IconButtonData> _filterIconsByRole(List<IconButtonData> icons) {
+    final authService = AuthService();
+    final userRole = authService.currentUserRole;
+    
+    // Si l'utilisateur est vendeur, filtrer les icônes restreintes
+    if (userRole == 'Vendeur') {
+      const restrictedLabels = [
+        'Encaissements',
+        'Décaissements',
+        'Suivi de différence de Prix de vente',
+        'Fournisseurs',
+        'Achats',
+        'Echéance Fournisseurs',
+        'Régularisation compte tiers',
+      ];
+      return icons.where((icon) => !restrictedLabels.contains(icon.label)).toList();
+    }
+    
+    return icons;
   }
 
   Widget _buildIconButton(BuildContext context, IconData icon, String label) {

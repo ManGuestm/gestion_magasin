@@ -95,6 +95,31 @@ class AuthService {
     'stocks_view',
   ];
 
+  /// Vérifie si un vendeur peut accéder à un modal spécifique
+  bool isVendeurRestrictedModal(String modalName) {
+    if (_currentUser?.role != 'Vendeur') return false;
+
+    const restrictedModals = [
+      'Encaissements',
+      'Décaissements',
+      'Suivi différence prix',
+      'Journal de caisse',
+      'Journal des banques',
+      'Comptes fournisseurs',
+      'Achats',
+      'Fournisseurs',
+      'Liste des achats',
+      'Liste des ventes',
+      'Sur Ventes',
+      'Retours achats',
+      'Information sur la société',
+      'Réinitialiser les données',
+      'Informations sur la société',
+    ];
+
+    return restrictedModals.contains(modalName);
+  }
+
   /// Initialise le service d'authentification
   Future<void> initialize() async {
     try {

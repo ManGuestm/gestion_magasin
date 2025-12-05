@@ -49,6 +49,14 @@ class AppConstants {
     'Banque': 'banque',
     'Articles': 'articles_view',
     'Stocks': 'stocks_view',
+    'Encaissements': 'encaissements',
+    'Décaissements': 'decaissements',
+    'Suivi différence prix': 'suivi_prix',
+    'Liste des ventes': 'liste_ventes',
+    'Retour sur Ventes': 'retour_ventes',
+    'Retour sur achats': 'retour_achats',
+    'Information sur la société': 'info_societe',
+    'Réinitialiser les données': 'reset_data',
   };
 
   // Raccourcis clavier

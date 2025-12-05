@@ -182,10 +182,12 @@ class _HomeScreenState extends State<HomeScreen> {
         final mesVentesJour = await db.getVentesTodayByUser(userName);
         final mesVentesMois = await db.getVentesThisMonthByUser(userName);
         final mesClients = await db.getClientsByUser(userName);
+        final mesVentesBrouillard = await db.getVentesBrouillardByUser(userName);
 
         stats['mesVentesJour'] = mesVentesJour;
         stats['mesVentesMois'] = mesVentesMois;
         stats['mesClients'] = mesClients;
+        stats['mesVentesBrouillard'] = mesVentesBrouillard;
         stats['commission'] = mesVentesMois * 0.05; // 5% commission
         stats['objectif'] = 75; // Exemple: 75% de l'objectif
       }
@@ -219,6 +221,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _showModal(String item) async {
     // Vérifier les permissions avant d'ouvrir le modal
     if (!_hasPermissionForItem(item)) {
+      _showAccessDeniedDialog(item);
+      return;
+    }
+
+    // Vérifier les restrictions spécifiques aux vendeurs
+    if (AuthService().isVendeurRestrictedModal(item)) {
       _showAccessDeniedDialog(item);
       return;
     }
@@ -529,6 +537,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleKeyPress(KeyEvent event) {
     // Ne traiter les raccourcis que si aucun modal n'est ouvert
     if (event is KeyDownEvent && !_isModalOpen) {
+      final userRole = AuthService().currentUser?.role ?? '';
+
       final shortcuts = {
         LogicalKeyboardKey.keyP: 'Articles',
         LogicalKeyboardKey.keyA: 'Achats',
@@ -542,14 +552,35 @@ class _HomeScreenState extends State<HomeScreen> {
       };
 
       if (shortcuts.containsKey(event.logicalKey)) {
-        _handleIconTap(shortcuts[event.logicalKey]!);
+        final action = shortcuts[event.logicalKey]!;
+
+        // Vérifier les restrictions pour les vendeurs
+        if (userRole == 'Vendeur') {
+          const restrictedActions = ['Achats', 'Fournisseurs', 'Encaissements'];
+          if (restrictedActions.contains(action)) {
+            _showAccessDeniedDialog(action);
+            return;
+          }
+        }
+
+        _handleIconTap(action);
       }
     }
   }
 
   void _handleIconTap(String iconLabel) {
+    final userRole = AuthService().currentUser?.role ?? '';
+
+    // Vérifier les restrictions pour les vendeurs
+    if (userRole == 'Vendeur') {
+      const restrictedIcons = ['Achats', 'Fournisseurs', 'Encaissements', 'Décaissements'];
+      if (restrictedIcons.contains(iconLabel)) {
+        _showAccessDeniedDialog(iconLabel);
+        return;
+      }
+    }
+
     if (iconLabel == 'Ventes') {
-      final userRole = AuthService().currentUser?.role ?? '';
       if (userRole == 'Vendeur') {
         _showModal('ventes_magasin');
       } else {
@@ -753,9 +784,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Icons.calendar_month, Colors.orange),
       _buildStatCard('Mes Clients', '${_stats['mesClients'] ?? 0}', Icons.people, Colors.teal),
       _buildStatCard('Articles Dispo', '${_stats['articles'] ?? 0}', Icons.inventory, Colors.blue),
-      _buildStatCard('Objectif Mois', '${_stats['objectif'] ?? 0}%', Icons.track_changes, Colors.green),
-      _buildStatCard('Commission', '${_formatNumber(_stats['commission'] ?? 0)} Ar', Icons.monetization_on,
-          Colors.amber),
+      if ((_stats['mesVentesBrouillard'] ?? 0) > 0)
+        _buildStatCard('Mes Ventes en attente', '${_stats['mesVentesBrouillard'] ?? 0}',
+            Icons.pending_actions, Colors.orange),
+      // _buildStatCard('Objectif Mois', '${_stats['objectif'] ?? 0}%', Icons.track_changes, Colors.green),
+      // _buildStatCard('Commission', '${_formatNumber(_stats['commission'] ?? 0)} Ar', Icons.monetization_on,
+      //     Colors.amber),
     ];
   }
 
@@ -865,6 +899,27 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _handleStatCardTap(String title) {
+    final userRole = AuthService().currentUser?.role ?? '';
+
+    // Vérifier si le vendeur essaie d'accéder à une fonctionnalité restreinte
+    if (userRole == 'Vendeur') {
+      const restrictedTitles = [
+        'Encaissements',
+        'Journal Caisse',
+        'Journal Banque',
+        'Comptes fournisseurs',
+        'Total Achats',
+        'Derniers Achats',
+        'Fournisseurs',
+        'Retour Achats',
+      ];
+
+      if (restrictedTitles.contains(title)) {
+        _showAccessDeniedDialog(title);
+        return;
+      }
+    }
+
     switch (title) {
       case 'Valeur Total Stock':
         _showModal('Etat de stocks');
@@ -887,7 +942,6 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Mes Ventes Jour':
       case 'Mes Ventes Mois':
       case 'Ventes Jour':
-        final userRole = AuthService().currentUser?.role ?? '';
         if (userRole == 'Vendeur') {
           _showModal('ventes_magasin');
         } else {
@@ -920,6 +974,9 @@ class _HomeScreenState extends State<HomeScreen> {
         break;
       case 'Ventes en attente':
         _showModal('ventes_tous_depots');
+        break;
+      case 'Mes Ventes en attente':
+        _showModal('ventes_magasin');
         break;
       case 'Bénéfices global':
       case 'Bénéfice du jour':

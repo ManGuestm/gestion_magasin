@@ -20294,8 +20294,17 @@ class $TransfTable extends Transf with TableInfo<$TransfTable, TransfData> {
       additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
       type: DriftSqlType.string,
       requiredDuringInsert: false);
+  static const VerificationMeta _bonExpeditionMeta =
+      const VerificationMeta('bonExpedition');
   @override
-  List<GeneratedColumn> get $columns => [num, numtransf, daty, de, au, contre];
+  late final GeneratedColumn<String> bonExpedition = GeneratedColumn<String>(
+      'bon_expedition', aliasedName, true,
+      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
+      type: DriftSqlType.string,
+      requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [num, numtransf, daty, de, au, contre, bonExpedition];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -20328,6 +20337,12 @@ class $TransfTable extends Transf with TableInfo<$TransfTable, TransfData> {
       context.handle(_contreMeta,
           contre.isAcceptableOrUnknown(data['contre']!, _contreMeta));
     }
+    if (data.containsKey('bon_expedition')) {
+      context.handle(
+          _bonExpeditionMeta,
+          bonExpedition.isAcceptableOrUnknown(
+              data['bon_expedition']!, _bonExpeditionMeta));
+    }
     return context;
   }
 
@@ -20349,6 +20364,8 @@ class $TransfTable extends Transf with TableInfo<$TransfTable, TransfData> {
           .read(DriftSqlType.string, data['${effectivePrefix}au']),
       contre: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}contre']),
+      bonExpedition: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}bon_expedition']),
     );
   }
 
@@ -20365,13 +20382,15 @@ class TransfData extends DataClass implements Insertable<TransfData> {
   final String? de;
   final String? au;
   final String? contre;
+  final String? bonExpedition;
   const TransfData(
       {required this.num,
       this.numtransf,
       this.daty,
       this.de,
       this.au,
-      this.contre});
+      this.contre,
+      this.bonExpedition});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -20391,6 +20410,9 @@ class TransfData extends DataClass implements Insertable<TransfData> {
     if (!nullToAbsent || contre != null) {
       map['contre'] = Variable<String>(contre);
     }
+    if (!nullToAbsent || bonExpedition != null) {
+      map['bon_expedition'] = Variable<String>(bonExpedition);
+    }
     return map;
   }
 
@@ -20405,6 +20427,9 @@ class TransfData extends DataClass implements Insertable<TransfData> {
       au: au == null && nullToAbsent ? const Value.absent() : Value(au),
       contre:
           contre == null && nullToAbsent ? const Value.absent() : Value(contre),
+      bonExpedition: bonExpedition == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bonExpedition),
     );
   }
 
@@ -20418,6 +20443,7 @@ class TransfData extends DataClass implements Insertable<TransfData> {
       de: serializer.fromJson<String?>(json['de']),
       au: serializer.fromJson<String?>(json['au']),
       contre: serializer.fromJson<String?>(json['contre']),
+      bonExpedition: serializer.fromJson<String?>(json['bonExpedition']),
     );
   }
   @override
@@ -20430,6 +20456,7 @@ class TransfData extends DataClass implements Insertable<TransfData> {
       'de': serializer.toJson<String?>(de),
       'au': serializer.toJson<String?>(au),
       'contre': serializer.toJson<String?>(contre),
+      'bonExpedition': serializer.toJson<String?>(bonExpedition),
     };
   }
 
@@ -20439,7 +20466,8 @@ class TransfData extends DataClass implements Insertable<TransfData> {
           Value<DateTime?> daty = const Value.absent(),
           Value<String?> de = const Value.absent(),
           Value<String?> au = const Value.absent(),
-          Value<String?> contre = const Value.absent()}) =>
+          Value<String?> contre = const Value.absent(),
+          Value<String?> bonExpedition = const Value.absent()}) =>
       TransfData(
         num: num ?? this.num,
         numtransf: numtransf.present ? numtransf.value : this.numtransf,
@@ -20447,6 +20475,8 @@ class TransfData extends DataClass implements Insertable<TransfData> {
         de: de.present ? de.value : this.de,
         au: au.present ? au.value : this.au,
         contre: contre.present ? contre.value : this.contre,
+        bonExpedition:
+            bonExpedition.present ? bonExpedition.value : this.bonExpedition,
       );
   TransfData copyWithCompanion(TransfCompanion data) {
     return TransfData(
@@ -20456,6 +20486,9 @@ class TransfData extends DataClass implements Insertable<TransfData> {
       de: data.de.present ? data.de.value : this.de,
       au: data.au.present ? data.au.value : this.au,
       contre: data.contre.present ? data.contre.value : this.contre,
+      bonExpedition: data.bonExpedition.present
+          ? data.bonExpedition.value
+          : this.bonExpedition,
     );
   }
 
@@ -20467,13 +20500,15 @@ class TransfData extends DataClass implements Insertable<TransfData> {
           ..write('daty: $daty, ')
           ..write('de: $de, ')
           ..write('au: $au, ')
-          ..write('contre: $contre')
+          ..write('contre: $contre, ')
+          ..write('bonExpedition: $bonExpedition')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(num, numtransf, daty, de, au, contre);
+  int get hashCode =>
+      Object.hash(num, numtransf, daty, de, au, contre, bonExpedition);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -20483,7 +20518,8 @@ class TransfData extends DataClass implements Insertable<TransfData> {
           other.daty == this.daty &&
           other.de == this.de &&
           other.au == this.au &&
-          other.contre == this.contre);
+          other.contre == this.contre &&
+          other.bonExpedition == this.bonExpedition);
 }
 
 class TransfCompanion extends UpdateCompanion<TransfData> {
@@ -20493,6 +20529,7 @@ class TransfCompanion extends UpdateCompanion<TransfData> {
   final Value<String?> de;
   final Value<String?> au;
   final Value<String?> contre;
+  final Value<String?> bonExpedition;
   const TransfCompanion({
     this.num = const Value.absent(),
     this.numtransf = const Value.absent(),
@@ -20500,6 +20537,7 @@ class TransfCompanion extends UpdateCompanion<TransfData> {
     this.de = const Value.absent(),
     this.au = const Value.absent(),
     this.contre = const Value.absent(),
+    this.bonExpedition = const Value.absent(),
   });
   TransfCompanion.insert({
     this.num = const Value.absent(),
@@ -20508,6 +20546,7 @@ class TransfCompanion extends UpdateCompanion<TransfData> {
     this.de = const Value.absent(),
     this.au = const Value.absent(),
     this.contre = const Value.absent(),
+    this.bonExpedition = const Value.absent(),
   });
   static Insertable<TransfData> custom({
     Expression<int>? num,
@@ -20516,6 +20555,7 @@ class TransfCompanion extends UpdateCompanion<TransfData> {
     Expression<String>? de,
     Expression<String>? au,
     Expression<String>? contre,
+    Expression<String>? bonExpedition,
   }) {
     return RawValuesInsertable({
       if (num != null) 'num': num,
@@ -20524,6 +20564,7 @@ class TransfCompanion extends UpdateCompanion<TransfData> {
       if (de != null) 'de': de,
       if (au != null) 'au': au,
       if (contre != null) 'contre': contre,
+      if (bonExpedition != null) 'bon_expedition': bonExpedition,
     });
   }
 
@@ -20533,7 +20574,8 @@ class TransfCompanion extends UpdateCompanion<TransfData> {
       Value<DateTime?>? daty,
       Value<String?>? de,
       Value<String?>? au,
-      Value<String?>? contre}) {
+      Value<String?>? contre,
+      Value<String?>? bonExpedition}) {
     return TransfCompanion(
       num: num ?? this.num,
       numtransf: numtransf ?? this.numtransf,
@@ -20541,6 +20583,7 @@ class TransfCompanion extends UpdateCompanion<TransfData> {
       de: de ?? this.de,
       au: au ?? this.au,
       contre: contre ?? this.contre,
+      bonExpedition: bonExpedition ?? this.bonExpedition,
     );
   }
 
@@ -20565,6 +20608,9 @@ class TransfCompanion extends UpdateCompanion<TransfData> {
     if (contre.present) {
       map['contre'] = Variable<String>(contre.value);
     }
+    if (bonExpedition.present) {
+      map['bon_expedition'] = Variable<String>(bonExpedition.value);
+    }
     return map;
   }
 
@@ -20576,7 +20622,8 @@ class TransfCompanion extends UpdateCompanion<TransfData> {
           ..write('daty: $daty, ')
           ..write('de: $de, ')
           ..write('au: $au, ')
-          ..write('contre: $contre')
+          ..write('contre: $contre, ')
+          ..write('bonExpedition: $bonExpedition')
           ..write(')'))
         .toString();
   }
@@ -31670,6 +31717,7 @@ typedef $$TransfTableCreateCompanionBuilder = TransfCompanion Function({
   Value<String?> de,
   Value<String?> au,
   Value<String?> contre,
+  Value<String?> bonExpedition,
 });
 typedef $$TransfTableUpdateCompanionBuilder = TransfCompanion Function({
   Value<int> num,
@@ -31678,6 +31726,7 @@ typedef $$TransfTableUpdateCompanionBuilder = TransfCompanion Function({
   Value<String?> de,
   Value<String?> au,
   Value<String?> contre,
+  Value<String?> bonExpedition,
 });
 
 class $$TransfTableFilterComposer
@@ -31706,6 +31755,9 @@ class $$TransfTableFilterComposer
 
   ColumnFilters<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get bonExpedition => $composableBuilder(
+      column: $table.bonExpedition, builder: (column) => ColumnFilters(column));
 }
 
 class $$TransfTableOrderingComposer
@@ -31734,6 +31786,10 @@ class $$TransfTableOrderingComposer
 
   ColumnOrderings<String> get contre => $composableBuilder(
       column: $table.contre, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get bonExpedition => $composableBuilder(
+      column: $table.bonExpedition,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$TransfTableAnnotationComposer
@@ -31762,6 +31818,9 @@ class $$TransfTableAnnotationComposer
 
   GeneratedColumn<String> get contre =>
       $composableBuilder(column: $table.contre, builder: (column) => column);
+
+  GeneratedColumn<String> get bonExpedition => $composableBuilder(
+      column: $table.bonExpedition, builder: (column) => column);
 }
 
 class $$TransfTableTableManager extends RootTableManager<
@@ -31793,6 +31852,7 @@ class $$TransfTableTableManager extends RootTableManager<
             Value<String?> de = const Value.absent(),
             Value<String?> au = const Value.absent(),
             Value<String?> contre = const Value.absent(),
+            Value<String?> bonExpedition = const Value.absent(),
           }) =>
               TransfCompanion(
             num: num,
@@ -31801,6 +31861,7 @@ class $$TransfTableTableManager extends RootTableManager<
             de: de,
             au: au,
             contre: contre,
+            bonExpedition: bonExpedition,
           ),
           createCompanionCallback: ({
             Value<int> num = const Value.absent(),
@@ -31809,6 +31870,7 @@ class $$TransfTableTableManager extends RootTableManager<
             Value<String?> de = const Value.absent(),
             Value<String?> au = const Value.absent(),
             Value<String?> contre = const Value.absent(),
+            Value<String?> bonExpedition = const Value.absent(),
           }) =>
               TransfCompanion.insert(
             num: num,
@@ -31817,6 +31879,7 @@ class $$TransfTableTableManager extends RootTableManager<
             de: de,
             au: au,
             contre: contre,
+            bonExpedition: bonExpedition,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

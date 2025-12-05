@@ -128,9 +128,22 @@ class MenuService {
     final authService = AuthService();
     final userRole = authService.currentUserRole;
 
-    // Si l'utilisateur est vendeur, cacher "Ventes (Tous dépôts)"
+    // Si l'utilisateur est vendeur, filtrer les éléments restreints
     if (userRole == 'Vendeur') {
-      return items.where((item) => item != 'Ventes (Tous dépôts)').toList();
+      const restrictedItems = [
+        'Ventes (Tous dépôts)',
+        'Encaissements',
+        'Décaissements',
+        'Suivi différence prix',
+        'Journal de caisse',
+        'Journal des banques',
+        'Comptes fournisseurs',
+        'Achats',
+        'Fournisseurs',
+        'Liste des achats',
+        'Retours achats',
+      ];
+      return items.where((item) => !restrictedItems.contains(item)).toList();
     }
 
     return items;

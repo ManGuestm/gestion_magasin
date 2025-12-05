@@ -77,7 +77,7 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
               ..orderBy([(c) => drift.OrderingTerm.desc(c.daty)])
               ..limit(1))
             .getSingleOrNull();
-        
+
         final dernierSolde = dernierMouvement?.soldes ?? 0.0;
         final nouveauSolde = dernierSolde + result['montant'];
 
@@ -118,6 +118,84 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
       if (num > maxNum) maxNum = num;
     }
     return 'ENC${(maxNum + 1).toString().padLeft(4, '0')}';
+  }
+
+  bool _isRevenuManuel(CaisseData caisse) {
+    return caisse.type == 'Autres encaissements' || caisse.type == 'Repport à nouveau';
+  }
+
+  Future<void> _editRevenu(CaisseData caisse) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => _EditRevenuDialog(caisse: caisse),
+    );
+
+    if (result != null) {
+      try {
+        await (_databaseService.database.update(_databaseService.database.caisse)
+              ..where((c) => c.ref.equals(caisse.ref)))
+            .write(CaisseCompanion(
+          lib: drift.Value(result['libelle']),
+          type: drift.Value(result['type']),
+          credit: drift.Value(result['montant']),
+          daty: drift.Value(result['date']),
+        ));
+        _loadEncaissements();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Revenu modifié avec succès')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _deleteRevenu(CaisseData caisse) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmer la suppression'),
+        content: Text(
+            'Êtes-vous sûr de vouloir supprimer ce revenu ?\n\nLibellé: ${caisse.lib}\nMontant: ${_formatNumber(caisse.credit ?? 0)} Ar'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Supprimer', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await (_databaseService.database.delete(_databaseService.database.caisse)
+              ..where((c) => c.ref.equals(caisse.ref)))
+            .go();
+        _loadEncaissements();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Revenu supprimé avec succès')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
   }
 
   @override
@@ -266,6 +344,14 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
                                               textAlign: TextAlign.right,
                                             ),
                                           ),
+                                          Expanded(
+                                            flex: 1,
+                                            child: Text(
+                                              'Actions',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
@@ -342,6 +428,33 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
                                                     textAlign: TextAlign.right,
                                                   ),
                                                 ),
+                                                Expanded(
+                                                  flex: 1,
+                                                  child: _isRevenuManuel(encaissement)
+                                                      ? Row(
+                                                          mainAxisAlignment: MainAxisAlignment.center,
+                                                          children: [
+                                                            IconButton(
+                                                              onPressed: () => _editRevenu(encaissement),
+                                                              icon: const Icon(Icons.edit, size: 16),
+                                                              tooltip: 'Modifier',
+                                                              padding: EdgeInsets.zero,
+                                                              constraints: const BoxConstraints(
+                                                                  minWidth: 24, minHeight: 24),
+                                                            ),
+                                                            IconButton(
+                                                              onPressed: () => _deleteRevenu(encaissement),
+                                                              icon: const Icon(Icons.delete,
+                                                                  size: 16, color: Colors.red),
+                                                              tooltip: 'Supprimer',
+                                                              padding: EdgeInsets.zero,
+                                                              constraints: const BoxConstraints(
+                                                                  minWidth: 24, minHeight: 24),
+                                                            ),
+                                                          ],
+                                                        )
+                                                      : const SizedBox(),
+                                                ),
                                               ],
                                             ),
                                           );
@@ -395,6 +508,112 @@ class _EncaissementsModalState extends State<EncaissementsModal> with TabNavigat
           ],
         ),
       ),
+    );
+  }
+}
+
+class _EditRevenuDialog extends StatefulWidget {
+  final CaisseData caisse;
+  const _EditRevenuDialog({required this.caisse});
+
+  @override
+  State<_EditRevenuDialog> createState() => _EditRevenuDialogState();
+}
+
+class _EditRevenuDialogState extends State<_EditRevenuDialog> {
+  late final TextEditingController _libelleController;
+  late final TextEditingController _montantController;
+  late DateTime _selectedDate;
+  late String _selectedType;
+
+  final List<String> _types = ['Autres encaissements', 'Repport à nouveau'];
+
+  @override
+  void initState() {
+    super.initState();
+    _libelleController = TextEditingController(text: widget.caisse.lib ?? '');
+    _montantController = TextEditingController(text: (widget.caisse.credit ?? 0).toString());
+    _selectedDate = widget.caisse.daty ?? DateTime.now();
+    _selectedType = widget.caisse.type ?? 'Autres encaissements';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Modifier le Revenu'),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _libelleController,
+              decoration: const InputDecoration(
+                labelText: 'Libellé',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              initialValue: _selectedType,
+              decoration: const InputDecoration(
+                labelText: 'Catégories',
+                border: OutlineInputBorder(),
+              ),
+              items: _types.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
+              onChanged: (value) => setState(() => _selectedType = value!),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _montantController,
+              decoration: const InputDecoration(
+                labelText: 'Montant',
+                border: OutlineInputBorder(),
+                suffixText: 'Ar',
+              ),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now().add(const Duration(days: 365)),
+                );
+                if (date != null) setState(() => _selectedDate = date);
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Date',
+                  border: OutlineInputBorder(),
+                ),
+                child: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Annuler'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (_libelleController.text.isNotEmpty && _montantController.text.isNotEmpty) {
+              Navigator.of(context).pop({
+                'libelle': _libelleController.text,
+                'type': _selectedType,
+                'montant': double.tryParse(_montantController.text) ?? 0.0,
+                'date': _selectedDate,
+              });
+            }
+          },
+          child: const Text('Modifier'),
+        ),
+      ],
     );
   }
 }

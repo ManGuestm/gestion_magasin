@@ -253,7 +253,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           'INSERT INTO caisse (ref, daty, lib, credit, debit, soldes, type, clt, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             ref,
-            _paymentDate.millisecondsSinceEpoch,
+            _paymentDate.millisecondsSinceEpoch ~/ 1000,
             libelle,
             amount,
             0.0,
@@ -267,7 +267,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           'INSERT INTO banque (ref, daty, lib, credit, debit, soldes, type, clt, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             ref,
-            _paymentDate.millisecondsSinceEpoch,
+            _paymentDate.millisecondsSinceEpoch ~/ 1000,
             libelle,
             amount,
             0.0,
@@ -280,7 +280,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
   }
 
   Future<void> _processSupplierPayment(double amount) async {
-    final ref = 'DEC${DateTime.now().millisecondsSinceEpoch}';
+    final ref = 'DEC${DateTime.now().millisecondsSinceEpoch ~/ 1000}';
     final libelle =
         'Règlement fournisseur ${_selectedSupplier!.rsoc} $_paymentMethod - ${_referenceController.text}';
 
@@ -322,7 +322,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           'INSERT INTO caisse (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             ref,
-            _paymentDate.millisecondsSinceEpoch,
+            _paymentDate.millisecondsSinceEpoch ~/ 1000,
             libelle,
             amount,
             0.0,
@@ -336,7 +336,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           'INSERT INTO banque (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [
             ref,
-            _paymentDate.millisecondsSinceEpoch,
+            _paymentDate.millisecondsSinceEpoch ~/ 1000,
             libelle,
             amount,
             0.0,

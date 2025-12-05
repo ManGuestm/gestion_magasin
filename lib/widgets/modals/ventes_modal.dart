@@ -1,3 +1,5 @@
+// export 'ventes_modal/ventes_modal.dart';
+
 import 'package:collection/collection.dart';
 import 'package:drift/drift.dart' as drift hide Column;
 import 'package:file_picker/file_picker.dart';
@@ -247,8 +249,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         }).toList();
       }
 
-      // Trier par date décroissante
-      result.sort((a, b) => (b['daty'] ?? DateTime(0)).compareTo(a['daty'] ?? DateTime(0)));
+      // Trier par numéro de vente décroissant
+      result.sort((a, b) {
+        final numA = int.tryParse(a['numventes'] ?? '0') ?? 0;
+        final numB = int.tryParse(b['numventes'] ?? '0') ?? 0;
+        return numA.compareTo(numB);
+      });
 
       // Mettre à jour le cache
       _cachedVentes = result;
@@ -1534,6 +1540,32 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
     // Si stock insuffisant, afficher modal d'avertissement
     if (quantite > _stockDisponible) {
+      // Pour les vendeurs, empêcher complètement la vente avec stock insuffisant
+      if (_isVendeur()) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Stock insuffisant'),
+            content: Text(
+              'Impossible de vendre ${quantite.toStringAsFixed(0)} ${_selectedUnite ?? ''} de "${_selectedArticle!.designation}".\n\n'
+              'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} ${_selectedUnite ?? ''}.\n\n'
+              'Les vendeurs ne peuvent pas vendre avec un stock insuffisant.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                autofocus: true,
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        // Remettre la quantité à la valeur du stock disponible
+        _quantiteController.text = _stockDisponible > 0 ? _stockDisponible.toStringAsFixed(0) : '';
+        return;
+      }
+
+      // Pour les autres utilisateurs, permettre avec confirmation
       final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
@@ -1729,6 +1761,31 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
     // Vérifier stock selon le type de dépôt
     if (quantite > _stockDisponible) {
+      // Pour les vendeurs, empêcher complètement la vente avec stock insuffisant
+      if (_isVendeur() && mounted) {
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Vente impossible'),
+            content: Text(
+              'Stock insuffisant pour "${_selectedArticle!.designation}".\n\n'
+              'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\n'
+              'Quantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\n'
+              'Les vendeurs ne peuvent pas vendre avec un stock insuffisant.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                autofocus: true,
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      // Pour les autres utilisateurs, utiliser la logique existante
       final validation = await _venteService.verifierStockSelonDepot(
         designation: _selectedArticle!.designation,
         depot: depot,
@@ -5513,7 +5570,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               foregroundColor: Colors.white,
                                               minimumSize: const Size(60, 30),
                                             ),
-                                            child: const Text('Importer', style: TextStyle(fontSize: 12)),
+                                            child:
+                                                const Text('Importer lignes', style: TextStyle(fontSize: 12)),
                                           ),
                                         ),
                                       if (!_peutValiderBrouillard()) ...[

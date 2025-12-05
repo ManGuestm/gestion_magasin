@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import '../../constants/app_constants.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-
+import '../../services/auth_service.dart';
 import '../../services/stock_management_service.dart';
 import '../../utils/stock_converter.dart';
 import '../../widgets/common/base_modal.dart';
@@ -70,7 +70,9 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
         onDelete: () => _selectedArticle != null ? _deleteArticle(_selectedArticle!) : null,
         onRefresh: _loadArticles,
         content: GestureDetector(
-          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+          onSecondaryTapDown: AuthService().currentUserRole == 'Vendeur' 
+              ? null 
+              : (details) => _showContextMenu(context, details.globalPosition),
           child: Column(
             children: [
               _buildContent(),
