@@ -598,13 +598,52 @@ class AchatService {
       throw Exception('Seuls les achats journalisés peuvent être contre-passés');
     }
 
+    // Récupérer les détails de l'achat pour ajuster les stocks
+    final details = await (_databaseService.database.select(_databaseService.database.detachats)
+          ..where((d) => d.numachats.equals(numAchats)))
+        .get();
+
     await _databaseService.database.transaction(() async {
       // 1. Marquer comme contre-passé
       await (_databaseService.database.update(_databaseService.database.achats)
             ..where((a) => a.numachats.equals(numAchats)))
           .write(const AchatsCompanion(contre: Value('1')));
 
-      // 3. Ajuster compte fournisseur (sortie pour annuler l'entrée)
+      // 2. Ajuster les stocks pour chaque ligne d'achat (diminuer les stocks)
+      for (final detail in details) {
+        if (detail.designation != null &&
+            detail.depots != null &&
+            detail.unites != null &&
+            detail.q != null) {
+          await _diminuerStocksContrePassement(
+            designation: detail.designation!,
+            depot: detail.depots!,
+            unite: detail.unites!,
+            quantite: detail.q!,
+            prixUnitaire: detail.pu ?? 0.0,
+          );
+        }
+      }
+
+      // 3. Créer mouvement de stock de sortie pour contre-passement
+      for (final detail in details) {
+        if (detail.designation != null &&
+            detail.depots != null &&
+            detail.unites != null &&
+            detail.q != null) {
+          await _creerMouvementStockContrePassement(
+            numAchats: numAchats,
+            designation: detail.designation!,
+            depot: detail.depots!,
+            unite: detail.unites!,
+            quantite: detail.q!,
+            prixUnitaire: detail.pu ?? 0.0,
+            fournisseur: achat.frns,
+          );
+        }
+      }
+
+      // 4. Ajuster compte fournisseur (sortie pour annuler l'entrée)
       if (achat.frns != null && achat.frns!.isNotEmpty) {
         final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
         await _databaseService.database.into(_databaseService.database.comptefrns).insert(
@@ -634,7 +673,7 @@ class AchatService {
         }
       }
 
-      // 4. Mouvement caisse si paiement espèces (entrée pour récupérer l'argent)
+      // 5. Mouvement caisse si paiement espèces (entrée pour récupérer l'argent)
       if (achat.modepai == 'Espèces') {
         final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
         await _databaseService.database.into(_databaseService.database.caisse).insert(
@@ -649,5 +688,193 @@ class AchatService {
             );
       }
     });
+  }
+
+  /// Diminue les stocks lors du contre-passement d'un achat
+  Future<void> _diminuerStocksContrePassement({
+    required String designation,
+    required String depot,
+    required String unite,
+    required double quantite,
+    required double prixUnitaire,
+  }) async {
+    // Récupérer l'article
+    final article = await (_databaseService.database.select(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(designation)))
+        .getSingleOrNull();
+
+    if (article == null) {
+      throw Exception('Article $designation non trouvé');
+    }
+
+    // Convertir la quantité à diminuer
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    // Diminuer stock global de l'article
+    final nouveauStockU1 = ((article.stocksu1 ?? 0) - conversions['u1']!).clamp(0.0, double.infinity);
+    final nouveauStockU2 = ((article.stocksu2 ?? 0) - conversions['u2']!).clamp(0.0, double.infinity);
+    final nouveauStockU3 = ((article.stocksu3 ?? 0) - conversions['u3']!).clamp(0.0, double.infinity);
+
+    await (_databaseService.database.update(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(designation)))
+        .write(ArticlesCompanion(
+      stocksu1: Value(nouveauStockU1),
+      stocksu2: Value(nouveauStockU2),
+      stocksu3: Value(nouveauStockU3),
+    ));
+
+    // Diminuer stock par dépôt
+    final stockDepot = await (_databaseService.database.select(_databaseService.database.depart)
+          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+        .getSingleOrNull();
+
+    if (stockDepot != null) {
+      final nouveauStockDepotU1 =
+          ((stockDepot.stocksu1 ?? 0) - conversions['u1']!).clamp(0.0, double.infinity);
+      final nouveauStockDepotU2 =
+          ((stockDepot.stocksu2 ?? 0) - conversions['u2']!).clamp(0.0, double.infinity);
+      final nouveauStockDepotU3 =
+          ((stockDepot.stocksu3 ?? 0) - conversions['u3']!).clamp(0.0, double.infinity);
+
+      await (_databaseService.database.update(_databaseService.database.depart)
+            ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
+          .write(DepartCompanion(
+        stocksu1: Value(nouveauStockDepotU1),
+        stocksu2: Value(nouveauStockDepotU2),
+        stocksu3: Value(nouveauStockDepotU3),
+      ));
+    }
+
+    // Mettre à jour la fiche stock pour le contre-passement
+    await _mettreAJourFicheStockContrePassement(
+      designation: designation,
+      unite: unite,
+      quantite: quantite,
+    );
+
+    // Recalculer le CMUP après diminution du stock
+    await _recalculerCMUPApresContrePassement(article, quantite, prixUnitaire);
+  }
+
+  /// Crée un mouvement de stock de sortie pour le contre-passement
+  Future<void> _creerMouvementStockContrePassement({
+    required String numAchats,
+    required String designation,
+    required String depot,
+    required String unite,
+    required double quantite,
+    required double prixUnitaire,
+    required String? fournisseur,
+  }) async {
+    final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}-$designation';
+
+    // Récupérer l'article pour les conversions
+    final article = await (_databaseService.database.select(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(designation)))
+        .getSingleOrNull();
+
+    if (article == null) return;
+
+    final conversions = StockConverter.convertirQuantiteAchat(
+      article: article,
+      uniteAchat: unite,
+      quantiteAchat: quantite,
+    );
+
+    await _databaseService.database.into(_databaseService.database.stocks).insert(
+          StocksCompanion.insert(
+            ref: ref,
+            daty: Value(DateTime.now()),
+            lib: Value('Contre-passement achat N° $numAchats'),
+            numachats: Value(numAchats),
+            refart: Value(designation),
+            qs: Value(quantite), // Sortie
+            sortie: Value(quantite * prixUnitaire),
+            stocksu1: Value(-conversions['u1']!), // Négatif pour sortie
+            stocksu2: Value(-conversions['u2']!),
+            stocksu3: Value(-conversions['u3']!),
+            depots: Value(depot),
+            frns: Value(fournisseur),
+            verification: const Value('JOURNAL'),
+            us: Value(unite),
+            pus: Value(prixUnitaire),
+            cmup: Value(article.cmup ?? 0.0),
+          ),
+        );
+  }
+
+  /// Met à jour la fiche stock pour les contre-passements
+  Future<void> _mettreAJourFicheStockContrePassement({
+    required String designation,
+    required String unite,
+    required double quantite,
+  }) async {
+    final ficheExiste = await (_databaseService.database.select(_databaseService.database.fstocks)
+          ..where((f) => f.art.equals(designation)))
+        .getSingleOrNull();
+
+    if (ficheExiste != null) {
+      // Mettre à jour la fiche existante - pour les contre-passements on augmente qs (sorties)
+      double nouvelleQs = (ficheExiste.qs ?? 0) + quantite;
+
+      await (_databaseService.database.update(_databaseService.database.fstocks)
+            ..where((f) => f.art.equals(designation)))
+          .write(FstocksCompanion(
+        qs: Value(nouvelleQs),
+      ));
+    } else {
+      // Créer nouvelle fiche avec sortie
+      final ref = 'FS-${DateTime.now().millisecondsSinceEpoch}';
+      await _databaseService.database.into(_databaseService.database.fstocks).insert(
+            FstocksCompanion.insert(
+              ref: ref,
+              art: Value(designation),
+              qe: const Value(0.0),
+              qs: Value(quantite), // Sortie pour contre-passement
+              qst: const Value(0.0),
+              ue: Value(unite),
+            ),
+          );
+    }
+  }
+
+  /// Recalcule le CMUP après contre-passement
+  Future<void> _recalculerCMUPApresContrePassement(
+    Article article,
+    double quantiteRetiree,
+    double prixUnitaireRetire,
+  ) async {
+    // Calculer le stock total actuel en unité de base (u3)
+    double stockActuelU3 = StockConverter.calculerStockTotalU3(
+      article: article,
+      stockU1: article.stocksu1 ?? 0,
+      stockU2: article.stocksu2 ?? 0,
+      stockU3: article.stocksu3 ?? 0,
+    );
+
+    double cmupActuel = article.cmup ?? 0.0;
+
+    // Si plus de stock, conserver le CMUP actuel (pas de mise à jour)
+    if (stockActuelU3 <= 0) {
+      return; // Conserver le CMUP existant pour le prochain achat
+    }
+
+    // Calculer la valeur totale avant retrait
+    double stockAvantRetrait = stockActuelU3 + quantiteRetiree;
+    double valeurTotaleAvant = stockAvantRetrait * cmupActuel;
+    double valeurRetiree = quantiteRetiree * prixUnitaireRetire;
+    double nouvelleValeur = valeurTotaleAvant - valeurRetiree;
+
+    // Nouveau CMUP
+    double nouveauCMUP = nouvelleValeur / stockActuelU3;
+    nouveauCMUP = nouveauCMUP.clamp(0.0, double.infinity);
+
+    await (_databaseService.database.update(_databaseService.database.articles)
+          ..where((a) => a.designation.equals(article.designation)))
+        .write(ArticlesCompanion(cmup: Value(nouveauCMUP)));
   }
 }

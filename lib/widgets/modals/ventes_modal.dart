@@ -376,7 +376,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                 'Impossible de valider: certains articles ont un stock insuffisant dans le dépôt MAG',
               ),
               backgroundColor: Colors.red,
-              duration: Duration(seconds: 5),
             ),
           );
         }

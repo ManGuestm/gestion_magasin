@@ -150,6 +150,8 @@ class _HomeScreenState extends State<HomeScreen> {
         final ventesJour = await db.getVentesToday();
         final totalFournisseurs = await db.getTotalFournisseurs();
         final ventesBrouillard = await db.getVentesBrouillardCount();
+        final ventesBrouillardMag = await db.getVentesBrouillardMagCount();
+        final ventesBrouillardTousDepots = await db.getVentesBrouillardTousDepotsCount();
 
         stats['totalStock'] = totalStock;
         stats['totalAchats'] = totalAchats;
@@ -160,6 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
         stats['benefices'] = await db.getBeneficesReels();
         stats['beneficesJour'] = await db.getBeneficesJour();
         stats['ventesBrouillard'] = ventesBrouillard;
+        stats['ventesBrouillardMag'] = ventesBrouillardMag;
+        stats['ventesBrouillardTousDepots'] = ventesBrouillardTousDepots;
 
         _recentSales = await db.getRecentSales(10);
         _recentBuys = await db.getRecentPurchases(10);
@@ -169,12 +173,16 @@ class _HomeScreenState extends State<HomeScreen> {
         final encaissements = await db.getTotalEncaissements();
         final transactions = await db.getTotalTransactions();
         final ventesBrouillard = await db.getVentesBrouillardCount();
+        final ventesBrouillardMag = await db.getVentesBrouillardMagCount();
+        final ventesBrouillardTousDepots = await db.getVentesBrouillardTousDepotsCount();
 
         stats['totalVentes'] = totalVentes;
         stats['ventesJour'] = ventesJour;
         stats['encaissements'] = encaissements;
         stats['transactions'] = transactions;
         stats['ventesBrouillard'] = ventesBrouillard;
+        stats['ventesBrouillardMag'] = ventesBrouillardMag;
+        stats['ventesBrouillardTousDepots'] = ventesBrouillardTousDepots;
 
         _recentSales = await db.getRecentSales(5);
         _recentBuys = (await db.getRecentPurchases(5));
@@ -898,6 +906,31 @@ class _HomeScreenState extends State<HomeScreen> {
     ).then((_) => _resumeUpdates());
   }
 
+  void _handleBrouillardClick(String userRole) {
+    if (userRole == 'Vendeur') {
+      // Toutes les ventes en attente des vendeurs ouvrent le modal MAG
+      _showModal('ventes_magasin');
+    } else {
+      final countMag = _stats['ventesBrouillardMag'] ?? 0;
+      final countTousDepots = _stats['ventesBrouillardTousDepots'] ?? 0;
+
+      if (countMag > 0 && countTousDepots == 0) {
+        // Seulement des ventes MAG en attente
+        _showModal('ventes_magasin');
+      } else if (countTousDepots > 0 && countMag == 0) {
+        // Seulement des ventes Tous dépôts en attente
+        _showModal('ventes_tous_depots');
+      } else {
+        // Les deux types ou aucun type spécifique - ouvrir le sélecteur
+        _pauseUpdates();
+        showDialog(
+          context: context,
+          builder: (context) => const VentesSelectionModal(),
+        ).then((_) => _resumeUpdates());
+      }
+    }
+  }
+
   void _handleStatCardTap(String title) {
     final userRole = AuthService().currentUser?.role ?? '';
 
@@ -973,7 +1006,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _showModal('Transactions');
         break;
       case 'Ventes en attente':
-        _showModal('ventes_tous_depots');
+        _handleBrouillardClick(userRole);
         break;
       case 'Mes Ventes en attente':
         _showModal('ventes_magasin');
@@ -1161,7 +1194,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBrouillardNotification() {
-    final count = _stats['ventesBrouillard'] ?? 0;
+    final userRole = AuthService().currentUser?.role ?? '';
+    final count =
+        userRole == 'Vendeur' ? (_stats['mesVentesBrouillard'] ?? 0) : (_stats['ventesBrouillard'] ?? 0);
+    final countMag = _stats['ventesBrouillardMag'] ?? 0;
+    final countTousDepots = _stats['ventesBrouillardTousDepots'] ?? 0;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
       padding: const EdgeInsets.all(16),
@@ -1223,18 +1261,49 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: Colors.orange[800],
                   ),
                 ),
-                Text(
-                  '$count vente${count > 1 ? 's' : ''} en brouillard à valider',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.orange[700],
+                if (userRole == 'Vendeur')
+                  Text(
+                    '$count vente${count > 1 ? 's' : ''} en brouillard à valider',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.orange[700],
+                    ),
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (countMag > 0)
+                        Text(
+                          '• $countMag vente${countMag > 1 ? 's' : ''} MAG',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.orange[700],
+                          ),
+                        ),
+                      if (countTousDepots > 0)
+                        Text(
+                          '• $countTousDepots vente${countTousDepots > 1 ? 's' : ''} Tous dépôts',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.orange[700],
+                          ),
+                        ),
+                      if (countMag == 0 && countTousDepots == 0)
+                        Text(
+                          '$count vente${count > 1 ? 's' : ''} en brouillard à valider',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.orange[700],
+                          ),
+                        ),
+                    ],
                   ),
-                ),
               ],
             ),
           ),
           ElevatedButton.icon(
-            onPressed: () => _showModal('ventes_tous_depots'),
+            onPressed: () => _handleBrouillardClick(userRole),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               foregroundColor: Colors.white,

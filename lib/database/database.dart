@@ -980,6 +980,28 @@ class AppDatabase extends _$AppDatabase {
     return result.read(ventes.numventes.count()) ?? 0;
   }
 
+  /// Compte le nombre de ventes MAG en brouillard en attente
+  Future<int> getVentesBrouillardMagCount() async {
+    final query = selectOnly(ventes)
+      ..addColumns([ventes.numventes.count()])
+      ..where(ventes.verification.equals('BROUILLARD') & 
+              (ventes.type.isNull() | ventes.type.equals('MAG')));
+
+    final result = await query.getSingle();
+    return result.read(ventes.numventes.count()) ?? 0;
+  }
+
+  /// Compte le nombre de ventes Tous dépôts en brouillard en attente
+  Future<int> getVentesBrouillardTousDepotsCount() async {
+    final query = selectOnly(ventes)
+      ..addColumns([ventes.numventes.count()])
+      ..where(ventes.verification.equals('BROUILLARD') & 
+              ventes.type.equals('TOUS_DEPOTS'));
+
+    final result = await query.getSingle();
+    return result.read(ventes.numventes.count()) ?? 0;
+  }
+
   /// Récupère un dépôt par nom (suite)
   Future<Depot?> getDepotByNameContinued(String name) =>
       (select(depots)..where((tbl) => tbl.depots.equals(name))).getSingleOrNull();
