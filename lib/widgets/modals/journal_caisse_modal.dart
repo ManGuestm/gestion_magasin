@@ -66,7 +66,7 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
     }
   }
 
-  List<CaisseData> get _filteredMouvements {
+  List<Map<String, dynamic>> get _filteredMouvements {
     List<CaisseData> filtered = List.from(_mouvements);
 
     // Filtrage par recherche simple
@@ -113,25 +113,44 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
       filtered = filtered.where((m) => (m.credit ?? 0) <= _creditMax!).toList();
     }
 
+    // Trier par date croissante pour calculer les soldes
+    filtered.sort((a, b) => (a.daty ?? DateTime.now()).compareTo(b.daty ?? DateTime.now()));
+    
+    // Calculer les soldes cumulés
+    double soldeRunning = 0;
+    List<Map<String, dynamic>> mouvementsAvecSoldes = [];
+    
+    for (var mouvement in filtered) {
+      soldeRunning += (mouvement.credit ?? 0) - (mouvement.debit ?? 0);
+      mouvementsAvecSoldes.add({
+        'data': mouvement,
+        'soldeCalcule': soldeRunning,
+      });
+    }
+    
     // Trier par date décroissante pour l'affichage
-    filtered.sort((a, b) => (b.daty ?? DateTime.now()).compareTo(a.daty ?? DateTime.now()));
-    return filtered;
+    mouvementsAvecSoldes.sort((a, b) => 
+      ((b['data'] as CaisseData).daty ?? DateTime.now())
+        .compareTo((a['data'] as CaisseData).daty ?? DateTime.now()));
+    
+    return mouvementsAvecSoldes;
   }
 
   double get _totalDebit {
-    return _filteredMouvements.fold(0.0, (sum, m) => sum + (m.debit ?? 0));
+    return _filteredMouvements.fold(0.0, (sum, m) => sum + ((m['data'] as CaisseData).debit ?? 0));
   }
 
   double get _totalCredit {
-    return _filteredMouvements.fold(0.0, (sum, m) => sum + (m.credit ?? 0));
+    return _filteredMouvements.fold(0.0, (sum, m) => sum + ((m['data'] as CaisseData).credit ?? 0));
   }
 
   double get _soldeActuel {
-    if (_mouvements.isEmpty) return 0;
-    // Prendre le solde du mouvement le plus récent chronologiquement
-    final mouvementsOrdonnes = List<CaisseData>.from(_mouvements)
-      ..sort((a, b) => (a.daty ?? DateTime.now()).compareTo(b.daty ?? DateTime.now()));
-    return mouvementsOrdonnes.last.soldes ?? 0;
+    if (_filteredMouvements.isEmpty) return 0;
+    // Le solde actuel est le dernier solde calculé (le plus récent chronologiquement)
+    final mouvementsOrdonnes = List<Map<String, dynamic>>.from(_filteredMouvements)
+      ..sort((a, b) => ((a['data'] as CaisseData).daty ?? DateTime.now())
+        .compareTo((b['data'] as CaisseData).daty ?? DateTime.now()));
+    return mouvementsOrdonnes.isNotEmpty ? mouvementsOrdonnes.last['soldeCalcule'] as double : 0;
   }
 
   void _handleKeyboardShortcut(KeyEvent event) {
@@ -414,7 +433,9 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
                                     : ListView.builder(
                                         itemCount: filteredMouvements.length,
                                         itemBuilder: (context, index) {
-                                          final mouvement = filteredMouvements[index];
+                                          final mouvementData = filteredMouvements[index];
+                                          final mouvement = mouvementData['data'] as CaisseData;
+                                          final soldeCalcule = mouvementData['soldeCalcule'] as double;
                                           final isSelected = _selectedRowIndex == index;
 
                                           return GestureDetector(
@@ -485,12 +506,12 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
                                                     ),
                                                   ),
                                                   _buildDataCell(
-                                                    NumberUtils.formatNumber(mouvement.soldes ?? 0),
+                                                    NumberUtils.formatNumber(soldeCalcule),
                                                     flex: 2,
                                                     style: TextStyle(
                                                       fontSize: 12,
                                                       fontWeight: FontWeight.bold,
-                                                      color: (mouvement.soldes ?? 0) >= 0
+                                                      color: soldeCalcule >= 0
                                                           ? Colors.green.shade800
                                                           : Colors.red.shade800,
                                                     ),

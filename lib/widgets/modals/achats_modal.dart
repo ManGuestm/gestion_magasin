@@ -1588,7 +1588,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       final externalDbService = DatabaseService.fromPath(filePath);
       await externalDbService.initialize();
       debugPrint('Base externe initialisée avec succès');
-
       // Vérifier les tables disponibles dans la base externe
       try {
         final tablesResult = await externalDbService.database
@@ -1646,7 +1645,27 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             'Premier détail: numachats=${detailsExternes.first.numachats}, designation=${detailsExternes.first.designation}');
       }
 
-      if (achatsExternes.isEmpty) {
+      // Si aucun achat dans la table principale mais des détails existent, récupérer les numéros uniques
+      List<String> numerosAchatsDisponibles = [];
+      if (achatsExternes.isEmpty && detailsExternes.isNotEmpty) {
+        debugPrint('Table achats vide, récupération des numéros depuis detachats...');
+        // Récupérer les numéros d'achats uniques depuis detachats
+        final numerosUniques = detailsExternes
+            .map((d) => d.numachats)
+            .where((numero) => numero != null && numero.isNotEmpty)
+            .toSet()
+            .toList();
+        numerosAchatsDisponibles = numerosUniques.cast<String>();
+        debugPrint('Numéros d\'achats trouvés dans detachats: ${numerosAchatsDisponibles.length}');
+      } else if (achatsExternes.isNotEmpty) {
+        numerosAchatsDisponibles = achatsExternes
+            .map((a) => a.numachats)
+            .where((numero) => numero != null && numero.isNotEmpty)
+            .cast<String>()
+            .toList();
+      }
+
+      if (numerosAchatsDisponibles.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Aucun achat trouvé dans la base externe')),
@@ -1666,13 +1685,24 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   width: 300,
                   height: 400,
                   child: ListView.builder(
-                    itemCount: achatsExternes.length,
+                    itemCount: numerosAchatsDisponibles.length,
                     itemBuilder: (context, index) {
-                      final achat = achatsExternes[index];
+                      final numeroAchat = numerosAchatsDisponibles[index];
+                      // Chercher les détails pour ce numéro d'achat
+                      final detailsPourAchat =
+                          detailsExternes.where((d) => d.numachats == numeroAchat).toList();
+                      final nbLignes = detailsPourAchat.length;
+
+                      // Essayer de trouver l'achat principal si disponible
+                      final achatPrincipal =
+                          achatsExternes.where((a) => a.numachats == numeroAchat).firstOrNull;
+
                       return ListTile(
-                        title: Text('N° ${achat.numachats ?? "Sans numéro"}'),
-                        subtitle: Text('${achat.frns ?? ""} - ${achat.nfact ?? ""}'),
-                        onTap: () => Navigator.of(context).pop(achat.numachats),
+                        title: Text('N° $numeroAchat'),
+                        subtitle: Text(achatPrincipal != null
+                            ? '${achatPrincipal.frns ?? ""} - ${achatPrincipal.nfact ?? ""} - $nbLignes ligne(s)'
+                            : 'Détails uniquement - $nbLignes ligne(s) disponible(s)'),
+                        onTap: () => Navigator.of(context).pop(numeroAchat),
                       );
                     },
                   ),
@@ -3671,7 +3701,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                       foregroundColor: Colors.white,
                                       minimumSize: const Size(60, 30),
                                     ),
-                                    child: const Text('Importer', style: TextStyle(fontSize: 12)),
+                                    child: const Text('Importer lignes', style: TextStyle(fontSize: 12)),
                                   ),
                                 ),
                                 if (_isExistingPurchase) ...[
