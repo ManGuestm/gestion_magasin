@@ -224,40 +224,41 @@ class _RestaurerModalState extends State<RestaurerModal> {
 
     try {
       final dbService = DatabaseService();
-      
+
+      // Obtenir le chemin de la base de données actuelle AVANT de la fermer
+      final dbPath = await dbService.getDatabasePath();
+
       // Fermer la base de données actuelle
       await dbService.closeDatabase();
-      
-      // Obtenir le chemin de la base de données actuelle
-      final dbPath = await dbService.getDatabasePath();
-      
+
       // Copier le fichier de sauvegarde vers l'emplacement de la base de données
       final backupFile = File(_selectedFilePath);
       final currentDbFile = File(dbPath);
-      
+
       // Supprimer l'ancienne base de données
       if (await currentDbFile.exists()) {
         await currentDbFile.delete();
       }
-      
+
       // Copier la sauvegarde
       await backupFile.copy(dbPath);
-      
+
       // Réinitialiser le service de base de données
       await dbService.reinitializeDatabase();
-      
+
       setState(() {
         _isRestoring = false;
         _restoreSuccess = true;
       });
     } catch (e) {
       setState(() => _isRestoring = false);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur lors de la restauration: $e'),
+            content: SelectableText('Erreur lors de la restauration: $e'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 15),
           ),
         );
       }
