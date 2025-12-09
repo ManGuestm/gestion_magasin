@@ -162,7 +162,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
                             ),
                           ),
                           subtitle: const Text(
-                            'Remise à zéro intelligente : préserve les données maîtres, remet stocks et soldes à 0, CMUP à 0 pour recalcul',
+                            'Remise à zéro intelligente : préserve les données maîtres, remet stocks et soldes à 0, garder le CMUP',
                             style: TextStyle(fontSize: 11),
                           ),
                           value: _toutSaufArticles,
@@ -462,13 +462,12 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
   }
 
   Future<void> _reinitialiserToutSaufArticles(dynamic db) async {
-    // Remise à zéro intelligente des stocks et CMUP dans articles
+    // Remise à zéro intelligente des stocks dans articles (préserver CMUP)
     await db.customStatement('''
       UPDATE articles SET 
         stocksu1 = 0,
         stocksu2 = 0,
-        stocksu3 = 0,
-        cmup = 0
+        stocksu3 = 0
     ''');
 
     // Remise à zéro des soldes clients/fournisseurs/commerciaux
@@ -607,7 +606,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
         stocksu2 = 0,
         stocksu3 = 0
     ''');
-    
+
     await db.customStatement('''
       UPDATE depart SET 
         stocksu1 = 0,

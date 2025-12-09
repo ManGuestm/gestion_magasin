@@ -1,5 +1,11 @@
+import 'dart:io';
+
+import 'package:excel/excel.dart' hide Border;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import '../../constants/app_functions.dart';
 import '../../database/database.dart';
@@ -31,6 +37,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   String _selectedDepot = 'Tous';
   String _selectedCategorie = 'Toutes';
   List<String> _categories = [];
+  Map<String, dynamic> _companyInfo = {};
 
   // Pagination optimisée
   static const int _itemsPerPage = 25; // Réduit pour de meilleures performances
@@ -115,6 +122,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       // Chargement asynchrone par batch pour éviter les blocages
       final articles = await _loadArticlesAsync();
       final stocks = await _loadStocksAsync();
+      final companyInfo = await _loadCompanyInfoAsync();
 
       // Traitement asynchrone des métadonnées
       final metadata = await _processMetadataAsync(articles, stocks);
@@ -123,6 +131,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         setState(() {
           _articles = articles;
           stock = stocks;
+          _companyInfo = companyInfo;
           _depots = metadata['depots'] as List<String>;
           _categories = metadata['categories'] as List<String>;
           // Initialiser avec CDA par défaut pour l'inventaire
@@ -152,6 +161,39 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
   Future<List<DepartData>> _loadStocksAsync() async {
     return await _databaseService.database.select(_databaseService.database.depart).get();
+  }
+
+  Future<Map<String, dynamic>> _loadCompanyInfoAsync() async {
+    try {
+      final result = await _databaseService.database.customSelect('SELECT * FROM soc LIMIT 1').get();
+      if (result.isNotEmpty) {
+        final row = result.first.data;
+        return {
+          'nom': row['rsoc'] ?? 'GESTION DE MAGASIN',
+          'activites': row['activites'] ?? '',
+          'adresse': row['adr'] ?? '',
+          'tel': row['tel'] ?? '',
+          'port': row['port'] ?? '',
+          'email': row['email'] ?? '',
+          'nif': row['nif'] ?? '',
+          'stat': row['stat'] ?? '',
+          'rcs': row['rcs'] ?? '',
+        };
+      }
+    } catch (e) {
+      // Fallback si erreur
+    }
+    return {
+      'nom': 'GESTION DE MAGASIN',
+      'activites': '',
+      'adresse': '',
+      'tel': '',
+      'port': '',
+      'email': '',
+      'nif': '',
+      'stat': '',
+      'rcs': ''
+    };
   }
 
   Future<Map<String, List<String>>> _processMetadataAsync(
@@ -1718,10 +1760,6 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     }
   }
 
-  void _exportStock() {
-    _showSuccess('Export en cours - Fonctionnalité à implémenter');
-  }
-
   void _showError(String message) {
     _scaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
@@ -1847,10 +1885,6 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     }
   }
 
-  void _exportMouvements() {
-    _showSuccess('Export des mouvements en cours - Fonctionnalité à implémenter');
-  }
-
   void _exportRapports() {
     _showSuccess('Export des rapports en cours - Fonctionnalité à implémenter');
   }
@@ -1862,5 +1896,432 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       );
     }
     return _inventaireControllers[key]!;
+  }
+
+  Future<void> _exportStock() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Format d\'export'),
+        content: const Text('Choisissez le format d\'export :'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'excel'),
+            child: const Text('Excel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'pdf'),
+            child: const Text('PDF'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'excel') {
+      await _exportToExcel();
+    } else if (result == 'pdf') {
+      await _exportToPdf();
+    }
+  }
+
+  Future<void> _exportToExcel() async {
+    try {
+      final excel = Excel.createExcel();
+      final sheet = excel['Inventaire'];
+
+      // En-tête professionnel
+      sheet.cell(CellIndex.indexByString('A1')).value =
+          TextCellValue('${_companyInfo['nom']} - INVENTAIRE DES STOCKS');
+      sheet.cell(CellIndex.indexByString('A2')).value =
+          TextCellValue('${_companyInfo['adresse']} - Tél: ${_companyInfo['tel']}');
+      sheet.cell(CellIndex.indexByString('A3')).value = TextCellValue(
+          'Date: ${AppDateUtils.formatDate(DateTime.now())} - Total articles: ${_filteredArticles.length}');
+
+      // En-têtes de colonnes
+      sheet.cell(CellIndex.indexByString('A5')).value = TextCellValue('Article');
+      sheet.cell(CellIndex.indexByString('B5')).value = TextCellValue('Catégorie');
+      sheet.cell(CellIndex.indexByString('C5')).value = TextCellValue('Stock U1');
+      sheet.cell(CellIndex.indexByString('D5')).value = TextCellValue('Stock U2');
+      sheet.cell(CellIndex.indexByString('E5')).value = TextCellValue('Stock U3');
+      sheet.cell(CellIndex.indexByString('F5')).value = TextCellValue('CMUP');
+      sheet.cell(CellIndex.indexByString('G5')).value = TextCellValue('Valeur');
+      sheet.cell(CellIndex.indexByString('H5')).value = TextCellValue('Statut');
+
+      for (int i = 0; i < _filteredArticles.length; i++) {
+        final article = _filteredArticles[i];
+        final row = i + 6;
+        final stockTotal = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+        final cmup = article.cmup ?? 0;
+        final valeur = stockTotal * cmup;
+
+        String status = 'En stock';
+        if (stockTotal <= 0) {
+          status = 'Rupture';
+        } else if (article.usec != null && stockTotal <= article.usec!) {
+          status = 'Alerte';
+        }
+
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
+            TextCellValue(article.designation);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value =
+            TextCellValue(article.categorie ?? '');
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value =
+            DoubleCellValue(article.stocksu1 ?? 0);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value =
+            DoubleCellValue(article.stocksu2 ?? 0);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value =
+            DoubleCellValue(article.stocksu3 ?? 0);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row)).value = DoubleCellValue(cmup);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row)).value = DoubleCellValue(valeur);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: row)).value = TextCellValue(status);
+      }
+
+      final directory = await getApplicationDocumentsDirectory();
+      final now = DateTime.now();
+      final dateStr =
+          '${now.day.toString().padLeft(2, '0')}_${now.month.toString().padLeft(2, '0')}_${now.year}_${now.hour.toString().padLeft(2, '0')}_${now.minute.toString().padLeft(2, '0')}';
+      final file = File('${directory.path}/inventaire_$dateStr.xlsx');
+      await file.writeAsBytes(excel.encode()!);
+
+      if (mounted) {
+        _showSuccess('Export Excel réussi: ${file.path}');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Erreur export Excel: $e');
+      }
+    }
+  }
+
+  Future<void> _exportToPdf() async {
+    try {
+      final pdf = pw.Document();
+      const itemsPerPage = 40;
+      final totalPages = (_filteredArticles.length / itemsPerPage).ceil();
+
+      for (int i = 0; i < _filteredArticles.length; i += itemsPerPage) {
+        final endIndex = (i + itemsPerPage).clamp(0, _filteredArticles.length);
+        final pageArticles = _filteredArticles.sublist(i, endIndex);
+        final currentPage = (i / itemsPerPage).floor() + 1;
+
+        pdf.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4.landscape,
+            build: (pw.Context context) {
+              return pw.Column(
+                children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(15),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.black, width: 1),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        pw.Text('INVENTAIRE DES STOCKS',
+                            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                            textAlign: pw.TextAlign.center),
+                        pw.SizedBox(height: 10),
+                        pw.Row(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Expanded(
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                children: [
+                                  pw.Text('SOCIÉTÉ:',
+                                      style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                                  pw.Text('${_companyInfo['nom']}',
+                                      style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                                  pw.Text('${_companyInfo['adresse']}',
+                                      style: const pw.TextStyle(fontSize: 9)),
+                                  pw.Text('RCS: ${_companyInfo['rcs']}',
+                                      style: const pw.TextStyle(fontSize: 9)),
+                                  pw.Text('STAT: ${_companyInfo['stat']}',
+                                      style: const pw.TextStyle(fontSize: 9)),
+                                  pw.Text('NIF: ${_companyInfo['nif']}',
+                                      style: const pw.TextStyle(fontSize: 9)),
+                                  pw.Text('Email: ${_companyInfo['email']}',
+                                      style: const pw.TextStyle(fontSize: 9)),
+                                  pw.Text('Tél: ${_companyInfo['tel']} / ${_companyInfo['port']}',
+                                      style: const pw.TextStyle(fontSize: 9)),
+                                ],
+                              ),
+                            ),
+                            pw.Expanded(
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                                children: [
+                                  pw.Text('N° DOC: INV${DateTime.now().millisecondsSinceEpoch}',
+                                      style: const pw.TextStyle(fontSize: 10)),
+                                  pw.Text('DATE: ${AppDateUtils.formatDate(DateTime.now())}',
+                                      style: const pw.TextStyle(fontSize: 10)),
+                                  pw.Text('PAGE: $currentPage/$totalPages',
+                                      style: const pw.TextStyle(fontSize: 10)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.SizedBox(height: 20),
+                  pw.Expanded(
+                    child: pw.TableHelper.fromTextArray(
+                      headers: [
+                        'Article',
+                        'Catégorie',
+                        'Stock U1',
+                        'Stock U2',
+                        'Stock U3',
+                        'CMUP',
+                        'Valeur',
+                        'Statut'
+                      ],
+                      data: pageArticles.map((article) {
+                        final stockTotal =
+                            (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+                        final cmup = article.cmup ?? 0;
+                        final valeur = stockTotal * cmup;
+
+                        String status = 'En stock';
+                        if (stockTotal <= 0) {
+                          status = 'Rupture';
+                        } else if (article.usec != null && stockTotal <= article.usec!) {
+                          status = 'Alerte';
+                        }
+
+                        return [
+                          article.designation,
+                          article.categorie ?? '',
+                          '${article.stocksu1 ?? ''} ${article.u1 ?? ''}',
+                          '${article.u2 == null ? '' : article.stocksu2} ${article.u2 ?? ''}',
+                          '${article.u3 == null ? '' : article.stocksu3} ${article.u3 ?? ''}',
+                          '${AppFunctions.formatNumber(cmup)} Ar',
+                          '${AppFunctions.formatNumber(valeur)} Ar',
+                          status,
+                        ];
+                      }).toList(),
+                      headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                      cellStyle: const pw.TextStyle(fontSize: 8),
+                      headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                      cellHeight: 12,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      }
+
+      final directory = await getApplicationDocumentsDirectory();
+      final now = DateTime.now();
+      final dateStr =
+          '${now.day.toString().padLeft(2, '0')}_${now.month.toString().padLeft(2, '0')}_${now.year}_${now.hour.toString().padLeft(2, '0')}_${now.minute.toString().padLeft(2, '0')}';
+      final file = File('${directory.path}/inventaire_$dateStr.pdf');
+      await file.writeAsBytes(await pdf.save());
+
+      if (mounted) {
+        _showSuccess('Export PDF réussi: ${file.path}');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Erreur export PDF: $e');
+      }
+    }
+  }
+
+  Future<void> _exportMouvements() async {
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Format d\'export'),
+        content: const Text('Choisissez le format d\'export pour les mouvements :'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'excel'),
+            child: const Text('Excel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'pdf'),
+            child: const Text('PDF'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'excel') {
+      await _exportMouvementsToExcel();
+    } else if (result == 'pdf') {
+      await _exportMouvementsToPdf();
+    }
+  }
+
+  Future<void> _exportMouvementsToExcel() async {
+    try {
+      final excel = Excel.createExcel();
+      final sheet = excel['Mouvements'];
+
+      sheet.cell(CellIndex.indexByString('A1')).value =
+          TextCellValue('${_companyInfo['nom']} - MOUVEMENTS DE STOCK');
+      sheet.cell(CellIndex.indexByString('A2')).value =
+          TextCellValue('${_companyInfo['adresse']} - Tél: ${_companyInfo['tel']}');
+      sheet.cell(CellIndex.indexByString('A3')).value = TextCellValue(
+          'Date: ${AppDateUtils.formatDate(DateTime.now())} - Total mouvements: ${_filteredMouvements.length}');
+
+      sheet.cell(CellIndex.indexByString('A5')).value = TextCellValue('Date');
+      sheet.cell(CellIndex.indexByString('B5')).value = TextCellValue('Article');
+      sheet.cell(CellIndex.indexByString('C5')).value = TextCellValue('Dépôt');
+      sheet.cell(CellIndex.indexByString('D5')).value = TextCellValue('Type');
+      sheet.cell(CellIndex.indexByString('E5')).value = TextCellValue('Entrées');
+      sheet.cell(CellIndex.indexByString('F5')).value = TextCellValue('Sorties');
+      sheet.cell(CellIndex.indexByString('G5')).value = TextCellValue('Stock Final');
+
+      for (int i = 0; i < _filteredMouvements.length; i++) {
+        final mouvement = _filteredMouvements[i];
+        final row = i + 6;
+
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
+            TextCellValue(AppDateUtils.formatDate(mouvement.daty ?? DateTime.now()));
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value =
+            TextCellValue(mouvement.refart ?? '');
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value =
+            TextCellValue(mouvement.depots ?? '');
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value =
+            TextCellValue(mouvement.verification ?? '');
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value =
+            DoubleCellValue(mouvement.qe ?? 0);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row)).value =
+            DoubleCellValue(mouvement.qs ?? 0);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row)).value =
+            DoubleCellValue((mouvement.qe ?? 0) - (mouvement.qs ?? 0));
+      }
+
+      final directory = await getApplicationDocumentsDirectory();
+      final now = DateTime.now();
+      final dateStr =
+          '${now.day.toString().padLeft(2, '0')}_${now.month.toString().padLeft(2, '0')}_${now.year}_${now.hour.toString().padLeft(2, '0')}_${now.minute.toString().padLeft(2, '0')}';
+      final file = File('${directory.path}/mouvements_$dateStr.xlsx');
+      await file.writeAsBytes(excel.encode()!);
+
+      if (mounted) {
+        _showSuccess('Export Excel réussi: ${file.path}');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Erreur export Excel: $e');
+      }
+    }
+  }
+
+  Future<void> _exportMouvementsToPdf() async {
+    try {
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          header: (pw.Context context) {
+            return pw.Container(
+              padding: const pw.EdgeInsets.all(15),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.black, width: 1),
+              ),
+              child: pw.Column(
+                children: [
+                  pw.Text('MOUVEMENTS DE STOCK',
+                      style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                      textAlign: pw.TextAlign.center),
+                  pw.SizedBox(height: 10),
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: [
+                            pw.Text('SOCIÉTÉ:',
+                                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('${_companyInfo['nom']}',
+                                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                            pw.Text('${_companyInfo['adresse']}', style: const pw.TextStyle(fontSize: 9)),
+                            pw.Text('RCS: ${_companyInfo['rcs']}', style: const pw.TextStyle(fontSize: 9)),
+                            pw.Text('STAT: ${_companyInfo['stat']}', style: const pw.TextStyle(fontSize: 9)),
+                            pw.Text('NIF: ${_companyInfo['nif']}', style: const pw.TextStyle(fontSize: 9)),
+                            pw.Text('Email: ${_companyInfo['email']}',
+                                style: const pw.TextStyle(fontSize: 9)),
+                            pw.Text('Tél: ${_companyInfo['tel']} / ${_companyInfo['port']}',
+                                style: const pw.TextStyle(fontSize: 9)),
+                          ],
+                        ),
+                      ),
+                      pw.Expanded(
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.end,
+                          children: [
+                            pw.Text('N° DOC: MOV${DateTime.now().millisecondsSinceEpoch}',
+                                style: const pw.TextStyle(fontSize: 10)),
+                            pw.Text('DATE: ${AppDateUtils.formatDate(DateTime.now())}',
+                                style: const pw.TextStyle(fontSize: 10)),
+                            pw.Text('PAGE: ${context.pageNumber}/${context.pagesCount}',
+                                style: const pw.TextStyle(fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+          build: (pw.Context context) {
+            return [
+              pw.TableHelper.fromTextArray(
+                headers: ['Date', 'Article', 'Dépôt', 'Type', 'Entrées', 'Sorties', 'Stock Final'],
+                data: _filteredMouvements.map((mouvement) {
+                  return [
+                    AppDateUtils.formatDate(mouvement.daty ?? DateTime.now()),
+                    mouvement.refart ?? '',
+                    mouvement.depots ?? '',
+                    mouvement.verification ?? '',
+                    '${mouvement.qe ?? 0}',
+                    '${mouvement.qs ?? 0}',
+                    '${(mouvement.qe ?? 0) - (mouvement.qs ?? 0)}',
+                  ];
+                }).toList(),
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                cellStyle: const pw.TextStyle(fontSize: 8),
+                headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                cellHeight: 16,
+              ),
+            ];
+          },
+        ),
+      );
+
+      final directory = await getApplicationDocumentsDirectory();
+      final now = DateTime.now();
+      final dateStr =
+          '${now.day.toString().padLeft(2, '0')}_${now.month.toString().padLeft(2, '0')}_${now.year}_${now.hour.toString().padLeft(2, '0')}_${now.minute.toString().padLeft(2, '0')}';
+      final file = File('${directory.path}/mouvements_$dateStr.pdf');
+      await file.writeAsBytes(await pdf.save());
+
+      if (mounted) {
+        _showSuccess('Export PDF réussi: ${file.path}');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError('Erreur export PDF: $e');
+      }
+    }
   }
 }

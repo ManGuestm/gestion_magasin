@@ -8,6 +8,7 @@ import '../../constants/client_categories.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
+import '../common/client_navigation_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
 import 'add_client_modal.dart';
 
@@ -42,9 +43,9 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
 
     _loadClients();
 
-    // Focus automatique sur le KeyboardListener
+    // Focus automatique sur le champ de recherche
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _keyboardFocusNode.requestFocus();
+      searchFocus.requestFocus();
     });
   }
 
@@ -54,55 +55,58 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
       focusNode: _keyboardFocusNode,
       autofocus: true,
       onKeyEvent: _handleKeyboardShortcut,
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: AppConstants.defaultModalWidth,
-          height: MediaQuery.of(context).size.height * 0.8,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              _buildModernHeader(),
-              Expanded(
-                child: GestureDetector(
-                  onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              if (AuthService().currentUser?.role == 'Administrateur' ||
-                                  AuthService().currentUser?.role == 'Caisse')
-                                _buildFilterCard(),
-                              const SizedBox(width: 12),
-                              _buildSearchCard(),
-                            ],
+      child: PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: AppConstants.defaultModalWidth,
+            height: MediaQuery.of(context).size.height * 0.8,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildModernHeader(),
+                Expanded(
+                  child: GestureDetector(
+                    onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                if (AuthService().currentUser?.role == 'Administrateur' ||
+                                    AuthService().currentUser?.role == 'Caisse')
+                                  _buildFilterCard(),
+                                const SizedBox(width: 12),
+                                _buildSearchCard(),
+                              ],
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildClientsCard(),
-                        const SizedBox(height: 12),
-                        _buildHistoriqueCard(),
-                      ],
+                          const SizedBox(height: 12),
+                          _buildClientsCard(),
+                          const SizedBox(height: 12),
+                          _buildHistoriqueCard(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              _buildActionButtons(),
-            ],
+                _buildActionButtons(),
+              ],
+            ),
           ),
         ),
       ),
@@ -208,37 +212,23 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.grey[300]!),
             ),
-            child: Autocomplete<CltData>(
-              optionsBuilder: (textEditingValue) {
-                if (textEditingValue.text.isEmpty || textEditingValue.text == ' ') {
-                  return _clients.take(100);
+            child: ClientNavigationAutocomplete(
+              clients: _clients,
+              selectedClient: _selectedClient,
+              onClientChanged: (client) {
+                if (client != null) {
+                  _selectClient(client);
                 }
-                return _clients.where((client) {
-                  return client.rsoc.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                }).take(100);
               },
-              displayStringForOption: (client) => client.rsoc,
-              onSelected: (client) => _selectClient(client),
-              fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
-                return TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  style: const TextStyle(fontSize: 13),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    hintText: 'Tapez le nom du client...',
-                    hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
-                  ),
-                  onEditingComplete: () async {
-                    await _verifierEtCreerClient(controller.text);
-                    onEditingComplete();
-                  },
-                  onSubmitted: (value) async {
-                    await _verifierEtCreerClient(value);
-                  },
-                );
-              },
+              focusNode: searchFocus,
+              hintText: 'Tapez le nom du client...',
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                hintText: 'Tapez le nom du client...',
+                hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -544,74 +534,13 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     }
   }
 
-  Future<void> _verifierEtCreerClient(String nomClient) async {
-    if (nomClient.trim().isEmpty) return;
-
-    // Vérifier si le client existe
-    final clientExiste = _clients.any((client) => client.rsoc.toLowerCase() == nomClient.toLowerCase());
-
-    if (!clientExiste) {
-      // Afficher le modal de confirmation
-      final confirmer = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Client inconnu!!'),
-          content: Text('Le client "$nomClient" n\'existe pas.\n\nVoulez-vous le créer?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Non'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(true);
-              },
-              child: const Text('Oui'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmer == true) {
-        // Ouvrir le modal d'ajout de client avec le nom pré-rempli
-        if (mounted) {
-          await showDialog(
-            context: context,
-            builder: (context) => AddClientModal(
-              nomClient: nomClient,
-              tousDepots: AuthService().currentUser?.role != 'Vendeur',
-            ),
-          );
-        }
-
-        // Recharger la liste des clients
-        await _loadClients();
-
-        // Chercher le client créé et le sélectionner
-        final nouveauClient = _clients
-            .where((client) => client.rsoc.toLowerCase().contains(nomClient.toLowerCase()))
-            .firstOrNull;
-
-        if (nouveauClient != null) {
-          _selectClient(nouveauClient);
-        }
-      }
-    } else {
-      // Client existe, le sélectionner
-      final client = _clients.firstWhere(
-        (client) => client.rsoc.toLowerCase() == nomClient.toLowerCase(),
-      );
-      _selectClient(client);
-    }
-  }
-
   void _showAllClients() {
     setState(() {
       final userRole = AuthService().currentUser?.role ?? '';
       if (userRole == 'Administrateur' || userRole == 'Caisse') {
         _selectedCategoryFilter = null;
       }
-      _searchController.clear();
+      _selectedClient = null;
     });
     _applyFilter();
   }

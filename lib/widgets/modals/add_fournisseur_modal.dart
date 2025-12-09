@@ -37,10 +37,10 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize focus nodes with tab navigation
     _rsocFocusNode = createFocusNode();
-    
+
     if (_isEditing) {
       _loadFournisseurData();
     } else if (widget.nomFournisseur != null) {
@@ -86,8 +86,11 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
         },
         child: Dialog(
           constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height * 0.5,
-              maxHeight: MediaQuery.of(context).size.height * 0.9),
+            minHeight: MediaQuery.of(context).size.height * 0.5,
+            maxHeight: MediaQuery.of(context).size.height * 0.8,
+            minWidth: MediaQuery.of(context).size.height * 0.5,
+            maxWidth: MediaQuery.of(context).size.height * 0.7,
+          ),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Container(
             decoration: BoxDecoration(
@@ -308,7 +311,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
   Widget _buildLabeledField(String label, TextEditingController controller,
       {bool required = false, FocusNode? focusNode}) {
     final fieldFocusNode = focusNode ?? createFocusNode();
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -369,7 +372,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
 
   Widget _buildTextAreaField(String label, TextEditingController controller) {
     final focusNode = createFocusNode();
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

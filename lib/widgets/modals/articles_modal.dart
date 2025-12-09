@@ -7,7 +7,7 @@ import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/stock_management_service.dart';
 import '../../utils/stock_converter.dart';
-import '../../widgets/common/base_modal.dart';
+import '../common/article_navigation_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
 import 'add_article_modal.dart';
 import 'historique_stock_modal.dart';
@@ -26,13 +26,17 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   List<Depot> _depots = [];
   final TextEditingController _searchController = TextEditingController();
   late final FocusNode _searchFocus;
+  late final FocusNode _keyboardFocusNode;
   Article? _selectedArticle;
   bool _isLoading = false;
+  String? _sortColumn;
+  bool _sortAscending = true;
 
   @override
   void initState() {
     super.initState();
     _searchFocus = createFocusNode();
+    _keyboardFocusNode = createFocusNode();
     _loadArticles();
     _loadDepots();
 
@@ -43,65 +47,214 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
+    return KeyboardListener(
+      focusNode: _keyboardFocusNode,
       autofocus: true,
-      onKeyEvent: (node, event) {
-        if (event is KeyDownEvent) {
-          if (HardwareKeyboard.instance.isControlPressed) {
-            if (event.logicalKey == LogicalKeyboardKey.keyF) {
-              _focusSearchField();
-              return KeyEventResult.handled;
-            } else if (event.logicalKey == LogicalKeyboardKey.keyC) {
-              _copyTableData();
-              return KeyEventResult.handled;
-            } else if (event.logicalKey == LogicalKeyboardKey.keyA) {
-              _selectAllArticles();
-              return KeyEventResult.handled;
-            }
-          }
-        }
-        return handleTabNavigation(event);
-      },
-      child: BaseModal(
-        title: 'Articles',
-        width: MediaQuery.of(context).size.width * 0.5,
-        height: MediaQuery.of(context).size.height * 0.8,
-        onNew: () => _showAddArticleModal(),
-        onDelete: () => _selectedArticle != null ? _deleteArticle(_selectedArticle!) : null,
-        onRefresh: _loadArticles,
-        content: GestureDetector(
-          onSecondaryTapDown: AuthService().currentUserRole == 'Vendeur' 
-              ? null 
-              : (details) => _showContextMenu(context, details.globalPosition),
-          child: Column(
-            children: [
-              _buildContent(),
-              _buildButtons(),
-            ],
+      onKeyEvent: _handleKeyboardShortcut,
+      child: PopScope(
+        canPop: false,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: AppConstants.defaultModalWidth,
+            height: MediaQuery.of(context).size.height * 0.8,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildModernHeader(),
+                Expanded(
+                  child: GestureDetector(
+                    onSecondaryTapDown: AuthService().currentUserRole == 'Vendeur'
+                        ? null
+                        : (details) => _showContextMenu(context, details.globalPosition),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          _buildSearchCard(),
+                          const SizedBox(height: 12),
+                          _buildArticlesCard(),
+                          const SizedBox(height: 12),
+                          _buildStockSituation(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                _buildActionButtons(),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildContent() {
-    return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[300]!, width: 1),
-          borderRadius: BorderRadius.circular(4),
+  Widget _buildModernHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue[600]!, Colors.blue[700]!],
         ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.inventory, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Gestion des Articles',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                Text(
+                  'Gérer et consulter vos articles',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          _buildHeaderActions(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActions() {
+    return Row(
+      children: [
+        _buildHeaderButton(Icons.add, 'Nouveau', () => _showAddArticleModal()),
+        const SizedBox(width: 8),
+        _buildHeaderButton(Icons.refresh, 'Actualiser', _loadArticles),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close, color: Colors.white),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white.withValues(alpha: 0.2),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderButton(IconData icon, String label, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blue[700],
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        elevation: 0,
+      ),
+    );
+  }
+
+  Widget _buildSearchCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Icon(Icons.search, color: Colors.blue[600], size: 20),
+            const SizedBox(width: 8),
+            const Text(
+              'Rechercher:',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Container(
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: ArticleNavigationAutocomplete(
+                  articles: _articles,
+                  selectedArticle: _selectedArticle,
+                  onArticleChanged: (article) {
+                    if (article != null) {
+                      _selectArticle(article);
+                    }
+                  },
+                  focusNode: _searchFocus,
+                  hintText: 'Tapez le nom de l\'article...',
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    hintText: 'Tapez le nom de l\'article...',
+                    hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              onPressed: _showAllArticles,
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Tout afficher'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange[100],
+                foregroundColor: Colors.orange[700],
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArticlesCard() {
+    return Expanded(
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Column(
           children: [
-            _buildModernHeader(),
+            _buildArticlesHeader(),
             Expanded(
               child: ListView.builder(
                 itemCount: _filteredArticles.length,
-                itemExtent: 24,
+                itemExtent: 32,
                 itemBuilder: (context, index) {
                   final article = _filteredArticles[index];
                   final isSelected = _selectedArticle?.designation == article.designation;
-                  return _buildModernRow(article, isSelected, index);
+                  return _buildArticleRow(article, isSelected, index);
                 },
               ),
             ),
@@ -111,265 +264,26 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     );
   }
 
-  Widget _buildModernHeader() {
+  Widget _buildArticlesHeader() {
     return Container(
-      height: 32,
+      height: 40,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.grey[200]!, Colors.grey[300]!],
+          colors: [Colors.blue[50]!, Colors.blue[100]!],
         ),
-        border: Border(bottom: BorderSide(color: Colors.grey[400]!, width: 1)),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
+        border: Border(bottom: BorderSide(color: Colors.blue[200]!)),
       ),
       child: Row(
         children: [
-          _buildHeaderCell('DESIGNATION', flex: 4),
-          _buildHeaderCell('STOCKS DISPONIBLES', flex: 5),
-          _buildHeaderCell('ACTION', width: 80),
+          _buildSortableHeaderCell('DESIGNATION', 'designation', flex: 4),
+          _buildSortableHeaderCell('STOCKS DISPONIBLES', 'stocks', flex: 5),
+          _buildSortableHeaderCell('ACTION', 'action', width: 100),
         ],
       ),
-    );
-  }
-
-  Widget _buildHeaderCell(String text, {int? flex, double? width}) {
-    Widget cell = Container(
-      alignment: Alignment.center,
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: Colors.black87,
-        ),
-      ),
-    );
-
-    if (flex != null) {
-      return Expanded(flex: flex, child: cell);
-    } else {
-      return SizedBox(width: width, child: cell);
-    }
-  }
-
-  Widget _buildModernRow(Article article, bool isSelected, int index) {
-    return GestureDetector(
-      onTap: () => _selectArticle(article),
-      child: Container(
-        height: 24,
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.blue[100] : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
-          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
-        ),
-        child: Row(
-          children: [
-            _buildDataCell(
-              article.designation,
-              flex: 4,
-              isSelected: isSelected,
-              alignment: Alignment.centerLeft,
-            ),
-            _buildDataCell(
-              '',
-              flex: 5,
-              isSelected: isSelected,
-              alignment: Alignment.center,
-              child: FutureBuilder<String>(
-                future: _getAllStocksText(article),
-                builder: (context, snapshot) => Text(
-                  snapshot.data ?? AppConstants.loadingMessage,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isSelected ? Colors.blue[800] : Colors.black87,
-                  ),
-                ),
-              ),
-            ),
-            _buildDataCell(
-              article.action ?? 'A',
-              width: 80,
-              isSelected: isSelected,
-              alignment: Alignment.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDataCell(
-    String text, {
-    int? flex,
-    double? width,
-    required bool isSelected,
-    required Alignment alignment,
-    Widget? child,
-  }) {
-    Widget cell = Container(
-      alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        border: Border(right: BorderSide(color: Colors.grey[200]!, width: 0.5)),
-      ),
-      child: child ??
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 11,
-              color: isSelected ? Colors.blue[800] : Colors.black87,
-              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-    );
-
-    if (flex != null) {
-      return Expanded(flex: flex, child: cell);
-    } else {
-      return SizedBox(width: width, child: cell);
-    }
-  }
-
-  Widget _buildButtons() {
-    return Column(
-      children: [
-        _buildStockSituation(),
-        Container(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              _buildNavButton(Icons.first_page, _goToFirst),
-              _buildNavButton(Icons.chevron_left, _goToPrevious),
-              _buildNavButton(Icons.chevron_right, _goToNext),
-              _buildNavButton(Icons.last_page, _goToLast),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  height: 28,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[300]!),
-                    borderRadius: BorderRadius.circular(4),
-                    color: Colors.white,
-                  ),
-                  child: TextFormField(
-                    controller: _searchController,
-                    focusNode: _searchFocus,
-                    style: const TextStyle(fontSize: 12),
-                    onTap: () => updateFocusIndex(_searchFocus),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                      isDense: true,
-                      hintText: 'Rechercher (Ctrl+F)...',
-                      hintStyle: TextStyle(color: Colors.grey[500], fontSize: 11),
-                      prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey[500]),
-                      focusedBorder: OutlineInputBorder(),
-                      focusColor: Colors.blue,
-                    ),
-                    onChanged: _filterArticles,
-                    onFieldSubmitted: (_) => _showAllArticles(),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              Container(
-                height: 28,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.orange[100]!, Colors.orange[200]!],
-                  ),
-                  border: Border.all(color: Colors.orange[300]!),
-                  borderRadius: BorderRadius.circular(4),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.orange.withValues(alpha: 0.2),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: TextButton(
-                  onPressed: _showAllArticles,
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.refresh, size: 14, color: Colors.orange),
-                      SizedBox(width: 4),
-                      Text(
-                        'Afficher tous',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                height: 24,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                decoration: BoxDecoration(
-                  color: Colors.blue[100],
-                  border: Border.all(color: Colors.blue[300]!),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: TextButton(
-                  onPressed: _copyTableData,
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.copy, size: 14, color: Colors.blue),
-                      SizedBox(width: 4),
-                      Text(
-                        'Copier (Ctrl+C)',
-                        style: TextStyle(fontSize: 11, color: Colors.blue),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                height: 24,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  border: Border.all(color: Colors.grey[600]!),
-                ),
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text(
-                    'Fermer',
-                    style: TextStyle(fontSize: AppConstants.defaultFontSize, color: Colors.black),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -524,22 +438,43 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     );
   }
 
-  Widget _buildNavButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      width: 20,
-      height: 20,
-      margin: const EdgeInsets.only(right: 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
-        color: Colors.grey[200],
-      ),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, size: 12),
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(),
+  Widget _buildSortableHeaderCell(String text, String column, {int? flex, double? width}) {
+    Widget cell = GestureDetector(
+      onTap: () => _sortBy(column),
+      child: Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
+          color: _sortColumn == column ? Colors.blue[50] : null,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: _sortColumn == column ? Colors.blue[800] : Colors.black87,
+              ),
+            ),
+            if (_sortColumn == column)
+              Icon(
+                _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                size: 12,
+                color: Colors.blue[800],
+              ),
+          ],
+        ),
       ),
     );
+
+    if (flex != null) {
+      return Expanded(flex: flex, child: cell);
+    } else {
+      return SizedBox(width: width, child: cell);
+    }
   }
 
   Future<String> _getAllStocksText(Article article) async {
@@ -642,96 +577,164 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     );
   }
 
-  Future<void> _loadArticles() async {
-    if (_isLoading) return;
-    setState(() => _isLoading = true);
+  Widget _buildArticleRow(Article article, bool isSelected, int index) {
+    return GestureDetector(
+      onTap: () => _selectArticle(article),
+      child: Container(
+        height: 32,
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.blue[100] : (index % 2 == 0 ? Colors.white : Colors.grey[25]),
+          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            _buildDataCell(
+              article.designation,
+              flex: 4,
+              isSelected: isSelected,
+              alignment: Alignment.centerLeft,
+            ),
+            _buildDataCell(
+              '',
+              flex: 5,
+              isSelected: isSelected,
+              alignment: Alignment.center,
+              child: FutureBuilder<String>(
+                future: _getAllStocksText(article),
+                builder: (context, snapshot) => Text(
+                  snapshot.data ?? AppConstants.loadingMessage,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isSelected ? Colors.blue[800] : Colors.black87,
+                  ),
+                ),
+              ),
+            ),
+            _buildStatusCell(article.action ?? 'A', isSelected),
+          ],
+        ),
+      ),
+    );
+  }
 
-    try {
-      // Recharger les articles avec les stocks les plus récents
-      final articles = await DatabaseService().database.getAllArticles();
+  Widget _buildStatusCell(String status, bool isSelected) {
+    final isActive = status == 'A';
+    return Container(
+      width: 100,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.green[100] : Colors.red[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? Colors.green[300]! : Colors.red[300]!,
+          ),
+        ),
+        child: Text(
+          isActive ? 'Actif' : 'Inactif',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: isActive ? Colors.green[700] : Colors.red[700],
+          ),
+        ),
+      ),
+    );
+  }
 
-      // Trier par ordre croissant de désignation
-      articles.sort((a, b) => a.designation.compareTo(b.designation));
+  Widget _buildDataCell(
+    String text, {
+    int? flex,
+    double? width,
+    required bool isSelected,
+    required Alignment alignment,
+    Widget? child,
+  }) {
+    Widget cell = Container(
+      alignment: alignment,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        border: Border(right: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+      ),
+      child: child ??
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: isSelected ? Colors.blue[800] : Colors.black87,
+              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+    );
 
-      setState(() {
-        _articles = articles;
-        _filteredArticles = articles;
-        _isLoading = false;
-      });
-
-      // Forcer le rafraîchissement de l'affichage si un article est sélectionné
-      if (_selectedArticle != null) {
-        final updatedArticle = articles.firstWhere(
-          (a) => a.designation == _selectedArticle!.designation,
-          orElse: () => _selectedArticle!,
-        );
-        setState(() {
-          _selectedArticle = updatedArticle;
-        });
-      }
-    } catch (e) {
-      debugPrint('Erreur lors du chargement des articles: $e');
-      setState(() {
-        _articles = [];
-        _filteredArticles = [];
-        _isLoading = false;
-      });
+    if (flex != null) {
+      return Expanded(flex: flex, child: cell);
+    } else {
+      return SizedBox(width: width, child: cell);
     }
   }
 
-  void _filterArticles(String query) {
-    if (query.length < 2 && query.isNotEmpty) return;
-
-    setState(() {
-      if (query.isEmpty) {
-        _filteredArticles = _articles;
-      } else {
-        _filteredArticles = _articles
-            .where((article) => article.designation.toLowerCase().contains(query.toLowerCase()))
-            .toList();
-        // Maintenir le tri après filtrage
-        _filteredArticles.sort((a, b) => a.designation.compareTo(b.designation));
-      }
-    });
-  }
-
-  void _showAllArticles() {
-    setState(() {
-      _filteredArticles = _articles;
-      _searchController.clear();
-    });
-  }
-
-  void _goToFirst() {
-    if (_filteredArticles.isNotEmpty) {
-      _selectArticle(_filteredArticles.first);
-    }
-  }
-
-  void _goToPrevious() {
-    if (_selectedArticle != null && _filteredArticles.isNotEmpty) {
-      final currentIndex =
-          _filteredArticles.indexWhere((a) => a.designation == _selectedArticle?.designation);
-      if (currentIndex > 0) {
-        _selectArticle(_filteredArticles[currentIndex - 1]);
-      }
-    }
-  }
-
-  void _goToNext() {
-    if (_selectedArticle != null && _filteredArticles.isNotEmpty) {
-      final currentIndex =
-          _filteredArticles.indexWhere((a) => a.designation == _selectedArticle?.designation);
-      if (currentIndex < _filteredArticles.length - 1) {
-        _selectArticle(_filteredArticles[currentIndex + 1]);
-      }
-    }
-  }
-
-  void _goToLast() {
-    if (_filteredArticles.isNotEmpty) {
-      _selectArticle(_filteredArticles.last);
-    }
+  Widget _buildActionButtons() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16),
+        ),
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+      ),
+      child: Row(
+        children: [
+          _buildNavButton(Icons.first_page, _goToFirst, 'Premier'),
+          const SizedBox(width: 8),
+          _buildNavButton(Icons.chevron_left, _goToPrevious, 'Précédent'),
+          const SizedBox(width: 8),
+          _buildNavButton(Icons.chevron_right, _goToNext, 'Suivant'),
+          const SizedBox(width: 8),
+          _buildNavButton(Icons.last_page, _goToLast, 'Dernier'),
+          const Spacer(),
+          if (_selectedArticle != null) ...[
+            ElevatedButton.icon(
+              onPressed: () => _showAddArticleModal(article: _selectedArticle),
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Modifier'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange[100],
+                foregroundColor: Colors.orange[700],
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: () => _deleteArticle(_selectedArticle!),
+              icon: const Icon(Icons.delete, size: 16),
+              label: const Text('Supprimer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[100],
+                foregroundColor: Colors.red[700],
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(width: 16),
+          ],
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Fermer', style: TextStyle(color: Colors.grey)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showContextMenu(BuildContext context, Offset position) {
@@ -854,17 +857,22 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     }
   }
 
-  void _focusSearchField() {
-    if (mounted) {
-      FocusScope.of(context).requestFocus(_searchFocus);
-    }
-  }
-
-  void _selectAllArticles() {
-    // Sélectionner tous les articles visibles
-    setState(() {
-      // Logique de sélection multiple si nécessaire
-    });
+  Widget _buildNavButton(IconData icon, VoidCallback onPressed, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue[100],
+          foregroundColor: Colors.blue[700],
+          padding: const EdgeInsets.all(8),
+          minimumSize: const Size(36, 36),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          elevation: 0,
+        ),
+        child: Icon(icon, size: 16),
+      ),
+    );
   }
 
   Future<void> _copyTableData() async {
@@ -892,10 +900,135 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     }
   }
 
+  Future<void> _loadArticles() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+
+    try {
+      final articles = await DatabaseService().database.getAllArticles();
+      setState(() {
+        _articles = articles;
+        _isLoading = false;
+      });
+      _applyFilter();
+    } catch (e) {
+      debugPrint('Erreur lors du chargement des articles: $e');
+      setState(() {
+        _articles = [];
+        _filteredArticles = [];
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _applyFilter() {
+    List<Article> filtered = _articles;
+
+    // Appliquer le tri
+    if (_sortColumn != null) {
+      filtered.sort((a, b) {
+        dynamic aValue, bValue;
+        switch (_sortColumn) {
+          case 'designation':
+            aValue = a.designation;
+            bValue = b.designation;
+            break;
+          case 'action':
+            aValue = a.action ?? 'A';
+            bValue = b.action ?? 'A';
+            break;
+          default:
+            return 0;
+        }
+
+        int result = aValue.toString().compareTo(bValue.toString());
+        return _sortAscending ? result : -result;
+      });
+    }
+
+    setState(() {
+      _filteredArticles = filtered;
+    });
+  }
+
+  void _sortBy(String column) {
+    setState(() {
+      if (_sortColumn == column) {
+        _sortAscending = !_sortAscending;
+      } else {
+        _sortColumn = column;
+        _sortAscending = true;
+      }
+    });
+    _applyFilter();
+  }
+
+  void _showAllArticles() {
+    setState(() {
+      _selectedArticle = null;
+    });
+    _applyFilter();
+  }
+
+  void _goToFirst() {
+    if (_filteredArticles.isNotEmpty) {
+      _selectArticle(_filteredArticles.first);
+    }
+  }
+
+  void _goToPrevious() {
+    if (_selectedArticle != null && _filteredArticles.isNotEmpty) {
+      final currentIndex =
+          _filteredArticles.indexWhere((a) => a.designation == _selectedArticle?.designation);
+      if (currentIndex > 0) {
+        _selectArticle(_filteredArticles[currentIndex - 1]);
+      }
+    }
+  }
+
+  void _goToNext() {
+    if (_selectedArticle != null && _filteredArticles.isNotEmpty) {
+      final currentIndex =
+          _filteredArticles.indexWhere((a) => a.designation == _selectedArticle?.designation);
+      if (currentIndex < _filteredArticles.length - 1) {
+        _selectArticle(_filteredArticles[currentIndex + 1]);
+      }
+    }
+  }
+
+  void _goToLast() {
+    if (_filteredArticles.isNotEmpty) {
+      _selectArticle(_filteredArticles.last);
+    }
+  }
+
+  void _handleKeyboardShortcut(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      final isCtrl = HardwareKeyboard.instance.isControlPressed;
+
+      if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyF) {
+        _searchFocus.requestFocus();
+      } else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyC) {
+        _copyTableData();
+      } else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyN) {
+        _showAddArticleModal();
+      } else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyM) {
+        if (_selectedArticle != null) {
+          _showAddArticleModal(article: _selectedArticle);
+        }
+      } else if (event.logicalKey == LogicalKeyboardKey.delete) {
+        if (_selectedArticle != null) {
+          _deleteArticle(_selectedArticle!);
+        }
+      }
+    }
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
     _searchFocus.dispose();
+    _keyboardFocusNode.dispose();
     super.dispose();
   }
 }

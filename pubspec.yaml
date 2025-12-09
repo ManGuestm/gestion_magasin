@@ -25,6 +25,8 @@ dependencies:
   flutter_typeahead: ^5.2.0
   flutter_launcher_icons: ^0.14.4
   csv: ^6.0.0
+  excel: ^4.0.6
+  open_file: ^3.5.10
 
 dev_dependencies:
   flutter_test:
