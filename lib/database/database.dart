@@ -2347,6 +2347,12 @@ class AppDatabase extends _$AppDatabase {
       ));
     }
   }
+
+  /// Récupère le chemin de la base de données
+  Future<String> getDatabasePath() async {
+    final dbFolder = await getApplicationDocumentsDirectory();
+    return p.join(dbFolder.path, 'gestion_magasin.db');
+  }
 }
 
 /// Fonction de connexion à la base de données SQLite

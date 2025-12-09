@@ -56,6 +56,8 @@ import '../widgets/modals/regularisation_compte_commerciaux_modal.dart';
 import '../widgets/modals/regularisation_compte_tiers_modal.dart';
 import '../widgets/modals/reinitialiser_donnees_modal.dart';
 import '../widgets/modals/relance_clients_modal.dart';
+import '../widgets/modals/restaurer_modal.dart';
+import '../widgets/modals/sauvegarder_modal.dart';
 import '../widgets/modals/retours_achats_modal.dart';
 import '../widgets/modals/statistiques_achats_modal.dart';
 import '../widgets/modals/statistiques_fournisseurs_modal.dart';
@@ -146,6 +148,8 @@ class ModalLoader {
       'ventes_magasin': () => const VentesModal(tousDepots: false),
       'Suivi de différence de Prix de vente': () => const SuiviDifferencePrixModal(),
       'À propos': () => const AProposModal(),
+      'Sauvegarder la base de données': () => const SauvegarderModal(),
+      'Restaurer la base de données': () => const RestaurerModal(),
     };
   }
 

@@ -14,6 +14,7 @@ class MenuData {
     fichier: [
       'Profil',
       'Gestion des utilisateurs',
+      'Sauvegarder et Restaurer',
     ],
     parametres: [
       'Informations sur la société',
@@ -99,6 +100,10 @@ class MenuData {
       'Par BL',
       'Par règlement',
     ],
+    'Sauvegarder et Restaurer': [
+      'Sauvegarder la base de données',
+      'Restaurer la base de données',
+    ],
     aide: [
       'À propos',
       'Aides et documentations',
@@ -144,6 +149,7 @@ class MenuData {
     'Retour de Marchandises': true,
     'Etat tarifaire': true,
     'Echéanciers': true,
+    'Sauvegarder et Restaurer': true,
   };
 }
 

@@ -152,4 +152,21 @@ class DatabaseService {
       _cacheTimestamps.remove(key);
     }
   }
+
+  // Méthodes pour la sauvegarde et restauration
+  Future<String> getDatabasePath() async {
+    return await database.getDatabasePath();
+  }
+
+  Future<void> closeDatabase() async {
+    await _database?.close();
+    _database = null;
+    _isInitialized = false;
+    _clearCache();
+  }
+
+  Future<void> reinitializeDatabase() async {
+    await closeDatabase();
+    await initialize();
+  }
 }
