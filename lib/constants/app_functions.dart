@@ -1,3 +1,5 @@
+import '../utils/date_utils.dart';
+
 class AppFunctions {
   static String numberToWords(int number) {
     if (number == 0) return 'zéro';
@@ -137,5 +139,21 @@ class AppFunctions {
       formatted += integerPart[i];
     }
     return formatted;
+  }
+
+  // Convertir le timestamp Unix en DateTime si nécessaire
+  static String formatDate(dynamic daty) {
+    if (daty == null) return '';
+    try {
+      if (daty is int) {
+        final dateTime = DateTime.fromMillisecondsSinceEpoch(daty * 1000);
+        return AppDateUtils.formatDate(dateTime);
+      } else if (daty is DateTime) {
+        return AppDateUtils.formatDate(daty);
+      }
+      return daty.toString();
+    } catch (e) {
+      return '';
+    }
   }
 }

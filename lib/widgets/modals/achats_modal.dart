@@ -1036,10 +1036,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           );
 
           // Créer nouvelle entrée de stock avec le MÊME numéro d'achat
+          final stockRef =
+              'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}-${_lignesAchat.indexOf(ligne)}';
           await _databaseService.database.into(_databaseService.database.stocks).insert(
                 StocksCompanion.insert(
-                  ref:
-                      'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}',
+                  ref: stockRef,
                   daty: Value(dateForDB),
                   lib: Value('Achat ${_numAchatsController.text} (Modifié)'),
                   numachats: Value(_numAchatsController.text), // MÊME NUMÉRO
@@ -1049,6 +1050,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   entres: Value(ligne['quantite']),
                   ue: Value(ligne['unites']),
                   depots: Value(ligne['depot']),
+                  pue: Value(ligne['prixUnitaire']),
                   pus: Value(ligne['prixUnitaire']),
                   cmup: Value(nouveauCMUP),
                   frns: Value(_selectedFournisseur!),
@@ -1379,7 +1381,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Erreur lors de la validation: $e'),
+            content: SelectableText('Erreur lors de la validation: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -2401,8 +2403,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               children: [
                                 Icon(Icons.list, size: 16),
                                 SizedBox(width: 8),
-                                Text('Liste des achats',
-                                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                Text(
+                                  'Liste des achats',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                ),
                               ],
                             ),
                           ),
@@ -2444,11 +2448,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           children: [
                                             Icon(Icons.edit_note, size: 14, color: Colors.orange.shade700),
                                             const SizedBox(width: 4),
-                                            Text('Brouillard',
-                                                style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.orange.shade700)),
+                                            Text(
+                                              'Brouillard',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.orange.shade700),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -2464,8 +2470,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     ? Colors.orange.shade100
                                                     : null,
                                                 border: Border(
-                                                    bottom:
-                                                        BorderSide(color: Colors.grey.shade200, width: 0.5)),
+                                                  bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+                                                ),
                                               ),
                                               child: ListTile(
                                                 dense: true,
@@ -2490,11 +2496,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           children: [
                                             Icon(Icons.check_circle, size: 14, color: Colors.green.shade700),
                                             const SizedBox(width: 4),
-                                            Text('Journal (Ctrl + L)',
-                                                style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.green.shade700)),
+                                            Text(
+                                              'Journal (Ctrl + L)',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.green.shade700),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -2510,8 +2518,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     ? Colors.green.shade100
                                                     : null,
                                                 border: Border(
-                                                    bottom:
-                                                        BorderSide(color: Colors.grey.shade200, width: 0.5)),
+                                                  bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+                                                ),
                                               ),
                                               child: ListTile(
                                                 dense: true,
@@ -2536,11 +2544,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           children: [
                                             Icon(Icons.block, size: 14, color: Colors.red.shade700),
                                             const SizedBox(width: 4),
-                                            Text('Contre-passé',
-                                                style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.red.shade700)),
+                                            Text(
+                                              'Contre-passé',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.red.shade700),
+                                            ),
                                           ],
                                         ),
                                       ),

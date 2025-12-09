@@ -18,7 +18,12 @@ class HistoriqueStockModal extends StatefulWidget {
 
 class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNavigationMixin {
   List<Map<String, dynamic>> _mouvements = [];
+  List<Map<String, dynamic>> _mouvementsAffiches = [];
   bool _isLoading = true;
+  int _currentPage = 0;
+  final int _itemsPerPage = 50;
+  String _selectedDepot = 'Tous';
+  List<String> _depots = ['Tous'];
 
   @override
   void initState() {
@@ -27,15 +32,42 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
   }
 
   Future<void> _loadHistorique() async {
+    setState(() => _isLoading = true);
     try {
       final mouvements = await StockManagementService().getHistoriqueStock(widget.refArticle);
+
+      // Extraire les dépôts uniques
+      final depotsSet = <String>{'Tous'};
+      for (final mouvement in mouvements) {
+        final depot = mouvement['depots']?.toString().trim();
+        if (depot != null && depot.isNotEmpty) {
+          depotsSet.add(depot);
+        }
+      }
+
       setState(() {
         _mouvements = mouvements;
+        _depots = depotsSet.toList()..sort();
+        _currentPage = 0;
         _isLoading = false;
       });
+      _updateDisplayedMovements();
     } catch (e) {
       setState(() => _isLoading = false);
     }
+  }
+
+  void _updateDisplayedMovements() {
+    final filtered = _selectedDepot == 'Tous'
+        ? _mouvements
+        : _mouvements.where((m) => m['depots']?.toString() == _selectedDepot).toList();
+
+    final startIndex = _currentPage * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, filtered.length);
+
+    setState(() {
+      _mouvementsAffiches = filtered.sublist(startIndex, endIndex);
+    });
   }
 
   @override
@@ -46,7 +78,7 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
       child: Dialog(
         backgroundColor: Colors.transparent,
         child: Container(
-          width: 1200,
+          width: MediaQuery.of(context).size.width * 0.9,
           height: 700,
           decoration: BoxDecoration(
             color: Colors.white,
@@ -140,10 +172,14 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
   Widget _buildStatsBar() {
     if (_isLoading) return const SizedBox.shrink();
 
+    final filteredMovements = _selectedDepot == 'Tous'
+        ? _mouvements
+        : _mouvements.where((m) => m['depots']?.toString() == _selectedDepot).toList();
+
     final totalEntrees =
-        _mouvements.fold<double>(0, (sum, m) => sum + (double.tryParse(m['entree']?.toString() ?? '0') ?? 0));
+        filteredMovements.fold<double>(0, (sum, m) => sum + ((m['entree'] as num?)?.toDouble() ?? 0));
     final totalSorties =
-        _mouvements.fold<double>(0, (sum, m) => sum + (double.tryParse(m['sortie']?.toString() ?? '0') ?? 0));
+        filteredMovements.fold<double>(0, (sum, m) => sum + ((m['sortie'] as num?)?.toDouble() ?? 0));
     final soldeNet = totalEntrees - totalSorties;
 
     return Container(
@@ -152,20 +188,49 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
         color: Colors.grey[50],
         border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
       ),
-      child: Row(
+      child: Wrap(
+        spacing: 24,
+        runSpacing: 12,
         children: [
-          _buildStatItem('Total Mouvements', _mouvements.length.toString(), Icons.swap_horiz, Colors.blue),
-          const SizedBox(width: 24),
+          _buildStatItem(
+              'Total Mouvements', filteredMovements.length.toString(), Icons.swap_horiz, Colors.blue),
           _buildStatItem(
               'Total Entrées', AppFunctions.formatNumber(totalEntrees), Icons.arrow_downward, Colors.green),
-          const SizedBox(width: 24),
           _buildStatItem(
               'Total Sorties', AppFunctions.formatNumber(totalSorties), Icons.arrow_upward, Colors.red),
-          const SizedBox(width: 24),
           _buildStatItem('Solde Net', AppFunctions.formatNumber(soldeNet), Icons.balance,
               soldeNet >= 0 ? Colors.green : Colors.red),
+          _buildDepotFilter(),
         ],
       ),
+    );
+  }
+
+  Widget _buildDepotFilter() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Icon(Icons.filter_list, size: 16, color: Colors.grey),
+        const SizedBox(width: 8),
+        DropdownButton<String>(
+          value: _selectedDepot,
+          isDense: true,
+          underline: const SizedBox(),
+          items: _depots
+              .map((depot) => DropdownMenuItem(
+                    value: depot,
+                    child: Text(depot, style: const TextStyle(fontSize: 12)),
+                  ))
+              .toList(),
+          onChanged: (value) {
+            setState(() {
+              _selectedDepot = value!;
+              _currentPage = 0;
+            });
+            _updateDisplayedMovements();
+          },
+        ),
+      ],
     );
   }
 
@@ -217,7 +282,7 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
           _buildHeaderCell('Date', flex: 2),
           _buildHeaderCell('Type', flex: 2),
           _buildHeaderCell('Réf', flex: 2),
-          _buildHeaderCell('Libellé', flex: 3),
+          _buildHeaderCell('Libellé', flex: 4),
           _buildHeaderCell('Dépôt', flex: 2),
           _buildHeaderCell('Entrée', flex: 2),
           _buildHeaderCell('Sortie', flex: 2),
@@ -263,7 +328,11 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
       );
     }
 
-    if (_mouvements.isEmpty) {
+    final filteredMovements = _selectedDepot == 'Tous'
+        ? _mouvements
+        : _mouvements.where((m) => m['depots']?.toString() == _selectedDepot).toList();
+
+    if (filteredMovements.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -284,7 +353,9 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
             ),
             const SizedBox(height: 8),
             Text(
-              'Les mouvements de stock apparaîtront ici',
+              _selectedDepot == 'Tous'
+                  ? 'Les mouvements de stock apparaîtront ici'
+                  : 'Aucun mouvement pour le dépôt $_selectedDepot',
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[500],
@@ -314,12 +385,58 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
           _buildTableHeader(),
           Expanded(
             child: ListView.builder(
-              itemCount: _mouvements.length,
+              itemCount: _mouvementsAffiches.length,
               itemBuilder: (context, index) {
-                final mouvement = _mouvements[index];
+                final mouvement = _mouvementsAffiches[index];
                 return _buildModernRow(mouvement, index);
               },
             ),
+          ),
+          if (filteredMovements.length > _itemsPerPage) _buildPagination(filteredMovements.length),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPagination(int totalItems) {
+    final totalPages = (totalItems / _itemsPerPage).ceil();
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Page ${_currentPage + 1} sur $totalPages ($totalItems éléments)',
+            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: _currentPage > 0
+                    ? () {
+                        setState(() => _currentPage--);
+                        _updateDisplayedMovements();
+                      }
+                    : null,
+                icon: const Icon(Icons.chevron_left),
+                iconSize: 20,
+              ),
+              IconButton(
+                onPressed: _currentPage < totalPages - 1
+                    ? () {
+                        setState(() => _currentPage++);
+                        _updateDisplayedMovements();
+                      }
+                    : null,
+                icon: const Icon(Icons.chevron_right),
+                iconSize: 20,
+              ),
+            ],
           ),
         ],
       ),
@@ -327,6 +444,10 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
   }
 
   Widget _buildModernRow(Map<String, dynamic> mouvement, int index) {
+    final entree = (mouvement['entree'] as num?)?.toDouble() ?? 0;
+    final sortie = (mouvement['sortie'] as num?)?.toDouble() ?? 0;
+    final pus = (mouvement['pus'] as num?)?.toDouble() ?? 0;
+
     return Container(
       decoration: BoxDecoration(
         color: index % 2 == 0 ? Colors.white : Colors.grey[50],
@@ -338,41 +459,39 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
             flex: 2,
           ),
           _buildDataCell(
-            _getSourceLabel(mouvement['source']),
+            _getSourceLabel(mouvement['source']?.toString() ?? ''),
             flex: 2,
-            color: _getSourceColor(mouvement['source']),
+            color: _getSourceColor(mouvement['source']?.toString() ?? ''),
             isBadge: true,
           ),
-          _buildDataCell(mouvement['ref'] ?? '', flex: 2),
-          _buildDataCell(mouvement['lib'] ?? '', flex: 3),
-          _buildDataCell(mouvement['depots'] ?? '', flex: 2),
+          _buildDataCell(mouvement['ref']?.toString() ?? '', flex: 2),
+          _buildDataCell(mouvement['lib']?.toString() ?? '', flex: 4),
+          _buildDataCell(mouvement['depots']?.toString() ?? '', flex: 2),
           _buildDataCell(
-            (double.tryParse(mouvement['entree']?.toString() ?? '0') ?? 0) > 0
-                ? '+${(AppFunctions.formatNumber(double.tryParse(mouvement['entree']?.toString() ?? '0') ?? 0))} ${mouvement['unite_entree'] ?? ''}'
+            entree > 0
+                ? '+${AppFunctions.formatNumber(entree)} ${mouvement['unite_entree']?.toString() ?? ''}'
                 : '',
             flex: 2,
             alignment: Alignment.centerRight,
             color: Colors.green[700],
-            isBold: (double.tryParse(mouvement['entree']?.toString() ?? '0') ?? 0) > 0,
+            isBold: entree > 0,
           ),
           _buildDataCell(
-            (double.tryParse(mouvement['sortie']?.toString() ?? '0') ?? 0) > 0
-                ? '-${(AppFunctions.formatNumber(double.tryParse(mouvement['sortie']?.toString() ?? '0') ?? 0))} ${mouvement['unite_sortie'] ?? ''}'
+            sortie > 0
+                ? '-${AppFunctions.formatNumber(sortie)} ${mouvement['unite_sortie']?.toString() ?? ''}'
                 : '',
             flex: 2,
             alignment: Alignment.centerRight,
             color: Colors.red[700],
-            isBold: (double.tryParse(mouvement['sortie']?.toString() ?? '0') ?? 0) > 0,
+            isBold: sortie > 0,
           ),
           _buildDataCell(
-            (double.tryParse(mouvement['pus']?.toString() ?? '0') ?? 0) > 0
-                ? '${(AppFunctions.formatNumber(double.tryParse(mouvement['pus']?.toString() ?? '0') ?? 0))} Ar'
-                : '',
+            pus > 0 ? '${AppFunctions.formatNumber(pus)} Ar' : '',
             flex: 2,
             alignment: Alignment.centerRight,
           ),
           _buildDataCell(
-            mouvement['clt'] ?? mouvement['frns'] ?? '',
+            mouvement['clt']?.toString() ?? mouvement['frns']?.toString() ?? '',
             flex: 3,
           ),
         ],
@@ -427,9 +546,21 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
     );
   }
 
-  String _formatDate(DateTime? date) {
+  String _formatDate(dynamic date) {
     if (date == null) return '';
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
+    DateTime? dateTime;
+    if (date is DateTime) {
+      dateTime = date;
+    } else if (date is String) {
+      dateTime = DateTime.tryParse(date);
+    } else if (date is int) {
+      // Timestamp en secondes ou millisecondes
+      dateTime = DateTime.fromMillisecondsSinceEpoch(date > 1000000000000 ? date : date * 1000);
+    }
+
+    if (dateTime == null) return '';
+    return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
   }
 
   String _getSourceLabel(String source) {

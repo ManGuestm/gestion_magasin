@@ -17,13 +17,10 @@ class MenuData {
     ],
     parametres: [
       'Informations sur la société',
-      'Immobilisations',
       'Dépôts',
       'Articles',
-      'Commerciaux',
       'Clients',
       'Fournisseurs',
-      'Banques',
       'Plan de comptes',
       'Réinitialiser les données',
     ],
@@ -39,41 +36,27 @@ class MenuData {
     gestions: [
       'Transfert de Marchandises',
       'Gestion Emballages',
-      'Productions',
       'Régularisation compte tiers',
-      'Régularisation compte Commerciaux',
       'Relance Clients',
       'Echéance Fournisseurs',
-      'Variation des stocks',
       'Mise à jour des valeurs de stocks',
       'Niveau des stocks (Articles à commandées)',
-      'Ammortissement des immobilisations',
       'Réactualisation de la base de données',
     ],
     tresoreries: [
       'Encaissements',
       'Décaissements',
-      'Chèques',
-      'Effet à recevoir',
-      'Virements Internes',
-      'Opérations Banques',
       'Comptes fournisseurs',
       'Moyen de paiement',
     ],
     etats: [
       'Journal de caisse',
-      'Journal des banques',
       'Etats Fournisseurs',
       'Etats Clients',
-      'Etats Commerciaux',
-      'Etats Immobilisations',
       'Etats Articles',
-      'Etats Autres Comptes',
       'Statistiques de ventes',
       'Statistiques d\'achats',
       'Marges',
-      'tableau de bord',
-      'Bilan / Compte de Résultat'
     ],
     'Etats Articles': [
       'Etiquettes de prix',
@@ -93,18 +76,6 @@ class MenuData {
       'Echéanciers',
       'Balance des comptes Clients',
       'Fiche d\'énumération Clients',
-    ],
-    'Etats Commerciaux': [
-      'Fiche des commerciaux',
-      'Balance des comptes des commerciaux',
-    ],
-    'Etats Immobilisations': [
-      'Liste des Immobilisations',
-      'Balance des Immobilisations',
-    ],
-    'Etats Autres Comptes': [
-      'Grand livre des autres comptes',
-      'Balance des autres comptes',
     ],
     'Statistiques de ventes': ['C.A Par Articles', 'C.A Par Clients', 'Suivi de différence de Prix de vente'],
     'Statistiques d\'achats': [
@@ -128,10 +99,6 @@ class MenuData {
       'Par BL',
       'Par règlement',
     ],
-    'Balance des autres comptes': [
-      'Charges',
-      'Produits',
-    ],
     aide: [
       'À propos',
       'Aides et documentations',
@@ -147,6 +114,7 @@ class MenuData {
     IconButtonData(Icons.shopping_cart, 'Achats'),
     IconButtonData(Icons.point_of_sale, 'Ventes'),
     IconButtonData(Icons.swap_horiz, 'Transferts'),
+    IconButtonData(Icons.inventory, 'Inventaire'),
     IconButtonData(Icons.account_balance_wallet, 'Encaissements'),
     IconButtonData(Icons.money_off, 'Décaissements'),
     IconButtonData(Icons.balance, 'Relance Clients'),
@@ -170,16 +138,12 @@ class MenuData {
     'Etats Articles': true,
     'Etats Fournisseurs': true,
     'Etats Clients': true,
-    'Etats Commerciaux': true,
-    'Etats Immobilisations': true,
-    'Etats Autres Comptes': true,
     'Statistiques de ventes': true,
     'Statistiques d\'achats': true,
     'Marges': true,
     'Retour de Marchandises': true,
     'Etat tarifaire': true,
     'Echéanciers': true,
-    'Balance des autres comptes': true,
   };
 }
 
@@ -189,7 +153,3 @@ class IconButtonData {
 
   const IconButtonData(this.icon, this.label);
 }
-
-
-
-// 'Opérations Caisses',

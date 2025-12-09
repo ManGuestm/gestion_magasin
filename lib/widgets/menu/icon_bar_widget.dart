@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../constants/menu_data.dart';
 import '../../services/auth_service.dart';
+import '../modals/inventaire_modal.dart';
 
 class IconBarWidget extends StatelessWidget {
   final Function(String) onIconTap;
@@ -57,7 +58,7 @@ class IconBarWidget extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => onIconTap(label),
+        onTap: () => _handleIconTap(context, label),
         borderRadius: BorderRadius.circular(8),
         hoverColor: theme.colorScheme.primary.withValues(alpha: 0.08),
         splashColor: theme.colorScheme.primary.withValues(alpha: 0.12),
@@ -101,5 +102,16 @@ class IconBarWidget extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _handleIconTap(BuildContext context, String label) {
+    if (label == 'Inventaire') {
+      showDialog(
+        context: context,
+        builder: (context) => const InventaireModal(),
+      );
+    } else {
+      onIconTap(label);
+    }
   }
 }

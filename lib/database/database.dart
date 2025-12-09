@@ -197,9 +197,10 @@ class Stocks extends Table {
   TextColumn get nfact => text().withLength(max: 50).nullable()();
   TextColumn get refart => text().withLength(max: 50).nullable()();
   RealColumn get qe => real().nullable()();
+  RealColumn get pus => real().nullable()();
   RealColumn get entres => real().nullable()();
   RealColumn get qs => real().nullable()();
-  RealColumn get pus => real().nullable()();
+  RealColumn get pue => real().nullable()();
   RealColumn get sortie => real().nullable()();
   RealColumn get stocksu1 => real().nullable()();
   TextColumn get numventes => text().withLength(max: 50).nullable()();
@@ -770,14 +771,14 @@ class AppDatabase extends _$AppDatabase {
   /// Constructeur de la base de données
   /// Initialise la connexion à la base de données SQLite locale
   AppDatabase() : super(_openConnection());
-  
+
   /// Constructeur pour ouvrir une base de données externe
   AppDatabase.fromFile(File file) : super(NativeDatabase(file));
 
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
   @override
-  int get schemaVersion => 46;
+  int get schemaVersion => 47;
 
   /// Stratégie de migration de la base de données
   /// Gère la création initiale et les mises à jour de schéma
@@ -926,6 +927,9 @@ class AppDatabase extends _$AppDatabase {
           } else if (from == 45) {
             // Ajouter la colonne bonExpedition à la table transf
             await m.addColumn(transf, transf.bonExpedition as GeneratedColumn);
+          } else if (from == 46) {
+            // Ajouter la colonne pue à la table stocks
+            await m.addColumn(stocks, stocks.pue as GeneratedColumn);
           }
         },
       );
@@ -984,8 +988,7 @@ class AppDatabase extends _$AppDatabase {
   Future<int> getVentesBrouillardMagCount() async {
     final query = selectOnly(ventes)
       ..addColumns([ventes.numventes.count()])
-      ..where(ventes.verification.equals('BROUILLARD') & 
-              (ventes.type.isNull() | ventes.type.equals('MAG')));
+      ..where(ventes.verification.equals('BROUILLARD') & (ventes.type.isNull() | ventes.type.equals('MAG')));
 
     final result = await query.getSingle();
     return result.read(ventes.numventes.count()) ?? 0;
@@ -995,8 +998,7 @@ class AppDatabase extends _$AppDatabase {
   Future<int> getVentesBrouillardTousDepotsCount() async {
     final query = selectOnly(ventes)
       ..addColumns([ventes.numventes.count()])
-      ..where(ventes.verification.equals('BROUILLARD') & 
-              ventes.type.equals('TOUS_DEPOTS'));
+      ..where(ventes.verification.equals('BROUILLARD') & ventes.type.equals('TOUS_DEPOTS'));
 
     final result = await query.getSingle();
     return result.read(ventes.numventes.count()) ?? 0;
@@ -1100,9 +1102,9 @@ class AppDatabase extends _$AppDatabase {
       ..where((tbl) =>
           tbl.daty.isBetweenValues(startOfDay, endOfDay) &
           tbl.verification.equals('JOURNAL') &
-          (tbl.commerc.equals(userName) | 
-           tbl.commerc.like('$userName + %') |
-           tbl.commerc.like('% + $userName')) &
+          (tbl.commerc.equals(userName) |
+              tbl.commerc.like('$userName + %') |
+              tbl.commerc.like('% + $userName')) &
           (tbl.contre.isNull() | tbl.contre.equals("0")));
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
@@ -1158,9 +1160,9 @@ class AppDatabase extends _$AppDatabase {
       ..where((tbl) =>
           tbl.daty.isBetweenValues(startOfMonth, endOfMonth) &
           tbl.verification.equals('JOURNAL') &
-          (tbl.commerc.equals(userName) | 
-           tbl.commerc.like('$userName + %') |
-           tbl.commerc.like('% + $userName')) &
+          (tbl.commerc.equals(userName) |
+              tbl.commerc.like('$userName + %') |
+              tbl.commerc.like('% + $userName')) &
           (tbl.contre.isNull() | tbl.contre.equals("0")));
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
@@ -1978,17 +1980,19 @@ class AppDatabase extends _$AppDatabase {
       variables: params.map((p) => Variable(p)).toList(),
     ).get();
 
-    return result.map((row) => {
-      'fournisseur': row.read<String>('fournisseur'),
-      'nombre_achats': row.read<int>('nombre_achats'),
-      'montant_total': row.read<double>('montant_total'),
-      'montant_moyen': row.read<double>('montant_moyen'),
-      'premier_achat': row.readNullable<String>('premier_achat'),
-      'dernier_achat': row.readNullable<String>('dernier_achat'),
-      'telephone': row.readNullable<String>('telephone') ?? '',
-      'email': row.readNullable<String>('email') ?? '',
-      'solde_compte': row.readNullable<double>('solde_compte') ?? 0.0,
-    }).toList();
+    return result
+        .map((row) => {
+              'fournisseur': row.read<String>('fournisseur'),
+              'nombre_achats': row.read<int>('nombre_achats'),
+              'montant_total': row.read<double>('montant_total'),
+              'montant_moyen': row.read<double>('montant_moyen'),
+              'premier_achat': row.readNullable<String>('premier_achat'),
+              'dernier_achat': row.readNullable<String>('dernier_achat'),
+              'telephone': row.readNullable<String>('telephone') ?? '',
+              'email': row.readNullable<String>('email') ?? '',
+              'solde_compte': row.readNullable<double>('solde_compte') ?? 0.0,
+            })
+        .toList();
   }
 
   /// Calcule le solde d'un client basé sur les ventes, retours et mouvements de compte

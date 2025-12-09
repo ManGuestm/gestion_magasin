@@ -307,7 +307,7 @@ class VenteService {
             stocksu3: Value(conversions['u3']),
             depots: Value(depot),
             clt: Value(client),
-            verification: Value('JOURNAL'),
+            verification: Value('VENTE'),
             us: Value(unite),
             pus: Value(prixUnitaire),
           ),
@@ -823,7 +823,7 @@ class VenteService {
             stocksu3: Value(conversions['u3']),
             depots: Value(depot),
             clt: Value(client),
-            verification: Value('JOURNAL'),
+            verification: Value('CP VENTE'),
             ue: Value(unite),
           ),
         );

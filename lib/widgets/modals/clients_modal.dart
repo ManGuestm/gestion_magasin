@@ -8,7 +8,6 @@ import '../../constants/client_categories.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
-import '../../widgets/common/base_modal.dart';
 import '../common/tab_navigation_widget.dart';
 import 'add_client_modal.dart';
 
@@ -23,7 +22,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
   List<CltData> _clients = [];
   List<CltData> _filteredClients = [];
   final TextEditingController _searchController = TextEditingController();
-  late final FocusNode _searchFocus;
+  late final FocusNode searchFocus;
   late final FocusNode _keyboardFocusNode;
   CltData? _selectedClient;
   List<ComptecltData> _historiqueClient = [];
@@ -38,7 +37,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
   void initState() {
     super.initState();
     // Initialize focus nodes with tab navigation
-    _searchFocus = createFocusNode();
+    searchFocus = createFocusNode();
     _keyboardFocusNode = createFocusNode();
 
     _loadClients();
@@ -55,24 +54,54 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
       focusNode: _keyboardFocusNode,
       autofocus: true,
       onKeyEvent: _handleKeyboardShortcut,
-      child: BaseModal(
-        title: 'Clients',
-        width: AppConstants.defaultModalWidth,
-        height: AppConstants.defaultModalHeight,
-        onNew: () => _showAddClientModal(),
-        onDelete: () => _selectedClient != null ? _deleteClient(_selectedClient!) : null,
-        onSearch: () => _searchFocus.requestFocus(),
-        onRefresh: _loadClients,
-        content: GestureDetector(
-          onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          width: AppConstants.defaultModalWidth,
+          height: MediaQuery.of(context).size.height * 0.8,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
           child: Column(
             children: [
-              if (AuthService().currentUser?.role == 'Administrateur' ||
-                  AuthService().currentUser?.role == 'Caisse')
-                _buildFilterSection(),
-              _buildContent(),
-              _buildHistoriqueSection(),
-              _buildButtons(),
+              _buildModernHeader(),
+              Expanded(
+                child: GestureDetector(
+                  onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              if (AuthService().currentUser?.role == 'Administrateur' ||
+                                  AuthService().currentUser?.role == 'Caisse')
+                                _buildFilterCard(),
+                              const SizedBox(width: 12),
+                              _buildSearchCard(),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildClientsCard(),
+                        const SizedBox(height: 12),
+                        _buildHistoriqueCard(),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              _buildActionButtons(),
             ],
           ),
         ),
@@ -80,24 +109,171 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     );
   }
 
-  Widget _buildContent() {
-    return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey[300]!, width: 1),
-          borderRadius: BorderRadius.circular(4),
+  Widget _buildModernHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.blue[600]!, Colors.blue[700]!],
         ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.people, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Gestion des Clients',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                Text(
+                  'Gérer et consulter vos clients',
+                  style: TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+          _buildHeaderActions(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderActions() {
+    return Row(
+      children: [
+        _buildHeaderButton(Icons.add, 'Nouveau', () => _showAddClientModal()),
+        const SizedBox(width: 8),
+        _buildHeaderButton(Icons.refresh, 'Actualiser', _loadClients),
+        const SizedBox(width: 8),
+        IconButton(
+          onPressed: () => Navigator.of(context).pop(),
+          icon: const Icon(Icons.close, color: Colors.white),
+          style: IconButton.styleFrom(
+            backgroundColor: Colors.white.withValues(alpha: 0.2),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderButton(IconData icon, String label, VoidCallback onPressed) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.blue[700],
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        elevation: 0,
+      ),
+    );
+  }
+
+  Widget _buildSearchCard() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search, color: Colors.blue[600], size: 20),
+          const SizedBox(width: 8),
+          const Text(
+            'Rechercher:',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(width: 16),
+          Container(
+            width: 300,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey[300]!),
+            ),
+            child: Autocomplete<CltData>(
+              optionsBuilder: (textEditingValue) {
+                if (textEditingValue.text.isEmpty || textEditingValue.text == ' ') {
+                  return _clients.take(100);
+                }
+                return _clients.where((client) {
+                  return client.rsoc.toLowerCase().contains(textEditingValue.text.toLowerCase());
+                }).take(100);
+              },
+              displayStringForOption: (client) => client.rsoc,
+              onSelected: (client) => _selectClient(client),
+              fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
+                return TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  style: const TextStyle(fontSize: 13),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    hintText: 'Tapez le nom du client...',
+                    hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                  onEditingComplete: () async {
+                    await _verifierEtCreerClient(controller.text);
+                    onEditingComplete();
+                  },
+                  onSubmitted: (value) async {
+                    await _verifierEtCreerClient(value);
+                  },
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton.icon(
+            onPressed: _showAllClients,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Tout afficher'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange[100],
+              foregroundColor: Colors.orange[700],
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildClientsCard() {
+    return Expanded(
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Column(
           children: [
-            _buildModernHeader(),
+            _buildClientsHeader(),
             Expanded(
               child: ListView.builder(
                 itemCount: _filteredClients.length,
-                itemExtent: 24,
+                itemExtent: 32,
                 itemBuilder: (context, index) {
                   final client = _filteredClients[index];
                   final isSelected = _selectedClient?.rsoc == client.rsoc;
-                  return _buildModernRow(client, isSelected, index);
+                  return _buildClientRow(client, isSelected, index);
                 },
               ),
             ),
@@ -107,22 +283,24 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     );
   }
 
-  Widget _buildModernHeader() {
+  Widget _buildClientsHeader() {
     return Container(
-      height: 32,
+      height: 40,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Colors.grey[200]!, Colors.grey[300]!],
+          colors: [Colors.blue[50]!, Colors.blue[100]!],
         ),
-        border: Border(bottom: BorderSide(color: Colors.grey[400]!, width: 1)),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
+        border: Border(bottom: BorderSide(color: Colors.blue[200]!)),
       ),
       child: Row(
         children: [
           _buildSortableHeaderCell('RAISON SOCIALE', 'rsoc', flex: 4),
           _buildSortableHeaderCell('SOLDES', 'soldes', flex: 2),
-          _buildSortableHeaderCell('ACTION', 'action', width: 80),
+          _buildSortableHeaderCell('STATUT', 'action', width: 100),
         ],
       ),
     );
@@ -167,13 +345,13 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     }
   }
 
-  Widget _buildModernRow(CltData client, bool isSelected, int index) {
+  Widget _buildClientRow(CltData client, bool isSelected, int index) {
     return GestureDetector(
       onTap: () => _selectClient(client),
       child: Container(
-        height: 24,
+        height: 32,
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue[100] : (index % 2 == 0 ? Colors.white : Colors.grey[50]),
+          color: isSelected ? Colors.blue[100] : (index % 2 == 0 ? Colors.white : Colors.grey[25]),
           border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
         ),
         child: Row(
@@ -189,14 +367,38 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
               flex: 2,
               isSelected: isSelected,
               alignment: Alignment.centerRight,
+              isAmount: true,
+              amount: client.soldes ?? 0,
             ),
-            _buildDataCell(
-              client.action ?? 'A',
-              width: 80,
-              isSelected: isSelected,
-              alignment: Alignment.center,
-            ),
+            _buildStatusCell(client.action ?? 'A', isSelected),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusCell(String status, bool isSelected) {
+    final isActive = status == 'A';
+    return Container(
+      width: 100,
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.green[100] : Colors.red[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isActive ? Colors.green[300]! : Colors.red[300]!,
+          ),
+        ),
+        child: Text(
+          isActive ? 'Actif' : 'Inactif',
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+            color: isActive ? Colors.green[700] : Colors.red[700],
+          ),
         ),
       ),
     );
@@ -208,19 +410,23 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     double? width,
     required bool isSelected,
     required Alignment alignment,
+    bool isAmount = false,
+    double? amount,
   }) {
     Widget cell = Container(
       alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         border: Border(right: BorderSide(color: Colors.grey[200]!, width: 0.5)),
       ),
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 11,
-          color: isSelected ? Colors.blue[800] : Colors.black87,
-          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+          fontSize: 12,
+          color: isAmount && amount != null
+              ? (amount >= 0 ? Colors.green[700] : Colors.red[700])
+              : (isSelected ? Colors.blue[800] : Colors.black87),
+          fontWeight: isSelected || isAmount ? FontWeight.w500 : FontWeight.normal,
         ),
         overflow: TextOverflow.ellipsis,
       ),
@@ -233,161 +439,80 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     }
   }
 
-  Widget _buildButtons() {
+  Widget _buildActionButtons() {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16),
+        ),
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+      ),
       child: Row(
         children: [
-          _buildNavButton(Icons.first_page, _goToFirst),
-          _buildNavButton(Icons.chevron_left, _goToPrevious),
-          _buildNavButton(Icons.chevron_right, _goToNext),
-          _buildNavButton(Icons.last_page, _goToLast),
+          _buildNavButton(Icons.first_page, _goToFirst, 'Premier'),
           const SizedBox(width: 8),
-          Expanded(
-            child: SizedBox(
-              height: 20,
-              child: Container(
-                height: 28,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(4),
-                  color: Colors.white,
-                ),
-                child: Autocomplete<CltData>(
-                  optionsBuilder: (textEditingValue) {
-                    if (textEditingValue.text.isEmpty || textEditingValue.text == ' ') {
-                      return _clients.take(100);
-                    }
-                    return _clients.where((client) {
-                      return client.rsoc.toLowerCase().contains(textEditingValue.text.toLowerCase());
-                    }).take(100);
-                  },
-                  displayStringForOption: (client) => client.rsoc,
-                  onSelected: (client) => _selectClient(client),
-                  fieldViewBuilder: (context, controller, focusNode, onEditingComplete) {
-                    // Focus automatique sur le champ de recherche
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      focusNode.requestFocus();
-                    });
-
-                    return TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      autofocus: true,
-                      style: const TextStyle(fontSize: 12),
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        isDense: true,
-                        hintText: 'Rechercher client...',
-                        hintStyle: TextStyle(color: Colors.grey[500], fontSize: 11),
-                        prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey[500]),
-                      ),
-                      onTap: () {
-                        if (controller.text.isEmpty) {
-                          controller.text = ' ';
-                          controller.selection = TextSelection.fromPosition(
-                            const TextPosition(offset: 0),
-                          );
-                          Future.delayed(const Duration(milliseconds: 50), () {
-                            controller.clear();
-                          });
-                        }
-                      },
-                      onEditingComplete: () async {
-                        await _verifierEtCreerClient(controller.text);
-                        onEditingComplete();
-                      },
-                      onSubmitted: (value) async {
-                        await _verifierEtCreerClient(value);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          Container(
-            height: 28,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.orange[100]!, Colors.orange[200]!],
-              ),
-              border: Border.all(color: Colors.orange[300]!),
-              borderRadius: BorderRadius.circular(4),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.orange.withValues(alpha: 0.2),
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: TextButton(
-              onPressed: _showAllClients,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.refresh, size: 14, color: Colors.orange),
-                  SizedBox(width: 4),
-                  Text(
-                    'Afficher tous',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.orange,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          _buildNavButton(Icons.chevron_left, _goToPrevious, 'Précédent'),
           const SizedBox(width: 8),
-          Container(
-            height: 24,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[600]!),
-            ),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Fermer',
-                style: TextStyle(fontSize: 12, color: Colors.black),
+          _buildNavButton(Icons.chevron_right, _goToNext, 'Suivant'),
+          const SizedBox(width: 8),
+          _buildNavButton(Icons.last_page, _goToLast, 'Dernier'),
+          const Spacer(),
+          if (_selectedClient != null) ...[
+            ElevatedButton.icon(
+              onPressed: () => _showAddClientModal(client: _selectedClient),
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Modifier'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange[100],
+                foregroundColor: Colors.orange[700],
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
             ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: () => _deleteClient(_selectedClient!),
+              icon: const Icon(Icons.delete, size: 16),
+              label: const Text('Supprimer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red[100],
+                foregroundColor: Colors.red[700],
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(width: 16),
+          ],
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Fermer', style: TextStyle(color: Colors.grey)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNavButton(IconData icon, VoidCallback onPressed) {
-    return Container(
-      width: 20,
-      height: 20,
-      margin: const EdgeInsets.only(right: 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
-        color: Colors.grey[200],
-      ),
-      child: IconButton(
+  Widget _buildNavButton(IconData icon, VoidCallback onPressed, String tooltip) {
+    return Tooltip(
+      message: tooltip,
+      child: ElevatedButton(
         onPressed: onPressed,
-        icon: Icon(icon, size: 12),
-        padding: EdgeInsets.zero,
-        constraints: const BoxConstraints(),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue[100],
+          foregroundColor: Colors.blue[700],
+          padding: const EdgeInsets.all(8),
+          minimumSize: const Size(36, 36),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          elevation: 0,
+        ),
+        child: Icon(icon, size: 16),
       ),
     );
   }
@@ -503,41 +628,40 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     _applyFilter();
   }
 
-  Widget _buildFilterSection() {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-      ),
+  Widget _buildFilterCard() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          Icon(Icons.filter_list, color: Colors.blue[600], size: 20),
+          const SizedBox(width: 8),
           const Text(
             'Filtrer par catégorie:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
           Container(
-            width: 150,
-            height: 24,
+            width: 200,
+            height: 40,
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(4),
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.grey[300]!),
             ),
             child: DropdownButtonFormField<String>(
               initialValue: _selectedCategoryFilter,
               decoration: const InputDecoration(
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 isDense: true,
               ),
-              style: const TextStyle(fontSize: 11, color: Colors.black),
-              hint: const Text('Toutes', style: TextStyle(fontSize: 11)),
+              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              hint: const Text('Toutes les catégories', style: TextStyle(fontSize: 13)),
               items: [
                 const DropdownMenuItem<String>(
                   value: null,
-                  child: Text('Toutes'),
+                  child: Text('Toutes les catégories'),
                 ),
                 ...ClientCategory.values.map((category) => DropdownMenuItem(
                       value: category.label,
@@ -801,192 +925,203 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     }
   }
 
-  Widget _buildHistoriqueSection() {
-    return Container(
-      height: 120,
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[400]!),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        children: [
-          Container(
-            height: 24,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue[400]!, Colors.blue[500]!],
+  Widget _buildHistoriqueCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: SizedBox(
+        height: 140,
+        child: Column(
+          children: [
+            Container(
+              height: 40,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.green[600]!, Colors.green[700]!],
+                ),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
               ),
-              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
-            ),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Center(
+              child: Row(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(left: 16),
+                    child: Icon(Icons.history, color: Colors.white, size: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
                     child: Text(
-                      'HISTORIQUE DE SOLDE',
+                      'HISTORIQUE DES MOUVEMENTS',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
                   ),
-                ),
-                if (_selectedClient != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      'Solde dû: ${_formatMontant(_selectedClient!.soldes ?? 0)}',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                  if (_selectedClient != null)
+                    Container(
+                      margin: const EdgeInsets.only(right: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Solde: ${_formatMontant(_selectedClient!.soldes ?? 0)}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-          Container(
-            height: 20,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.grey[200]!, Colors.grey[300]!],
+                ],
               ),
-              border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
             ),
-            child: const Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Center(
-                    child: Text(
-                      'DATE',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            Container(
+              height: 20,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.grey[200]!, Colors.grey[300]!],
+                ),
+                border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
+              ),
+              child: const Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Center(
+                      child: Text(
+                        'DATE',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Center(
-                    child: Text(
-                      'LIBELLÉ',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  Expanded(
+                    flex: 3,
+                    child: Center(
+                      child: Text(
+                        'LIBELLÉ',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'DÉBIT',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'DÉBIT',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'CRÉDIT',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'CRÉDIT',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'SOLDE',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        'SOLDE',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: _historiqueClient.isEmpty
-                ? const Center(
-                    child: Text(
-                      'Aucun mouvement',
-                      style: TextStyle(fontSize: 10, color: Colors.grey),
-                    ),
-                  )
-                : ListView.builder(
-                    itemCount: _historiqueClient.length,
-                    itemExtent: 18,
-                    itemBuilder: (context, index) {
-                      final mouvement = _historiqueClient[index];
-                      return Container(
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  mouvement.daty?.toString().substring(0, 10) ?? '',
-                                  style: const TextStyle(fontSize: 9),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  mouvement.lib ?? '',
-                                  style: const TextStyle(fontSize: 9),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  (mouvement.entres ?? 0) > 0 ? _formatMontant(mouvement.entres!) : '',
-                                  style: const TextStyle(fontSize: 9),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  (mouvement.sorties ?? 0) > 0 ? _formatMontant(mouvement.sorties!) : '',
-                                  style: const TextStyle(fontSize: 9),
-                                  textAlign: TextAlign.right,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: Text(
-                                  _formatMontant(mouvement.solde ?? 0),
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w500,
-                                    color: (mouvement.solde ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+            Expanded(
+              child: _historiqueClient.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'Aucun mouvement',
+                        style: TextStyle(fontSize: 10, color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _historiqueClient.length,
+                      itemExtent: 18,
+                      itemBuilder: (context, index) {
+                        final mouvement = _historiqueClient[index];
+                        return Container(
+                          height: 18,
+                          decoration: BoxDecoration(
+                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                            border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    mouvement.daty?.toString().substring(0, 10) ?? '',
+                                    style: const TextStyle(fontSize: 9),
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  textAlign: TextAlign.right,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
+                              Expanded(
+                                flex: 3,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    mouvement.lib ?? '',
+                                    style: const TextStyle(fontSize: 9),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    (mouvement.entres ?? 0) > 0 ? _formatMontant(mouvement.entres!) : '',
+                                    style: const TextStyle(fontSize: 9),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    (mouvement.sorties ?? 0) > 0 ? _formatMontant(mouvement.sorties!) : '',
+                                    style: const TextStyle(fontSize: 9),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: Text(
+                                    _formatMontant(mouvement.solde ?? 0),
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w500,
+                                      color:
+                                          (mouvement.solde ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+                                    ),
+                                    textAlign: TextAlign.right,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -33,246 +33,369 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationM
       autofocus: true,
       onKeyEvent: (node, event) => handleTabNavigation(event),
       child: PopScope(
-      canPop: false,
-      child: Dialog(
-        backgroundColor: Colors.grey[100],
-        child: Container(
-          width: 700,
-          height: 600,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[400]!),
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.grey[100],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(isNewCompany),
-              const SizedBox(height: 16),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    height: 205,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.0),
-                      border: Border.all(color: Colors.grey),
+        canPop: false,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: 750,
+            height: MediaQuery.of(context).size.height * 0.9,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildHeader(isNewCompany),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        _buildIdentificationCard(),
+                        const SizedBox(height: 20),
+                        _buildContactCard(),
+                        const SizedBox(height: 20),
+                        _buildLogoAndTaxCard(),
+                      ],
                     ),
-                    child: _buildFormIdentification(),
                   ),
-                  Positioned(
-                    top: -12,
-                    left: 16,
-                    child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        color: Colors.grey[100],
-                        child: const Text("IDENTIFICATION")),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    height: 124,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.0),
-                      border: Border.all(color: Colors.grey),
-                    ),
-                    child: _buildFormCoordonee(),
-                  ),
-                  Positioned(
-                    top: -12,
-                    left: 16,
-                    child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        color: Colors.grey[100],
-                        child: const Text("COORDONNEES")),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _buildLogoAndTaxSection(),
-              const SizedBox(height: 16),
-              _buildButtons(isNewCompany),
-            ],
+                ),
+                _buildButtons(isNewCompany),
+              ],
+            ),
           ),
         ),
       ),
-    ),);
+    );
   }
 
   Widget _buildHeader(bool isNewCompany) {
-    return Row(
-      children: [
-        const Icon(Icons.info, color: Colors.blue),
-        const SizedBox(width: 8),
-        Text(
-          isNewCompany ? 'Enregistrer les informations de la société' : 'Information sur la société',
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
         ),
-        const Spacer(),
-        IconButton(
-          onPressed: () => Navigator.of(context).pop(),
-          icon: const Icon(Icons.close),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormIdentification() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildEditableField('rsoc', 'Raison sociale'),
-              _buildEditableField('activites', 'Activité'),
-              _buildEditableMultilineField('adr', 'Siège social'),
-            ],
-          ),
-        ),
-        const SizedBox(width: 20),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildEditableField('capital', 'Capital'),
-              _buildEditableField('rcs', 'RCS'),
-              _buildEditableField('nif', 'N.I.F'),
-              _buildEditableField('stat', 'STAT'),
-              _buildEditableField('cif', 'CIF'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormCoordonee() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildEditableField('tel', 'Téléphone fixe'),
-              _buildEditableField('email', 'Email'),
-              _buildEditableField('site', 'Site web'),
-            ],
-          ),
-        ),
-        const SizedBox(width: 20),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildEditableField('port', 'Portable'),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLogoAndTaxSection() {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: _selectLogo,
-          child: Container(
-            width: 120,
-            height: 80,
+        border: Border(bottom: BorderSide(color: Colors.blue[100]!)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.grey[300],
-              border: Border.all(color: Colors.grey[400]!),
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: _socData?.logo != null && _socData!.logo!.isNotEmpty
-                ? Image.file(
-                    File(_socData!.logo!),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Text('Logo', style: TextStyle(color: Colors.grey)),
-                      );
-                    },
-                  )
-                : const Center(
-                    child: Text(
-                      'Cliquer pour sélectionner',
-                      style: TextStyle(color: Colors.grey, fontSize: 10),
-                      textAlign: TextAlign.center,
+            child: const Icon(Icons.business, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isNewCompany ? 'Nouvelle société' : 'Informations société',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+                Text(
+                  isNewCompany
+                      ? 'Enregistrer les informations de votre société'
+                      : 'Modifier les informations existantes',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close, color: Colors.grey),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIdentificationCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.badge, color: Colors.blue[600], size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'IDENTIFICATION',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildModernField('rsoc', 'Raison sociale', Icons.business),
+                      _buildModernField('activites', 'Activité', Icons.work),
+                      _buildModernMultilineField('adr', 'Siège social', Icons.location_on),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 20),
+                Expanded(
+                  child: Column(
+                    children: [
+                      _buildModernField('capital', 'Capital', Icons.monetization_on),
+                      _buildModernField('rcs', 'RCS', Icons.assignment),
+                      _buildModernField('nif', 'N.I.F', Icons.numbers),
+                      _buildModernField('stat', 'STAT', Icons.analytics),
+                      _buildModernField('cif', 'CIF', Icons.receipt),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.contact_phone, color: Colors.green[600], size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'COORDONNÉES',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(child: _buildModernField('tel', 'Téléphone fixe', Icons.phone)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildModernField('port', 'Portable', Icons.smartphone)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _buildModernField('email', 'Email', Icons.email)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildModernField('site', 'Site web', Icons.language)),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoAndTaxCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.image, color: Colors.purple[600], size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'LOGO',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: _selectLogo,
+                    child: Container(
+                      width: 140,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        border: Border.all(color: Colors.grey[300]!, width: 2, style: BorderStyle.solid),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: _socData?.logo != null && _socData!.logo!.isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.file(
+                                File(_socData!.logo!),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return _buildLogoPlaceholder();
+                                },
+                              ),
+                            )
+                          : _buildLogoPlaceholder(),
                     ),
                   ),
-          ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.calculate, color: Colors.orange[600], size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'FISCALITÉ',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildModernField('tva', 'Taux TVA (%)', Icons.percent),
+                  _buildModernField('val', 'Valeur', Icons.attach_money),
+                ],
+              ),
+            ),
+          ],
         ),
-        const Spacer(),
-        SizedBox(
-          width: 200,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _buildEditableField('tva', 'Taux TVA'),
-              _buildEditableField('val', 'Valeur'),
-              _buildEditableField('t', 'Taux T'),
-            ],
-          ),
+      ),
+    );
+  }
+
+  Widget _buildLogoPlaceholder() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.add_photo_alternate, color: Colors.grey[400], size: 32),
+        const SizedBox(height: 4),
+        Text(
+          'Cliquer pour\nsélectionner',
+          style: TextStyle(color: Colors.grey[500], fontSize: 11),
+          textAlign: TextAlign.center,
         ),
       ],
     );
   }
 
   Widget _buildButtons(bool isNewCompany) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        ElevatedButton(
-          onPressed: () async {
-            await _saveSocData();
-            if (mounted) Navigator.of(context).pop();
-          },
-          child: Text(isNewCompany ? 'Enregistrer' : 'Modifier'),
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: const BorderRadius.only(
+          bottomLeft: Radius.circular(16),
+          bottomRight: Radius.circular(16),
         ),
-        const SizedBox(width: 8),
-        ElevatedButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(isNewCompany ? 'Annuler' : 'Fermer'),
-        ),
-      ],
+        border: Border(top: BorderSide(color: Colors.grey[200]!)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(
+              isNewCompany ? 'Annuler' : 'Fermer',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton(
+            onPressed: () async {
+              await _saveSocData();
+              if (mounted) Navigator.of(context).pop();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 2,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(isNewCompany ? Icons.save : Icons.edit, size: 16),
+                const SizedBox(width: 8),
+                Text(isNewCompany ? 'Enregistrer' : 'Modifier'),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildEditableField(String key, String label) {
+  Widget _buildModernField(String key, String label, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(label, style: const TextStyle(fontSize: 12)),
-          ),
-          Expanded(
-            child: Container(
-              height: 22,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[600]!, width: 1),
-                color: Colors.white,
+          Row(
+            children: [
+              Icon(icon, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[700]),
               ),
-              child: TextFormField(
-                controller: _controllers[key],
-                style: const TextStyle(fontSize: 11),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                  isDense: true,
-                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: TextFormField(
+              controller: _controllers[key],
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                isDense: true,
               ),
             ),
           ),
@@ -281,32 +404,38 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationM
     );
   }
 
-  Widget _buildEditableMultilineField(String key, String label) {
+  Widget _buildModernMultilineField(String key, String label, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 120,
-            child: Text(label, style: const TextStyle(fontSize: 12)),
-          ),
-          Expanded(
-            child: Container(
-              height: 60,
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey[600]!, width: 1),
-                color: Colors.white,
+          Row(
+            children: [
+              Icon(icon, size: 16, color: Colors.grey[600]),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[700]),
               ),
-              child: TextFormField(
-                controller: _controllers[key],
-                maxLines: 3,
-                style: const TextStyle(fontSize: 11),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(3),
-                  isDense: true,
-                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Container(
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              border: Border.all(color: Colors.grey[300]!),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: TextFormField(
+              controller: _controllers[key],
+              maxLines: 3,
+              style: const TextStyle(fontSize: 13),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(12),
+                isDense: true,
               ),
             ),
           ),

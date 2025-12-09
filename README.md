@@ -59,3 +59,5 @@ L'application utilise une architecture modulaire avec :
 - Thème Material Design 3
 
 
+
+ Optimiser les performances du modal d'inventaire en ajoutant la pagination, le chargement asynchrone et la virtualisation pour éviter les plantages avec de nombreux articles dans l'Inventare Physique

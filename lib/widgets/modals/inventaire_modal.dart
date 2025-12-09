@@ -1,0 +1,1866 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../constants/app_functions.dart';
+import '../../database/database.dart';
+import '../../database/database_service.dart';
+import '../../utils/date_utils.dart';
+import '../../utils/stock_converter.dart';
+import '../common/article_navigation_autocomplete.dart';
+import 'tabs/rapports_tab.dart';
+import 'tabs/stock_tab.dart';
+
+class InventaireModal extends StatefulWidget {
+  const InventaireModal({super.key});
+
+  @override
+  State<InventaireModal> createState() => _InventaireModalState();
+}
+
+class _InventaireModalState extends State<InventaireModal> with TickerProviderStateMixin {
+  late TabController _tabController;
+  final DatabaseService _databaseService = DatabaseService();
+  final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+  List<Article> _articles = [];
+  List<Article> _filteredArticles = [];
+  List<DepartData> stock = [];
+  List<String> _depots = [];
+  bool _isLoading = true;
+  String _searchQuery = '';
+  String _selectedDepot = 'Tous';
+  String _selectedCategorie = 'Toutes';
+  List<String> _categories = [];
+
+  // Pagination optimisée
+  static const int _itemsPerPage = 25; // Réduit pour de meilleures performances
+  int _currentPage = 0;
+  bool hasMoreData = true;
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingPage = false;
+
+  // Inventaire physique avec virtualisation
+  final Map<String, Map<String, double>> _inventairePhysique = {};
+  final Map<String, TextEditingController> _inventaireControllers = {};
+  bool _inventaireMode = false;
+  DateTime? _dateInventaire;
+  String _selectedDepotInventaire = '';
+  int _inventairePage = 0;
+  final ScrollController _inventaireScrollController = ScrollController();
+  bool _isLoadingInventairePage = false;
+
+  // Cache pour les données filtrées
+  List<Article> cachedFilteredArticles = [];
+  String _lastSearchQuery = '';
+  String _lastSelectedCategorie = '';
+  String _lastSelectedDepot = '';
+
+  // Statistiques
+  Map<String, dynamic> _stats = {};
+
+  // État de survol
+  int? _hoveredStockIndex;
+  int? _hoveredInventaireIndex;
+
+  // Recherche d'article pour inventaire
+  final String inventaireSearchQuery = '';
+  final FocusNode _inventaireSearchFocusNode = FocusNode();
+
+  // Variables pour le tab Mouvements
+  List<Stock> _mouvements = [];
+  List<Stock> _filteredMouvements = [];
+  bool _isLoadingMouvements = false;
+  int _mouvementsPage = 0;
+  final ScrollController _mouvementsScrollController = ScrollController();
+  String _mouvementsSearchQuery = '';
+  String _selectedMouvementType = 'Tous';
+  DateTime? _dateDebutMouvement;
+  DateTime? _dateFinMouvement;
+  final List<String> _typesMovement = [
+    'Tous',
+    'ACHAT',
+    'VENTE',
+    'INVENTAIRE',
+    'TRANSFERT',
+    'AJUSTEMENT',
+    'CP VENTE',
+    'CP ACHAT'
+  ];
+  int? _hoveredMouvementIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this);
+    _loadData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _scrollController.dispose();
+    _inventaireScrollController.dispose();
+    _inventaireSearchFocusNode.dispose();
+    _mouvementsScrollController.dispose();
+    for (var controller in _inventaireControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+
+    try {
+      // Chargement asynchrone par batch pour éviter les blocages
+      final articles = await _loadArticlesAsync();
+      final stocks = await _loadStocksAsync();
+
+      // Traitement asynchrone des métadonnées
+      final metadata = await _processMetadataAsync(articles, stocks);
+
+      if (mounted) {
+        setState(() {
+          _articles = articles;
+          stock = stocks;
+          _depots = metadata['depots'] as List<String>;
+          _categories = metadata['categories'] as List<String>;
+          // Initialiser avec CDA par défaut pour l'inventaire
+          if (_selectedDepotInventaire.isEmpty && _depots.isNotEmpty) {
+            final depotsWithoutTous = _depots.where((d) => d != 'Tous').toList();
+            _selectedDepotInventaire = depotsWithoutTous.contains('CDA') ? 'CDA' : depotsWithoutTous.first;
+          }
+          _isLoading = false;
+        });
+
+        // Calculer les stats et appliquer les filtres en arrière-plan
+        _calculateStatsAsync();
+        _applyFiltersAsync();
+        _loadMouvementsAsync();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError('Erreur lors du chargement: $e');
+      }
+    }
+  }
+
+  Future<List<Article>> _loadArticlesAsync() async {
+    return await _databaseService.database.getAllArticles();
+  }
+
+  Future<List<DepartData>> _loadStocksAsync() async {
+    return await _databaseService.database.select(_databaseService.database.depart).get();
+  }
+
+  Future<Map<String, List<String>>> _processMetadataAsync(
+      List<Article> articles, List<DepartData> stocks) async {
+    final depots = <String>{};
+    final categories = <String>{};
+
+    // Traitement par batch
+    const batchSize = 100;
+
+    for (int i = 0; i < stocks.length; i += batchSize) {
+      final batch = stocks.skip(i).take(batchSize);
+      for (final stock in batch) {
+        depots.add(stock.depots);
+      }
+      if (i % (batchSize * 5) == 0) {
+        await Future.delayed(const Duration(milliseconds: 1));
+      }
+    }
+
+    for (int i = 0; i < articles.length; i += batchSize) {
+      final batch = articles.skip(i).take(batchSize);
+      for (final article in batch) {
+        if (article.categorie != null && article.categorie!.isNotEmpty) {
+          categories.add(article.categorie!);
+        }
+      }
+      if (i % (batchSize * 5) == 0) {
+        await Future.delayed(const Duration(milliseconds: 1));
+      }
+    }
+
+    return {
+      'depots': ['Tous', ...depots.toList()..sort()],
+      'categories': ['Toutes', ...categories.toList()..sort()],
+    };
+  }
+
+  Future<void> _calculateStatsAsync() async {
+    final stats = await _calculateStats(_articles, stock);
+    if (mounted) {
+      setState(() {
+        _stats = stats;
+      });
+    }
+  }
+
+  Future<Map<String, dynamic>> _calculateStats(List<Article> articles, List<DepartData> stocks) async {
+    double valeurTotale = 0;
+    int articlesEnStock = 0;
+    int articlesRupture = 0;
+    int articlesAlerte = 0;
+
+    // Traitement par batch pour éviter de bloquer l'UI
+    const batchSize = 100;
+    for (int i = 0; i < articles.length; i += batchSize) {
+      final batch = articles.skip(i).take(batchSize);
+
+      for (final article in batch) {
+        final stockTotal = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+        final cmup = article.cmup ?? 0;
+
+        valeurTotale += stockTotal * cmup;
+
+        if (stockTotal > 0) {
+          articlesEnStock++;
+        } else {
+          articlesRupture++;
+        }
+      }
+
+      // Permettre à l'UI de se rafraîchir
+      if (i % (batchSize * 5) == 0) {
+        await Future.delayed(const Duration(milliseconds: 1));
+      }
+    }
+
+    return {
+      'valeurTotale': valeurTotale,
+      'articlesEnStock': articlesEnStock,
+      'articlesRupture': articlesRupture,
+      'articlesAlerte': articlesAlerte,
+      'totalArticles': articles.length,
+    };
+  }
+
+  void _applyFilters() {
+    _applyFiltersAsync();
+  }
+
+  Future<void> _applyFiltersAsync() async {
+    // Utiliser le cache si les critères n'ont pas changé
+    if (_searchQuery == _lastSearchQuery &&
+        _selectedCategorie == _lastSelectedCategorie &&
+        _selectedDepot == _lastSelectedDepot) {
+      return;
+    }
+
+    final filteredArticles = <Article>[];
+    const batchSize = 200;
+
+    for (int i = 0; i < _articles.length; i += batchSize) {
+      final batch = _articles.skip(i).take(batchSize);
+
+      final batchFiltered = batch.where((article) {
+        final matchesSearch =
+            _searchQuery.isEmpty || article.designation.toLowerCase().contains(_searchQuery.toLowerCase());
+        final matchesCategorie = _selectedCategorie == 'Toutes' || article.categorie == _selectedCategorie;
+
+        // Filtrage par dépôt
+        bool matchesDepot = true;
+        if (_selectedDepot != 'Tous') {
+          matchesDepot = stock.any((s) => s.designation == article.designation && s.depots == _selectedDepot);
+        }
+
+        return matchesSearch && matchesCategorie && matchesDepot;
+      }).toList();
+
+      filteredArticles.addAll(batchFiltered);
+
+      // Pause pour éviter de bloquer l'UI
+      if (i % (batchSize * 3) == 0) {
+        await Future.delayed(const Duration(milliseconds: 1));
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _filteredArticles = filteredArticles;
+        cachedFilteredArticles = List.from(filteredArticles);
+        _lastSearchQuery = _searchQuery;
+        _lastSelectedCategorie = _selectedCategorie;
+        _lastSelectedDepot = _selectedDepot;
+        _currentPage = 0;
+        _inventairePage = 0;
+        hasMoreData = filteredArticles.length > _itemsPerPage;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: Dialog(
+        constraints: BoxConstraints(
+          minHeight: MediaQuery.of(context).size.height * 0.8,
+          minWidth: MediaQuery.of(context).size.width * 0.9,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
+          maxWidth: MediaQuery.of(context).size.width * 0.99,
+        ),
+        backgroundColor: Colors.grey[100],
+        child: ScaffoldMessenger(
+          key: _scaffoldMessengerKey,
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Column(
+              children: [
+                _buildHeader(),
+                _buildTabBar(),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildStockTab(),
+                      _buildInventaireTab(),
+                      _buildMouvementsTab(),
+                      _buildRapportsTab(),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(8),
+          topRight: Radius.circular(8),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.inventory, color: Colors.blue, size: 24),
+          const SizedBox(width: 12),
+          const Text(
+            'Gestion d\'Inventaire Professionnel',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const Spacer(),
+          if (_inventaireMode) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.orange[100],
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.orange),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit, size: 16, color: Colors.orange[700]),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Mode Inventaire',
+                    style: TextStyle(
+                      color: Colors.orange[700],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: TabBar(
+        controller: _tabController,
+        labelColor: Colors.blue,
+        unselectedLabelColor: Colors.grey[600],
+        indicatorColor: Colors.blue,
+        tabs: const [
+          Tab(icon: Icon(Icons.storage), text: 'État des Stocks'),
+          Tab(icon: Icon(Icons.fact_check), text: 'Inventaire Physique'),
+          Tab(icon: Icon(Icons.swap_horiz), text: 'Mouvements'),
+          Tab(icon: Icon(Icons.analytics), text: 'Rapports'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStockTab() {
+    return StockTab(
+      isLoading: _isLoading,
+      stats: _stats,
+      filteredArticles: _filteredArticles,
+      stock: stock,
+      selectedDepot: _selectedDepot,
+      selectedCategorie: _selectedCategorie,
+      depots: _depots,
+      categories: _categories,
+      currentPage: _currentPage,
+      itemsPerPage: _itemsPerPage,
+      hoveredStockIndex: _hoveredStockIndex,
+      scrollController: _scrollController,
+      onSearchChanged: (value) {
+        setState(() => _searchQuery = value);
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (_searchQuery == value) _applyFilters();
+        });
+      },
+      onDepotChanged: (value) {
+        setState(() => _selectedDepot = value);
+        _applyFilters();
+      },
+      onCategorieChanged: (value) {
+        setState(() => _selectedCategorie = value);
+        _applyFilters();
+      },
+      onExport: _exportStock,
+      onPageChanged: _changePage,
+      onHoverChanged: (index) => setState(() => _hoveredStockIndex = index),
+    );
+  }
+
+  DataRow buildArticleRow(Article article) {
+    final stockTotal = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+    final cmup = article.cmup ?? 0;
+    final valeur = stockTotal * cmup;
+
+    Color statusColor = Colors.green;
+    String status = 'En stock';
+
+    if (stockTotal <= 0) {
+      statusColor = Colors.red;
+      status = 'Rupture';
+    } else if (article.usec != null && stockTotal <= article.usec!) {
+      statusColor = Colors.orange;
+      status = 'Alerte';
+    }
+
+    return DataRow(
+      cells: [
+        DataCell(Text(article.designation, style: const TextStyle(fontSize: 12))),
+        DataCell(Text(article.categorie ?? '', style: const TextStyle(fontSize: 12))),
+        DataCell(Text('${article.stocksu1 ?? 0}', style: const TextStyle(fontSize: 12))),
+        DataCell(Text('${article.stocksu2 ?? 0}', style: const TextStyle(fontSize: 12))),
+        DataCell(Text('${article.stocksu3 ?? 0}', style: const TextStyle(fontSize: 12))),
+        DataCell(Text(AppFunctions.formatNumber(cmup), style: const TextStyle(fontSize: 12))),
+        DataCell(Text('${AppFunctions.formatNumber(valeur)} Ar', style: const TextStyle(fontSize: 12))),
+        DataCell(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: statusColor),
+            ),
+            child: Text(
+              status,
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _changePage(int newPage) {
+    if (_isLoadingPage) return;
+
+    setState(() {
+      _isLoadingPage = true;
+      _currentPage = newPage;
+    });
+
+    // Chargement asynchrone de la nouvelle page
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (mounted) {
+        setState(() => _isLoadingPage = false);
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  Widget _buildInventaireTab() {
+    return Column(
+      children: [
+        _buildInventaireHeader(),
+        Expanded(child: _buildInventaireList()),
+      ],
+    );
+  }
+
+  Widget _buildInventaireHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.fact_check, color: Colors.orange[700]),
+              const SizedBox(width: 8),
+              const Text(
+                'Inventaire Physique',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              if (_inventaireMode) ...[
+                SizedBox(
+                  width: 200,
+                  child: ArticleNavigationAutocomplete(
+                    articles: _filteredArticles,
+                    focusNode: _inventaireSearchFocusNode,
+                    onArticleChanged: (article) {
+                      if (article != null && mounted) {
+                        _scrollToArticle(article);
+                      }
+                    },
+                    decoration: const InputDecoration(
+                      hintText: 'Rechercher article...',
+                      prefixIcon: Icon(Icons.search, size: 16),
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    ),
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                SizedBox(
+                  width: 150,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _selectedDepotInventaire.isNotEmpty &&
+                            _depots.where((d) => d != 'Tous').contains(_selectedDepotInventaire)
+                        ? _selectedDepotInventaire
+                        : null,
+                    decoration: const InputDecoration(
+                      labelText: 'Dépôt',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    ),
+                    items: _depots
+                        .where((depot) => depot != 'Tous')
+                        .map((depot) => DropdownMenuItem(
+                              value: depot,
+                              child: Text(depot, style: const TextStyle(fontSize: 12)),
+                            ))
+                        .toList(),
+                    onChanged: (value) {
+                      setState(() => _selectedDepotInventaire = value!);
+                      _applyFilters();
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+              ],
+              if (!_inventaireMode) ...[
+                ElevatedButton.icon(
+                  onPressed: _startInventaire,
+                  icon: const Icon(Icons.play_arrow, size: 16),
+                  label: const Text('Démarrer Inventaire'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ] else ...[
+                ElevatedButton.icon(
+                  onPressed: _saveInventaire,
+                  icon: const Icon(Icons.save, size: 16),
+                  label: const Text('Sauvegarder'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _cancelInventaire,
+                  icon: const Icon(Icons.cancel, size: 16),
+                  label: const Text('Annuler'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (_dateInventaire != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Inventaire du ${AppDateUtils.formatDate(_dateInventaire!)} - Dépôt: $_selectedDepotInventaire',
+              style: TextStyle(
+                color: Colors.orange[700],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInventaireList() {
+    if (!_inventaireMode) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inventory_2, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'Démarrez un inventaire pour saisir les quantités physiques',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: _buildVirtualizedInventaireList(),
+        ),
+        _buildInventairePagination(),
+      ],
+    );
+  }
+
+  Widget _buildVirtualizedInventaireList() {
+    final startIndex = _inventairePage * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, _filteredArticles.length);
+    final pageArticles = _filteredArticles.sublist(startIndex, endIndex);
+
+    return ListView.builder(
+      controller: _inventaireScrollController,
+      itemCount: pageArticles.length + 1, // +1 pour l'en-tête
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildInventaireTableHeader();
+        }
+
+        final article = pageArticles[index - 1];
+        return _buildInventaireListItem(article);
+      },
+    );
+  }
+
+  Widget _buildInventaireTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        border: Border(bottom: BorderSide(color: Colors.orange[200]!)),
+      ),
+      child: const Row(
+        children: [
+          Expanded(
+              flex: 2, child: Text('Article', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+          Expanded(child: Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+          Expanded(child: Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+          Expanded(child: Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+          Expanded(
+            child: Text(
+              'Physique U1',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'Physique U2',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'Physique U3',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: Text('Écarts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInventaireListItem(Article article) {
+    // Obtenir les stocks spécifiques au dépôt sélectionné pour l'inventaire
+    final depotStock = stock.firstWhere(
+      (s) => s.designation == article.designation && s.depots == _selectedDepotInventaire,
+      orElse: () => DepartData(
+          designation: article.designation,
+          depots: _selectedDepotInventaire,
+          stocksu1: 0,
+          stocksu2: 0,
+          stocksu3: 0),
+    );
+
+    final stockU1 = depotStock.stocksu1 ?? 0;
+    final stockU2 = depotStock.stocksu2 ?? 0;
+    final stockU3 = depotStock.stocksu3 ?? 0;
+
+    // Vérifier quelles unités sont disponibles
+    final hasU1 = article.u1 != null && article.u1!.isNotEmpty;
+    final hasU2 = article.u2 != null && article.u2!.isNotEmpty;
+    final hasU3 = article.u3 != null && article.u3!.isNotEmpty;
+
+    final key = '${article.designation}_$_selectedDepotInventaire';
+    final physiqueU1 = _inventairePhysique[key]?['u1'] ?? 0;
+    final physiqueU2 = _inventairePhysique[key]?['u2'] ?? 0;
+    final physiqueU3 = _inventairePhysique[key]?['u3'] ?? 0;
+
+    final ecartU1 = physiqueU1 - stockU1;
+    final ecartU2 = physiqueU2 - stockU2;
+    final ecartU3 = physiqueU3 - stockU3;
+
+    final startIndex = _inventairePage * _itemsPerPage;
+    final itemIndex = _filteredArticles.indexOf(article) - startIndex;
+    final isHovered = _hoveredInventaireIndex == itemIndex;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hoveredInventaireIndex = itemIndex),
+      onExit: (_) => setState(() => _hoveredInventaireIndex = null),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: isHovered ? Colors.blue.withValues(alpha: 0.1) : null,
+          border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Text(
+                article.designation,
+                style: const TextStyle(fontSize: 10),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                '$stockU1 ${article.u1 ?? ""}',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                '$stockU2 ${article.u2 ?? ""}',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                '$stockU3 ${article.u3 ?? ""}',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 48),
+                height: 30,
+                child: TextField(
+                  enabled: hasU1,
+                  controller:
+                      _getController('${article.designation}_${_selectedDepotInventaire}_u1', physiqueU1),
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    fillColor: hasU1 ? null : Colors.grey[200],
+                    filled: !hasU1,
+                  ),
+                  style: const TextStyle(fontSize: 10),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                  onChanged: hasU1
+                      ? (value) {
+                          final qty = double.tryParse(value) ?? 0;
+                          final key = '${article.designation}_$_selectedDepotInventaire';
+                          _inventairePhysique[key] = {..._inventairePhysique[key] ?? {}, 'u1': qty};
+                          setState(() {});
+                        }
+                      : null,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 48),
+                height: 30,
+                child: TextField(
+                  enabled: hasU2,
+                  controller:
+                      _getController('${article.designation}_${_selectedDepotInventaire}_u2', physiqueU2),
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    fillColor: hasU2 ? null : Colors.grey[200],
+                    filled: !hasU2,
+                  ),
+                  style: const TextStyle(fontSize: 10),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                  onChanged: hasU2
+                      ? (value) {
+                          final qty = double.tryParse(value) ?? 0;
+                          final key = '${article.designation}_$_selectedDepotInventaire';
+                          _inventairePhysique[key] = {..._inventairePhysique[key] ?? {}, 'u2': qty};
+                          setState(() {});
+                        }
+                      : null,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 48),
+                height: 30,
+                child: TextField(
+                  enabled: hasU3,
+                  controller:
+                      _getController('${article.designation}_${_selectedDepotInventaire}_u3', physiqueU3),
+                  decoration: InputDecoration(
+                    border: const OutlineInputBorder(),
+                    fillColor: hasU3 ? null : Colors.grey[200],
+                    filled: !hasU3,
+                  ),
+                  style: const TextStyle(fontSize: 10),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                  onChanged: hasU3
+                      ? (value) {
+                          final qty = double.tryParse(value) ?? 0;
+                          final key = '${article.designation}_$_selectedDepotInventaire';
+                          _inventairePhysique[key] = {..._inventairePhysique[key] ?? {}, 'u3': qty};
+                          setState(() {});
+                        }
+                      : null,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasU1)
+                    Text(
+                      '${article.u1}: ${ecartU1.toStringAsFixed(1)} / ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: ecartU1 == 0 ? Colors.green : (ecartU1 > 0 ? Colors.blue : Colors.red),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  if (hasU2)
+                    Text(
+                      '${article.u2}: ${ecartU2.toStringAsFixed(1)} / ',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: ecartU2 == 0 ? Colors.green : (ecartU2 > 0 ? Colors.blue : Colors.red),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  if (hasU3)
+                    Text(
+                      '${article.u3}: ${ecartU3.toStringAsFixed(1)}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: ecartU3 == 0 ? Colors.green : (ecartU3 > 0 ? Colors.blue : Colors.red),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  DataRow buildInventaireRow(Article article) {
+    final stockU1 = article.stocksu1 ?? 0;
+    final stockU2 = article.stocksu2 ?? 0;
+    final stockU3 = article.stocksu3 ?? 0;
+
+    final key = '${article.designation}_$_selectedDepotInventaire';
+    final physiqueU1 = _inventairePhysique[key]?['u1'] ?? 0;
+    final physiqueU2 = _inventairePhysique[key]?['u2'] ?? 0;
+    final physiqueU3 = _inventairePhysique[key]?['u3'] ?? 0;
+
+    final ecartU1 = physiqueU1 - stockU1;
+    final ecartU2 = physiqueU2 - stockU2;
+    final ecartU3 = physiqueU3 - stockU3;
+
+    return DataRow(
+      cells: [
+        DataCell(Text(article.designation, style: const TextStyle(fontSize: 11))),
+        DataCell(Text('$stockU1 ${article.u1 ?? ""}', style: const TextStyle(fontSize: 11))),
+        DataCell(Text('$stockU2 ${article.u2 ?? ""}', style: const TextStyle(fontSize: 11))),
+        DataCell(Text('$stockU3 ${article.u3 ?? ""}', style: const TextStyle(fontSize: 11))),
+        DataCell(
+          SizedBox(
+            width: 60,
+            height: 25,
+            child: TextField(
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(0),
+              ),
+              style: const TextStyle(fontSize: 10),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+              onChanged: (value) {
+                final qty = double.tryParse(value) ?? 0;
+                final key = '${article.designation}_$_selectedDepotInventaire';
+                _inventairePhysique[key] = {..._inventairePhysique[key] ?? {}, 'u1': qty};
+                setState(() {});
+              },
+            ),
+          ),
+        ),
+        DataCell(
+          SizedBox(
+            width: 60,
+            height: ecartU3,
+            child: TextField(
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(0),
+              ),
+              style: const TextStyle(fontSize: 10),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+              onChanged: (value) {
+                final qty = double.tryParse(value) ?? 0;
+                final key = '${article.designation}_$_selectedDepotInventaire';
+                _inventairePhysique[key] = {..._inventairePhysique[key] ?? {}, 'u2': qty};
+                setState(() {});
+              },
+            ),
+          ),
+        ),
+        DataCell(
+          SizedBox(
+            width: 60,
+            height: 25,
+            child: TextField(
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.all(0),
+              ),
+              style: const TextStyle(fontSize: 10),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+              onChanged: (value) {
+                final qty = double.tryParse(value) ?? 0;
+                final key = '${article.designation}_$_selectedDepotInventaire';
+                _inventairePhysique[key] = {..._inventairePhysique[key] ?? {}, 'u3': qty};
+                setState(() {});
+              },
+            ),
+          ),
+        ),
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'U1: ${ecartU1.toStringAsFixed(1)} / ',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: ecartU1 == 0 ? Colors.green : (ecartU1 > 0 ? Colors.blue : Colors.red),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'U2: ${ecartU2.toStringAsFixed(1)} / ',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: ecartU2 == 0 ? Colors.green : (ecartU2 > 0 ? Colors.blue : Colors.red),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                'U3: ${ecartU3.toStringAsFixed(1)}',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: ecartU3 == 0 ? Colors.green : (ecartU3 > 0 ? Colors.blue : Colors.red),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInventairePagination() {
+    final totalPages = (_filteredArticles.length / _itemsPerPage).ceil();
+
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.orange[50],
+        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: _inventairePage > 0 ? () => _changeInventairePage(_inventairePage - 1) : null,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Text(
+            'Page ${_inventairePage + 1} sur $totalPages (${_filteredArticles.length} articles)',
+            style: const TextStyle(fontSize: 12),
+          ),
+          IconButton(
+            onPressed:
+                _inventairePage < totalPages - 1 ? () => _changeInventairePage(_inventairePage + 1) : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _changeInventairePage(int newPage) {
+    if (_isLoadingInventairePage) return;
+
+    setState(() {
+      _isLoadingInventairePage = true;
+      _inventairePage = newPage;
+    });
+
+    // Chargement asynchrone de la nouvelle page
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (mounted) {
+        setState(() => _isLoadingInventairePage = false);
+        _inventaireScrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+  }
+
+  void _scrollToArticle(Article article) {
+    final articleIndex = _filteredArticles.indexWhere((a) => a.designation == article.designation);
+    if (articleIndex == -1) return;
+
+    final targetPage = articleIndex ~/ _itemsPerPage;
+
+    if (targetPage != _inventairePage) {
+      setState(() {
+        _inventairePage = targetPage;
+      });
+    }
+
+    // Scroll to the specific item within the page
+    Future.delayed(const Duration(milliseconds: 100), () {
+      final itemIndexInPage = articleIndex % _itemsPerPage;
+      final itemHeight = 60.0; // Approximate height of each item
+      final targetOffset = (itemIndexInPage + 1) * itemHeight; // +1 for header
+
+      _inventaireScrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  Widget _buildMouvementsTab() {
+    return Column(
+      children: [
+        _buildMouvementsHeader(),
+        _buildMouvementsFilters(),
+        Expanded(child: _buildMouvementsList()),
+      ],
+    );
+  }
+
+  Widget _buildMouvementsHeader() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.swap_horiz, color: Colors.blue[700]),
+          const SizedBox(width: 8),
+          const Text(
+            'Mouvements de Stock',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const Spacer(),
+          if (_filteredMouvements.isNotEmpty) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.blue[100],
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.blue),
+              ),
+              child: Text(
+                '${_filteredMouvements.length} mouvements',
+                style: TextStyle(
+                  color: Colors.blue[700],
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          ElevatedButton.icon(
+            onPressed: _exportMouvements,
+            icon: const Icon(Icons.download, size: 16),
+            label: const Text('Exporter'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMouvementsFilters() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  decoration: const InputDecoration(
+                    hintText: 'Rechercher article ou référence...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  onChanged: (value) {
+                    setState(() => _mouvementsSearchQuery = value);
+                    Future.delayed(const Duration(milliseconds: 300), () {
+                      if (_mouvementsSearchQuery == value) {
+                        _applyMouvementsFilters();
+                      }
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: _selectedDepot,
+                  decoration: const InputDecoration(
+                    labelText: 'Dépôt',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: _depots
+                      .map((depot) => DropdownMenuItem(
+                            value: depot,
+                            child: Text(depot),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() => _selectedDepot = value!);
+                    _applyMouvementsFilters();
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: _selectedMouvementType,
+                  decoration: const InputDecoration(
+                    labelText: 'Type',
+                    border: OutlineInputBorder(),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: _typesMovement
+                      .map((type) => DropdownMenuItem(
+                            value: type,
+                            child: Text(type),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    setState(() => _selectedMouvementType = value!);
+                    _applyMouvementsFilters();
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _selectDateRange(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[400]!),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.date_range, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          _dateDebutMouvement != null && _dateFinMouvement != null
+                              ? '${AppDateUtils.formatDate(_dateDebutMouvement!)} - ${AppDateUtils.formatDate(_dateFinMouvement!)}'
+                              : 'Sélectionner période',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (_dateDebutMouvement != null || _dateFinMouvement != null)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _dateDebutMouvement = null;
+                      _dateFinMouvement = null;
+                    });
+                    _applyMouvementsFilters();
+                  },
+                  icon: const Icon(Icons.clear, size: 16),
+                  label: const Text('Effacer'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMouvementsList() {
+    if (_isLoadingMouvements) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_filteredMouvements.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text(
+              'Aucun mouvement trouvé',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: _buildVirtualizedMouvementsList(),
+        ),
+        _buildMouvementsPagination(),
+      ],
+    );
+  }
+
+  Widget _buildVirtualizedMouvementsList() {
+    final startIndex = _mouvementsPage * _itemsPerPage;
+    final endIndex = (startIndex + _itemsPerPage).clamp(0, _filteredMouvements.length);
+    final pageMouvements = _filteredMouvements.sublist(startIndex, endIndex);
+
+    return ListView.builder(
+      controller: _mouvementsScrollController,
+      itemCount: pageMouvements.length + 1, // +1 pour l'en-tête
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _buildMouvementsTableHeader();
+        }
+
+        final mouvement = pageMouvements[index - 1];
+        return _buildMouvementListItem(mouvement, index - 1);
+      },
+    );
+  }
+
+  Widget _buildMouvementsTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        border: Border(bottom: BorderSide(color: Colors.blue[200]!)),
+      ),
+      child: const Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text('Article', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            child: Text('Dépôt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            child: Text('Entrée', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            child: Text('Sortie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            child: Text('Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'Libellé',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMouvementListItem(Stock mouvement, int index) {
+    final isHovered = _hoveredMouvementIndex == index;
+    final isEntree = (mouvement.qe ?? 0) > 0;
+    final isSortie = (mouvement.qs ?? 0) > 0;
+
+    Color typeColor = Colors.grey;
+    if (isEntree) typeColor = Colors.green;
+    if (isSortie) typeColor = Colors.red;
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hoveredMouvementIndex = index),
+      onExit: (_) => setState(() => _hoveredMouvementIndex = null),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isHovered ? Colors.blue.withValues(alpha: 0.1) : null,
+          border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: Text(
+                AppFunctions.formatDate(mouvement.daty),
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                mouvement.refart ?? '',
+                style: const TextStyle(fontSize: 11),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                mouvement.depots ?? '',
+                style: const TextStyle(fontSize: 11),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                isEntree ? '${mouvement.qe ?? 0} ${mouvement.ue ?? 0}' : '',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.green,
+                  fontWeight: isEntree ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                isSortie ? '${mouvement.qs ?? 0} ${mouvement.us ?? 0}' : '',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.red,
+                  fontWeight: isSortie ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 2),
+                decoration: BoxDecoration(
+                  color: typeColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: typeColor, width: 0.5),
+                ),
+                child: Text(
+                  mouvement.verification ?? '',
+                  style: TextStyle(
+                    color: typeColor,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                textAlign: TextAlign.center,
+                mouvement.lib ?? '',
+                style: const TextStyle(fontSize: 10),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMouvementsPagination() {
+    final totalPages = (_filteredMouvements.length / _itemsPerPage).ceil();
+
+    if (totalPages <= 1) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: _mouvementsPage > 0 ? () => _changeMouvementsPage(_mouvementsPage - 1) : null,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Text(
+            'Page ${_mouvementsPage + 1} sur $totalPages (${_filteredMouvements.length} mouvements)',
+            style: const TextStyle(fontSize: 12),
+          ),
+          IconButton(
+            onPressed:
+                _mouvementsPage < totalPages - 1 ? () => _changeMouvementsPage(_mouvementsPage + 1) : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRapportsTab() {
+    return RapportsTab(
+      stats: _stats,
+      articles: _articles,
+      stock: stock,
+      depots: _depots,
+      onExport: _exportRapports,
+    );
+  }
+
+  void _startInventaire() {
+    setState(() {
+      _inventaireMode = true;
+      _dateInventaire = DateTime.now();
+      _inventairePhysique.clear();
+    });
+  }
+
+  void _cancelInventaire() {
+    setState(() {
+      _inventaireMode = false;
+      _dateInventaire = null;
+      _inventairePhysique.clear();
+    });
+  }
+
+  Future<void> _saveInventaire() async {
+    try {
+      int globalIndex = 0;
+      await _databaseService.database.transaction(() async {
+        for (final entry in _inventairePhysique.entries) {
+          final parts = entry.key.split('_');
+          final designation = parts[0];
+          final depot = parts[1];
+          final quantities = entry.value;
+
+          // Récupérer les stocks actuels
+          final article = await _databaseService.database.getArticleByDesignation(designation);
+          if (article != null) {
+            // Utiliser StockConverter pour optimiser les stocks actuels
+            final stocksOptimises = StockConverter.convertirStockOptimal(
+              article: article,
+              quantiteU1: article.stocksu1 ?? 0,
+              quantiteU2: article.stocksu2 ?? 0,
+              quantiteU3: article.stocksu3 ?? 0,
+            );
+
+            final stockActuelU1 = stocksOptimises['u1']!;
+
+            // Optimiser aussi les nouvelles quantités d'inventaire
+            final nouveauxStocksOptimises = StockConverter.convertirStockOptimal(
+              article: article,
+              quantiteU1: quantities['u1'] ?? 0,
+              quantiteU2: quantities['u2'] ?? 0,
+              quantiteU3: quantities['u3'] ?? 0,
+            );
+
+            final nouveauU1 = nouveauxStocksOptimises['u1']!;
+            final nouveauU2 = nouveauxStocksOptimises['u2']!;
+            final nouveauU3 = nouveauxStocksOptimises['u3']!;
+
+            // Créer des mouvements "Report à nouveau" pour chaque unité avec écart
+            final stockActuelU2 = stocksOptimises['u2']!;
+            final stockActuelU3 = stocksOptimises['u3']!;
+
+            final dateTimestamp = (DateTime.now().millisecondsSinceEpoch / 1000).round();
+
+            if (nouveauU1 != stockActuelU1) {
+              final microseconds = DateTime.now().microsecondsSinceEpoch;
+              final ref = 'INV${dateTimestamp}_U1_${globalIndex}_$microseconds';
+              await _databaseService.database.customStatement(
+                  'INSERT INTO stocks (ref, daty, lib, refart, qe, qs, depots, verification, ue, us, pue, pus, cmup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                  [
+                    ref,
+                    dateTimestamp,
+                    "Report à nouveau - Inventaire ${AppDateUtils.formatDate(_dateInventaire!)} - $designation ${article.u1 ?? ''}",
+                    designation,
+                    nouveauU1 > stockActuelU1 ? nouveauU1 - stockActuelU1 : 0,
+                    stockActuelU1 > nouveauU1 ? stockActuelU1 - nouveauU1 : 0,
+                    depot,
+                    'INVENTAIRE',
+                    article.u1 ?? '',
+                    article.u1 ?? '',
+                    article.pvu1 ?? 0,
+                    article.pvu1 ?? 0,
+                    article.cmup ?? 0
+                  ]);
+
+              // Insérer dans fstocks pour traçabilité
+              final fstockRef = 'FS-INV${dateTimestamp}_${designation}_U1_${globalIndex}_$microseconds';
+              await _databaseService.database.customStatement(
+                  'INSERT INTO fstocks (ref, art, qe, qs, qst, ue) VALUES (?, ?, ?, ?, ?, ?)', [
+                fstockRef,
+                designation,
+                nouveauU1 > stockActuelU1 ? nouveauU1 - stockActuelU1 : 0,
+                stockActuelU1 > nouveauU1 ? stockActuelU1 - nouveauU1 : 0,
+                0,
+                article.u1 ?? ''
+              ]);
+              globalIndex++;
+              await Future.delayed(const Duration(milliseconds: 1));
+            }
+
+            if (nouveauU2 != stockActuelU2) {
+              final microseconds = DateTime.now().microsecondsSinceEpoch;
+              final ref = 'INV${dateTimestamp}_U2_${globalIndex}_$microseconds';
+              await _databaseService.database.customStatement(
+                  'INSERT INTO stocks (ref, daty, lib, refart, qe, qs, depots, verification, ue, us, pue, pus, cmup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                  [
+                    ref,
+                    dateTimestamp,
+                    'Report à nouveau - Inventaire ${AppDateUtils.formatDate(_dateInventaire!)} - $designation ${article.u2 ?? ''}',
+                    designation,
+                    nouveauU2 > stockActuelU2 ? nouveauU2 - stockActuelU2 : 0,
+                    stockActuelU2 > nouveauU2 ? stockActuelU2 - nouveauU2 : 0,
+                    depot,
+                    'INVENTAIRE',
+                    article.u2 ?? '',
+                    article.u2 ?? '',
+                    article.pvu2 ?? 0,
+                    article.pvu2 ?? 0,
+                    article.cmup ?? 0
+                  ]);
+
+              // Insérer dans fstocks pour traçabilité
+              final fstockRef = 'FS-INV${dateTimestamp}_${designation}_U2_${globalIndex}_$microseconds';
+              await _databaseService.database.customStatement(
+                  'INSERT INTO fstocks (ref, art, qe, qs, qst, ue) VALUES (?, ?, ?, ?, ?, ?)', [
+                fstockRef,
+                designation,
+                nouveauU2 > stockActuelU2 ? nouveauU2 - stockActuelU2 : 0,
+                stockActuelU2 > nouveauU2 ? stockActuelU2 - nouveauU2 : 0,
+                0,
+                article.u2 ?? ''
+              ]);
+              globalIndex++;
+              await Future.delayed(const Duration(milliseconds: 1));
+            }
+
+            if (nouveauU3 != stockActuelU3) {
+              final microseconds = DateTime.now().microsecondsSinceEpoch;
+              final ref = 'INV${dateTimestamp}_U3_${globalIndex}_$microseconds';
+              await _databaseService.database.customStatement(
+                'INSERT INTO stocks (ref, daty, lib, refart, qe, qs, depots, verification, ue, us, pue, pus, cmup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                  ref,
+                  dateTimestamp,
+                  'Report à nouveau - Inventaire ${AppDateUtils.formatDate(_dateInventaire!)} - - $designation ${article.u3 ?? ''}',
+                  designation,
+                  nouveauU3 > stockActuelU3 ? nouveauU3 - stockActuelU3 : 0,
+                  stockActuelU3 > nouveauU3 ? stockActuelU3 - nouveauU3 : 0,
+                  depot,
+                  'INVENTAIRE',
+                  article.u3 ?? '',
+                  article.u3 ?? '',
+                  article.pvu3 ?? 0,
+                  article.pvu3 ?? 0,
+                  article.cmup ?? 0
+                ],
+              );
+
+              // Insérer dans fstocks pour traçabilité
+              final fstockRef = 'FS-INV${dateTimestamp}_${designation}_U3_${globalIndex}_$microseconds';
+              await _databaseService.database.customStatement(
+                  'INSERT INTO fstocks (ref, art, qe, qs, qst, ue) VALUES (?, ?, ?, ?, ?, ?)', [
+                fstockRef,
+                designation,
+                nouveauU3 > stockActuelU3 ? nouveauU3 - stockActuelU3 : 0,
+                stockActuelU3 > nouveauU3 ? stockActuelU3 - nouveauU3 : 0,
+                0,
+                article.u3 ?? ''
+              ]);
+              globalIndex++;
+              await Future.delayed(const Duration(milliseconds: 1));
+            }
+
+            // Mettre à jour les stocks
+            await _databaseService.database.customStatement(
+                'UPDATE depart SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ? AND depots = ?',
+                [nouveauU1, nouveauU2, nouveauU3, designation, depot]);
+
+            await _databaseService.database.customStatement(
+                'UPDATE articles SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ?',
+                [nouveauU1, nouveauU2, nouveauU3, designation]);
+          }
+        }
+      });
+
+      _showSuccess('Inventaire sauvegardé avec succès');
+      setState(() {
+        _inventaireMode = false;
+        _dateInventaire = null;
+        _inventairePhysique.clear();
+      });
+      await _loadData();
+      await _loadMouvementsAsync();
+    } catch (e) {
+      _showError('Erreur lors de la sauvegarde: $e');
+    }
+  }
+
+  void _exportStock() {
+    _showSuccess('Export en cours - Fonctionnalité à implémenter');
+  }
+
+  void _showError(String message) {
+    _scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: SelectableText(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
+  void _showSuccess(String message) {
+    _scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        content: SelectableText(message),
+        backgroundColor: Colors.green,
+      ),
+    );
+  }
+
+  // Méthodes pour le tab Mouvements
+  Future<void> _loadMouvementsAsync() async {
+    setState(() => _isLoadingMouvements = true);
+
+    try {
+      final mouvements = await _databaseService.database.getAllStocks();
+      if (mounted) {
+        setState(() {
+          _mouvements = mouvements;
+          _isLoadingMouvements = false;
+        });
+        _applyMouvementsFilters();
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingMouvements = false);
+        _showError('Erreur lors du chargement des mouvements: $e');
+      }
+    }
+  }
+
+  void _applyMouvementsFilters() {
+    final filteredMouvements = _mouvements.where((mouvement) {
+      // Filtre par recherche
+      final matchesSearch = _mouvementsSearchQuery.isEmpty ||
+          (mouvement.refart?.toLowerCase().contains(_mouvementsSearchQuery.toLowerCase()) ?? false) ||
+          (mouvement.lib?.toLowerCase().contains(_mouvementsSearchQuery.toLowerCase()) ?? false);
+
+      // Filtre par dépôt
+      final matchesDepot = _selectedDepot == 'Tous' || mouvement.depots == _selectedDepot;
+
+      // Filtre par type
+      final matchesType =
+          _selectedMouvementType == 'Tous' || mouvement.verification == _selectedMouvementType;
+
+      // Filtre par date avec conversion timestamp
+      bool matchesDate = true;
+      if (_dateDebutMouvement != null && _dateFinMouvement != null && mouvement.daty != null) {
+        try {
+          DateTime mouvementDate;
+          if (mouvement.daty is int) {
+            mouvementDate = DateTime.fromMillisecondsSinceEpoch((mouvement.daty as int) * 1000);
+          } else if (mouvement.daty is DateTime) {
+            mouvementDate = mouvement.daty as DateTime;
+          } else {
+            return matchesSearch && matchesDepot && matchesType;
+          }
+
+          matchesDate = mouvementDate.isAfter(_dateDebutMouvement!.subtract(const Duration(days: 1))) &&
+              mouvementDate.isBefore(_dateFinMouvement!.add(const Duration(days: 1)));
+        } catch (e) {
+          matchesDate = true;
+        }
+      }
+
+      return matchesSearch && matchesDepot && matchesType && matchesDate;
+    }).toList();
+
+    // Trier par date décroissante avec gestion des timestamps
+    filteredMouvements.sort((a, b) {
+      if (a.daty == null && b.daty == null) return 0;
+      if (a.daty == null) return 1;
+      if (b.daty == null) return -1;
+
+      try {
+        int timestampA = a.daty is int ? a.daty as int : (a.daty as DateTime).millisecondsSinceEpoch ~/ 1000;
+        int timestampB = b.daty is int ? b.daty as int : (b.daty as DateTime).millisecondsSinceEpoch ~/ 1000;
+        return timestampB.compareTo(timestampA);
+      } catch (e) {
+        return 0;
+      }
+    });
+
+    setState(() {
+      _filteredMouvements = filteredMouvements;
+      _mouvementsPage = 0;
+    });
+  }
+
+  void _changeMouvementsPage(int newPage) {
+    setState(() => _mouvementsPage = newPage);
+    _mouvementsScrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  Future<void> _selectDateRange(BuildContext context) async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _dateDebutMouvement != null && _dateFinMouvement != null
+          ? DateTimeRange(start: _dateDebutMouvement!, end: _dateFinMouvement!)
+          : null,
+    );
+
+    if (picked != null) {
+      setState(() {
+        _dateDebutMouvement = picked.start;
+        _dateFinMouvement = picked.end;
+      });
+      _applyMouvementsFilters();
+    }
+  }
+
+  void _exportMouvements() {
+    _showSuccess('Export des mouvements en cours - Fonctionnalité à implémenter');
+  }
+
+  void _exportRapports() {
+    _showSuccess('Export des rapports en cours - Fonctionnalité à implémenter');
+  }
+
+  TextEditingController _getController(String key, double value) {
+    if (!_inventaireControllers.containsKey(key)) {
+      _inventaireControllers[key] = TextEditingController(
+        text: value > 0 ? value.toString() : '',
+      );
+    }
+    return _inventaireControllers[key]!;
+  }
+}

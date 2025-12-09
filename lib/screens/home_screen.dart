@@ -695,13 +695,15 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, constraints) {
             int crossAxisCount;
             if (constraints.maxWidth > 1400) {
-              crossAxisCount = userRole == 'Administrateur' ? 9 : 8;
+              crossAxisCount = userRole == 'Administrateur' ? 8 : 6;
             } else if (constraints.maxWidth > 1000) {
-              crossAxisCount = userRole == 'Administrateur' ? 6 : 5;
-            } else if (constraints.maxWidth > 600) {
+              crossAxisCount = userRole == 'Administrateur' ? 5 : 4;
+            } else if (constraints.maxWidth > 750) {
               crossAxisCount = 4;
+            } else if (constraints.maxWidth > 575) {
+              crossAxisCount = 3;
             } else {
-              crossAxisCount = 2;
+              crossAxisCount = 1;
             }
 
             return GridView.count(
@@ -710,7 +712,7 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisCount: crossAxisCount,
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
-              childAspectRatio: 1.2,
+              childAspectRatio: 1.6,
               children: [
                 if (userRole == 'Administrateur') ..._buildAdminStats(),
                 if (userRole == 'Caisse') ..._buildCaisseStats(),
