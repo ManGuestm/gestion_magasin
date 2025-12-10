@@ -78,12 +78,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
           ),
         ),
         child: Column(
-          children: [
-            _buildModernHeader(),
-            _buildToolbar(),
-            _buildPriceLabelsGrid(),
-            _buildModernFooter(),
-          ],
+          children: [_buildModernHeader(), _buildToolbar(), _buildPriceLabelsGrid(), _buildModernFooter()],
         ),
       ),
     );
@@ -94,15 +89,9 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
       width: double.infinity,
       height: 60,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue[600]!, Colors.blue[800]!],
-        ),
+        gradient: LinearGradient(colors: [Colors.blue[600]!, Colors.blue[800]!]),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -167,9 +156,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
                             },
                           )
                         : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
@@ -207,16 +194,20 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
             ),
             child: Row(
               children: [
-                Text('${_selectedArticles.length} sélectionnés',
-                    style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.w500)),
+                Text(
+                  '${_selectedArticles.length} sélectionnés',
+                  style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.w500),
+                ),
                 const SizedBox(width: 12),
                 TextButton(
                   onPressed: () => setState(() => _selectedArticles.clear()),
                   child: const Text('Tout désélectionner'),
                 ),
                 const Spacer(),
-                Text('${_filteredArticles.length} articles affichés',
-                    style: TextStyle(color: Colors.grey[600])),
+                Text(
+                  '${_filteredArticles.length} articles affichés',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
               ],
             ),
           ),
@@ -280,11 +271,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
           color: Colors.white,
           border: Border.all(color: isSelected ? Colors.blue : Colors.black, width: 2),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 2,
-              offset: const Offset(1, 1),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 2, offset: const Offset(1, 1)),
           ],
         ),
         child: Column(
@@ -293,7 +280,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
                 border: Border(bottom: BorderSide(color: Colors.black, width: 2)),
               ),
@@ -302,11 +289,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
                   Expanded(
                     child: Text(
                       article.designation,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
                       textAlign: TextAlign.center,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -328,36 +311,28 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
                 children: [
                   Container(
                     width: 60,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       border: Border(right: BorderSide(color: Colors.black, width: 1)),
                     ),
                   ),
                   Expanded(
                     child: Container(
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         border: Border(right: BorderSide(color: Colors.black, width: 1)),
                       ),
                       child: const Center(
                         child: Text(
                           'En Ariary',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black),
                         ),
                       ),
                     ),
                   ),
-                  Expanded(
-                    child: const Center(
+                  const Expanded(
+                    child: Center(
                       child: Text(
                         'En Fmg',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black),
                       ),
                     ),
                   ),
@@ -386,7 +361,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
   Widget _buildPriceRow(String unit, double ariaryPrice, double fmgPrice) {
     return Expanded(
       child: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           border: Border(top: BorderSide(color: Colors.black, width: 1)),
         ),
         child: Row(
@@ -395,16 +370,12 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
             Container(
               width: 60,
               padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 border: Border(right: BorderSide(color: Colors.black, width: 1)),
               ),
               child: Text(
                 unit,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -412,16 +383,12 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   border: Border(right: BorderSide(color: Colors.black, width: 1)),
                 ),
                 child: Text(
                   _formatPriceForLabel(ariaryPrice),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -432,11 +399,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
                   _formatPriceForLabel(fmgPrice),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -455,11 +418,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.grey[300]!)),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 4,
-            offset: const Offset(0, -2),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, -2)),
         ],
       ),
       child: Row(
@@ -474,10 +433,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
               ),
               child: Text(
                 '${_selectedArticles.length} étiquette(s) sélectionnée(s)',
-                style: TextStyle(
-                  color: Colors.blue[700],
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.w500),
               ),
             ),
           ],
@@ -490,9 +446,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
               backgroundColor: Colors.blue[600],
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
           const SizedBox(width: 12),
@@ -502,9 +456,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
             label: const Text('Fermer'),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
           ),
         ],
@@ -541,24 +493,15 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
       if (mounted) Navigator.of(context).pop();
 
       // Méthode 1: Utiliser rundll32 pour imprimer directement
-      final result1 = await Process.run(
-        'rundll32',
-        ['shimgvw.dll,ImageView_PrintTo', file.path],
-      );
+      final result1 = await Process.run('rundll32', ['shimgvw.dll,ImageView_PrintTo', file.path]);
 
       if (result1.exitCode != 0) {
         // Méthode 2: Utiliser mspaint comme fallback
-        final result2 = await Process.run(
-          'mspaint',
-          ['/p', file.path],
-        );
+        final result2 = await Process.run('mspaint', ['/p', file.path]);
 
         if (result2.exitCode != 0) {
           // Méthode 3: Ouvrir avec l'application par défaut
-          await Process.run(
-            'cmd',
-            ['/c', 'start', '', file.path],
-          );
+          await Process.run('cmd', ['/c', 'start', '', file.path]);
           _showSuccessMessage('Image ouverte. Utilisez Ctrl+P pour imprimer.');
         } else {
           _showSuccessMessage('Impression lancée avec Paint!');
@@ -621,10 +564,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
           children: [
             DropdownButtonFormField<String>(
               initialValue: _paperFormat,
-              decoration: const InputDecoration(
-                labelText: 'Format de papier',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Format de papier', border: OutlineInputBorder()),
               items: const [
                 DropdownMenuItem(value: 'A4', child: Text('A4 (210 × 297 mm)')),
                 DropdownMenuItem(value: 'A5', child: Text('A5 (148 × 210 mm)')),
@@ -659,12 +599,16 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Format sélectionné: $_paperFormat',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Format sélectionné: $_paperFormat',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Text('Étiquettes par page: $_labelsPerPage'),
                   const SizedBox(height: 8),
-                  Text('Recommandations:',
-                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue[700])),
+                  Text(
+                    'Recommandations:',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue[700]),
+                  ),
                   const Text('• A4: 12-16 étiquettes'),
                   const Text('• A5: 6-8 étiquettes'),
                   const Text('• A6: 2-4 étiquettes'),
@@ -673,12 +617,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fermer'),
-          ),
-        ],
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer'))],
       ),
     );
   }

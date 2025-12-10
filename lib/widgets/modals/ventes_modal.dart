@@ -294,8 +294,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     try {
       final vente = await (_databaseService.database.select(
         _databaseService.database.ventes,
-      )..where((v) => v.numventes.equals(_numVentesController.text)))
-          .getSingleOrNull();
+      )..where((v) => v.numventes.equals(_numVentesController.text))).getSingleOrNull();
 
       return vente?.contre == '1';
     } catch (e) {
@@ -320,14 +319,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       // Supprimer toutes les anciennes lignes
       await (_databaseService.database.delete(
         _databaseService.database.detventes,
-      )..where((d) => d.numventes.equals(_numVentesController.text)))
-          .go();
+      )..where((d) => d.numventes.equals(_numVentesController.text))).go();
 
       // Mettre à jour la vente principale
       await (_databaseService.database.update(
         _databaseService.database.ventes,
-      )..where((v) => v.numventes.equals(_numVentesController.text)))
-          .write(
+      )..where((v) => v.numventes.equals(_numVentesController.text))).write(
         VentesCompanion(
           nfact: drift.Value(_nFactureController.text),
           clt: drift.Value(_selectedClient ?? ''),
@@ -341,7 +338,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
       // Insérer les nouvelles lignes
       for (var ligne in _lignesVente) {
-        await _databaseService.database.into(_databaseService.database.detventes).insert(
+        await _databaseService.database
+            .into(_databaseService.database.detventes)
+            .insert(
               DetventesCompanion.insert(
                 numventes: drift.Value(_numVentesController.text),
                 designation: drift.Value(ligne['designation']),
@@ -375,7 +374,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: SelectableText(
+              content: const SelectableText(
                 'Impossible de valider: certains articles ont un stock insuffisant dans le dépôt MAG',
               ),
               backgroundColor: Colors.red,
@@ -432,7 +431,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: SelectableText('Vente validée vers le journal avec succès'),
+            content: const SelectableText('Vente validée vers le journal avec succès'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
@@ -480,21 +479,20 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       // Vérifier d'abord si c'est une vente journalée
       final vente = await (_databaseService.database.select(
         _databaseService.database.ventes,
-      )..where((v) => v.numventes.equals(numVentes)))
-          .getSingleOrNull();
+      )..where((v) => v.numventes.equals(numVentes))).getSingleOrNull();
 
       if (vente != null) {
         // Vente journalée
         final details = await (_databaseService.database.select(
           _databaseService.database.detventes,
-        )..where((d) => d.numventes.equals(numVentes)))
-            .get();
+        )..where((d) => d.numventes.equals(numVentes))).get();
 
         setState(() {
           _isExistingPurchase = true;
           _selectedVerification = vente.verification ?? 'JOURNAL';
-          _statutVenteActuelle =
-              vente.verification == 'BROUILLARD' ? StatutVente.brouillard : StatutVente.journal;
+          _statutVenteActuelle = vente.verification == 'BROUILLARD'
+              ? StatutVente.brouillard
+              : StatutVente.journal;
 
           _nFactureController.text = vente.nfact ?? '';
           if (vente.daty != null) {
@@ -698,7 +696,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: Text('Veuillez d\'abord sélectionner un client'),
+          content: const Text('Veuillez d\'abord sélectionner un client'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -736,8 +734,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
 
     try {
-      final article =
-          _articles.where((a) => a.designation.toLowerCase().contains(text.toLowerCase())).firstOrNull;
+      final article = _articles
+          .where((a) => a.designation.toLowerCase().contains(text.toLowerCase()))
+          .firstOrNull;
 
       setState(() {
         _searchedArticle = article;
@@ -923,8 +922,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       // Utiliser exactement la même logique que le modal articles
       final stockDepart = await (_databaseService.database.select(
         _databaseService.database.depart,
-      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-          .getSingleOrNull();
+      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
       // Calculer le stock total disponible en unité de base DIRECTEMENT
       double stockTotalU3 = StockConverter.calculerStockTotalU3(
@@ -978,8 +976,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       // Utiliser exactement la même logique que le modal articles
       final stockDepart = await (_databaseService.database.select(
         _databaseService.database.depart,
-      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-          .getSingleOrNull();
+      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
       // Calculer le stock total disponible en unité de base DIRECTEMENT
       double stockTotalU3 = StockConverter.calculerStockTotalU3(
@@ -1041,8 +1038,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     try {
       final stockDepart = await (_databaseService.database.select(
         _databaseService.database.depart,
-      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-          .getSingleOrNull();
+      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
       // Calculer le stock total en unité de base (U3)
       double stockTotalU3 = StockConverter.calculerStockTotalU3(
@@ -1085,8 +1081,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     try {
       final tousStocksDepart = await (_databaseService.database.select(
         _databaseService.database.depart,
-      )..where((d) => d.designation.equals(article.designation) & d.depots.isNotValue(depotActuel)))
-          .get();
+      )..where((d) => d.designation.equals(article.designation) & d.depots.isNotValue(depotActuel))).get();
 
       for (var stock in tousStocksDepart) {
         // Convertir les stocks en format optimal AVANT les calculs
@@ -1136,10 +1131,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
 
     try {
-      final derniereVente = await (_databaseService.database.select(_databaseService.database.detventes)
-            ..orderBy([(d) => drift.OrderingTerm.desc(d.daty)])
-            ..limit(1))
-          .getSingleOrNull();
+      final derniereVente =
+          await (_databaseService.database.select(_databaseService.database.detventes)
+                ..orderBy([(d) => drift.OrderingTerm.desc(d.daty)])
+                ..limit(1))
+              .getSingleOrNull();
 
       setState(() {
         _defaultDepot = derniereVente?.depots ?? 'MAG';
@@ -1161,8 +1157,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     try {
       final details = await (_databaseService.database.select(
         _databaseService.database.detventes,
-      )..where((d) => d.numventes.equals(_numVentesController.text)))
-          .get();
+      )..where((d) => d.numventes.equals(_numVentesController.text))).get();
 
       for (var detail in details) {
         if (detail.designation != null && detail.depots != null && detail.q != null) {
@@ -1171,11 +1166,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           if (article == null) continue;
 
           // Vérifier le stock actuel
-          final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
-                ..where(
-                  (d) => d.designation.equals(detail.designation!) & d.depots.equals(detail.depots!),
-                ))
-              .getSingleOrNull();
+          final stockDepart =
+              await (_databaseService.database.select(_databaseService.database.depart)..where(
+                    (d) => d.designation.equals(detail.designation!) & d.depots.equals(detail.depots!),
+                  ))
+                  .getSingleOrNull();
 
           if (stockDepart != null) {
             // Calculer le stock total disponible
@@ -1255,8 +1250,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     for (final vente in ventes) {
       final details = await (_databaseService.database.select(
         _databaseService.database.detventes,
-      )..where((d) => d.numventes.equals(vente['numventes'])))
-          .get();
+      )..where((d) => d.numventes.equals(vente['numventes']))).get();
 
       if (details.isNotEmpty) {
         ventesAvecDetails.add({
@@ -1312,8 +1306,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     try {
       final details = await (_databaseService.database.select(
         _databaseService.database.detventes,
-      )..where((d) => d.numventes.equals(numVenteSource)))
-          .get();
+      )..where((d) => d.numventes.equals(numVenteSource))).get();
 
       if (details.isEmpty && mounted) {
         ScaffoldMessenger.of(
@@ -1469,8 +1462,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     try {
       final details = await (externalDb.database.select(
         externalDb.database.detventes,
-      )..where((d) => d.numventes.equals(numVenteSource)))
-          .get();
+      )..where((d) => d.numventes.equals(numVenteSource))).get();
 
       if (details.isEmpty) {
         if (mounted) {
@@ -2004,8 +1996,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       if (_isExistingPurchase && _numVentesController.text.isNotEmpty) {
         final venteActuelle = await (_databaseService.database.select(
           _databaseService.database.ventes,
-        )..where((v) => v.numventes.equals(_numVentesController.text)))
-            .getSingleOrNull();
+        )..where((v) => v.numventes.equals(_numVentesController.text))).getSingleOrNull();
 
         if (venteActuelle != null && venteActuelle.modepai == 'A crédit') {
           double montantVenteActuelle = (venteActuelle.totalttc ?? 0) - (venteActuelle.avance ?? 0);
@@ -2097,13 +2088,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         details.globalPosition.dy + 1,
       ),
       items: [
-        PopupMenuItem(
+        const PopupMenuItem(
           value: 'modifier',
-          child: const Row(children: [Icon(Icons.edit, size: 16), SizedBox(width: 8), Text('Modifier')]),
+          child: Row(children: [Icon(Icons.edit, size: 16), SizedBox(width: 8), Text('Modifier')]),
         ),
-        PopupMenuItem(
+        const PopupMenuItem(
           value: 'supprimer',
-          child: const Row(
+          child: Row(
             children: [
               Icon(Icons.delete, size: 16, color: Colors.red),
               SizedBox(width: 8),
@@ -2232,7 +2223,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
               left: MediaQuery.of(context).size.width * 0.75,
             ),
             behavior: SnackBarBehavior.floating,
-            content: Text('Vente enregistrée en brouillon'),
+            content: const Text('Vente enregistrée en brouillon'),
             backgroundColor: Colors.green,
           ),
         );
@@ -2323,14 +2314,12 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         // Supprimer toutes les anciennes lignes
         await (_databaseService.database.delete(
           _databaseService.database.detventes,
-        )..where((d) => d.numventes.equals(_numVentesController.text)))
-            .go();
+        )..where((d) => d.numventes.equals(_numVentesController.text))).go();
 
         // Mettre à jour la vente principale
         await (_databaseService.database.update(
           _databaseService.database.ventes,
-        )..where((v) => v.numventes.equals(_numVentesController.text)))
-            .write(
+        )..where((v) => v.numventes.equals(_numVentesController.text))).write(
           VentesCompanion(
             nfact: drift.Value(_nFactureController.text),
             daty: drift.Value(DateTime.now()),
@@ -2345,7 +2334,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
         // Insérer les nouvelles lignes
         for (var ligne in _lignesVente) {
-          await _databaseService.database.into(_databaseService.database.detventes).insert(
+          await _databaseService.database
+              .into(_databaseService.database.detventes)
+              .insert(
                 DetventesCompanion.insert(
                   numventes: drift.Value(_numVentesController.text),
                   designation: drift.Value(ligne['designation']),
@@ -2369,7 +2360,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Vente brouillard modifiée avec succès'),
+            content: const Text('Vente brouillard modifiée avec succès'),
             backgroundColor: Colors.green,
           ),
         );
@@ -2569,7 +2560,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: Text('Aucun article à imprimer'),
+          content: const Text('Aucun article à imprimer'),
         ),
       );
       return;
@@ -2615,7 +2606,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Facture envoyée à l\'imprimante par défaut'),
+            content: const Text('Facture envoyée à l\'imprimante par défaut'),
           ),
         );
       }
@@ -2795,7 +2786,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                         decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                         children: [
                           pw.Container(
-                            padding: pw.EdgeInsets.all(3),
+                            padding: const pw.EdgeInsets.all(3),
                             child: pw.Text(
                               'DÉSIGNATION',
                               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
@@ -2803,7 +2794,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                             ),
                           ),
                           pw.Container(
-                            padding: pw.EdgeInsets.all(3),
+                            padding: const pw.EdgeInsets.all(3),
                             child: pw.Text(
                               'QTÉ',
                               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
@@ -2811,7 +2802,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                             ),
                           ),
                           pw.Container(
-                            padding: pw.EdgeInsets.all(3),
+                            padding: const pw.EdgeInsets.all(3),
                             child: pw.Text(
                               'PU HT',
                               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
@@ -2819,7 +2810,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                             ),
                           ),
                           pw.Container(
-                            padding: pw.EdgeInsets.all(3),
+                            padding: const pw.EdgeInsets.all(3),
                             child: pw.Text(
                               'MONTANT',
                               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
@@ -2832,14 +2823,14 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                         (ligne) => pw.TableRow(
                           children: [
                             pw.Container(
-                              padding: pw.EdgeInsets.all(3),
+                              padding: const pw.EdgeInsets.all(3),
                               child: pw.Text(
                                 ligne['designation'] ?? '',
                                 style: pw.TextStyle(fontSize: pdfFontSize - 1),
                               ),
                             ),
                             pw.Container(
-                              padding: pw.EdgeInsets.all(3),
+                              padding: const pw.EdgeInsets.all(3),
                               child: pw.Text(
                                 AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
                                 style: pw.TextStyle(fontSize: pdfFontSize - 1),
@@ -2847,7 +2838,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                               ),
                             ),
                             pw.Container(
-                              padding: pw.EdgeInsets.all(3),
+                              padding: const pw.EdgeInsets.all(3),
                               child: pw.Text(
                                 AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
                                 style: pw.TextStyle(fontSize: pdfFontSize - 1),
@@ -2855,7 +2846,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                               ),
                             ),
                             pw.Container(
-                              padding: pw.EdgeInsets.all(3),
+                              padding: const pw.EdgeInsets.all(3),
                               child: pw.Text(
                                 AppFunctions.formatNumber(ligne['montant']?.toDouble() ?? 0),
                                 style: pw.TextStyle(fontSize: pdfFontSize - 1),
@@ -3102,7 +3093,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                         decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                         children: [
                           pw.Container(
-                            padding: pw.EdgeInsets.all(3),
+                            padding: const pw.EdgeInsets.all(3),
                             child: pw.Text(
                               'DÉSIGNATION',
                               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
@@ -3110,7 +3101,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                             ),
                           ),
                           pw.Container(
-                            padding: pw.EdgeInsets.all(3),
+                            padding: const pw.EdgeInsets.all(3),
                             child: pw.Text(
                               'UNITÉ',
                               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
@@ -3118,7 +3109,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                             ),
                           ),
                           pw.Container(
-                            padding: pw.EdgeInsets.all(3),
+                            padding: const pw.EdgeInsets.all(3),
                             child: pw.Text(
                               'QUANTITÉ',
                               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
@@ -3127,7 +3118,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                           ),
                           if (widget.tousDepots)
                             pw.Container(
-                              padding: pw.EdgeInsets.all(3),
+                              padding: const pw.EdgeInsets.all(3),
                               child: pw.Text(
                                 'DÉPÔT',
                                 style: pw.TextStyle(
@@ -3143,14 +3134,14 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                         (ligne) => pw.TableRow(
                           children: [
                             pw.Container(
-                              padding: pw.EdgeInsets.all(3),
+                              padding: const pw.EdgeInsets.all(3),
                               child: pw.Text(
                                 ligne['designation'] ?? '',
                                 style: pw.TextStyle(fontSize: pdfFontSize - 1),
                               ),
                             ),
                             pw.Container(
-                              padding: pw.EdgeInsets.all(3),
+                              padding: const pw.EdgeInsets.all(3),
                               child: pw.Text(
                                 ligne['unites'] ?? '',
                                 style: pw.TextStyle(fontSize: pdfFontSize - 1),
@@ -3158,7 +3149,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                               ),
                             ),
                             pw.Container(
-                              padding: pw.EdgeInsets.all(3),
+                              padding: const pw.EdgeInsets.all(3),
                               child: pw.Text(
                                 AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
                                 style: pw.TextStyle(fontSize: pdfFontSize - 1),
@@ -3167,7 +3158,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                             ),
                             if (widget.tousDepots)
                               pw.Container(
-                                padding: pw.EdgeInsets.all(3),
+                                padding: const pw.EdgeInsets.all(3),
                                 child: pw.Text(
                                   ligne['depot'] ?? '',
                                   style: pw.TextStyle(fontSize: pdfFontSize - 1),
@@ -3247,7 +3238,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: Text('Aucun article à imprimer'),
+          content: const Text('Aucun article à imprimer'),
         ),
       );
       return;
@@ -3293,7 +3284,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Bon de livraison envoyé à l\'imprimante par défaut'),
+            content: const Text('Bon de livraison envoyé à l\'imprimante par défaut'),
           ),
         );
       }
@@ -3382,19 +3373,21 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       if (confirmer == true) {
         // Créer directement le client avec le nom saisi
         try {
-          await _databaseService.database.into(_databaseService.database.clt).insert(
+          await _databaseService.database
+              .into(_databaseService.database.clt)
+              .insert(
                 CltCompanion.insert(
                   rsoc: nomClient,
                   categorie: drift.Value(
                     widget.tousDepots ? ClientCategory.tousDepots.label : ClientCategory.magasin.label,
                   ),
                   commercial: drift.Value(AuthService().currentUser?.nom ?? ''),
-                  taux: drift.Value(0),
-                  soldes: drift.Value(0),
-                  soldesa: drift.Value(0),
-                  action: drift.Value("A"),
-                  plafon: drift.Value(9000000000.0),
-                  plafonbl: drift.Value(9000000000.0),
+                  taux: const drift.Value(0),
+                  soldes: const drift.Value(0),
+                  soldesa: const drift.Value(0),
+                  action: const drift.Value("A"),
+                  plafon: const drift.Value(9000000000.0),
+                  plafonbl: const drift.Value(9000000000.0),
                 ),
               );
 
@@ -3466,7 +3459,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           _validerVente();
         }
       }
-
       // Ctrl+J : Accéder à la dernière vente Journal
       else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyJ) {
         _ventesFuture?.then((ventes) {
@@ -3480,8 +3472,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       // Ctrl+Shift+X : Accéder à la dernière vente contre-passée
       else if (isCtrl && isShift && event.logicalKey == LogicalKeyboardKey.keyX) {
         _ventesFuture?.then((ventes) {
-          final contrePassees =
-              ventes.where((v) => v['verification'] == 'JOURNAL' && v['contre'] == '1').toList();
+          final contrePassees = ventes
+              .where((v) => v['verification'] == 'JOURNAL' && v['contre'] == '1')
+              .toList();
           if (contrePassees.isNotEmpty) {
             final derniereCP = contrePassees.first;
             _chargerVenteExistante(derniereCP['numventes']);
@@ -3630,15 +3623,15 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                         ),
                       )
                     : isContrePassee
-                        ? Text(
-                            'Contre-passée',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: isSelected ? Colors.red[700] : Colors.red,
-                              fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-                            ),
-                          )
-                        : null,
+                    ? Text(
+                        'Contre-passée',
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: isSelected ? Colors.red[700] : Colors.red,
+                          fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                        ),
+                      )
+                    : null,
                 onTap: () {
                   _numVentesController.text = numVente;
                   _chargerVenteExistante(numVente);
@@ -3812,7 +3805,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                             ),
                             child: _isVendeur()
                                 ? // Vendeur: Simple list without tabs
-                                Column(
+                                  Column(
                                     children: [
                                       // Search field
                                       Container(
@@ -3857,7 +3850,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                     ],
                                   )
                                 : // Other users: Three columns layout
-                                Column(
+                                  Column(
                                     children: [
                                       // Search field
                                       Container(
@@ -4198,9 +4191,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard
-                                                            .instance.logicalKeysPressed
-                                                            .contains(
+                                                    final isShiftPressed =
+                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
                                                           LogicalKeyboardKey.shiftLeft,
                                                         ) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed.contains(
@@ -4294,9 +4286,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard
-                                                            .instance.logicalKeysPressed
-                                                            .contains(
+                                                    final isShiftPressed =
+                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
                                                           LogicalKeyboardKey.shiftLeft,
                                                         ) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed.contains(
@@ -4379,8 +4370,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   onKeyEvent: (node, event) {
                                                     if (event is KeyDownEvent &&
                                                         event.logicalKey == LogicalKeyboardKey.tab) {
-                                                      final isShiftPressed = HardwareKeyboard
-                                                              .instance.logicalKeysPressed
+                                                      final isShiftPressed =
+                                                          HardwareKeyboard.instance.logicalKeysPressed
                                                               .contains(LogicalKeyboardKey.shiftLeft) ||
                                                           HardwareKeyboard.instance.logicalKeysPressed
                                                               .contains(LogicalKeyboardKey.shiftRight);
@@ -4457,9 +4448,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard
-                                                            .instance.logicalKeysPressed
-                                                            .contains(
+                                                    final isShiftPressed =
+                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
                                                           LogicalKeyboardKey.shiftLeft,
                                                         ) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed.contains(
@@ -4480,8 +4470,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 child: EnhancedAutocomplete<String>(
                                                   options: _selectedArticle != null
                                                       ? _getUnitsForSelectedArticle()
-                                                          .map((item) => item.value!)
-                                                          .toList()
+                                                            .map((item) => item.value!)
+                                                            .toList()
                                                       : [''],
                                                   displayStringForOption: (unit) => unit,
                                                   controller: _uniteController,
@@ -4549,9 +4539,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard
-                                                            .instance.logicalKeysPressed
-                                                            .contains(
+                                                    final isShiftPressed =
+                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
                                                           LogicalKeyboardKey.shiftLeft,
                                                         ) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed.contains(
@@ -4611,8 +4600,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                     color: !_isClientSelected
                                                         ? Colors.grey
                                                         : _isQuantiteInsuffisante()
-                                                            ? Colors.red
-                                                            : Colors.black,
+                                                        ? Colors.red
+                                                        : Colors.black,
                                                   ),
                                                   onChanged: (value) {
                                                     setState(() {}); // Refresh to update color
@@ -4621,7 +4610,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   onSubmitted: (value) {
                                                     _prixFocusNode.requestFocus();
                                                   },
-                                                  readOnly: _selectedVerification == 'JOURNAL' ||
+                                                  readOnly:
+                                                      _selectedVerification == 'JOURNAL' ||
                                                       !_isClientSelected,
                                                 ),
                                               ),
@@ -4670,9 +4660,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                 onKeyEvent: (node, event) {
                                                   if (event is KeyDownEvent &&
                                                       event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed = HardwareKeyboard
-                                                            .instance.logicalKeysPressed
-                                                            .contains(
+                                                    final isShiftPressed =
+                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
                                                           LogicalKeyboardKey.shiftLeft,
                                                         ) ||
                                                         HardwareKeyboard.instance.logicalKeysPressed.contains(
@@ -4710,7 +4699,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                   // onChanged: (value) => _calculerMontant(),
                                                   // ENTER in Prix goes to Ajouter
                                                   onSubmitted: (value) => _ajouterFocusNode.requestFocus(),
-                                                  readOnly: _selectedVerification == 'JOURNAL' ||
+                                                  readOnly:
+                                                      _selectedVerification == 'JOURNAL' ||
                                                       !_isClientSelected,
                                                 ),
                                               ),
@@ -4736,8 +4726,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                       onKeyEvent: (node, event) {
                                                         if (event is KeyDownEvent) {
                                                           if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                            final isShiftPressed = HardwareKeyboard
-                                                                    .instance.logicalKeysPressed
+                                                            final isShiftPressed =
+                                                                HardwareKeyboard.instance.logicalKeysPressed
                                                                     .contains(LogicalKeyboardKey.shiftLeft) ||
                                                                 HardwareKeyboard.instance.logicalKeysPressed
                                                                     .contains(LogicalKeyboardKey.shiftRight);
@@ -4771,7 +4761,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                                     color: Colors.blue.withValues(alpha: 0.3),
                                                                     blurRadius: 4,
                                                                     spreadRadius: 1,
-                                                                  )
+                                                                  ),
                                                                 ]
                                                               : null,
                                                         ),
@@ -4781,8 +4771,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                             backgroundColor: _ajouterFocusNode.hasFocus
                                                                 ? Colors.green[600]
                                                                 : (_isClientSelected
-                                                                    ? Colors.green
-                                                                    : Colors.grey),
+                                                                      ? Colors.green
+                                                                      : Colors.grey),
                                                             foregroundColor: Colors.white,
                                                             minimumSize: const Size(60, 35),
                                                             elevation: _ajouterFocusNode.hasFocus ? 4 : 2,
@@ -4790,8 +4780,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                           child: Text(
                                                             _ajouterFocusNode.hasFocus
                                                                 ? (_isModifyingLine
-                                                                    ? 'Modifier ↵'
-                                                                    : 'Ajouter ↵')
+                                                                      ? 'Modifier ↵'
+                                                                      : 'Ajouter ↵')
                                                                 : (_isModifyingLine ? 'Modifier' : 'Ajouter'),
                                                             style: TextStyle(
                                                               fontSize: 12,
@@ -4810,8 +4800,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                       onKeyEvent: (node, event) {
                                                         if (event is KeyDownEvent) {
                                                           if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                            final isShiftPressed = HardwareKeyboard
-                                                                    .instance.logicalKeysPressed
+                                                            final isShiftPressed =
+                                                                HardwareKeyboard.instance.logicalKeysPressed
                                                                     .contains(LogicalKeyboardKey.shiftLeft) ||
                                                                 HardwareKeyboard.instance.logicalKeysPressed
                                                                     .contains(LogicalKeyboardKey.shiftRight);
@@ -4847,22 +4837,22 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                                     color: Colors.blue.withValues(alpha: 0.3),
                                                                     blurRadius: 4,
                                                                     spreadRadius: 1,
-                                                                  )
+                                                                  ),
                                                                 ]
                                                               : null,
                                                         ),
                                                         child: ElevatedButton(
                                                           onPressed: _isClientSelected
                                                               ? (_isModifyingLine
-                                                                  ? _annulerModificationLigne
-                                                                  : _resetArticleForm)
+                                                                    ? _annulerModificationLigne
+                                                                    : _resetArticleForm)
                                                               : null,
                                                           style: ElevatedButton.styleFrom(
                                                             backgroundColor: _annulerFocusNode.hasFocus
                                                                 ? Colors.orange[600]
                                                                 : (_isClientSelected
-                                                                    ? Colors.orange
-                                                                    : Colors.grey),
+                                                                      ? Colors.orange
+                                                                      : Colors.grey),
                                                             foregroundColor: Colors.white,
                                                             minimumSize: const Size(60, 35),
                                                             elevation: _annulerFocusNode.hasFocus ? 4 : 2,
@@ -5073,15 +5063,15 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         onSecondaryTapDown: _selectedVerification == 'JOURNAL'
                                                             ? null
                                                             : (details) =>
-                                                                _showContextMenu(context, details, index),
+                                                                  _showContextMenu(context, details, index),
                                                         child: Container(
                                                           height: 18,
                                                           decoration: BoxDecoration(
                                                             color: _selectedRowIndex == index
                                                                 ? Colors.blue[200]
                                                                 : (index % 2 == 0
-                                                                    ? Colors.white
-                                                                    : Colors.grey[50]),
+                                                                      ? Colors.white
+                                                                      : Colors.grey[50]),
                                                           ),
                                                           child: Row(
                                                             children: [
@@ -5583,8 +5573,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               foregroundColor: Colors.white,
                                               minimumSize: const Size(60, 30),
                                             ),
-                                            child:
-                                                const Text('Importer lignes', style: TextStyle(fontSize: 12)),
+                                            child: const Text(
+                                              'Importer lignes',
+                                              style: TextStyle(fontSize: 12),
+                                            ),
                                           ),
                                         ),
                                       if (!_peutValiderBrouillard()) ...[
@@ -5640,14 +5632,14 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
                                       //Popup menu format papier d'impression
                                       PopupMenuButton<String>(
-                                        style: ButtonStyle(
+                                        style: const ButtonStyle(
                                           padding: WidgetStateProperty.fromMap({
-                                            WidgetState.hovered: const EdgeInsets.all(0),
-                                            WidgetState.focused: const EdgeInsets.all(0),
-                                            WidgetState.pressed: const EdgeInsets.all(0),
+                                            WidgetState.hovered: EdgeInsets.all(0),
+                                            WidgetState.focused: EdgeInsets.all(0),
+                                            WidgetState.pressed: EdgeInsets.all(0),
                                           }),
                                         ),
-                                        menuPadding: EdgeInsets.all(2),
+                                        menuPadding: const EdgeInsets.all(2),
                                         initialValue: _selectedFormat,
                                         itemBuilder: (BuildContext context) => [
                                           const PopupMenuItem(

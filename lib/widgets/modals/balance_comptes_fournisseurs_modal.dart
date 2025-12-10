@@ -2,8 +2,8 @@ import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../database/database_service.dart';
 import '../../database/database.dart';
+import '../../database/database_service.dart';
 import '../common/base_modal.dart';
 import '../common/data_table_widget.dart';
 import '../common/date_picker_field.dart';
@@ -52,9 +52,7 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -83,8 +81,7 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
         params.add(_dateFin!.toIso8601String());
       }
 
-      final result = await db.customSelect(
-        '''
+      final result = await db.customSelect('''
         SELECT 
           frns,
           COALESCE(SUM(entres), 0) as total_entrees,
@@ -93,9 +90,7 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
         FROM comptefrns 
         $whereClause
         GROUP BY frns
-        ''',
-        variables: params.map((p) => Variable(p)).toList(),
-      ).getSingleOrNull();
+        ''', variables: params.map((p) => Variable(p)).toList()).getSingleOrNull();
 
       double totalEntrees = result?.read<double>('total_entrees') ?? 0.0;
       double totalSorties = result?.read<double>('total_sorties') ?? 0.0;
@@ -144,17 +139,11 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
                 Row(
                   children: [
                     Expanded(
-                      child: DatePickerField(
-                        controller: _dateDebutController,
-                        label: 'Date début',
-                      ),
+                      child: DatePickerField(controller: _dateDebutController, label: 'Date début'),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: DatePickerField(
-                        controller: _dateFinController,
-                        label: 'Date fin',
-                      ),
+                      child: DatePickerField(controller: _dateFinController, label: 'Date fin'),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
@@ -165,14 +154,10 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
                         ),
                         initialValue: _selectedFournisseur,
                         items: [
-                          const DropdownMenuItem<String>(
-                            value: null,
-                            child: Text('Tous les fournisseurs'),
+                          const DropdownMenuItem<String>(value: null, child: Text('Tous les fournisseurs')),
+                          ..._fournisseurs.map(
+                            (f) => DropdownMenuItem<String>(value: f.rsoc, child: Text(f.rsoc)),
                           ),
-                          ..._fournisseurs.map((f) => DropdownMenuItem<String>(
-                            value: f.rsoc,
-                            child: Text(f.rsoc),
-                          )),
                         ],
                         onChanged: (value) {
                           setState(() => _selectedFournisseur = value);
@@ -218,12 +203,27 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
                     ],
                     items: _balances,
                     rowBuilder: (balance, isSelected) => [
-                      Expanded(child: Text(balance['fournisseur'], style: TextStyle(fontSize: 11))),
-                      Expanded(child: Text(balance['nif'], style: TextStyle(fontSize: 11))),
-                      Expanded(child: Text(balance['telephone'], style: TextStyle(fontSize: 11))),
-                      Expanded(child: Text('${_formatNumber(balance['solde_initial'])} Ar', style: TextStyle(fontSize: 11))),
-                      Expanded(child: Text('${_formatNumber(balance['total_entrees'])} Ar', style: TextStyle(fontSize: 11))),
-                      Expanded(child: Text('${_formatNumber(balance['total_sorties'])} Ar', style: TextStyle(fontSize: 11))),
+                      Expanded(child: Text(balance['fournisseur'], style: const TextStyle(fontSize: 11))),
+                      Expanded(child: Text(balance['nif'], style: const TextStyle(fontSize: 11))),
+                      Expanded(child: Text(balance['telephone'], style: const TextStyle(fontSize: 11))),
+                      Expanded(
+                        child: Text(
+                          '${_formatNumber(balance['solde_initial'])} Ar',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${_formatNumber(balance['total_entrees'])} Ar',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                      Expanded(
+                        child: Text(
+                          '${_formatNumber(balance['total_sorties'])} Ar',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
                       Expanded(
                         child: Text(
                           '${_formatNumber(balance['solde_final'])} Ar',
@@ -270,9 +270,7 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
   }
 
   void _exportToExcel() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Export Excel non implémenté')),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Export Excel non implémenté')));
   }
 
   void _showBalanceDetails(Map<String, dynamic> balance) {
@@ -300,12 +298,7 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fermer'),
-          ),
-        ],
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer'))],
       ),
     );
   }

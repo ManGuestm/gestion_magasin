@@ -35,10 +35,7 @@ class _RestaurerModalState extends State<RestaurerModal> {
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
+                IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
               ],
             ),
             const SizedBox(height: 24),
@@ -83,10 +80,7 @@ class _RestaurerModalState extends State<RestaurerModal> {
                   children: [
                     Icon(Icons.check_circle, color: Colors.green),
                     SizedBox(height: 8),
-                    Text(
-                      'Restauration réussie !',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
+                    Text('Restauration réussie !', style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 4),
                     Text(
                       'L\'application va redémarrer pour appliquer les changements.',
@@ -99,10 +93,7 @@ class _RestaurerModalState extends State<RestaurerModal> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
                 child: const Text('Fermer'),
               ),
             ] else ...[
@@ -118,10 +109,7 @@ class _RestaurerModalState extends State<RestaurerModal> {
                     children: [
                       const Icon(Icons.file_present, color: Colors.blue),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Fichier sélectionné :',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      const Text('Fichier sélectionné :', style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text(
                         _selectedFilePath.split('\\').last,
@@ -158,10 +146,7 @@ class _RestaurerModalState extends State<RestaurerModal> {
                 ],
               ),
               const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Annuler'),
-              ),
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
             ],
           ],
         ),
@@ -185,10 +170,7 @@ class _RestaurerModalState extends State<RestaurerModal> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors de la sélection du fichier: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Erreur lors de la sélection du fichier: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -205,10 +187,7 @@ class _RestaurerModalState extends State<RestaurerModal> {
           'Cette action est irréversible et remplacera toutes vos données actuelles.',
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -258,7 +237,7 @@ class _RestaurerModalState extends State<RestaurerModal> {
           SnackBar(
             content: SelectableText('Erreur lors de la restauration: $e'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 15),
+            duration: const Duration(seconds: 15),
           ),
         );
       }

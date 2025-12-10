@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'database.dart';
 
@@ -35,9 +36,26 @@ class DatabaseService {
     return _database!;
   }
 
+  bool get isNetworkMode => _isNetworkMode;
+  bool _isNetworkMode = false;
+
+  void setNetworkMode(bool enabled) {
+    _isNetworkMode = enabled;
+  }
+
 
   Future<void> initialize() async {
     try {
+      // Vérifier le mode réseau
+      final config = await _getNetworkConfig();
+      final mode = config['mode'];
+      
+      if (mode == 'client') {
+        _isNetworkMode = true;
+        _isInitialized = true;
+        return;
+      }
+
       // Configurer Drift pour éviter les warnings
       driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
@@ -51,6 +69,19 @@ class DatabaseService {
       _isInitialized = true;
     } catch (e) {
       throw Exception('Failed to initialize database: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> _getNetworkConfig() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return {
+        'mode': prefs.getString('network_mode') ?? 'server',
+        'serverIp': prefs.getString('server_ip') ?? '',
+        'port': prefs.getString('server_port') ?? '8080',
+      };
+    } catch (e) {
+      return {'mode': 'server'};
     }
   }
 

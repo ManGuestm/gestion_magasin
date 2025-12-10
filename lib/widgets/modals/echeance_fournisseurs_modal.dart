@@ -84,7 +84,8 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
     setState(() {
       _filteredAchats = _achats.where((a) {
         bool matchesFournisseur = _selectedFournisseur == null || a.frns == _selectedFournisseur;
-        bool matchesNumAchats = _numAchatsFilter.isEmpty ||
+        bool matchesNumAchats =
+            _numAchatsFilter.isEmpty ||
             (a.numachats ?? '').toLowerCase().contains(_numAchatsFilter.toLowerCase());
 
         // Filtre par statut
@@ -151,14 +152,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
               ),
             ],
           ),
-          child: Column(
-            children: [
-              _buildHeader(),
-              _buildFilters(),
-              _buildTable(),
-              _buildFooter(),
-            ],
-          ),
+          child: Column(children: [_buildHeader(), _buildFilters(), _buildTable(), _buildFooter()]),
         ),
       ),
     );
@@ -174,10 +168,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
       ),
       child: Row(
         children: [
@@ -224,11 +215,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey[300]!, width: 1),
           boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withValues(alpha: 0.1),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
+            BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
           ],
         ),
         child: Column(
@@ -250,28 +237,28 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
                       ),
                     )
                   : _filteredAchats.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Aucune échéance trouvée',
-                                style: TextStyle(color: Colors.grey[600], fontSize: 16),
-                              ),
-                            ],
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Aucune échéance trouvée',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 16),
                           ),
-                        )
-                      : ListView.builder(
-                          itemCount: _paginatedAchats.length,
-                          itemExtent: 48,
-                          itemBuilder: (context, index) {
-                            final achat = _paginatedAchats[index];
-                            final globalIndex = _currentPage * _itemsPerPage + index;
-                            return _buildTableRow(achat, globalIndex);
-                          },
-                        ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _paginatedAchats.length,
+                      itemExtent: 48,
+                      itemBuilder: (context, index) {
+                        final achat = _paginatedAchats[index];
+                        final globalIndex = _currentPage * _itemsPerPage + index;
+                        return _buildTableRow(achat, globalIndex);
+                      },
+                    ),
             ),
           ],
         ),
@@ -283,16 +270,9 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
     return Container(
       height: 50,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.grey[50]!, Colors.grey[100]!],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[300]!, width: 1),
-        ),
+        gradient: LinearGradient(colors: [Colors.grey[50]!, Colors.grey[100]!]),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!, width: 1)),
       ),
       child: Row(
         children: [
@@ -315,9 +295,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       alignment: Alignment.center,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.grey[300]!, width: 1),
-        ),
+        border: Border(right: BorderSide(color: Colors.grey[300]!, width: 1)),
       ),
       child: Text(
         text,
@@ -356,9 +334,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
         height: 48,
         decoration: BoxDecoration(
           color: bgColor,
-          border: Border(
-            bottom: BorderSide(color: Colors.grey[200]!, width: 0.5),
-          ),
+          border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
         ),
         child: Row(
           children: [
@@ -366,22 +342,29 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
             Expanded(flex: 2, child: _buildCell(achat.nfact ?? '')),
             Expanded(flex: 2, child: _buildCell(achat.numachats ?? '')),
             Expanded(
-                flex: 2,
-                child: _buildCell(AppFunctions.formatNumber(achat.totalttc ?? 0),
-                    alignment: Alignment.centerRight)),
+              flex: 2,
+              child: _buildCell(
+                AppFunctions.formatNumber(achat.totalttc ?? 0),
+                alignment: Alignment.centerRight,
+              ),
+            ),
             Expanded(
-                flex: 2,
-                child:
-                    _buildCell(AppFunctions.formatNumber(achat.regl ?? 0), alignment: Alignment.centerRight)),
+              flex: 2,
+              child: _buildCell(AppFunctions.formatNumber(achat.regl ?? 0), alignment: Alignment.centerRight),
+            ),
             Expanded(
-                flex: 2,
-                child: _buildCell(AppFunctions.formatNumber(resteAPayer),
-                    alignment: Alignment.centerRight,
-                    color: resteAPayer > 0 ? Colors.orange[700] : Colors.green[700])),
+              flex: 2,
+              child: _buildCell(
+                AppFunctions.formatNumber(resteAPayer),
+                alignment: Alignment.centerRight,
+                color: resteAPayer > 0 ? Colors.orange[700] : Colors.green[700],
+              ),
+            ),
             Expanded(flex: 2, child: _buildCell(_formatDate(achat.daty))),
             Expanded(
-                flex: 2,
-                child: _buildCell(_formatDate(achat.echeance), color: isOverdue ? Colors.red[700] : null)),
+              flex: 2,
+              child: _buildCell(_formatDate(achat.echeance), color: isOverdue ? Colors.red[700] : null),
+            ),
             Expanded(flex: 2, child: _buildStatusCell(isOverdue)),
           ],
         ),
@@ -394,9 +377,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       alignment: alignment,
       decoration: BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.grey[200]!, width: 1),
-        ),
+        border: Border(right: BorderSide(color: Colors.grey[200]!, width: 1)),
       ),
       child: Text(
         text,
@@ -419,10 +400,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
         decoration: BoxDecoration(
           color: isOverdue ? Colors.red[100] : Colors.green[100],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isOverdue ? Colors.red[300]! : Colors.green[300]!,
-            width: 1,
-          ),
+          border: Border.all(color: isOverdue ? Colors.red[300]! : Colors.green[300]!, width: 1),
         ),
         child: Text(
           isOverdue ? 'En retard' : 'À jour',
@@ -441,29 +419,17 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.grey[50],
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[200]!, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              Expanded(
-                child: _buildFilterField(
-                  'N° Achat',
-                  _numAchatsController,
-                  Icons.receipt_outlined,
-                ),
-              ),
+              Expanded(child: _buildFilterField('N° Achat', _numAchatsController, Icons.receipt_outlined)),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildFournisseurFilter(),
-              ),
+              Expanded(child: _buildFournisseurFilter()),
               const SizedBox(width: 16),
-              Expanded(
-                child: _buildStatutFilter(),
-              ),
+              Expanded(child: _buildStatutFilter()),
               const SizedBox(width: 16),
               _buildClearFiltersButton(),
             ],
@@ -472,39 +438,31 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
           Row(
             children: [
               Expanded(
-                child: _buildDateFilter(
-                  'Date échéance (début)',
-                  _dateDebutController,
-                  (date) {
-                    setState(() {
-                      _dateEcheanceDebut = date;
-                      if (date != null) {
-                        _dateDebutController.text = _formatDate(date);
-                      } else {
-                        _dateDebutController.clear();
-                      }
-                    });
-                    _filterAchats();
-                  },
-                ),
+                child: _buildDateFilter('Date échéance (début)', _dateDebutController, (date) {
+                  setState(() {
+                    _dateEcheanceDebut = date;
+                    if (date != null) {
+                      _dateDebutController.text = _formatDate(date);
+                    } else {
+                      _dateDebutController.clear();
+                    }
+                  });
+                  _filterAchats();
+                }),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildDateFilter(
-                  'Date échéance (fin)',
-                  _dateFinController,
-                  (date) {
-                    setState(() {
-                      _dateEcheanceFin = date;
-                      if (date != null) {
-                        _dateFinController.text = _formatDate(date);
-                      } else {
-                        _dateFinController.clear();
-                      }
-                    });
-                    _filterAchats();
-                  },
-                ),
+                child: _buildDateFilter('Date échéance (fin)', _dateFinController, (date) {
+                  setState(() {
+                    _dateEcheanceFin = date;
+                    if (date != null) {
+                      _dateFinController.text = _formatDate(date);
+                    } else {
+                      _dateFinController.clear();
+                    }
+                  });
+                  _filterAchats();
+                }),
               ),
               const SizedBox(width: 16),
               const Expanded(child: SizedBox()),
@@ -523,11 +481,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[700],
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[700]),
         ),
         const SizedBox(height: 8),
         Container(
@@ -559,11 +513,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       children: [
         Text(
           'Fournisseur',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[700],
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[700]),
         ),
         const SizedBox(height: 8),
         Container(
@@ -583,10 +533,15 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
             style: const TextStyle(fontSize: 14, color: Colors.black),
             items: [
               const DropdownMenuItem(value: null, child: Text('Tous les fournisseurs')),
-              ..._achats.map((a) => a.frns).toSet().map((frns) => DropdownMenuItem(
-                    value: frns,
-                    child: Text(frns ?? '', style: const TextStyle(fontSize: 14)),
-                  )),
+              ..._achats
+                  .map((a) => a.frns)
+                  .toSet()
+                  .map(
+                    (frns) => DropdownMenuItem(
+                      value: frns,
+                      child: Text(frns ?? '', style: const TextStyle(fontSize: 14)),
+                    ),
+                  ),
             ],
             onChanged: (value) {
               setState(() {
@@ -632,17 +587,9 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
           bottomLeft: Radius.circular(16),
           bottomRight: Radius.circular(16),
         ),
-        border: Border(
-          top: BorderSide(color: Colors.grey[200]!, width: 1),
-        ),
+        border: Border(top: BorderSide(color: Colors.grey[200]!, width: 1)),
       ),
-      child: Row(
-        children: [
-          _buildNavigationButtons(),
-          const Spacer(),
-          _buildActionButtons(),
-        ],
-      ),
+      child: Row(children: [_buildNavigationButtons(), const Spacer(), _buildActionButtons()]),
     );
   }
 
@@ -651,11 +598,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       children: [
         Text(
           '${_filteredAchats.length} échéance${_filteredAchats.length > 1 ? 's' : ''} trouvée${_filteredAchats.length > 1 ? 's' : ''}',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontSize: 14, color: Colors.grey[600], fontWeight: FontWeight.w500),
         ),
         const SizedBox(width: 16),
         if (_totalPages > 1) ...[
@@ -670,17 +613,17 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
             ),
             child: Text(
               '${_currentPage + 1} / $_totalPages',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.blue[700],
-              ),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.blue[700]),
             ),
           ),
           _buildNavButton(
-              Icons.chevron_right, _currentPage < _totalPages - 1 ? () => _goToPage(_currentPage + 1) : null),
+            Icons.chevron_right,
+            _currentPage < _totalPages - 1 ? () => _goToPage(_currentPage + 1) : null,
+          ),
           _buildNavButton(
-              Icons.last_page, _currentPage < _totalPages - 1 ? () => _goToPage(_totalPages - 1) : null),
+            Icons.last_page,
+            _currentPage < _totalPages - 1 ? () => _goToPage(_totalPages - 1) : null,
+          ),
         ],
       ],
     );
@@ -714,11 +657,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       ),
       child: IconButton(
         onPressed: onPressed,
-        icon: Icon(
-          icon,
-          size: 16,
-          color: onPressed != null ? Colors.grey[700] : Colors.grey[400],
-        ),
+        icon: Icon(icon, size: 16, color: onPressed != null ? Colors.grey[700] : Colors.grey[400]),
         padding: EdgeInsets.zero,
         tooltip: _getNavButtonTooltip(icon),
       ),
@@ -751,9 +690,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
             backgroundColor: Colors.green[600],
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             elevation: 2,
           ),
         ),
@@ -766,9 +703,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
             backgroundColor: Colors.blue[600],
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             elevation: 2,
           ),
         ),
@@ -780,9 +715,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
           style: OutlinedButton.styleFrom(
             foregroundColor: Colors.grey[700],
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             side: BorderSide(color: Colors.grey[300]!),
           ),
         ),
@@ -810,11 +743,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       children: [
         Text(
           'Statut',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[700],
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[700]),
         ),
         const SizedBox(height: 8),
         Container(
@@ -850,17 +779,16 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
   }
 
   Widget _buildDateFilter(
-      String label, TextEditingController controller, Function(DateTime?) onDateSelected) {
+    String label,
+    TextEditingController controller,
+    Function(DateTime?) onDateSelected,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey[700],
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[700]),
         ),
         const SizedBox(height: 8),
         Container(
@@ -953,7 +881,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
 
   Future<Uint8List> _generatePdf(PdfPageFormat format) async {
     final pdf = pw.Document();
-    final itemsPerPage = 25;
+    const itemsPerPage = 25;
     final totalPages = (_filteredAchats.length / itemsPerPage).ceil();
 
     for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
@@ -1059,10 +987,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
   pw.Widget _buildPdfCell(String text) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(4),
-      child: pw.Text(
-        text,
-        style: const pw.TextStyle(fontSize: 9),
-      ),
+      child: pw.Text(text, style: const pw.TextStyle(fontSize: 9)),
     );
   }
 

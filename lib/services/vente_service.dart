@@ -24,7 +24,9 @@ class VenteService {
   }) async {
     await _databaseService.database.transaction(() async {
       // 1. Insérer la vente en mode BROUILLARD
-      await _databaseService.database.into(_databaseService.database.ventes).insert(
+      await _databaseService.database
+          .into(_databaseService.database.ventes)
+          .insert(
             VentesCompanion.insert(
               numventes: Value(numVentes),
               nfact: Value(nFacture),
@@ -35,14 +37,16 @@ class VenteService {
               avance: Value(avance),
               commerc: Value(commercial),
               remise: Value(remise),
-              verification: Value('BROUILLARD'),
+              verification: const Value('BROUILLARD'),
               heure: Value(heure),
             ),
           );
 
       // 2. Insérer les détails sans affecter les stocks
       for (final ligne in lignesVente) {
-        await _databaseService.database.into(_databaseService.database.detventes).insert(
+        await _databaseService.database
+            .into(_databaseService.database.detventes)
+            .insert(
               DetventesCompanion.insert(
                 numventes: Value(numVentes),
                 designation: Value(ligne['designation']),
@@ -91,12 +95,7 @@ class VenteService {
 
       // 2. Traiter chaque ligne de vente
       for (final ligne in lignesVente) {
-        await _traiterLigneVente(
-          numVentes: numVentes,
-          ligne: ligne,
-          date: date,
-          client: client,
-        );
+        await _traiterLigneVente(numVentes: numVentes, ligne: ligne, date: date, client: client);
       }
 
       // 3. Ajuster compte client si crédit
@@ -112,12 +111,7 @@ class VenteService {
 
       // 4. Mouvement caisse si espèces
       if (modePaiement == 'Espèces') {
-        await _mouvementCaisse(
-          numVentes: numVentes,
-          montant: totalTTC,
-          client: client,
-          date: date,
-        );
+        await _mouvementCaisse(numVentes: numVentes, montant: totalTTC, client: client, date: date);
       }
     });
   }
@@ -136,7 +130,9 @@ class VenteService {
     required double? remise,
     String? heure,
   }) async {
-    await _databaseService.database.into(_databaseService.database.ventes).insert(
+    await _databaseService.database
+        .into(_databaseService.database.ventes)
+        .insert(
           VentesCompanion.insert(
             numventes: Value(numVentes),
             nfact: Value(nFacture),
@@ -148,7 +144,7 @@ class VenteService {
             avance: Value(avance),
             commerc: Value(commercial),
             remise: Value(remise),
-            verification: Value('JOURNAL'),
+            verification: const Value('JOURNAL'),
             heure: Value(heure),
           ),
         );
@@ -169,7 +165,9 @@ class VenteService {
     final diffPrix = ligne['diffPrix'] as double?;
 
     // 1. Insérer détail vente (pour mode JOURNAL)
-    await _databaseService.database.into(_databaseService.database.detventes).insert(
+    await _databaseService.database
+        .into(_databaseService.database.detventes)
+        .insert(
           DetventesCompanion.insert(
             numventes: Value(numVentes),
             designation: Value(designation),
@@ -183,21 +181,16 @@ class VenteService {
         );
 
     // 2. Récupérer l'article pour les conversions
-    final article = await (_databaseService.database.select(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(designation)))
-        .getSingleOrNull();
+    final article = await (_databaseService.database.select(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(designation))).getSingleOrNull();
 
     if (article == null) {
       throw Exception('Article $designation non trouvé');
     }
 
     // 3. Réduire stocks par dépôt
-    await _reduireStockDepot(
-      article: article,
-      depot: depot,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _reduireStockDepot(article: article, depot: depot, unite: unite, quantite: quantite);
 
     // 4. Créer mouvement stock de sortie
     await _creerMouvementStock(
@@ -212,18 +205,10 @@ class VenteService {
     );
 
     // 5. Ajuster stock global article
-    await _ajusterStockGlobalArticle(
-      article: article,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _ajusterStockGlobalArticle(article: article, unite: unite, quantite: quantite);
 
     // 6. Mettre à jour fiche stock
-    await _mettreAJourFicheStock(
-      designation: designation,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _mettreAJourFicheStock(designation: designation, unite: unite, quantite: quantite);
   }
 
   /// Réduit le stock dans la table depart
@@ -241,9 +226,9 @@ class VenteService {
     );
 
     // Récupérer le stock actuel
-    final stockActuel = await (_databaseService.database.select(_databaseService.database.depart)
-          ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-        .getSingleOrNull();
+    final stockActuel = await (_databaseService.database.select(
+      _databaseService.database.depart,
+    )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
     if (stockActuel != null) {
       // Calculer nouveaux stocks
@@ -252,16 +237,20 @@ class VenteService {
       final nouveauStockU3 = (stockActuel.stocksu3 ?? 0) - conversions['u3']!;
 
       // Mettre à jour
-      await (_databaseService.database.update(_databaseService.database.depart)
-            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-          .write(DepartCompanion(
-        stocksu1: Value(nouveauStockU1),
-        stocksu2: Value(nouveauStockU2),
-        stocksu3: Value(nouveauStockU3),
-      ));
+      await (_databaseService.database.update(
+        _databaseService.database.depart,
+      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).write(
+        DepartCompanion(
+          stocksu1: Value(nouveauStockU1),
+          stocksu2: Value(nouveauStockU2),
+          stocksu3: Value(nouveauStockU3),
+        ),
+      );
     } else {
       // Créer l'entrée de stock avec des valeurs négatives (vente à découvert)
-      await _databaseService.database.into(_databaseService.database.depart).insert(
+      await _databaseService.database
+          .into(_databaseService.database.depart)
+          .insert(
             DepartCompanion.insert(
               designation: article.designation,
               depots: depot,
@@ -293,7 +282,9 @@ class VenteService {
       quantiteAchat: quantite,
     );
 
-    await _databaseService.database.into(_databaseService.database.stocks).insert(
+    await _databaseService.database
+        .into(_databaseService.database.stocks)
+        .insert(
           StocksCompanion.insert(
             ref: ref,
             daty: Value(date),
@@ -307,7 +298,7 @@ class VenteService {
             stocksu3: Value(conversions['u3']),
             depots: Value(depot),
             clt: Value(client),
-            verification: Value('VENTE'),
+            verification: const Value('VENTE'),
             us: Value(unite),
             pus: Value(prixUnitaire),
           ),
@@ -333,13 +324,15 @@ class VenteService {
     final nouveauStockU3 = (article.stocksu3 ?? 0) - conversions['u3']!;
 
     // Mettre à jour l'article
-    await (_databaseService.database.update(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(article.designation)))
-        .write(ArticlesCompanion(
-      stocksu1: Value(nouveauStockU1),
-      stocksu2: Value(nouveauStockU2),
-      stocksu3: Value(nouveauStockU3),
-    ));
+    await (_databaseService.database.update(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(article.designation))).write(
+      ArticlesCompanion(
+        stocksu1: Value(nouveauStockU1),
+        stocksu2: Value(nouveauStockU2),
+        stocksu3: Value(nouveauStockU3),
+      ),
+    );
   }
 
   /// Met à jour la fiche stock
@@ -348,9 +341,9 @@ class VenteService {
     required String unite,
     required double quantite,
   }) async {
-    final ficheExiste = await (_databaseService.database.select(_databaseService.database.fstocks)
-          ..where((f) => f.art.equals(designation)))
-        .getSingleOrNull();
+    final ficheExiste = await (_databaseService.database.select(
+      _databaseService.database.fstocks,
+    )..where((f) => f.art.equals(designation))).getSingleOrNull();
 
     if (ficheExiste != null) {
       // Mettre à jour la fiche existante
@@ -359,14 +352,13 @@ class VenteService {
 
       await (_databaseService.database.update(_databaseService.database.fstocks)
             ..where((f) => f.art.equals(designation)))
-          .write(FstocksCompanion(
-        qs: Value(nouvelleQs),
-        qst: Value(nouvelleQst),
-      ));
+          .write(FstocksCompanion(qs: Value(nouvelleQs), qst: Value(nouvelleQst)));
     } else {
       // Créer nouvelle fiche
       final ref = 'FS-${DateTime.now().millisecondsSinceEpoch}';
-      await _databaseService.database.into(_databaseService.database.fstocks).insert(
+      await _databaseService.database
+          .into(_databaseService.database.fstocks)
+          .insert(
             FstocksCompanion.insert(
               ref: ref,
               art: Value(designation),
@@ -390,7 +382,9 @@ class VenteService {
 
     final ref = 'V-${DateTime.now().millisecondsSinceEpoch}';
 
-    await _databaseService.database.into(_databaseService.database.compteclt).insert(
+    await _databaseService.database
+        .into(_databaseService.database.compteclt)
+        .insert(
           ComptecltCompanion.insert(
             ref: ref,
             daty: Value(date),
@@ -398,26 +392,23 @@ class VenteService {
             numventes: Value(numVentes),
             nfact: Value(nFacture),
             entres: Value(montant),
-            sorties: Value(0.0),
+            sorties: const Value(0.0),
             solde: Value(montant),
             clt: Value(client),
-            verification: Value('JOURNAL'),
+            verification: const Value('JOURNAL'),
           ),
         );
 
     // Mettre à jour le solde client
-    final clientData = await (_databaseService.database.select(_databaseService.database.clt)
-          ..where((c) => c.rsoc.equals(client)))
-        .getSingleOrNull();
+    final clientData = await (_databaseService.database.select(
+      _databaseService.database.clt,
+    )..where((c) => c.rsoc.equals(client))).getSingleOrNull();
 
     if (clientData != null) {
       final nouveauSolde = (clientData.soldes ?? 0) + montant;
       await (_databaseService.database.update(_databaseService.database.clt)
             ..where((c) => c.rsoc.equals(client)))
-          .write(CltCompanion(
-        soldes: Value(nouveauSolde),
-        datedernop: Value(date),
-      ));
+          .write(CltCompanion(soldes: Value(nouveauSolde), datedernop: Value(date)));
     }
   }
 
@@ -431,17 +422,20 @@ class VenteService {
     if (montant <= 0) return;
 
     // Récupérer le dernier solde de caisse
-    final dernierMouvement = await (_databaseService.database.select(_databaseService.database.caisse)
-          ..orderBy([(c) => OrderingTerm.desc(c.daty)])
-          ..limit(1))
-        .getSingleOrNull();
+    final dernierMouvement =
+        await (_databaseService.database.select(_databaseService.database.caisse)
+              ..orderBy([(c) => OrderingTerm.desc(c.daty)])
+              ..limit(1))
+            .getSingleOrNull();
 
     final dernierSolde = dernierMouvement?.soldes ?? 0.0;
     final nouveauSolde = dernierSolde + montant;
 
     final ref = 'V-${DateTime.now().millisecondsSinceEpoch}';
 
-    await _databaseService.database.into(_databaseService.database.caisse).insert(
+    await _databaseService.database
+        .into(_databaseService.database.caisse)
+        .insert(
           CaisseCompanion.insert(
             ref: ref,
             daty: Value(date),
@@ -449,8 +443,8 @@ class VenteService {
             credit: Value(montant),
             soldes: Value(nouveauSolde),
             clt: Value(client ?? ''),
-            type: Value('Vente au comptant'),
-            verification: Value('JOURNAL'),
+            type: const Value('Vente au comptant'),
+            verification: const Value('JOURNAL'),
           ),
         );
   }
@@ -462,15 +456,15 @@ class VenteService {
     required String unite,
     required double quantite,
   }) async {
-    final article = await (_databaseService.database.select(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(designation)))
-        .getSingleOrNull();
+    final article = await (_databaseService.database.select(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(designation))).getSingleOrNull();
 
     if (article == null) return false;
 
-    final stockDepot = await (_databaseService.database.select(_databaseService.database.depart)
-          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-        .getSingleOrNull();
+    final stockDepot = await (_databaseService.database.select(
+      _databaseService.database.depart,
+    )..where((d) => d.designation.equals(designation) & d.depots.equals(depot))).getSingleOrNull();
 
     if (stockDepot == null) return false;
 
@@ -529,9 +523,9 @@ class VenteService {
       final validateur = currentUser?.nom ?? '';
 
       // Récupérer le vendeur original de la vente brouillard
-      final venteBrouillard = await (_databaseService.database.select(_databaseService.database.ventes)
-            ..where((v) => v.numventes.equals(numVentes)))
-          .getSingleOrNull();
+      final venteBrouillard = await (_databaseService.database.select(
+        _databaseService.database.ventes,
+      )..where((v) => v.numventes.equals(numVentes))).getSingleOrNull();
 
       final vendeurOriginal = venteBrouillard?.commerc ?? '';
 
@@ -544,23 +538,25 @@ class VenteService {
       }
 
       // 1. Mettre à jour la vente vers JOURNAL
-      await (_databaseService.database.update(_databaseService.database.ventes)
-            ..where((v) => v.numventes.equals(numVentes)))
-          .write(VentesCompanion(
-        nfact: Value(nFacture),
-        clt: Value(client),
-        modepai: Value(modePaiement),
-        totalttc: Value(totalTTC),
-        avance: Value(avance),
-        remise: Value(remise),
-        commerc: Value(commercialCombine),
-        verification: Value('JOURNAL'),
-      ));
+      await (_databaseService.database.update(
+        _databaseService.database.ventes,
+      )..where((v) => v.numventes.equals(numVentes))).write(
+        VentesCompanion(
+          nfact: Value(nFacture),
+          clt: Value(client),
+          modepai: Value(modePaiement),
+          totalttc: Value(totalTTC),
+          avance: Value(avance),
+          remise: Value(remise),
+          commerc: Value(commercialCombine),
+          verification: const Value('JOURNAL'),
+        ),
+      );
 
       // 2. Récupérer les détails de vente
-      final details = await (_databaseService.database.select(_databaseService.database.detventes)
-            ..where((d) => d.numventes.equals(numVentes)))
-          .get();
+      final details = await (_databaseService.database.select(
+        _databaseService.database.detventes,
+      )..where((d) => d.numventes.equals(numVentes))).get();
 
       // 3. Traiter chaque ligne pour créer les mouvements de stock
       for (final detail in details) {
@@ -568,9 +564,9 @@ class VenteService {
             detail.depots != null &&
             detail.unites != null &&
             detail.q != null) {
-          final article = await (_databaseService.database.select(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(detail.designation!)))
-              .getSingleOrNull();
+          final article = await (_databaseService.database.select(
+            _databaseService.database.articles,
+          )..where((a) => a.designation.equals(detail.designation!))).getSingleOrNull();
 
           if (article != null) {
             await _reduireStockDepot(
@@ -591,11 +587,7 @@ class VenteService {
               date: detail.daty ?? DateTime.now(),
             );
 
-            await _ajusterStockGlobalArticle(
-              article: article,
-              unite: detail.unites!,
-              quantite: detail.q!,
-            );
+            await _ajusterStockGlobalArticle(article: article, unite: detail.unites!, quantite: detail.q!);
 
             await _mettreAJourFicheStock(
               designation: detail.designation!,
@@ -619,12 +611,7 @@ class VenteService {
 
       // 5. Mouvement caisse si espèces
       if (modePaiement == 'Espèces') {
-        await _mouvementCaisse(
-          numVentes: numVentes,
-          montant: totalTTC,
-          client: client,
-          date: DateTime.now(),
-        );
+        await _mouvementCaisse(numVentes: numVentes, montant: totalTTC, client: client, date: DateTime.now());
       }
     });
   }
@@ -661,15 +648,15 @@ class VenteService {
 
   /// Contre-passe une vente avec restauration complète
   Future<void> contrePasserVente(String numVentes) async {
-    final vente = await (_databaseService.database.select(_databaseService.database.ventes)
-          ..where((v) => v.numventes.equals(numVentes)))
-        .getSingleOrNull();
+    final vente = await (_databaseService.database.select(
+      _databaseService.database.ventes,
+    )..where((v) => v.numventes.equals(numVentes))).getSingleOrNull();
 
     if (vente == null) throw Exception('Vente non trouvée');
 
-    final details = await (_databaseService.database.select(_databaseService.database.detventes)
-          ..where((d) => d.numventes.equals(numVentes)))
-        .get();
+    final details = await (_databaseService.database.select(
+      _databaseService.database.detventes,
+    )..where((d) => d.numventes.equals(numVentes))).get();
 
     await _databaseService.database.transaction(() async {
       // 1. Restaurer stocks
@@ -678,9 +665,9 @@ class VenteService {
             detail.depots != null &&
             detail.unites != null &&
             detail.q != null) {
-          final article = await (_databaseService.database.select(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(detail.designation!)))
-              .getSingleOrNull();
+          final article = await (_databaseService.database.select(
+            _databaseService.database.articles,
+          )..where((a) => a.designation.equals(detail.designation!))).getSingleOrNull();
 
           if (article != null) {
             await _restaurerStockDepot(
@@ -690,11 +677,7 @@ class VenteService {
               quantite: detail.q!,
             );
 
-            await _restaurerStockGlobal(
-              article: article,
-              unite: detail.unites!,
-              quantite: detail.q!,
-            );
+            await _restaurerStockGlobal(article: article, unite: detail.unites!, quantite: detail.q!);
 
             await _creerMouvementStockRestauration(
               numVentes: numVentes,
@@ -723,27 +706,21 @@ class VenteService {
 
       // 3. Décaissement si espèces
       if (vente.modepai == 'Espèces') {
-        await _decaissement(
-          numVentes: numVentes,
-          montant: vente.totalttc ?? 0,
-          client: vente.clt,
-        );
+        await _decaissement(numVentes: numVentes, montant: vente.totalttc ?? 0, client: vente.clt);
       }
 
       // 4. Marquer la vente comme contre-passée
-      await (_databaseService.database.update(_databaseService.database.ventes)
-            ..where((v) => v.numventes.equals(numVentes)))
-          .write(VentesCompanion(
-        contre: Value("1"),
-      ));
+      await (_databaseService.database.update(
+        _databaseService.database.ventes,
+      )..where((v) => v.numventes.equals(numVentes))).write(const VentesCompanion(contre: Value("1")));
     });
   }
 
   /// Récupère les ventes en Journal (non contre-passées)
   Future<List<Vente>> getVentesJournal() async {
-    return await (_databaseService.database.select(_databaseService.database.ventes)
-          ..where((v) => v.verification.equals('JOURNAL') & (v.contre.isNull() | v.contre.equals("0"))))
-        .get();
+    return await (_databaseService.database.select(
+      _databaseService.database.ventes,
+    )..where((v) => v.verification.equals('JOURNAL') & (v.contre.isNull() | v.contre.equals("0")))).get();
   }
 
   Future<void> _restaurerStockDepot({
@@ -758,18 +735,20 @@ class VenteService {
       quantiteAchat: quantite,
     );
 
-    final stockActuel = await (_databaseService.database.select(_databaseService.database.depart)
-          ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-        .getSingleOrNull();
+    final stockActuel = await (_databaseService.database.select(
+      _databaseService.database.depart,
+    )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
     if (stockActuel != null) {
-      await (_databaseService.database.update(_databaseService.database.depart)
-            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-          .write(DepartCompanion(
-        stocksu1: Value((stockActuel.stocksu1 ?? 0) + conversions['u1']!),
-        stocksu2: Value((stockActuel.stocksu2 ?? 0) + conversions['u2']!),
-        stocksu3: Value((stockActuel.stocksu3 ?? 0) + conversions['u3']!),
-      ));
+      await (_databaseService.database.update(
+        _databaseService.database.depart,
+      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).write(
+        DepartCompanion(
+          stocksu1: Value((stockActuel.stocksu1 ?? 0) + conversions['u1']!),
+          stocksu2: Value((stockActuel.stocksu2 ?? 0) + conversions['u2']!),
+          stocksu3: Value((stockActuel.stocksu3 ?? 0) + conversions['u3']!),
+        ),
+      );
     }
   }
 
@@ -784,13 +763,15 @@ class VenteService {
       quantiteAchat: quantite,
     );
 
-    await (_databaseService.database.update(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(article.designation)))
-        .write(ArticlesCompanion(
-      stocksu1: Value((article.stocksu1 ?? 0) + conversions['u1']!),
-      stocksu2: Value((article.stocksu2 ?? 0) + conversions['u2']!),
-      stocksu3: Value((article.stocksu3 ?? 0) + conversions['u3']!),
-    ));
+    await (_databaseService.database.update(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(article.designation))).write(
+      ArticlesCompanion(
+        stocksu1: Value((article.stocksu1 ?? 0) + conversions['u1']!),
+        stocksu2: Value((article.stocksu2 ?? 0) + conversions['u2']!),
+        stocksu3: Value((article.stocksu3 ?? 0) + conversions['u3']!),
+      ),
+    );
   }
 
   Future<void> _creerMouvementStockRestauration({
@@ -809,7 +790,9 @@ class VenteService {
       quantiteAchat: quantite,
     );
 
-    await _databaseService.database.into(_databaseService.database.stocks).insert(
+    await _databaseService.database
+        .into(_databaseService.database.stocks)
+        .insert(
           StocksCompanion.insert(
             ref: ref,
             daty: Value(DateTime.now()),
@@ -823,7 +806,7 @@ class VenteService {
             stocksu3: Value(conversions['u3']),
             depots: Value(depot),
             clt: Value(client),
-            verification: Value('CP VENTE'),
+            verification: const Value('CP VENTE'),
             ue: Value(unite),
           ),
         );
@@ -836,30 +819,31 @@ class VenteService {
   }) async {
     final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
 
-    await _databaseService.database.into(_databaseService.database.compteclt).insert(
+    await _databaseService.database
+        .into(_databaseService.database.compteclt)
+        .insert(
           ComptecltCompanion.insert(
             ref: ref,
             clt: Value(client),
             daty: Value(DateTime.now()),
             lib: Value('Contre-passement vente N° $numVentes'),
-            entres: Value(0.0),
+            entres: const Value(0.0),
             sorties: Value(montant),
             solde: Value(-montant),
-            verification: Value('JOURNAL'),
+            verification: const Value('JOURNAL'),
           ),
         );
 
-    final clientData = await (_databaseService.database.select(_databaseService.database.clt)
-          ..where((c) => c.rsoc.equals(client)))
-        .getSingleOrNull();
+    final clientData = await (_databaseService.database.select(
+      _databaseService.database.clt,
+    )..where((c) => c.rsoc.equals(client))).getSingleOrNull();
 
     if (clientData != null) {
-      await (_databaseService.database.update(_databaseService.database.clt)
-            ..where((c) => c.rsoc.equals(client)))
-          .write(CltCompanion(
-        soldes: Value((clientData.soldes ?? 0) - montant),
-        datedernop: Value(DateTime.now()),
-      ));
+      await (_databaseService.database.update(
+        _databaseService.database.clt,
+      )..where((c) => c.rsoc.equals(client))).write(
+        CltCompanion(soldes: Value((clientData.soldes ?? 0) - montant), datedernop: Value(DateTime.now())),
+      );
     }
   }
 
@@ -869,24 +853,27 @@ class VenteService {
     required String? client,
   }) async {
     // Récupérer le dernier solde de caisse
-    final dernierMouvement = await (_databaseService.database.select(_databaseService.database.caisse)
-          ..orderBy([(c) => OrderingTerm.desc(c.daty)])
-          ..limit(1))
-        .getSingleOrNull();
+    final dernierMouvement =
+        await (_databaseService.database.select(_databaseService.database.caisse)
+              ..orderBy([(c) => OrderingTerm.desc(c.daty)])
+              ..limit(1))
+            .getSingleOrNull();
 
     final dernierSolde = dernierMouvement?.soldes ?? 0.0;
     final nouveauSolde = dernierSolde - montant;
 
     final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
 
-    await _databaseService.database.into(_databaseService.database.caisse).insert(
+    await _databaseService.database
+        .into(_databaseService.database.caisse)
+        .insert(
           CaisseCompanion.insert(
             ref: ref,
             daty: Value(DateTime.now()),
             lib: Value('Contre-passement vente N° $numVentes'),
             debit: Value(montant),
             soldes: Value(nouveauSolde),
-            type: Value("CP. Vente"),
+            type: const Value("CP. Vente"),
             clt: Value(client ?? ''),
             verification: const Value('JOURNAL'),
           ),
@@ -895,29 +882,29 @@ class VenteService {
 
   /// Contre-passe une vente brouillard (suppression définitive)
   Future<void> contrePasserVenteBrouillard(String numVentes) async {
-    final vente = await (_databaseService.database.select(_databaseService.database.ventes)
-          ..where((v) => v.numventes.equals(numVentes) & v.verification.equals('BROUILLARD')))
-        .getSingleOrNull();
+    final vente = await (_databaseService.database.select(
+      _databaseService.database.ventes,
+    )..where((v) => v.numventes.equals(numVentes) & v.verification.equals('BROUILLARD'))).getSingleOrNull();
 
     if (vente == null) throw Exception('Vente brouillard non trouvée');
 
     await _databaseService.database.transaction(() async {
       // 1. Supprimer les détails de vente
-      await (_databaseService.database.delete(_databaseService.database.detventes)
-            ..where((d) => d.numventes.equals(numVentes)))
-          .go();
+      await (_databaseService.database.delete(
+        _databaseService.database.detventes,
+      )..where((d) => d.numventes.equals(numVentes))).go();
 
       // 2. Supprimer la vente
-      await (_databaseService.database.delete(_databaseService.database.ventes)
-            ..where((v) => v.numventes.equals(numVentes)))
-          .go();
+      await (_databaseService.database.delete(
+        _databaseService.database.ventes,
+      )..where((v) => v.numventes.equals(numVentes))).go();
     });
   }
 
   /// Récupère les ventes brouillard
   Future<List<Vente>> getVentesBrouillard() async {
-    return await (_databaseService.database.select(_databaseService.database.ventes)
-          ..where((v) => v.verification.equals('BROUILLARD')))
-        .get();
+    return await (_databaseService.database.select(
+      _databaseService.database.ventes,
+    )..where((v) => v.verification.equals('BROUILLARD'))).get();
   }
 }

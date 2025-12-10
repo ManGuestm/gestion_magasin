@@ -59,9 +59,9 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -72,9 +72,11 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
     // Filtrage par recherche simple
     if (_searchText.isNotEmpty) {
       filtered = filtered
-          .where((m) =>
-              (m.lib?.toLowerCase().contains(_searchText.toLowerCase()) ?? false) ||
-              (m.daty?.toString().contains(_searchText) ?? false))
+          .where(
+            (m) =>
+                (m.lib?.toLowerCase().contains(_searchText.toLowerCase()) ?? false) ||
+                (m.daty?.toString().contains(_searchText) ?? false),
+          )
           .toList();
     }
 
@@ -115,24 +117,23 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
 
     // Trier par date croissante pour calculer les soldes
     filtered.sort((a, b) => (a.daty ?? DateTime.now()).compareTo(b.daty ?? DateTime.now()));
-    
+
     // Calculer les soldes cumulés
     double soldeRunning = 0;
     List<Map<String, dynamic>> mouvementsAvecSoldes = [];
-    
+
     for (var mouvement in filtered) {
       soldeRunning += (mouvement.credit ?? 0) - (mouvement.debit ?? 0);
-      mouvementsAvecSoldes.add({
-        'data': mouvement,
-        'soldeCalcule': soldeRunning,
-      });
+      mouvementsAvecSoldes.add({'data': mouvement, 'soldeCalcule': soldeRunning});
     }
-    
+
     // Trier par date décroissante pour l'affichage
-    mouvementsAvecSoldes.sort((a, b) => 
-      ((b['data'] as CaisseData).daty ?? DateTime.now())
-        .compareTo((a['data'] as CaisseData).daty ?? DateTime.now()));
-    
+    mouvementsAvecSoldes.sort(
+      (a, b) => ((b['data'] as CaisseData).daty ?? DateTime.now()).compareTo(
+        (a['data'] as CaisseData).daty ?? DateTime.now(),
+      ),
+    );
+
     return mouvementsAvecSoldes;
   }
 
@@ -148,8 +149,11 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
     if (_filteredMouvements.isEmpty) return 0;
     // Le solde actuel est le dernier solde calculé (le plus récent chronologiquement)
     final mouvementsOrdonnes = List<Map<String, dynamic>>.from(_filteredMouvements)
-      ..sort((a, b) => ((a['data'] as CaisseData).daty ?? DateTime.now())
-        .compareTo((b['data'] as CaisseData).daty ?? DateTime.now()));
+      ..sort(
+        (a, b) => ((a['data'] as CaisseData).daty ?? DateTime.now()).compareTo(
+          (b['data'] as CaisseData).daty ?? DateTime.now(),
+        ),
+      );
     return mouvementsOrdonnes.isNotEmpty ? mouvementsOrdonnes.last['soldeCalcule'] as double : 0;
   }
 
@@ -181,11 +185,7 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
               borderRadius: BorderRadius.circular(16),
               color: Colors.grey[100],
               boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
-                  blurRadius: 10,
-                  spreadRadius: 2,
-                ),
+                BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10, spreadRadius: 2),
               ],
             ),
             child: Column(
@@ -193,9 +193,9 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
                 // Header avec titre et bouton fermer
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32),
-                    borderRadius: const BorderRadius.only(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF2E7D32),
+                    borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(16),
                       topRight: Radius.circular(16),
                     ),
@@ -207,11 +207,7 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
                       const Expanded(
                         child: Text(
                           'Journal de caisse',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ),
                       Container(
@@ -272,8 +268,10 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
                             _showAdvancedFilters = !_showAdvancedFilters;
                           });
                         },
-                        icon:
-                            Icon(_showAdvancedFilters ? Icons.filter_list_off : Icons.filter_list, size: 18),
+                        icon: Icon(
+                          _showAdvancedFilters ? Icons.filter_list_off : Icons.filter_list,
+                          size: 18,
+                        ),
                         label: const Text('Filtres'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _showAdvancedFilters ? Colors.orange : Colors.grey,
@@ -400,20 +398,13 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
                                         child: Column(
                                           mainAxisAlignment: MainAxisAlignment.center,
                                           children: [
-                                            Icon(
-                                              Icons.inbox_outlined,
-                                              size: 64,
-                                              color: Colors.grey.shade400,
-                                            ),
+                                            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
                                             const SizedBox(height: 16),
                                             Text(
                                               _searchText.isEmpty
                                                   ? 'Aucun mouvement de caisse'
                                                   : 'Aucun résultat pour "$_searchText"',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                color: Colors.grey.shade600,
-                                              ),
+                                              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
                                             ),
                                             if (_searchText.isNotEmpty) ...[
                                               const SizedBox(height: 8),
@@ -451,10 +442,7 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
                                                     ? Colors.blue.shade50
                                                     : (index % 2 == 0 ? Colors.white : Colors.grey.shade50),
                                                 border: Border(
-                                                  bottom: BorderSide(
-                                                    color: Colors.grey.shade200,
-                                                    width: 0.5,
-                                                  ),
+                                                  bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
                                                   left: isSelected
                                                       ? BorderSide(color: Colors.blue.shade400, width: 3)
                                                       : BorderSide.none,
@@ -542,13 +530,7 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: color.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.1),
-            blurRadius: 4,
-            spreadRadius: 1,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 4, spreadRadius: 1)],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -559,22 +541,14 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
               const SizedBox(width: 6),
               Text(
                 title,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade600,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
           ),
         ],
       ),
@@ -589,11 +563,7 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
         alignment: Alignment.center,
         child: Text(
           text,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontSize: 13,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
         ),
       ),
     );
@@ -610,11 +580,7 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         alignment: alignment,
-        child: Text(
-          text,
-          style: style,
-          overflow: TextOverflow.ellipsis,
-        ),
+        child: Text(text, style: style, overflow: TextOverflow.ellipsis),
       ),
     );
   }
@@ -629,10 +595,7 @@ class _JournalCaisseModalState extends State<JournalCaisseModal> with TabNavigat
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Filtres avancés',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+          const Text('Filtres avancés', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(
             children: [

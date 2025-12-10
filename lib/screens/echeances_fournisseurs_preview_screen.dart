@@ -74,16 +74,8 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
         backgroundColor: Colors.blue[600],
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            onPressed: _printDirect,
-            icon: const Icon(Icons.print),
-            tooltip: 'Imprimer',
-          ),
-          IconButton(
-            onPressed: _showPrintPreview,
-            icon: const Icon(Icons.preview),
-            tooltip: 'Aperçu PDF',
-          ),
+          IconButton(onPressed: _printDirect, icon: const Icon(Icons.print), tooltip: 'Imprimer'),
+          IconButton(onPressed: _showPrintPreview, icon: const Icon(Icons.preview), tooltip: 'Aperçu PDF'),
         ],
       ),
       body: Column(
@@ -111,11 +103,7 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
                   children: [
                     Text(
                       _societe?.rsoc ?? 'RALAIZANDRY Jean Frédéric',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black),
                     ),
                     Text(
                       _societe?.activites ?? 'Marchandises Générales - Gros/détails',
@@ -153,16 +141,11 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.black, width: 2),
-            ),
+            decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 2)),
             child: const Text(
               'LISTE DES FACTURES À PAYER',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -196,9 +179,7 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
   Widget _buildTableHeader() {
     return Container(
       height: 40,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black),
-      ),
+      decoration: BoxDecoration(border: Border.all(color: Colors.black)),
       child: Row(
         children: [
           _buildHeaderCell('FOURNISSEURS', flex: 3),
@@ -220,15 +201,12 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
       child: Container(
         padding: const EdgeInsets.all(4),
         alignment: Alignment.center,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           border: Border(right: BorderSide(color: Colors.black, width: 1)),
         ),
         child: Text(
           text,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
       ),
@@ -250,8 +228,11 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
           _buildCell(achat.frns ?? '', flex: 3),
           _buildCell(achat.numachats ?? '', flex: 2),
           _buildCell(achat.nfact ?? '', flex: 2),
-          _buildCell(AppFunctions.formatNumber(achat.totalttc ?? 0),
-              flex: 2, alignment: Alignment.centerRight),
+          _buildCell(
+            AppFunctions.formatNumber(achat.totalttc ?? 0),
+            flex: 2,
+            alignment: Alignment.centerRight,
+          ),
           _buildCell(AppFunctions.formatNumber(achat.regl ?? 0), flex: 2, alignment: Alignment.centerRight),
           _buildCell(AppFunctions.formatNumber(resteAPayer), flex: 2, alignment: Alignment.centerRight),
           _buildCell(_formatDate(achat.daty), flex: 2),
@@ -267,15 +248,12 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
       child: Container(
         padding: const EdgeInsets.all(2),
         alignment: alignment,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           border: Border(right: BorderSide(color: Colors.black, width: 0.5)),
         ),
         child: Text(
           text,
-          style: const TextStyle(
-            fontSize: 9,
-            color: Colors.black,
-          ),
+          style: const TextStyle(fontSize: 9, color: Colors.black),
           overflow: TextOverflow.ellipsis,
         ),
       ),
@@ -285,7 +263,7 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(top: BorderSide(color: Colors.black)),
       ),
@@ -302,10 +280,7 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
                 DateFormat('dd/MM/yyyy HH:mm:ss').format(DateTime.now()),
                 style: const TextStyle(fontSize: 12),
               ),
-              Text(
-                '${_currentPage + 1}',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-              ),
+              Text('${_currentPage + 1}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 16),
@@ -397,7 +372,7 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
 
   Future<Uint8List> _generatePdf(PdfPageFormat format) async {
     final pdf = pw.Document();
-    final itemsPerPage = 25;
+    const itemsPerPage = 25;
     final totalPages = (widget.achats.length / itemsPerPage).ceil();
 
     for (int pageIndex = 0; pageIndex < totalPages; pageIndex++) {
@@ -503,10 +478,7 @@ class _EchancesFournisseursPreviewScreenState extends State<EchancesFournisseurs
   pw.Widget _buildPdfCell(String text) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(4),
-      child: pw.Text(
-        text,
-        style: const pw.TextStyle(fontSize: 9),
-      ),
+      child: pw.Text(text, style: const pw.TextStyle(fontSize: 9)),
     );
   }
 

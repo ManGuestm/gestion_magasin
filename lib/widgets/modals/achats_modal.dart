@@ -170,8 +170,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     try {
       final dateParts = _dateController.text.split('-');
       if (dateParts.length == 3) {
-        final dateFacture =
-            DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+        final dateFacture = DateTime(
+          int.parse(dateParts[2]),
+          int.parse(dateParts[1]),
+          int.parse(dateParts[0]),
+        );
 
         final joursEcheance = int.tryParse(_echeanceJoursController.text) ?? 7;
         final dateEcheance = dateFacture.add(Duration(days: joursEcheance));
@@ -189,8 +192,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     try {
       final dateParts = _dateController.text.split('-');
       if (dateParts.length == 3) {
-        final dateFacture =
-            DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+        final dateFacture = DateTime(
+          int.parse(dateParts[2]),
+          int.parse(dateParts[1]),
+          int.parse(dateParts[0]),
+        );
 
         final joursEcheance = int.tryParse(_echeanceJoursController.text) ?? 7;
         final dateEcheance = dateFacture.add(Duration(days: joursEcheance));
@@ -237,10 +243,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<String> _getLastUsedDepot() async {
     try {
-      final lastDetail = await (_databaseService.database.select(_databaseService.database.detachats)
-            ..orderBy([(d) => OrderingTerm.desc(d.daty)])
-            ..limit(1))
-          .getSingleOrNull();
+      final lastDetail =
+          await (_databaseService.database.select(_databaseService.database.detachats)
+                ..orderBy([(d) => OrderingTerm.desc(d.daty)])
+                ..limit(1))
+              .getSingleOrNull();
       return lastDetail?.depots ?? 'MAG';
     } catch (e) {
       return 'MAG';
@@ -253,8 +260,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       setState(() {
         // Inclure tous les achats (y compris contre-passés)
-        _achatsNumbers =
-            achats.where((a) => (a.numachats ?? '').isNotEmpty).map((a) => a.numachats!).toList();
+        _achatsNumbers = achats
+            .where((a) => (a.numachats ?? '').isNotEmpty)
+            .map((a) => a.numachats!)
+            .toList();
         _achatsNumbers.sort((a, b) => b.compareTo(a)); // Tri décroissant
 
         // Charger les statuts
@@ -314,11 +323,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     try {
       final fournisseurs = await _databaseService.database.getAllFournisseurs();
       final articles = await _databaseService.database.getAllArticles();
-      final depots =
-          await _databaseService.database.select(_databaseService.database.depots).map((d) => d.depots).get();
+      final depots = await _databaseService.database
+          .select(_databaseService.database.depots)
+          .map((d) => d.depots)
+          .get();
       final modesPaiement = await _databaseService.database.select(_databaseService.database.mp).get();
-      final societe =
-          await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();
+      final societe = await (_databaseService.database.select(
+        _databaseService.database.soc,
+      )).getSingleOrNull();
 
       setState(() {
         _fournisseurs = fournisseurs;
@@ -339,7 +351,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: Text('Ajouter d\'abord un moyen de paiement'),
+              content: const Text('Ajouter d\'abord un moyen de paiement'),
             ),
           );
         }
@@ -365,21 +377,20 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (nomFournisseur.trim().isEmpty) return;
 
     // Vérifier si le fournisseur existe
-    final fournisseurExiste =
-        _fournisseurs.any((frn) => frn.rsoc.toLowerCase() == nomFournisseur.toLowerCase());
+    final fournisseurExiste = _fournisseurs.any(
+      (frn) => frn.rsoc.toLowerCase() == nomFournisseur.toLowerCase(),
+    );
 
     if (!fournisseurExiste) {
       // Afficher le modal de confirmation
-      final confirmer = await showDialog<bool>(
+      final confirmer =
+          await showDialog<bool>(
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('Fournisseur inconnu!!'),
               content: Text('Le fournisseur "$nomFournisseur" n\'existe pas.\n\nVoulez-vous le créer?'),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Non'),
-                ),
+                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Non')),
                 TextButton(
                   autofocus: true,
                   onPressed: () => Navigator.of(context).pop(true),
@@ -404,9 +415,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
         // Chercher le fournisseur créé et le sélectionner
         final nouveauFournisseur = _fournisseurs
-            .where(
-              (frn) => frn.rsoc.toLowerCase().contains(nomFournisseur.toLowerCase()),
-            )
+            .where((frn) => frn.rsoc.toLowerCase().contains(nomFournisseur.toLowerCase()))
             .firstOrNull;
 
         if (nouveauFournisseur != null) {
@@ -448,9 +457,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (_selectedArticle == null) return;
 
     // Vérifier si l'unité est valide pour cet article
-    final unitesValides = [_selectedArticle!.u1, _selectedArticle!.u2, _selectedArticle!.u3]
-        .where((u) => u != null && u.isNotEmpty)
-        .toList();
+    final unitesValides = [
+      _selectedArticle!.u1,
+      _selectedArticle!.u2,
+      _selectedArticle!.u3,
+    ].where((u) => u != null && u.isNotEmpty).toList();
 
     if (!unitesValides.contains(unite)) {
       // Afficher modal d'erreur
@@ -459,7 +470,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         builder: (context) => AlertDialog(
           title: const Text('Unité invalide'),
           content: Text(
-              'L\'unité "$unite" n\'est pas valide pour l\'article "${_selectedArticle!.designation}".\n\nUnités autorisées: ${unitesValides.join(", ")}'),
+            'L\'unité "$unite" n\'est pas valide pour l\'article "${_selectedArticle!.designation}".\n\nUnités autorisées: ${unitesValides.join(", ")}',
+          ),
           actions: [
             TextButton(
               autofocus: true,
@@ -517,33 +529,45 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   List<DropdownMenuItem<String>> _getUnitsForSelectedArticle() {
     if (_selectedArticle == null) {
       return const [
-        DropdownMenuItem(value: 'Pce', child: Text('Pce', style: TextStyle(fontSize: 12))),
+        DropdownMenuItem(
+          value: 'Pce',
+          child: Text('Pce', style: TextStyle(fontSize: 12)),
+        ),
       ];
     }
 
     List<DropdownMenuItem<String>> units = [];
     if (_selectedArticle!.u1?.isNotEmpty == true) {
-      units.add(DropdownMenuItem(
-        value: _selectedArticle!.u1,
-        child: Text(_selectedArticle!.u1!, style: const TextStyle(fontSize: 12)),
-      ));
+      units.add(
+        DropdownMenuItem(
+          value: _selectedArticle!.u1,
+          child: Text(_selectedArticle!.u1!, style: const TextStyle(fontSize: 12)),
+        ),
+      );
     }
     if (_selectedArticle!.u2?.isNotEmpty == true) {
-      units.add(DropdownMenuItem(
-        value: _selectedArticle!.u2,
-        child: Text(_selectedArticle!.u2!, style: const TextStyle(fontSize: 12)),
-      ));
+      units.add(
+        DropdownMenuItem(
+          value: _selectedArticle!.u2,
+          child: Text(_selectedArticle!.u2!, style: const TextStyle(fontSize: 12)),
+        ),
+      );
     }
     if (_selectedArticle!.u3?.isNotEmpty == true) {
-      units.add(DropdownMenuItem(
-        value: _selectedArticle!.u3,
-        child: Text(_selectedArticle!.u3!, style: const TextStyle(fontSize: 12)),
-      ));
+      units.add(
+        DropdownMenuItem(
+          value: _selectedArticle!.u3,
+          child: Text(_selectedArticle!.u3!, style: const TextStyle(fontSize: 12)),
+        ),
+      );
     }
 
     return units.isEmpty
         ? [
-            const DropdownMenuItem(value: 'Pce', child: Text('Pce', style: TextStyle(fontSize: 12))),
+            const DropdownMenuItem(
+              value: 'Pce',
+              child: Text('Pce', style: TextStyle(fontSize: 12)),
+            ),
           ]
         : units;
   }
@@ -562,11 +586,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     debugPrint('Ajout ligne: $designation, Qté: $quantite, Prix: $prix, Unité: $unite, Dépôt: $depot');
 
     // Chercher si l'article existe déjà avec la MÊME unité, le même dépôt ET le même prix
-    int existingIndex = _lignesAchat.indexWhere((ligne) =>
-        ligne['designation'] == designation &&
-        ligne['depot'] == depot &&
-        ligne['unites'] == unite &&
-        ligne['prixUnitaire'] == prix);
+    int existingIndex = _lignesAchat.indexWhere(
+      (ligne) =>
+          ligne['designation'] == designation &&
+          ligne['depot'] == depot &&
+          ligne['unites'] == unite &&
+          ligne['prixUnitaire'] == prix,
+    );
 
     setState(() {
       if (existingIndex != -1) {
@@ -626,10 +652,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (_isModifyingArticle && _originalArticleData != null) {
       debugPrint('Suppression ancienne ligne: ${_originalArticleData!['designation']}');
       // En mode modification : supprimer l'ancienne ligne
-      final originalIndex = _lignesAchat.indexWhere((ligne) =>
-          ligne['designation'] == _originalArticleData!['designation'] &&
-          ligne['unites'] == _originalArticleData!['unites'] &&
-          ligne['depot'] == _originalArticleData!['depot']);
+      final originalIndex = _lignesAchat.indexWhere(
+        (ligne) =>
+            ligne['designation'] == _originalArticleData!['designation'] &&
+            ligne['unites'] == _originalArticleData!['unites'] &&
+            ligne['depot'] == _originalArticleData!['depot'],
+      );
 
       if (originalIndex != -1) {
         _supprimerLigne(originalIndex);
@@ -665,11 +693,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     final ligne = _lignesAchat[index];
 
     // Trouver l'article correspondant
-    Article? article = _articles
-        .where(
-          (a) => a.designation == ligne['designation'],
-        )
-        .firstOrNull;
+    Article? article = _articles.where((a) => a.designation == ligne['designation']).firstOrNull;
 
     setState(() {
       _selectedArticle = article;
@@ -704,9 +728,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     try {
       // Rechercher l'achat principal
-      final achat = await (_databaseService.database.select(_databaseService.database.achats)
-            ..where((a) => a.numachats.equals(numAchats)))
-          .getSingleOrNull();
+      final achat = await (_databaseService.database.select(
+        _databaseService.database.achats,
+      )..where((a) => a.numachats.equals(numAchats))).getSingleOrNull();
 
       setState(() {
         _isExistingPurchase = achat != null;
@@ -722,9 +746,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       if (achat != null) {
         // Charger les détails de l'achat
-        final details = await (_databaseService.database.select(_databaseService.database.detachats)
-              ..where((d) => d.numachats.equals(numAchats)))
-            .get();
+        final details = await (_databaseService.database.select(
+          _databaseService.database.detachats,
+        )..where((d) => d.numachats.equals(numAchats))).get();
 
         setState(() {
           // Remplir les champs principaux
@@ -846,8 +870,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content:
-              Text('Veuillez sélectionner un fournisseur, saisir le N° Facture/BL et ajouter des articles'),
+          content: const Text(
+            'Veuillez sélectionner un fournisseur, saisir le N° Facture/BL et ajouter des articles',
+          ),
         ),
       );
       return;
@@ -865,7 +890,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Aucun achat sélectionné pour modification'),
+            content: const Text('Aucun achat sélectionné pour modification'),
           ),
         );
       }
@@ -878,16 +903,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       builder: (context) => AlertDialog(
         title: const Text('Confirmation'),
         content: Text(
-            'Voulez-vous vraiment modifier l\'achat N° ${_numAchatsController.text} ?\n\nCette action mettra à jour les stocks et les CMUP.'),
+          'Voulez-vous vraiment modifier l\'achat N° ${_numAchatsController.text} ?\n\nCette action mettra à jour les stocks et les CMUP.',
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Confirmer'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Confirmer')),
         ],
       ),
     );
@@ -898,13 +918,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       debugPrint('Début de la transaction de modification');
       await _databaseService.database.transaction(() async {
         List<String> dateParts = _dateController.text.split('-');
-        DateTime dateForDB =
-            DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+        DateTime dateForDB = DateTime(
+          int.parse(dateParts[2]),
+          int.parse(dateParts[1]),
+          int.parse(dateParts[0]),
+        );
 
         // Récupérer les anciennes lignes pour annuler leur impact sur les stocks
-        final anciennesLignes = await (_databaseService.database.select(_databaseService.database.detachats)
-              ..where((d) => d.numachats.equals(_numAchatsController.text)))
-            .get();
+        final anciennesLignes = await (_databaseService.database.select(
+          _databaseService.database.detachats,
+        )..where((d) => d.numachats.equals(_numAchatsController.text))).get();
         debugPrint('Anciennes lignes trouvées: ${anciennesLignes.length}');
 
         // Recharger les articles pour avoir les stocks actuels
@@ -932,19 +955,24 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             quantiteU3: (article.stocksu3 ?? 0) - conversionAnnulation['u3']!,
           );
 
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu1: Value(stocksActuelsArticle['u1']! >= 0 ? stocksActuelsArticle['u1']! : 0),
-            stocksu2: Value(stocksActuelsArticle['u2']! >= 0 ? stocksActuelsArticle['u2']! : 0),
-            stocksu3: Value(stocksActuelsArticle['u3']! >= 0 ? stocksActuelsArticle['u3']! : 0),
-          ));
+          await (_databaseService.database.update(
+            _databaseService.database.articles,
+          )..where((a) => a.designation.equals(article.designation))).write(
+            ArticlesCompanion(
+              stocksu1: Value(stocksActuelsArticle['u1']! >= 0 ? stocksActuelsArticle['u1']! : 0),
+              stocksu2: Value(stocksActuelsArticle['u2']! >= 0 ? stocksActuelsArticle['u2']! : 0),
+              stocksu3: Value(stocksActuelsArticle['u3']! >= 0 ? stocksActuelsArticle['u3']! : 0),
+            ),
+          );
 
           // Annuler les stocks par dépôt avec conversion automatique
-          final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
-                ..where((d) =>
-                    d.designation.equals(article.designation) & d.depots.equals(ancienneLigne.depots ?? '')))
-              .getSingleOrNull();
+          final existingDepart =
+              await (_databaseService.database.select(_databaseService.database.depart)..where(
+                    (d) =>
+                        d.designation.equals(article.designation) &
+                        d.depots.equals(ancienneLigne.depots ?? ''),
+                  ))
+                  .getSingleOrNull();
 
           if (existingDepart != null) {
             final stocksActuelsDepot = StockConverter.convertirStockOptimal(
@@ -954,15 +982,17 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               quantiteU3: (existingDepart.stocksu3 ?? 0) - conversionAnnulation['u3']!,
             );
 
-            await (_databaseService.database.update(_databaseService.database.depart)
-                  ..where((d) =>
-                      d.designation.equals(article.designation) &
-                      d.depots.equals(ancienneLigne.depots ?? '')))
-                .write(DepartCompanion(
-              stocksu1: Value(stocksActuelsDepot['u1']! >= 0 ? stocksActuelsDepot['u1']! : 0),
-              stocksu2: Value(stocksActuelsDepot['u2']! >= 0 ? stocksActuelsDepot['u2']! : 0),
-              stocksu3: Value(stocksActuelsDepot['u3']! >= 0 ? stocksActuelsDepot['u3']! : 0),
-            ));
+            await (_databaseService.database.update(_databaseService.database.depart)..where(
+                  (d) =>
+                      d.designation.equals(article.designation) & d.depots.equals(ancienneLigne.depots ?? ''),
+                ))
+                .write(
+                  DepartCompanion(
+                    stocksu1: Value(stocksActuelsDepot['u1']! >= 0 ? stocksActuelsDepot['u1']! : 0),
+                    stocksu2: Value(stocksActuelsDepot['u2']! >= 0 ? stocksActuelsDepot['u2']! : 0),
+                    stocksu3: Value(stocksActuelsDepot['u3']! >= 0 ? stocksActuelsDepot['u3']! : 0),
+                  ),
+                );
           }
 
           // Recalculer le CMUP après annulation
@@ -970,37 +1000,43 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         }
 
         // Supprimer les anciennes entrées de stock
-        await (_databaseService.database.delete(_databaseService.database.stocks)
-              ..where((s) => s.numachats.equals(_numAchatsController.text)))
-            .go();
+        await (_databaseService.database.delete(
+          _databaseService.database.stocks,
+        )..where((s) => s.numachats.equals(_numAchatsController.text))).go();
 
         // Supprimer les anciennes lignes
-        await (_databaseService.database.delete(_databaseService.database.detachats)
-              ..where((d) => d.numachats.equals(_numAchatsController.text)))
-            .go();
+        await (_databaseService.database.delete(
+          _databaseService.database.detachats,
+        )..where((d) => d.numachats.equals(_numAchatsController.text))).go();
 
         // Calculer la date d'échéance
         DateTime? dateEcheance;
         if (_echeanceController.text.isNotEmpty) {
           List<String> echeanceParts = _echeanceController.text.split('-');
-          dateEcheance =
-              DateTime(int.parse(echeanceParts[2]), int.parse(echeanceParts[1]), int.parse(echeanceParts[0]));
+          dateEcheance = DateTime(
+            int.parse(echeanceParts[2]),
+            int.parse(echeanceParts[1]),
+            int.parse(echeanceParts[0]),
+          );
         }
 
         // Mettre à jour l'achat principal (GARDER LE MÊME NUMÉRO)
         debugPrint(
-            'Mise à jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}');
-        await (_databaseService.database.update(_databaseService.database.achats)
-              ..where((a) => a.numachats.equals(_numAchatsController.text)))
-            .write(AchatsCompanion(
-          nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
-          daty: Value(dateForDB),
-          frns: Value(_selectedFournisseur!),
-          modepai: Value(_selectedModePaiement),
-          echeance: Value(dateEcheance),
-          totalttc: Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
-          verification: Value(_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'),
-        ));
+          'Mise à jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}',
+        );
+        await (_databaseService.database.update(
+          _databaseService.database.achats,
+        )..where((a) => a.numachats.equals(_numAchatsController.text))).write(
+          AchatsCompanion(
+            nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
+            daty: Value(dateForDB),
+            frns: Value(_selectedFournisseur!),
+            modepai: Value(_selectedModePaiement),
+            echeance: Value(dateEcheance),
+            totalttc: Value(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0),
+            verification: Value(_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'),
+          ),
+        );
 
         // Recharger les articles pour avoir les stocks mis à jour après annulation
         _articles = await _databaseService.database.getAllArticles();
@@ -1008,7 +1044,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         // Insérer les nouvelles lignes avec le MÊME numéro d'achat
         debugPrint('Insertion de ${_lignesAchat.length} nouvelles lignes');
         for (var ligne in _lignesAchat) {
-          await _databaseService.database.into(_databaseService.database.detachats).insert(
+          await _databaseService.database
+              .into(_databaseService.database.detachats)
+              .insert(
                 DetachatsCompanion.insert(
                   numachats: Value(_numAchatsController.text), // MÊME NUMÉRO
                   designation: Value(ligne['designation']),
@@ -1038,7 +1076,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           // Créer nouvelle entrée de stock avec le MÊME numéro d'achat
           final stockRef =
               'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}-${_lignesAchat.indexOf(ligne)}';
-          await _databaseService.database.into(_databaseService.database.stocks).insert(
+          await _databaseService.database
+              .into(_databaseService.database.stocks)
+              .insert(
                 StocksCompanion.insert(
                   ref: stockRef,
                   daty: Value(dateForDB),
@@ -1074,18 +1114,22 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           );
 
           // Mettre à jour les stocks avec conversion automatique
-          await (_databaseService.database.update(_databaseService.database.articles)
-                ..where((a) => a.designation.equals(article.designation)))
-              .write(ArticlesCompanion(
-            stocksu1: Value(stocksActuels['u1']!),
-            stocksu2: Value(stocksActuels['u2']!),
-            stocksu3: Value(stocksActuels['u3']!),
-          ));
+          await (_databaseService.database.update(
+            _databaseService.database.articles,
+          )..where((a) => a.designation.equals(article.designation))).write(
+            ArticlesCompanion(
+              stocksu1: Value(stocksActuels['u1']!),
+              stocksu2: Value(stocksActuels['u2']!),
+              stocksu3: Value(stocksActuels['u3']!),
+            ),
+          );
 
           // Mettre à jour les stocks par dépôt avec conversion automatique
-          final existingDepart = await (_databaseService.database.select(_databaseService.database.depart)
-                ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
-              .getSingleOrNull();
+          final existingDepart =
+              await (_databaseService.database.select(_databaseService.database.depart)..where(
+                    (d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot']),
+                  ))
+                  .getSingleOrNull();
 
           if (existingDepart != null) {
             // Calculer les nouveaux stocks du dépôt avec conversion automatique
@@ -1098,11 +1142,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
             await (_databaseService.database.update(_databaseService.database.depart)
                   ..where((d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot'])))
-                .write(DepartCompanion(
-              stocksu1: Value(stocksDepotActuels['u1']!),
-              stocksu2: Value(stocksDepotActuels['u2']!),
-              stocksu3: Value(stocksDepotActuels['u3']!),
-            ));
+                .write(
+                  DepartCompanion(
+                    stocksu1: Value(stocksDepotActuels['u1']!),
+                    stocksu2: Value(stocksDepotActuels['u2']!),
+                    stocksu3: Value(stocksDepotActuels['u3']!),
+                  ),
+                );
           } else {
             // Créer nouvelle entrée avec conversion automatique
             final stocksDepotInitiaux = StockConverter.convertirStockOptimal(
@@ -1112,7 +1158,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               quantiteU3: conversionAchat['u3']!,
             );
 
-            await _databaseService.database.into(_databaseService.database.depart).insert(
+            await _databaseService.database
+                .into(_databaseService.database.depart)
+                .insert(
                   DepartCompanion.insert(
                     designation: article.designation,
                     depots: ligne['depot'],
@@ -1154,7 +1202,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Achat modifié avec succès'),
+            content: const Text('Achat modifié avec succès'),
           ),
         );
       }
@@ -1190,9 +1238,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     }
 
     // Vérifier si l'achat est déjà contre-passé
-    final achatActuel = await (_databaseService.database.select(_databaseService.database.achats)
-          ..where((a) => a.numachats.equals(_numAchatsController.text)))
-        .getSingleOrNull();
+    final achatActuel = await (_databaseService.database.select(
+      _databaseService.database.achats,
+    )..where((a) => a.numachats.equals(_numAchatsController.text))).getSingleOrNull();
 
     if (achatActuel?.contre == '1') {
       if (mounted) {
@@ -1204,7 +1252,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Cet achat est déjà contre-passé'),
+            content: const Text('Cet achat est déjà contre-passé'),
           ),
         );
       }
@@ -1221,12 +1269,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       builder: (context) => AlertDialog(
         title: const Text('Confirmation'),
         content: Text(
-            'Voulez-vous vraiment contre-passer l\'achat N° ${_numAchatsController.text} ?\n\n${isJournalise ? "Cet achat journalisé sera marqué comme contre-passé et exclu des listes." : "Cet achat brouillard sera SUPPRIMÉ DÉFINITIVEMENT."}'),
+          'Voulez-vous vraiment contre-passer l\'achat N° ${_numAchatsController.text} ?\n\n${isJournalise ? "Cet achat journalisé sera marqué comme contre-passé et exclu des listes." : "Cet achat brouillard sera SUPPRIMÉ DÉFINITIVEMENT."}',
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -1285,9 +1331,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     debugPrint('Numéro achat: ${_numAchatsController.text}');
 
     // Vérifier le statut réel dans la base de données
-    final achatActuel = await (_databaseService.database.select(_databaseService.database.achats)
-          ..where((a) => a.numachats.equals(_numAchatsController.text)))
-        .getSingleOrNull();
+    final achatActuel = await (_databaseService.database.select(
+      _databaseService.database.achats,
+    )..where((a) => a.numachats.equals(_numAchatsController.text))).getSingleOrNull();
 
     final statutReel = achatActuel?.verification ?? 'BROUILLARD';
     debugPrint('Statut réel en base: $statutReel');
@@ -1313,7 +1359,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Aucun achat en brouillard sélectionné'),
+            content: const Text('Aucun achat en brouillard sélectionné'),
           ),
         );
       }
@@ -1326,13 +1372,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             builder: (context) => AlertDialog(
               title: const Text('Validation'),
               content: Text(
-                  'Enregistrer l\'achat N° ${_numAchatsController.text} vers le journal ?\n\nCette action créera les mouvements de stock.'),
+                'Enregistrer l\'achat N° ${_numAchatsController.text} vers le journal ?\n\nCette action créera les mouvements de stock.',
+              ),
               actions: [
                 TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
                 TextButton(
-                    autofocus: true,
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Enregistrer')),
+                  autofocus: true,
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Enregistrer'),
+                ),
               ],
             ),
           )
@@ -1363,7 +1411,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Achat validé avec succès'),
+            content: const Text('Achat validé avec succès'),
             backgroundColor: Colors.green,
           ),
         );
@@ -1390,7 +1438,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   Future<void> _recalculerCMUPApresAnnulation(
-      Article article, double quantiteAnnulee, double prixAnnule) async {
+    Article article,
+    double quantiteAnnulee,
+    double prixAnnule,
+  ) async {
     // Calculer le stock total en unité de base (u3) avec conversion automatique
     double stockActuelU3 = StockConverter.calculerStockTotalU3(
       article: article,
@@ -1423,9 +1474,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<String> _getStocksToutesUnites(Article article, String depot) async {
     try {
-      final stockDepart = await (_databaseService.database.select(_databaseService.database.depart)
-            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-          .getSingleOrNull();
+      final stockDepart = await (_databaseService.database.select(
+        _databaseService.database.depart,
+      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
       double stockTotalU3 = StockConverter.calculerStockTotalU3(
         article: article,
@@ -1481,7 +1532,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: Text('Aucun article à afficher'),
+          content: const Text('Aucun article à afficher'),
         ),
       );
       return;
@@ -1521,10 +1572,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             onPressed: () => Navigator.of(context).pop('base_externe'),
             child: const Text('Base externe'),
           ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
         ],
       ),
     );
@@ -1541,9 +1589,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     final achatsAvecDetails = <Map<String, dynamic>>[];
 
     for (final numAchat in _achatsNumbers) {
-      final details = await (_databaseService.database.select(_databaseService.database.detachats)
-            ..where((d) => d.numachats.equals(numAchat)))
-          .get();
+      final details = await (_databaseService.database.select(
+        _databaseService.database.detachats,
+      )..where((d) => d.numachats.equals(numAchat))).get();
 
       if (details.isNotEmpty) {
         achatsAvecDetails.add({
@@ -1563,7 +1611,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: Text('Aucun achat avec des lignes trouvé'),
+          content: const Text('Aucun achat avec des lignes trouvé'),
         ),
       );
       return;
@@ -1591,10 +1639,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Annuler'),
-                ),
+                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
               ],
             ),
           )
@@ -1607,9 +1652,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<void> _copierLignesAchat(String numAchatSource) async {
     try {
-      final details = await (_databaseService.database.select(_databaseService.database.detachats)
-            ..where((d) => d.numachats.equals(numAchatSource)))
-          .get();
+      final details = await (_databaseService.database.select(
+        _databaseService.database.detachats,
+      )..where((d) => d.numachats.equals(numAchatSource))).get();
 
       if (details.isEmpty && mounted) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -1620,7 +1665,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Aucune ligne trouvée pour cet achat'),
+            content: const Text('Aucune ligne trouvée pour cet achat'),
           ),
         );
         return;
@@ -1651,7 +1696,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Aucun article de cet achat n\'existe plus'),
+            content: const Text('Aucun article de cet achat n\'existe plus'),
           ),
         );
         return;
@@ -1664,16 +1709,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               builder: (context) => AlertDialog(
                 title: const Text('Confirmation'),
                 content: Text(
-                    'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.'),
+                  'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.',
+                ),
                 actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Annuler'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Importer'),
-                  ),
+                  TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+                  TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Importer')),
                 ],
               ),
             )
@@ -1733,13 +1773,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         if (mounted) {
           _scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
-                behavior: SnackBarBehavior.floating,
-                margin: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).size.height * 0.8,
-                  right: 20,
-                  left: MediaQuery.of(context).size.width * 0.75,
-                ),
-                content: Text('Erreur: Chemin de fichier invalide')),
+              behavior: SnackBarBehavior.floating,
+              margin: EdgeInsets.only(
+                bottom: MediaQuery.of(context).size.height * 0.8,
+                right: 20,
+                left: MediaQuery.of(context).size.width * 0.75,
+              ),
+              content: const Text('Erreur: Chemin de fichier invalide'),
+            ),
           );
         }
         return;
@@ -1775,7 +1816,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   right: 20,
                   left: MediaQuery.of(context).size.width * 0.75,
                 ),
-                content: Text('La table "achats" n\'existe pas dans la base externe'),
+                content: const Text('La table "achats" n\'existe pas dans la base externe'),
               ),
             );
           }
@@ -1793,7 +1834,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   right: 20,
                   left: MediaQuery.of(context).size.width * 0.75,
                 ),
-                content: Text('La table "detachats" n\'existe pas dans la base externe'),
+                content: const Text('La table "detachats" n\'existe pas dans la base externe'),
               ),
             );
           }
@@ -1809,19 +1850,22 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       debugPrint('Nombre d\'achats trouvés dans la base externe: ${achatsExternes.length}');
 
       // Vérifier aussi la table detachats pour s'assurer qu'il y a des détails
-      final detailsExternes =
-          await externalDbService.database.select(externalDbService.database.detachats).get();
+      final detailsExternes = await externalDbService.database
+          .select(externalDbService.database.detachats)
+          .get();
       debugPrint('Nombre de détails d\'achats trouvés: ${detailsExternes.length}');
 
       // Afficher quelques exemples d'achats pour debug
       if (achatsExternes.isNotEmpty) {
         debugPrint(
-            'Premier achat: numachats=${achatsExternes.first.numachats}, frns=${achatsExternes.first.frns}');
+          'Premier achat: numachats=${achatsExternes.first.numachats}, frns=${achatsExternes.first.frns}',
+        );
       }
 
       if (detailsExternes.isNotEmpty) {
         debugPrint(
-            'Premier détail: numachats=${detailsExternes.first.numachats}, designation=${detailsExternes.first.designation}');
+          'Premier détail: numachats=${detailsExternes.first.numachats}, designation=${detailsExternes.first.designation}',
+        );
       }
 
       // Si aucun achat dans la table principale mais des détails existent, récupérer les numéros uniques
@@ -1854,7 +1898,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: Text('Aucun achat trouvé dans la base externe'),
+              content: const Text('Aucun achat trouvé dans la base externe'),
             ),
           );
         }
@@ -1876,29 +1920,30 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                     itemBuilder: (context, index) {
                       final numeroAchat = numerosAchatsDisponibles[index];
                       // Chercher les détails pour ce numéro d'achat
-                      final detailsPourAchat =
-                          detailsExternes.where((d) => d.numachats == numeroAchat).toList();
+                      final detailsPourAchat = detailsExternes
+                          .where((d) => d.numachats == numeroAchat)
+                          .toList();
                       final nbLignes = detailsPourAchat.length;
 
                       // Essayer de trouver l'achat principal si disponible
-                      final achatPrincipal =
-                          achatsExternes.where((a) => a.numachats == numeroAchat).firstOrNull;
+                      final achatPrincipal = achatsExternes
+                          .where((a) => a.numachats == numeroAchat)
+                          .firstOrNull;
 
                       return ListTile(
                         title: Text('N° $numeroAchat'),
-                        subtitle: Text(achatPrincipal != null
-                            ? '${achatPrincipal.frns ?? ""} - ${achatPrincipal.nfact ?? ""} - $nbLignes ligne(s)'
-                            : 'Détails uniquement - $nbLignes ligne(s) disponible(s)'),
+                        subtitle: Text(
+                          achatPrincipal != null
+                              ? '${achatPrincipal.frns ?? ""} - ${achatPrincipal.nfact ?? ""} - $nbLignes ligne(s)'
+                              : 'Détails uniquement - $nbLignes ligne(s) disponible(s)',
+                        ),
                         onTap: () => Navigator.of(context).pop(numeroAchat),
                       );
                     },
                   ),
                 ),
                 actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Annuler'),
-                  ),
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
                 ],
               ),
             )
@@ -1938,15 +1983,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       debugPrint('=== DÉBUT COPIE LIGNES ACHAT EXTERNE ===');
       debugPrint('Numéro achat source: $numAchatSource');
 
-      final details = await (externalDb.database.select(externalDb.database.detachats)
-            ..where((d) => d.numachats.equals(numAchatSource)))
-          .get();
+      final details = await (externalDb.database.select(
+        externalDb.database.detachats,
+      )..where((d) => d.numachats.equals(numAchatSource))).get();
 
       debugPrint('Nombre de détails trouvés pour l\'achat $numAchatSource: ${details.length}');
 
       if (details.isNotEmpty) {
         debugPrint(
-            'Premier détail: designation=${details.first.designation}, q=${details.first.q}, pu=${details.first.pu}');
+          'Premier détail: designation=${details.first.designation}, q=${details.first.q}, pu=${details.first.pu}',
+        );
       }
 
       if (details.isEmpty) {
@@ -1960,7 +2006,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: Text('Aucune ligne trouvée pour cet achat'),
+              content: const Text('Aucune ligne trouvée pour cet achat'),
             ),
           );
         }
@@ -2009,7 +2055,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
               content: Text(
-                  'Aucun article de cet achat n\'existe dans la base actuelle.\nArticles manquants: ${articlesNonTrouves.join(", ")}'),
+                'Aucun article de cet achat n\'existe dans la base actuelle.\nArticles manquants: ${articlesNonTrouves.join(", ")}',
+              ),
             ),
           );
         }
@@ -2023,16 +2070,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               builder: (context) => AlertDialog(
                 title: const Text('Confirmation'),
                 content: Text(
-                    'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.'),
+                  'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.',
+                ),
                 actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('Annuler'),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Importer'),
-                  ),
+                  TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+                  TextButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Importer')),
                 ],
               ),
             )
@@ -2145,8 +2187,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content:
-              Text('Veuillez sélectionner un fournisseur, saisir le N° Facture/BL et ajouter des articles'),
+          content: const Text(
+            'Veuillez sélectionner un fournisseur, saisir le N° Facture/BL et ajouter des articles',
+          ),
         ),
       );
       return;
@@ -2155,9 +2198,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     try {
       debugPrint('Vérification de l\'existence du numéro d\'achat: ${_numAchatsController.text}');
       // Vérifier si le numéro d'achat existe déjà
-      final existingAchat = await (_databaseService.database.select(_databaseService.database.achats)
-            ..where((a) => a.numachats.equals(_numAchatsController.text)))
-          .getSingleOrNull();
+      final existingAchat = await (_databaseService.database.select(
+        _databaseService.database.achats,
+      )..where((a) => a.numachats.equals(_numAchatsController.text))).getSingleOrNull();
       debugPrint('Achat existant trouvé: ${existingAchat != null}');
 
       if (existingAchat != null) {
@@ -2180,28 +2223,36 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       // Convertir la date au format DateTime
       List<String> dateParts = _dateController.text.split('-');
-      DateTime dateForDB =
-          DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+      DateTime dateForDB = DateTime(
+        int.parse(dateParts[2]),
+        int.parse(dateParts[1]),
+        int.parse(dateParts[0]),
+      );
 
       // Calculer la date d'échéance
       DateTime? echeanceForDB;
       if (_echeanceController.text.isNotEmpty) {
         List<String> echeanceParts = _echeanceController.text.split('-');
-        echeanceForDB =
-            DateTime(int.parse(echeanceParts[2]), int.parse(echeanceParts[1]), int.parse(echeanceParts[0]));
+        echeanceForDB = DateTime(
+          int.parse(echeanceParts[2]),
+          int.parse(echeanceParts[1]),
+          int.parse(echeanceParts[0]),
+        );
       }
 
       double totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0;
 
       // Préparer les données de l'achat
       final lignesAchatData = _lignesAchat
-          .map((ligne) => {
-                'designation': ligne['designation'],
-                'unite': ligne['unites'],
-                'depot': ligne['depot'],
-                'quantite': ligne['quantite'],
-                'prixUnitaire': ligne['prixUnitaire'],
-              })
+          .map(
+            (ligne) => {
+              'designation': ligne['designation'],
+              'unite': ligne['unites'],
+              'depot': ligne['depot'],
+              'quantite': ligne['quantite'],
+              'prixUnitaire': ligne['prixUnitaire'],
+            },
+          )
           .toList();
 
       // Utiliser AchatService selon le mode
@@ -2451,9 +2502,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             Text(
                                               'Brouillard',
                                               style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.orange.shade700),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.orange.shade700,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -2475,10 +2527,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               ),
                                               child: ListTile(
                                                 dense: true,
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                                                title: Text('N° $numAchat',
-                                                    style: const TextStyle(fontSize: 11)),
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 0,
+                                                ),
+                                                title: Text(
+                                                  'N° $numAchat',
+                                                  style: const TextStyle(fontSize: 11),
+                                                ),
                                                 onTap: () => _chargerAchatExistant(numAchat),
                                               ),
                                             );
@@ -2499,9 +2555,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             Text(
                                               'Journal (Ctrl + L)',
                                               style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.green.shade700),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.green.shade700,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -2523,10 +2580,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               ),
                                               child: ListTile(
                                                 dense: true,
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                                                title: Text('N° $numAchat',
-                                                    style: const TextStyle(fontSize: 11)),
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 0,
+                                                ),
+                                                title: Text(
+                                                  'N° $numAchat',
+                                                  style: const TextStyle(fontSize: 11),
+                                                ),
                                                 onTap: () => _chargerAchatExistant(numAchat),
                                               ),
                                             );
@@ -2547,9 +2608,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             Text(
                                               'Contre-passé',
                                               style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.red.shade700),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.red.shade700,
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -2566,15 +2628,19 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     ? Colors.red.shade100
                                                     : null,
                                                 border: Border(
-                                                    bottom:
-                                                        BorderSide(color: Colors.grey.shade200, width: 0.5)),
+                                                  bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
+                                                ),
                                               ),
                                               child: ListTile(
                                                 dense: true,
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                                                title: Text('N° $numAchat',
-                                                    style: const TextStyle(fontSize: 11)),
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 0,
+                                                ),
+                                                title: Text(
+                                                  'N° $numAchat',
+                                                  style: const TextStyle(fontSize: 11),
+                                                ),
                                                 onTap: () => _chargerAchatExistant(numAchat),
                                               ),
                                             );
@@ -2606,10 +2672,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         children: [
                                           const Text(
                                             'Achat fournisseurs',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                            ),
+                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                                           ),
                                           if (_isExistingPurchase && _statutAchatActuel != null) ...[
                                             const SizedBox(width: 8),
@@ -2619,20 +2682,21 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                 color: _statutAchatActuel == 'JOURNAL'
                                                     ? Colors.green
                                                     : _statutAchatActuel == 'CONTRE-PASSÉ'
-                                                        ? Colors.red
-                                                        : Colors.orange,
+                                                    ? Colors.red
+                                                    : Colors.orange,
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
                                                 _statutAchatActuel == 'JOURNAL'
                                                     ? 'J'
                                                     : _statutAchatActuel == 'CONTRE-PASSÉ'
-                                                        ? 'CP'
-                                                        : 'B',
+                                                    ? 'CP'
+                                                    : 'B',
                                                 style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.bold),
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
                                               ),
                                             ),
                                           ],
@@ -2643,15 +2707,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                   ExcludeFocus(
                                     child: IconButton(
                                       onPressed: () => Navigator.of(context).pop(),
-                                      icon: const Icon(
-                                        Icons.close,
-                                        size: 20,
-                                      ),
+                                      icon: const Icon(Icons.close, size: 20),
                                       padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 32,
-                                        minHeight: 32,
-                                      ),
+                                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                                     ),
                                   ),
                                 ],
@@ -2684,8 +2742,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             initialValue: _selectedStatut,
                                             decoration: InputDecoration(
                                               border: const OutlineInputBorder(),
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                              contentPadding: const EdgeInsets.symmetric(
+                                                horizontal: 4,
+                                                vertical: 2,
+                                              ),
                                               fillColor: _selectedStatut == 'Journal'
                                                   ? Colors.green.shade100
                                                   : Colors.orange.shade100,
@@ -2693,11 +2753,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             ),
                                             items: const [
                                               DropdownMenuItem(
-                                                  value: 'Journal',
-                                                  child: Text('Journal', style: TextStyle(fontSize: 12))),
+                                                value: 'Journal',
+                                                child: Text('Journal', style: TextStyle(fontSize: 12)),
+                                              ),
                                               DropdownMenuItem(
-                                                  value: 'Brouillard',
-                                                  child: Text('Brouillard', style: TextStyle(fontSize: 12))),
+                                                value: 'Brouillard',
+                                                child: Text('Brouillard', style: TextStyle(fontSize: 12)),
+                                              ),
                                             ],
                                             onChanged: _isExistingPurchase
                                                 ? null
@@ -2720,7 +2782,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         Row(
                                           children: [
                                             const ExcludeFocus(
-                                                child: Text('N° Achats', style: TextStyle(fontSize: 12))),
+                                              child: Text('N° Achats', style: TextStyle(fontSize: 12)),
+                                            ),
                                             const SizedBox(width: 4),
                                             SizedBox(
                                               width: 100,
@@ -2732,8 +2795,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   readOnly: true,
                                                   decoration: const InputDecoration(
                                                     border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    contentPadding: EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 2,
+                                                    ),
                                                     fillColor: Color(0xFFF5F5F5),
                                                     filled: true,
                                                   ),
@@ -2742,7 +2807,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             ),
                                             const Expanded(child: SizedBox()),
                                             const ExcludeFocus(
-                                                child: Text('Date', style: TextStyle(fontSize: 12))),
+                                              child: Text('Date', style: TextStyle(fontSize: 12)),
+                                            ),
                                             const SizedBox(width: 4),
                                             SizedBox(
                                               width: 140,
@@ -2753,8 +2819,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   readOnly: true,
                                                   decoration: const InputDecoration(
                                                     border: OutlineInputBorder(),
-                                                    contentPadding:
-                                                        EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    contentPadding: EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 2,
+                                                    ),
                                                     suffixIcon: Icon(Icons.calendar_today, size: 16),
                                                   ),
                                                   onTap: () async {
@@ -2765,8 +2833,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                       lastDate: DateTime(2100),
                                                     );
                                                     if (date != null) {
-                                                      _dateController.text =
-                                                          app_date.AppDateUtils.formatDate(date);
+                                                      _dateController.text = app_date.AppDateUtils.formatDate(
+                                                        date,
+                                                      );
                                                     }
                                                   },
                                                 ),
@@ -2774,8 +2843,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             ),
                                             const SizedBox(width: 8),
                                             const ExcludeFocus(
-                                                child:
-                                                    Text('N° Facture/ BL', style: TextStyle(fontSize: 12))),
+                                              child: Text('N° Facture/ BL', style: TextStyle(fontSize: 12)),
+                                            ),
                                             const SizedBox(width: 4),
                                             Flexible(
                                               child: SizedBox(
@@ -2799,7 +2868,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     decoration: InputDecoration(
                                                       border: const OutlineInputBorder(),
                                                       contentPadding: const EdgeInsets.symmetric(
-                                                          horizontal: 4, vertical: 2),
+                                                        horizontal: 4,
+                                                        vertical: 2,
+                                                      ),
                                                       fillColor: _statutAchatActuel == 'JOURNAL'
                                                           ? Colors.grey.shade200
                                                           : null,
@@ -2816,7 +2887,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         Row(
                                           children: [
                                             const ExcludeFocus(
-                                                child: Text('Fournisseurs', style: TextStyle(fontSize: 12))),
+                                              child: Text('Fournisseurs', style: TextStyle(fontSize: 12)),
+                                            ),
                                             const SizedBox(width: 8),
                                             Expanded(
                                               child: SizedBox(
@@ -2829,14 +2901,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                           if (!hasFocus &&
                                                               _fournisseurController.text.isNotEmpty) {
                                                             _verifierEtCreerFournisseur(
-                                                                _fournisseurController.text);
+                                                              _fournisseurController.text,
+                                                            );
                                                           }
                                                         },
                                                         onKeyEvent: (node, event) {
                                                           if (event is KeyDownEvent &&
                                                               event.logicalKey == LogicalKeyboardKey.tab) {
-                                                            final isShiftPressed = HardwareKeyboard
-                                                                    .instance.logicalKeysPressed
+                                                            final isShiftPressed =
+                                                                HardwareKeyboard.instance.logicalKeysPressed
                                                                     .contains(LogicalKeyboardKey.shiftLeft) ||
                                                                 HardwareKeyboard.instance.logicalKeysPressed
                                                                     .contains(LogicalKeyboardKey.shiftRight);
@@ -2870,7 +2943,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                           decoration: InputDecoration(
                                                             border: const OutlineInputBorder(),
                                                             contentPadding: const EdgeInsets.symmetric(
-                                                                horizontal: 4, vertical: 2),
+                                                              horizontal: 4,
+                                                              vertical: 2,
+                                                            ),
                                                             fillColor: _statutAchatActuel == 'JOURNAL'
                                                                 ? Colors.grey.shade200
                                                                 : null,
@@ -2913,9 +2988,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             articles: _articles,
                                             initialArticle: _lignesAchat.isNotEmpty
                                                 ? _articles
-                                                    .where((a) =>
-                                                        a.designation == _lignesAchat.last['designation'])
-                                                    .firstOrNull
+                                                      .where(
+                                                        (a) =>
+                                                            a.designation == _lignesAchat.last['designation'],
+                                                      )
+                                                      .firstOrNull
                                                 : null,
                                             selectedArticle: _selectedArticle, // Ajouter la synchronisation
                                             onArticleChanged: _onArticleSelected,
@@ -2924,8 +3001,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             hintText: 'Rechercher article... (← → pour naviguer)',
                                             decoration: InputDecoration(
                                               border: const OutlineInputBorder(),
-                                              contentPadding:
-                                                  const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                              contentPadding: const EdgeInsets.symmetric(
+                                                horizontal: 4,
+                                                vertical: 2,
+                                              ),
                                               fillColor: _statutAchatActuel == 'JOURNAL'
                                                   ? Colors.grey.shade200
                                                   : null,
@@ -2937,15 +3016,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           ),
                                         ),
                                         // Affichage des unités disponibles et stock
-                                        if (_selectedArticle == null) ...[
-                                          const SizedBox(height: 19),
-                                        ],
+                                        if (_selectedArticle == null) ...[const SizedBox(height: 19)],
                                         if (_selectedArticle != null) ...[
                                           const SizedBox(height: 2),
                                           if (_selectedDepot != null)
                                             FutureBuilder<String>(
-                                              future:
-                                                  _getStocksToutesUnites(_selectedArticle!, _selectedDepot!),
+                                              future: _getStocksToutesUnites(
+                                                _selectedArticle!,
+                                                _selectedDepot!,
+                                              ),
                                               builder: (context, snapshot) {
                                                 if (snapshot.hasData && snapshot.data!.isNotEmpty) {
                                                   return Text(
@@ -2990,8 +3069,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   onKeyEvent: (node, event) {
                                                     if (event is KeyDownEvent &&
                                                         event.logicalKey == LogicalKeyboardKey.tab) {
-                                                      final isShiftPressed = HardwareKeyboard
-                                                              .instance.logicalKeysPressed
+                                                      final isShiftPressed =
+                                                          HardwareKeyboard.instance.logicalKeysPressed
                                                               .contains(LogicalKeyboardKey.shiftLeft) ||
                                                           HardwareKeyboard.instance.logicalKeysPressed
                                                               .contains(LogicalKeyboardKey.shiftRight);
@@ -3008,7 +3087,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   child: EnhancedAutocomplete<String>(
                                                     controller: _uniteController,
                                                     focusNode: _uniteFocusNode,
-                                                    enabled: _selectedArticle != null &&
+                                                    enabled:
+                                                        _selectedArticle != null &&
                                                         _statutAchatActuel != 'JOURNAL',
                                                     options: _getUnitsForSelectedArticle()
                                                         .map((item) => item.value!)
@@ -3029,12 +3109,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     decoration: InputDecoration(
                                                       border: const OutlineInputBorder(),
                                                       contentPadding: const EdgeInsets.symmetric(
-                                                          horizontal: 4, vertical: 2),
-                                                      fillColor: _selectedArticle == null ||
+                                                        horizontal: 4,
+                                                        vertical: 2,
+                                                      ),
+                                                      fillColor:
+                                                          _selectedArticle == null ||
                                                               _statutAchatActuel == 'JOURNAL'
                                                           ? Colors.grey.shade200
                                                           : null,
-                                                      filled: _selectedArticle == null ||
+                                                      filled:
+                                                          _selectedArticle == null ||
                                                           _statutAchatActuel == 'JOURNAL',
                                                     ),
                                                     style: const TextStyle(fontSize: 12),
@@ -3044,7 +3128,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             ],
                                           ),
                                         ),
-                                        SizedBox(height: 19),
+                                        const SizedBox(height: 19),
                                       ],
                                     ),
                                   ),
@@ -3063,11 +3147,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             onKeyEvent: (node, event) {
                                               if (event is KeyDownEvent &&
                                                   event.logicalKey == LogicalKeyboardKey.tab) {
-                                                final isShiftPressed = HardwareKeyboard
-                                                        .instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                    HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftRight);
+                                                final isShiftPressed =
+                                                    HardwareKeyboard.instance.logicalKeysPressed.contains(
+                                                      LogicalKeyboardKey.shiftLeft,
+                                                    ) ||
+                                                    HardwareKeyboard.instance.logicalKeysPressed.contains(
+                                                      LogicalKeyboardKey.shiftRight,
+                                                    );
 
                                                 if (isShiftPressed) {
                                                   _uniteFocusNode.requestFocus();
@@ -3086,13 +3172,17 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               onSubmitted: (_) => _prixFocusNode.requestFocus(),
                                               decoration: InputDecoration(
                                                 border: const OutlineInputBorder(),
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                fillColor: _selectedArticle == null ||
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                  horizontal: 4,
+                                                  vertical: 2,
+                                                ),
+                                                fillColor:
+                                                    _selectedArticle == null ||
                                                         _statutAchatActuel == 'JOURNAL'
                                                     ? Colors.grey.shade200
                                                     : null,
-                                                filled: _selectedArticle == null ||
+                                                filled:
+                                                    _selectedArticle == null ||
                                                     _statutAchatActuel == 'JOURNAL',
                                               ),
                                               style: const TextStyle(fontSize: 12),
@@ -3102,7 +3192,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             ),
                                           ),
                                         ),
-                                        SizedBox(height: 19),
+                                        const SizedBox(height: 19),
                                       ],
                                     ),
                                   ),
@@ -3121,11 +3211,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             onKeyEvent: (node, event) {
                                               if (event is KeyDownEvent &&
                                                   event.logicalKey == LogicalKeyboardKey.tab) {
-                                                final isShiftPressed = HardwareKeyboard
-                                                        .instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                    HardwareKeyboard.instance.logicalKeysPressed
-                                                        .contains(LogicalKeyboardKey.shiftRight);
+                                                final isShiftPressed =
+                                                    HardwareKeyboard.instance.logicalKeysPressed.contains(
+                                                      LogicalKeyboardKey.shiftLeft,
+                                                    ) ||
+                                                    HardwareKeyboard.instance.logicalKeysPressed.contains(
+                                                      LogicalKeyboardKey.shiftRight,
+                                                    );
 
                                                 if (isShiftPressed) {
                                                   _quantiteFocusNode.requestFocus();
@@ -3144,20 +3236,24 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               onSubmitted: (_) => _depotFocusNode.requestFocus(),
                                               decoration: InputDecoration(
                                                 border: const OutlineInputBorder(),
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                                fillColor: _selectedArticle == null ||
+                                                contentPadding: const EdgeInsets.symmetric(
+                                                  horizontal: 4,
+                                                  vertical: 2,
+                                                ),
+                                                fillColor:
+                                                    _selectedArticle == null ||
                                                         _statutAchatActuel == 'JOURNAL'
                                                     ? Colors.grey.shade200
                                                     : null,
-                                                filled: _selectedArticle == null ||
+                                                filled:
+                                                    _selectedArticle == null ||
                                                     _statutAchatActuel == 'JOURNAL',
                                               ),
                                               style: const TextStyle(fontSize: 12),
                                             ),
                                           ),
                                         ),
-                                        SizedBox(height: 19),
+                                        const SizedBox(height: 19),
                                       ],
                                     ),
                                   ),
@@ -3179,8 +3275,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   onKeyEvent: (node, event) {
                                                     if (event is KeyDownEvent &&
                                                         event.logicalKey == LogicalKeyboardKey.tab) {
-                                                      final isShiftPressed = HardwareKeyboard
-                                                              .instance.logicalKeysPressed
+                                                      final isShiftPressed =
+                                                          HardwareKeyboard.instance.logicalKeysPressed
                                                               .contains(LogicalKeyboardKey.shiftLeft) ||
                                                           HardwareKeyboard.instance.logicalKeysPressed
                                                               .contains(LogicalKeyboardKey.shiftRight);
@@ -3237,7 +3333,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     decoration: InputDecoration(
                                                       border: const OutlineInputBorder(),
                                                       contentPadding: const EdgeInsets.symmetric(
-                                                          horizontal: 4, vertical: 2),
+                                                        horizontal: 4,
+                                                        vertical: 2,
+                                                      ),
                                                       fillColor: _statutAchatActuel == 'JOURNAL'
                                                           ? Colors.grey.shade200
                                                           : null,
@@ -3250,7 +3348,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             ],
                                           ),
                                         ),
-                                        SizedBox(height: 19),
+                                        const SizedBox(height: 19),
                                       ],
                                     ),
                                   ),
@@ -3268,8 +3366,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   onKeyEvent: (node, event) {
                                                     if (event is KeyDownEvent) {
                                                       if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                        final isShiftPressed = HardwareKeyboard
-                                                                .instance.logicalKeysPressed
+                                                        final isShiftPressed =
+                                                            HardwareKeyboard.instance.logicalKeysPressed
                                                                 .contains(LogicalKeyboardKey.shiftLeft) ||
                                                             HardwareKeyboard.instance.logicalKeysPressed
                                                                 .contains(LogicalKeyboardKey.shiftRight);
@@ -3302,7 +3400,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                                 color: Colors.blue.withValues(alpha: 0.3),
                                                                 blurRadius: 4,
                                                                 spreadRadius: 1,
-                                                              )
+                                                              ),
                                                             ]
                                                           : null,
                                                     ),
@@ -3328,7 +3426,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     ),
                                                   ),
                                                 ),
-                                                SizedBox(height: 16),
+                                                const SizedBox(height: 16),
                                               ],
                                             ),
                                             const SizedBox(width: 4),
@@ -3339,8 +3437,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   onKeyEvent: (node, event) {
                                                     if (event is KeyDownEvent) {
                                                       if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                        final isShiftPressed = HardwareKeyboard
-                                                                .instance.logicalKeysPressed
+                                                        final isShiftPressed =
+                                                            HardwareKeyboard.instance.logicalKeysPressed
                                                                 .contains(LogicalKeyboardKey.shiftLeft) ||
                                                             HardwareKeyboard.instance.logicalKeysPressed
                                                                 .contains(LogicalKeyboardKey.shiftRight);
@@ -3373,7 +3471,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                                 color: Colors.blue.withValues(alpha: 0.3),
                                                                 blurRadius: 4,
                                                                 spreadRadius: 1,
-                                                              )
+                                                              ),
                                                             ]
                                                           : null,
                                                     ),
@@ -3399,7 +3497,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     ),
                                                   ),
                                                 ),
-                                                SizedBox(height: 16),
+                                                const SizedBox(height: 16),
                                               ],
                                             ),
                                           ],
@@ -3424,9 +3522,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     // Table header
                                     Container(
                                       height: 25,
-                                      decoration: BoxDecoration(
-                                        color: Colors.orange[300],
-                                      ),
+                                      decoration: BoxDecoration(color: Colors.orange[300]),
                                       child: Row(
                                         children: [
                                           Container(
@@ -3590,13 +3686,17 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                               items: [
                                                                 const PopupMenuItem(
                                                                   value: 'modifier_ligne',
-                                                                  child: Text('Modifier',
-                                                                      style: TextStyle(fontSize: 12)),
+                                                                  child: Text(
+                                                                    'Modifier',
+                                                                    style: TextStyle(fontSize: 12),
+                                                                  ),
                                                                 ),
                                                                 const PopupMenuItem(
                                                                   value: 'supprimer_ligne',
-                                                                  child: Text('Supprimer',
-                                                                      style: TextStyle(fontSize: 12)),
+                                                                  child: Text(
+                                                                    'Supprimer',
+                                                                    style: TextStyle(fontSize: 12),
+                                                                  ),
                                                                 ),
                                                               ],
                                                             ).then((value) {
@@ -3613,8 +3713,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                         color: _selectedRowIndex == index
                                                             ? Colors.blue[300]
                                                             : (index % 2 == 0
-                                                                ? Colors.white
-                                                                : Colors.grey[50]),
+                                                                  ? Colors.white
+                                                                  : Colors.grey[50]),
                                                       ),
                                                       child: Row(
                                                         children: [
@@ -3623,10 +3723,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                             alignment: Alignment.center,
                                                             decoration: const BoxDecoration(
                                                               border: Border(
-                                                                right:
-                                                                    BorderSide(color: Colors.grey, width: 1),
-                                                                bottom:
-                                                                    BorderSide(color: Colors.grey, width: 1),
+                                                                right: BorderSide(
+                                                                  color: Colors.grey,
+                                                                  width: 1,
+                                                                ),
+                                                                bottom: BorderSide(
+                                                                  color: Colors.grey,
+                                                                  width: 1,
+                                                                ),
                                                               ),
                                                             ),
                                                             child: IconButton(
@@ -3646,9 +3750,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                               decoration: const BoxDecoration(
                                                                 border: Border(
                                                                   right: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                   bottom: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                 ),
                                                               ),
                                                               child: Text(
@@ -3661,15 +3769,20 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                           Expanded(
                                                             flex: 1,
                                                             child: Container(
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(horizontal: 4),
+                                                              padding: const EdgeInsets.symmetric(
+                                                                horizontal: 4,
+                                                              ),
                                                               alignment: Alignment.center,
                                                               decoration: const BoxDecoration(
                                                                 border: Border(
                                                                   right: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                   bottom: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                 ),
                                                               ),
                                                               child: Text(
@@ -3681,15 +3794,20 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                           Expanded(
                                                             flex: 1,
                                                             child: Container(
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(horizontal: 4),
+                                                              padding: const EdgeInsets.symmetric(
+                                                                horizontal: 4,
+                                                              ),
                                                               alignment: Alignment.center,
                                                               decoration: const BoxDecoration(
                                                                 border: Border(
                                                                   right: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                   bottom: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                 ),
                                                               ),
                                                               child: Text(
@@ -3704,20 +3822,26 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                           Expanded(
                                                             flex: 2,
                                                             child: Container(
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(horizontal: 4),
+                                                              padding: const EdgeInsets.symmetric(
+                                                                horizontal: 4,
+                                                              ),
                                                               alignment: Alignment.center,
                                                               decoration: const BoxDecoration(
                                                                 border: Border(
                                                                   right: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                   bottom: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                 ),
                                                               ),
                                                               child: Text(
                                                                 NumberUtils.formatNumber(
-                                                                    ligne['prixUnitaire']?.toDouble() ?? 0),
+                                                                  ligne['prixUnitaire']?.toDouble() ?? 0,
+                                                                ),
                                                                 style: const TextStyle(fontSize: 11),
                                                               ),
                                                             ),
@@ -3725,20 +3849,26 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                           Expanded(
                                                             flex: 2,
                                                             child: Container(
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(horizontal: 4),
+                                                              padding: const EdgeInsets.symmetric(
+                                                                horizontal: 4,
+                                                              ),
                                                               alignment: Alignment.center,
                                                               decoration: const BoxDecoration(
                                                                 border: Border(
                                                                   right: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                   bottom: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                 ),
                                                               ),
                                                               child: Text(
                                                                 NumberUtils.formatNumber(
-                                                                    ligne['montant']?.toDouble() ?? 0),
+                                                                  ligne['montant']?.toDouble() ?? 0,
+                                                                ),
                                                                 style: const TextStyle(fontSize: 11),
                                                               ),
                                                             ),
@@ -3750,7 +3880,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                               decoration: const BoxDecoration(
                                                                 border: Border(
                                                                   bottom: BorderSide(
-                                                                      color: Colors.grey, width: 1),
+                                                                    color: Colors.grey,
+                                                                    width: 1,
+                                                                  ),
                                                                 ),
                                                               ),
                                                               child: Text(
@@ -3795,12 +3927,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                 initialValue: _selectedModePaiement,
                                                 decoration: const InputDecoration(
                                                   border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  contentPadding: EdgeInsets.symmetric(
+                                                    horizontal: 4,
+                                                    vertical: 2,
+                                                  ),
                                                 ),
-                                                items: _modesPaiement
-                                                    .where((mp) => mp.mp == 'A crédit')
-                                                    .map((mp) {
+                                                items: _modesPaiement.where((mp) => mp.mp == 'A crédit').map((
+                                                  mp,
+                                                ) {
                                                   return DropdownMenuItem<String>(
                                                     alignment: AlignmentGeometry.center,
                                                     value: mp.mp,
@@ -3831,8 +3965,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                 readOnly: true,
                                                 decoration: const InputDecoration(
                                                   border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  contentPadding: EdgeInsets.symmetric(
+                                                    horizontal: 4,
+                                                    vertical: 2,
+                                                  ),
                                                   suffixIcon: Icon(Icons.calendar_today, size: 16),
                                                 ),
                                                 onTap: () async {
@@ -3867,8 +4003,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                 textAlign: TextAlign.center,
                                                 decoration: const InputDecoration(
                                                   border: OutlineInputBorder(),
-                                                  contentPadding:
-                                                      EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                  contentPadding: EdgeInsets.symmetric(
+                                                    horizontal: 4,
+                                                    vertical: 2,
+                                                  ),
                                                   hintText: 'Ctrl+J',
                                                   hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
                                                   suffixIcon: Icon(Icons.access_time_rounded, size: 16),
@@ -3900,8 +4038,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               readOnly: true,
                                               decoration: const InputDecoration(
                                                 border: OutlineInputBorder(),
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                contentPadding: EdgeInsets.symmetric(
+                                                  horizontal: 4,
+                                                  vertical: 2,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -3910,8 +4050,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                       const SizedBox(height: 4),
                                       Row(
                                         children: [
-                                          const Text('Total en FMG',
-                                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          const Text(
+                                            'Total en FMG',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                          ),
                                           const SizedBox(width: 16),
                                           Container(
                                             alignment: Alignment.centerRight,
@@ -3923,8 +4065,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               readOnly: true,
                                               decoration: const InputDecoration(
                                                 border: OutlineInputBorder(),
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                contentPadding: EdgeInsets.symmetric(
+                                                  horizontal: 4,
+                                                  vertical: 2,
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -3941,7 +4085,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               width: double.infinity,
                               decoration: const BoxDecoration(
                                 borderRadius: BorderRadius.only(
-                                    bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
+                                  bottomLeft: Radius.circular(16),
+                                  bottomRight: Radius.circular(16),
+                                ),
                                 color: Color(0xFFFFB6C1),
                               ),
                               padding: const EdgeInsets.all(8),
@@ -3955,16 +4101,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         width: 30,
                                         height: 30,
                                         child: ElevatedButton(
-                                          onPressed:
-                                              _achatsNumbers.isNotEmpty ? () => _naviguerAchat(false) : null,
+                                          onPressed: _achatsNumbers.isNotEmpty
+                                              ? () => _naviguerAchat(false)
+                                              : null,
                                           style: ElevatedButton.styleFrom(
                                             padding: EdgeInsets.zero,
                                             minimumSize: const Size(30, 30),
                                           ),
-                                          child: const Icon(
-                                            Icons.arrow_back_ios,
-                                            size: 14,
-                                          ),
+                                          child: const Icon(Icons.arrow_back_ios, size: 14),
                                         ),
                                       ),
                                     ),
@@ -3974,24 +4118,23 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         width: 30,
                                         height: 30,
                                         child: ElevatedButton(
-                                          onPressed:
-                                              _achatsNumbers.isNotEmpty ? () => _naviguerAchat(true) : null,
+                                          onPressed: _achatsNumbers.isNotEmpty
+                                              ? () => _naviguerAchat(true)
+                                              : null,
                                           style: ElevatedButton.styleFrom(
                                             padding: EdgeInsets.zero,
                                             minimumSize: const Size(30, 30),
                                           ),
-                                          child: const Icon(
-                                            Icons.arrow_forward_ios,
-                                            size: 14,
-                                          ),
+                                          child: const Icon(Icons.arrow_forward_ios, size: 14),
                                         ),
                                       ),
                                     ),
                                     Tooltip(
                                       message: 'Importer lignes d\'achat',
                                       child: ElevatedButton(
-                                        onPressed:
-                                            _statutAchatActuel == 'JOURNAL' ? null : _importerLignesAchat,
+                                        onPressed: _statutAchatActuel == 'JOURNAL'
+                                            ? null
+                                            : _importerLignesAchat,
                                         style: ElevatedButton.styleFrom(
                                           backgroundColor: Colors.orange,
                                           foregroundColor: Colors.white,
@@ -4019,8 +4162,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               foregroundColor: Colors.white,
                                               minimumSize: const Size(80, 30),
                                             ),
-                                            child: const Text('Valider l\'achat (F3)',
-                                                style: TextStyle(fontSize: 12)),
+                                            child: const Text(
+                                              'Valider l\'achat (F3)',
+                                              style: TextStyle(fontSize: 12),
+                                            ),
                                           ),
                                         ),
                                       ],
@@ -4038,10 +4183,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                       ),
                                     ],
                                     Tooltip(
-                                      message:
-                                          _isExistingPurchase ? 'Modifier (Ctrl+S)' : 'Enregistrer (Ctrl+S)',
+                                      message: _isExistingPurchase
+                                          ? 'Modifier (Ctrl+S)'
+                                          : 'Enregistrer (Ctrl+S)',
                                       child: ElevatedButton(
-                                        onPressed: _isExistingPurchase &&
+                                        onPressed:
+                                            _isExistingPurchase &&
                                                 (_statutAchatActuel == 'JOURNAL' ||
                                                     _statutAchatActuel == 'CONTRE-PASSÉ')
                                             ? null
@@ -4052,19 +4199,21 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           minimumSize: const Size(60, 30),
                                         ),
                                         child: Text(
-                                            _isExistingPurchase ? 'Modifier(Ctrl+S)' : 'Enregistrer (Ctrl+S)',
-                                            style: const TextStyle(fontSize: 12)),
+                                          _isExistingPurchase ? 'Modifier(Ctrl+S)' : 'Enregistrer (Ctrl+S)',
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                     const Spacer(),
                                     PopupMenuButton<String>(
-                                      style: ButtonStyle(
-                                          padding: WidgetStateProperty.fromMap({
-                                        WidgetState.hovered: const EdgeInsets.all(0),
-                                        WidgetState.focused: const EdgeInsets.all(0),
-                                        WidgetState.pressed: const EdgeInsets.all(0),
-                                      })),
-                                      menuPadding: EdgeInsets.all(2),
+                                      style: const ButtonStyle(
+                                        padding: WidgetStateProperty.fromMap({
+                                          WidgetState.hovered: EdgeInsets.all(0),
+                                          WidgetState.focused: EdgeInsets.all(0),
+                                          WidgetState.pressed: EdgeInsets.all(0),
+                                        }),
+                                      ),
+                                      menuPadding: const EdgeInsets.all(2),
                                       initialValue: _selectedFormat,
                                       onSelected: (String format) {
                                         setState(() {
@@ -4101,8 +4250,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           children: [
                                             const Icon(Icons.format_size, color: Colors.white, size: 16),
                                             const SizedBox(width: 4),
-                                            Text(_selectedFormat,
-                                                style: const TextStyle(color: Colors.white, fontSize: 12)),
+                                            Text(
+                                              _selectedFormat,
+                                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                                            ),
                                             const SizedBox(width: 4),
                                             const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
                                           ],
@@ -4126,14 +4277,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           foregroundColor: Colors.white,
                                           minimumSize: const Size(70, 30),
                                         ),
-                                        child: Row(
+                                        child: const Row(
                                           children: [
-                                            const Icon(Icons.print, size: 16),
+                                            Icon(Icons.print, size: 16),
                                             SizedBox(width: 8),
-                                            Text(
-                                              "Imprimer BR (Ctrl+P)",
-                                              style: TextStyle(fontSize: 12),
-                                            )
+                                            Text("Imprimer BR (Ctrl+P)", style: TextStyle(fontSize: 12)),
                                           ],
                                         ),
                                       ),
@@ -4175,7 +4323,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: Text('Aucun article à imprimer'),
+          content: const Text('Aucun article à imprimer'),
         ),
       );
       return;
@@ -4216,7 +4364,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: Text('Bon de réception envoyé à l\'imprimante par défaut'),
+            content: const Text('Bon de réception envoyé à l\'imprimante par défaut'),
           ),
         );
       }
@@ -4252,8 +4400,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     final int lastPageLines = _lignesAchat.isEmpty
         ? 0
         : (_lignesAchat.length % maxLinesPerPage == 0
-            ? maxLinesPerPage
-            : _lignesAchat.length % maxLinesPerPage);
+              ? maxLinesPerPage
+              : _lignesAchat.length % maxLinesPerPage);
     final int emptyLinesOnLastPage = maxLinesPerPage - lastPageLines;
 
     // Estimation de l'espace nécessaire en nombre de lignes équivalentes
@@ -4313,9 +4461,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
                     // Header section with company and document info
                     pw.Container(
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.black, width: 1),
-                      ),
+                      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                       padding: pw.EdgeInsets.all(pdfPadding / 2),
                       child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -4327,8 +4473,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               children: [
                                 pw.Text(
                                   'SOCIÉTÉ:',
-                                  style:
-                                      pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
+                                  style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: pdfFontSize - 1,
+                                  ),
                                 ),
                                 pw.Text(
                                   _societe?.rsoc ?? 'SOCIÉTÉ',
@@ -4340,10 +4488,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                   ),
                                 if (_societe?.adr != null)
-                                  pw.Text(
-                                    _societe!.adr!,
-                                    style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                  ),
+                                  pw.Text(_societe!.adr!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
                               ],
                             ),
                           ),
@@ -4369,9 +4514,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
                     // Articles table
                     pw.Container(
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.black, width: 0.5),
-                      ),
+                      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 0.5)),
                       child: pw.Column(
                         children: [
                           // Table header
@@ -4431,17 +4574,20 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     _buildPdfTableCell(ligne['designation'] ?? '', pdfFontSize),
                                     _buildPdfTableCell(ligne['depot'] ?? '', isAmount: true, pdfFontSize),
                                     _buildPdfTableCell(
-                                        AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
-                                        pdfFontSize),
+                                      AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                      pdfFontSize,
+                                    ),
                                     _buildPdfTableCell(ligne['unites'] ?? '', pdfFontSize),
                                     _buildPdfTableCell(
-                                        AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
-                                        isAmount: true,
-                                        pdfFontSize),
+                                      AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                      isAmount: true,
+                                      pdfFontSize,
+                                    ),
                                     _buildPdfTableCell(
-                                        AppFunctions.formatNumber(ligne['montant']?.toDouble() ?? 0),
-                                        pdfFontSize,
-                                        isAmount: true),
+                                      AppFunctions.formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                      pdfFontSize,
+                                      isAmount: true,
+                                    ),
                                   ],
                                 );
                               }),
@@ -4509,9 +4655,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
                     // Header section with company and document info
                     pw.Container(
-                      decoration: pw.BoxDecoration(
-                        border: pw.Border.all(color: PdfColors.black, width: 1),
-                      ),
+                      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                       padding: pw.EdgeInsets.all(pdfPadding / 2),
                       child: pw.Row(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -4523,8 +4667,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               children: [
                                 pw.Text(
                                   'SOCIÉTÉ:',
-                                  style:
-                                      pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
+                                  style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: pdfFontSize - 1,
+                                  ),
                                 ),
                                 pw.Text(
                                   _societe?.rsoc ?? 'SOCIÉTÉ',
@@ -4536,10 +4682,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                   ),
                                 if (_societe?.adr != null)
-                                  pw.Text(
-                                    _societe!.adr!,
-                                    style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                  ),
+                                  pw.Text(_societe!.adr!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
                               ],
                             ),
                           ),
@@ -4583,9 +4726,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   pw.Widget _buildTotalsSection(double pdfFontSize, double pdfPadding) {
     return pw.Container(
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.black, width: 1),
-      ),
+      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
       padding: pw.EdgeInsets.all(pdfPadding / 2),
       child: pw.Column(
         children: [
@@ -4600,11 +4741,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                       border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
                     ),
                     child: _buildPdfTotalRow(
-                        'TOTAL TTC:',
-                        AppFunctions.formatNumber(
-                            double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0),
-                        pdfFontSize,
-                        isBold: true),
+                      'TOTAL TTC:',
+                      AppFunctions.formatNumber(
+                        double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
+                      ),
+                      pdfFontSize,
+                      isBold: true,
+                    ),
                   ),
                 ],
               ),
@@ -4614,16 +4757,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           pw.Container(
             width: double.infinity,
             padding: pw.EdgeInsets.all(pdfPadding / 2),
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: PdfColors.black, width: 0.5),
-            ),
+            decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 0.5)),
             alignment: pw.Alignment.center,
             child: pw.Text(
               'Arrêté à la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
-              style: pw.TextStyle(
-                fontSize: pdfFontSize - 1,
-                fontWeight: pw.FontWeight.bold,
-              ),
+              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
             ),
           ),
           pw.SizedBox(height: pdfPadding / 2),
@@ -4633,10 +4771,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 'Mode de paiement: ',
                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
               ),
-              pw.Text(
-                _selectedModePaiement ?? "",
-                style: pw.TextStyle(fontSize: pdfFontSize - 1),
-              ),
+              pw.Text(_selectedModePaiement ?? "", style: pw.TextStyle(fontSize: pdfFontSize - 1)),
             ],
           ),
         ],
@@ -4646,9 +4781,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   pw.Widget _buildSignaturesSection(double pdfFontSize, double pdfPadding) {
     return pw.Container(
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.black, width: 1),
-      ),
+      decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
       padding: pw.EdgeInsets.all(pdfPadding),
       child: pw.Row(
         children: [
@@ -4657,10 +4790,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               children: [
                 pw.Text(
                   'FOURNISSEUR',
-                  style: pw.TextStyle(
-                    fontSize: pdfFontSize,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+                  style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                 ),
                 pw.SizedBox(height: pdfPadding * 2),
                 pw.Container(
@@ -4669,27 +4799,17 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   margin: const pw.EdgeInsets.symmetric(horizontal: 20),
                 ),
                 pw.SizedBox(height: pdfPadding / 2),
-                pw.Text(
-                  'Nom et signature',
-                  style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                ),
+                pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
               ],
             ),
           ),
-          pw.Container(
-            width: 1,
-            height: 60,
-            color: PdfColors.black,
-          ),
+          pw.Container(width: 1, height: 60, color: PdfColors.black),
           pw.Expanded(
             child: pw.Column(
               children: [
                 pw.Text(
                   'RÉCEPTIONNAIRE',
-                  style: pw.TextStyle(
-                    fontSize: pdfFontSize,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
+                  style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                 ),
                 pw.SizedBox(height: pdfPadding * 2),
                 pw.Container(
@@ -4698,10 +4818,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   margin: const pw.EdgeInsets.symmetric(horizontal: 20),
                 ),
                 pw.SizedBox(height: pdfPadding / 2),
-                pw.Text(
-                  'Nom et signature',
-                  style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                ),
+                pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
               ],
             ),
           ),
@@ -4710,11 +4827,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     );
   }
 
-  pw.Widget _buildPdfTableCell(String text, double fontSize,
-      {bool isHeader = false, bool isAmount = false, bool isPu = false}) {
+  pw.Widget _buildPdfTableCell(
+    String text,
+    double fontSize, {
+    bool isHeader = false,
+    bool isAmount = false,
+    bool isPu = false,
+  }) {
     return pw.Container(
       padding: pw.EdgeInsets.symmetric(
-          horizontal: _selectedFormat == 'A6' ? 3 : 5, vertical: _selectedFormat == 'A6' ? 2 : 5),
+        horizontal: _selectedFormat == 'A6' ? 3 : 5,
+        vertical: _selectedFormat == 'A6' ? 2 : 5,
+      ),
       child: pw.Text(
         text,
         style: pw.TextStyle(
@@ -4724,10 +4848,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         textAlign: isHeader
             ? pw.TextAlign.center
             : (isAmount || RegExp(r'^\d+$').hasMatch(text)
-                ? pw.TextAlign.right
-                : isPu
-                    ? pw.TextAlign.right
-                    : pw.TextAlign.left),
+                  ? pw.TextAlign.right
+                  : isPu
+                  ? pw.TextAlign.right
+                  : pw.TextAlign.left),
       ),
     );
   }
@@ -4735,10 +4859,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   pw.Widget _buildPdfInfoRow(String label, String value, double fontSize) {
     return pw.Text(
       "$label $value",
-      style: pw.TextStyle(
-        fontSize: fontSize - 1,
-        fontWeight: pw.FontWeight.normal,
-      ),
+      style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.normal),
     );
   }
 
@@ -4757,10 +4878,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           pw.SizedBox(width: 15),
           pw.Text(
             value,
-            style: pw.TextStyle(
-              fontSize: fontSize - 1,
-              fontWeight: pw.FontWeight.bold,
-            ),
+            style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.bold),
           ),
         ],
       ),

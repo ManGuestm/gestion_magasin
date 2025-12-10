@@ -245,10 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final modal = await ModalLoader.loadModal(item);
       if (modal != null && mounted) {
-        await showDialog(
-          context: context,
-          builder: (context) => modal,
-        );
+        await showDialog(context: context, builder: (context) => modal);
 
         // Reprendre les mises à jour après fermeture
         _resumeUpdates();
@@ -272,12 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) => AlertDialog(
         title: const Text('Accès refusé'),
         content: Text('Vous n\'avez pas les permissions nécessaires pour accéder à "$item".'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('OK'))],
       ),
     );
   }
@@ -356,10 +348,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: _logout,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red[600],
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                decoration: BoxDecoration(color: Colors.red[600], borderRadius: BorderRadius.circular(2)),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -386,10 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
         title: const Text('Déconnexion'),
         content: const Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () {
               AuthService().logout();
@@ -455,17 +441,13 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       _pauseUpdates();
       Navigator.of(context)
-          .push(
-            MaterialPageRoute(builder: (context) => const GestionUtilisateursScreen()),
-          )
+          .push(MaterialPageRoute(builder: (context) => const GestionUtilisateursScreen()))
           .then((_) => _resumeUpdates());
     } else if (item == 'Profil') {
       _pauseUpdates();
-      Navigator.of(context)
-          .push(
-            MaterialPageRoute(builder: (context) => const ProfilScreen()),
-          )
-          .then((_) => _resumeUpdates());
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const ProfilScreen())).then((_) => _resumeUpdates());
     } else {
       _showModal(item);
     }
@@ -687,25 +669,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 2,
-                  child: SingleChildScrollView(child: _buildStatsGrid(userRole)),
-                ),
+                Expanded(flex: 2, child: SingleChildScrollView(child: _buildStatsGrid(userRole))),
                 const SizedBox(width: 16),
                 if (userRole != 'Vendeur')
                   Expanded(
                     flex: 1,
                     child: Column(
                       children: [
-                        Expanded(
-                          flex: 1,
-                          child: _buildRecentSales(),
-                        ),
+                        Expanded(flex: 1, child: _buildRecentSales()),
                         const SizedBox(height: 16),
-                        Expanded(
-                          flex: 1,
-                          child: _buildRecentPurchases(),
-                        ),
+                        Expanded(flex: 1, child: _buildRecentPurchases()),
                       ],
                     ),
                   ),
@@ -760,33 +733,77 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return [
-      _buildStatCard('Valeur Total Stock', '${_formatNumber(_stats['totalStock'] ?? 0)} Ar', Icons.inventory,
-          Colors.blue),
-      _buildStatCard('Total Achats', '${_formatNumber(_stats['totalAchats'] ?? 0)} Ar', Icons.shopping_cart,
-          Colors.green),
-      _buildStatCard('Total Ventes', '${_formatNumber(_stats['totalVentes'] ?? 0)} Ar', Icons.point_of_sale,
-          Colors.orange),
       _buildStatCard(
-          'Recettes du Jour', '${_formatNumber(_stats['ventesJour'] ?? 0)} Ar', Icons.today, Colors.purple),
+        'Valeur Total Stock',
+        '${_formatNumber(_stats['totalStock'] ?? 0)} Ar',
+        Icons.inventory,
+        Colors.blue,
+      ),
+      _buildStatCard(
+        'Total Achats',
+        '${_formatNumber(_stats['totalAchats'] ?? 0)} Ar',
+        Icons.shopping_cart,
+        Colors.green,
+      ),
+      _buildStatCard(
+        'Total Ventes',
+        '${_formatNumber(_stats['totalVentes'] ?? 0)} Ar',
+        Icons.point_of_sale,
+        Colors.orange,
+      ),
+      _buildStatCard(
+        'Recettes du Jour',
+        '${_formatNumber(_stats['ventesJour'] ?? 0)} Ar',
+        Icons.today,
+        Colors.purple,
+      ),
       _buildStatCard('Clients Actifs', '${_stats['clients'] ?? 0}', Icons.people, Colors.teal),
       _buildStatCard('Articles', '${_stats['articles'] ?? 0}', Icons.category, Colors.indigo),
       _buildStatCard('Fournisseurs', '${_stats['fournisseurs'] ?? 0}', Icons.business, Colors.brown),
-      _buildStatCard('Comptes fournisseurs', '${_formatNumber(_stats['cmpt_fournisseurs'] ?? 0)} Ar',
-          Icons.account_balance, Colors.cyan),
       _buildStatCard(
-          'Bénéfices global', '${_formatNumber(_stats['benefices'] ?? 0)} Ar', Icons.trending_up, Colors.red),
-      _buildStatCard('Bénéfice du jour', '${_formatNumber(_stats['beneficesJour'] ?? 0)} Ar',
-          Icons.today_outlined, Colors.deepOrange),
+        'Comptes fournisseurs',
+        '${_formatNumber(_stats['cmpt_fournisseurs'] ?? 0)} Ar',
+        Icons.account_balance,
+        Colors.cyan,
+      ),
+      _buildStatCard(
+        'Bénéfices global',
+        '${_formatNumber(_stats['benefices'] ?? 0)} Ar',
+        Icons.trending_up,
+        Colors.red,
+      ),
+      _buildStatCard(
+        'Bénéfice du jour',
+        '${_formatNumber(_stats['beneficesJour'] ?? 0)} Ar',
+        Icons.today_outlined,
+        Colors.deepOrange,
+      ),
       if ((_stats['ventesBrouillard'] ?? 0) > 0)
         _buildStatCard(
-            'Ventes en attente', '${_stats['ventesBrouillard'] ?? 0}', Icons.pending_actions, Colors.orange),
+          'Ventes en attente',
+          '${_stats['ventesBrouillard'] ?? 0}',
+          Icons.pending_actions,
+          Colors.orange,
+        ),
       _buildStatCard('Retour Ventes', '${(_stats['retourVentes'] ?? 0).toInt()}', Icons.undo, Colors.red),
       _buildStatCard(
-          'Retour Achats', '${(_stats['retourAchats'] ?? 0).toInt()}', Icons.keyboard_return, Colors.orange),
-      _buildStatCard('Journal Caisse', '${_formatNumber(_stats['journalCaisse'] ?? 0)} Ar',
-          Icons.account_balance_wallet, Colors.green),
-      _buildStatCard('Journal Banque', '${_formatNumber(_stats['journalBanque'] ?? 0)} Ar',
-          Icons.account_balance, Colors.blue),
+        'Retour Achats',
+        '${(_stats['retourAchats'] ?? 0).toInt()}',
+        Icons.keyboard_return,
+        Colors.orange,
+      ),
+      _buildStatCard(
+        'Journal Caisse',
+        '${_formatNumber(_stats['journalCaisse'] ?? 0)} Ar',
+        Icons.account_balance_wallet,
+        Colors.green,
+      ),
+      _buildStatCard(
+        'Journal Banque',
+        '${_formatNumber(_stats['journalBanque'] ?? 0)} Ar',
+        Icons.account_balance,
+        Colors.blue,
+      ),
     ];
   }
 
@@ -796,18 +813,34 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return [
-      _buildStatCard('Total Ventes', '${_formatNumber(_stats['totalVentes'] ?? 0)} Ar', Icons.point_of_sale,
-          Colors.orange),
       _buildStatCard(
-          'Ventes Jour', '${_formatNumber(_stats['ventesJour'] ?? 0)} Ar', Icons.today, Colors.purple),
-      _buildStatCard('Encaissements', '${_formatNumber(_stats['encaissements'] ?? 0)} Ar',
-          Icons.account_balance_wallet, Colors.green),
+        'Total Ventes',
+        '${_formatNumber(_stats['totalVentes'] ?? 0)} Ar',
+        Icons.point_of_sale,
+        Colors.orange,
+      ),
+      _buildStatCard(
+        'Ventes Jour',
+        '${_formatNumber(_stats['ventesJour'] ?? 0)} Ar',
+        Icons.today,
+        Colors.purple,
+      ),
+      _buildStatCard(
+        'Encaissements',
+        '${_formatNumber(_stats['encaissements'] ?? 0)} Ar',
+        Icons.account_balance_wallet,
+        Colors.green,
+      ),
       _buildStatCard('Clients', '${_stats['clients'] ?? 0}', Icons.people, Colors.teal),
       _buildStatCard('Articles Stock', '${_stats['articles'] ?? 0}', Icons.inventory, Colors.blue),
       _buildStatCard('Transactions', '${_stats['transactions'] ?? 0}', Icons.receipt, Colors.indigo),
       if ((_stats['ventesBrouillard'] ?? 0) > 0)
         _buildStatCard(
-            'Ventes en attente', '${_stats['ventesBrouillard'] ?? 0}', Icons.pending_actions, Colors.orange),
+          'Ventes en attente',
+          '${_stats['ventesBrouillard'] ?? 0}',
+          Icons.pending_actions,
+          Colors.orange,
+        ),
     ];
   }
 
@@ -818,14 +851,26 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return [
       _buildStatCard(
-          'Mes Ventes Jour', '${_formatNumber(_stats['mesVentesJour'] ?? 0)} Ar', Icons.today, Colors.purple),
-      _buildStatCard('Mes Ventes Mois', '${_formatNumber(_stats['mesVentesMois'] ?? 0)} Ar',
-          Icons.calendar_month, Colors.orange),
+        'Mes Ventes Jour',
+        '${_formatNumber(_stats['mesVentesJour'] ?? 0)} Ar',
+        Icons.today,
+        Colors.purple,
+      ),
+      _buildStatCard(
+        'Mes Ventes Mois',
+        '${_formatNumber(_stats['mesVentesMois'] ?? 0)} Ar',
+        Icons.calendar_month,
+        Colors.orange,
+      ),
       _buildStatCard('Mes Clients', '${_stats['mesClients'] ?? 0}', Icons.people, Colors.teal),
       _buildStatCard('Articles Dispo', '${_stats['articles'] ?? 0}', Icons.inventory, Colors.blue),
       if ((_stats['mesVentesBrouillard'] ?? 0) > 0)
-        _buildStatCard('Mes Ventes en attente', '${_stats['mesVentesBrouillard'] ?? 0}',
-            Icons.pending_actions, Colors.orange),
+        _buildStatCard(
+          'Mes Ventes en attente',
+          '${_stats['mesVentesBrouillard'] ?? 0}',
+          Icons.pending_actions,
+          Colors.orange,
+        ),
       // _buildStatCard('Objectif Mois', '${_stats['objectif'] ?? 0}%', Icons.track_changes, Colors.green),
       // _buildStatCard('Commission', '${_formatNumber(_stats['commission'] ?? 0)} Ar', Icons.monetization_on,
       //     Colors.amber),
@@ -906,21 +951,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Container(
                     width: 8,
                     height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.blue,
-                      shape: BoxShape.circle,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
                   ),
                 ),
               if (title.contains('Ventes') && !_isLoadingStats)
                 Positioned(
                   bottom: 8,
                   right: 8,
-                  child: Icon(
-                    Icons.trending_up,
-                    size: 16,
-                    color: Colors.green.withValues(alpha: 0.6),
-                  ),
+                  child: Icon(Icons.trending_up, size: 16, color: Colors.green.withValues(alpha: 0.6)),
                 ),
             ],
           ),
@@ -931,10 +969,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showVentesJourModal() {
     _pauseUpdates();
-    showDialog(
-      context: context,
-      builder: (context) => const VentesJourModal(),
-    ).then((_) => _resumeUpdates());
+    showDialog(context: context, builder: (context) => const VentesJourModal()).then((_) => _resumeUpdates());
   }
 
   void _handleBrouillardClick(String userRole) {
@@ -1070,16 +1105,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildRecentSales() {
     return Container(
-      padding: EdgeInsets.fromLTRB(0, 0, 0, 4),
+      padding: const EdgeInsets.fromLTRB(0, 0, 0, 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1098,10 +1129,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(Icons.history, color: Colors.blue[700]),
                 const SizedBox(width: 8),
-                const Text(
-                  'Dernières Ventes',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                const Text('Dernières Ventes', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -1113,7 +1141,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : Expanded(
                   child: SingleChildScrollView(
                     child: ListView.separated(
-                      padding: EdgeInsets.symmetric(vertical: 0, horizontal: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 2),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _recentSales.length,
@@ -1121,18 +1149,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       itemBuilder: (context, index) {
                         final sale = _recentSales[index];
                         return ListTile(
-                          contentPadding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                           onTap: () => _showVenteDetails(sale),
                           leading: CircleAvatar(
                             backgroundColor: Colors.blue[100],
                             child: Text('${index + 1}', style: TextStyle(color: Colors.blue[700])),
                           ),
                           title: Text(
-                              'Vente N°${sale['numventes'] ?? index + 1} | Facture N° ${sale['nfact']}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            'Vente N°${sale['numventes'] ?? index + 1} | Facture N° ${sale['nfact']}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
                           subtitle: Text(
-                              'Client: ${sale['client'] ?? 'Client'} - ${_formatDate(sale['date'])} | Vendu par: ${sale['commerc']}',
-                              style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            'Client: ${sale['client'] ?? 'Client'} - ${_formatDate(sale['date'])} | Vendu par: ${sale['commerc']}',
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
                           trailing: Text(
                             '${_formatNumber(sale['total'] ?? 0)} Ar',
                             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
@@ -1153,11 +1183,7 @@ class _HomeScreenState extends State<HomeScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1176,10 +1202,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(Icons.shopping_cart, color: Colors.green[700]),
                 const SizedBox(width: 8),
-                const Text(
-                  'Derniers Achats',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                const Text('Derniers Achats', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -1191,7 +1214,7 @@ class _HomeScreenState extends State<HomeScreen> {
               : Expanded(
                   child: SingleChildScrollView(
                     child: ListView.separated(
-                      padding: EdgeInsets.symmetric(vertical: 0, horizontal: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 2),
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: _recentBuys.length,
@@ -1199,17 +1222,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       itemBuilder: (context, index) {
                         final buy = _recentBuys[index];
                         return ListTile(
-                          contentPadding: EdgeInsets.symmetric(vertical: 1, horizontal: 4),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 1, horizontal: 4),
                           onTap: () => _showAchatDetails(buy),
                           leading: CircleAvatar(
                             backgroundColor: Colors.green[100],
                             child: Text('${index + 1}', style: TextStyle(color: Colors.green[700])),
                           ),
-                          title: Text('Achat N°${buy['numachats'] ?? index + 1} | BL N° ${buy['nfact']}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          title: Text(
+                            'Achat N°${buy['numachats'] ?? index + 1} | BL N° ${buy['nfact']}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
                           subtitle: Text(
-                              'Fournisseur: ${buy['fournisseur'] ?? 'Fournisseur'} - ${_formatDateOnly(buy['date'])}',
-                              style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            'Fournisseur: ${buy['fournisseur'] ?? 'Fournisseur'} - ${_formatDateOnly(buy['date'])}',
+                            style: const TextStyle(color: Colors.grey, fontSize: 12),
+                          ),
                           trailing: Text(
                             '${_formatNumber(buy['total'] ?? 0)} Ar',
                             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange),
@@ -1226,8 +1252,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBrouillardNotification() {
     final userRole = AuthService().currentUser?.role ?? '';
-    final count =
-        userRole == 'Vendeur' ? (_stats['mesVentesBrouillard'] ?? 0) : (_stats['ventesBrouillard'] ?? 0);
+    final count = userRole == 'Vendeur'
+        ? (_stats['mesVentesBrouillard'] ?? 0)
+        : (_stats['ventesBrouillard'] ?? 0);
     final countMag = _stats['ventesBrouillardMag'] ?? 0;
     final countTousDepots = _stats['ventesBrouillardTousDepots'] ?? 0;
 
@@ -1239,11 +1266,7 @@ class _HomeScreenState extends State<HomeScreen> {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.orange[300]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.orange.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Row(
@@ -1258,21 +1281,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   right: -2,
                   child: Container(
                     padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
+                    decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                     child: Text(
                       count.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -1286,19 +1299,12 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   'Ventes en attente',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange[800],
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.orange[800]),
                 ),
                 if (userRole == 'Vendeur')
                   Text(
                     '$count vente${count > 1 ? 's' : ''} en brouillard à valider',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.orange[700],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.orange[700]),
                   )
                 else
                   Column(
@@ -1307,26 +1313,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       if (countMag > 0)
                         Text(
                           '• $countMag vente${countMag > 1 ? 's' : ''} MAG',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.orange[700],
-                          ),
+                          style: TextStyle(fontSize: 11, color: Colors.orange[700]),
                         ),
                       if (countTousDepots > 0)
                         Text(
                           '• $countTousDepots vente${countTousDepots > 1 ? 's' : ''} Tous dépôts',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.orange[700],
-                          ),
+                          style: TextStyle(fontSize: 11, color: Colors.orange[700]),
                         ),
                       if (countMag == 0 && countTousDepots == 0)
                         Text(
                           '$count vente${count > 1 ? 's' : ''} en brouillard à valider',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.orange[700],
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.orange[700]),
                         ),
                     ],
                   ),
@@ -1354,26 +1351,19 @@ class _HomeScreenState extends State<HomeScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.2), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
-      child: const Center(
-        child: CircularProgressIndicator(),
-      ),
+      child: const Center(child: CircularProgressIndicator()),
     );
   }
 
   String _formatNumber(dynamic number) {
     if (number == null) return '0';
     final num = number is String ? double.tryParse(number) ?? 0 : number;
-    return num.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]} ',
-    );
+    return num.toStringAsFixed(
+      0,
+    ).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ');
   }
 
   String _formatDate(dynamic dateValue) {
@@ -1423,8 +1413,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<double> _getRetourVentes() async {
     try {
       final db = DatabaseService().database;
-      final retours =
-          await db.customSelect('SELECT COUNT(*) as count FROM ventes WHERE contre = "1"').getSingleOrNull();
+      final retours = await db
+          .customSelect('SELECT COUNT(*) as count FROM ventes WHERE contre = "1"')
+          .getSingleOrNull();
       return (retours?.read<int>('count') ?? 0).toDouble();
     } catch (e) {
       return 0.0;
@@ -1434,8 +1425,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<double> _getRetourAchats() async {
     try {
       final db = DatabaseService().database;
-      final retours =
-          await db.customSelect('SELECT COUNT(*) as count FROM achats WHERE contre = "1"').getSingleOrNull();
+      final retours = await db
+          .customSelect('SELECT COUNT(*) as count FROM achats WHERE contre = "1"')
+          .getSingleOrNull();
       return (retours?.read<int>('count') ?? 0).toDouble();
     } catch (e) {
       return 0.0;
@@ -1461,8 +1453,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final db = DatabaseService().database;
       // Calculer le solde des comptes banques
-      final solde =
-          await db.customSelect('SELECT COALESCE(SUM(solde), 0) as total FROM banques').getSingleOrNull();
+      final solde = await db
+          .customSelect('SELECT COALESCE(SUM(solde), 0) as total FROM banques')
+          .getSingleOrNull();
       return solde?.read<double>('total') ?? 0.0;
     } catch (e) {
       return 0.0;
@@ -1471,11 +1464,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showVenteDetails(Map<String, dynamic> sale) async {
     final details = await DatabaseService().database.getVenteDetails(sale['numventes']);
-    final venteData = await DatabaseService().database.customSelect(
-        'SELECT * FROM ventes WHERE numventes = ?',
-        variables: [Variable(sale['numventes'])]).getSingleOrNull();
-    final societe =
-        await DatabaseService().database.getAllSoc().then((socs) => socs.isNotEmpty ? socs.first : null);
+    final venteData = await DatabaseService().database
+        .customSelect('SELECT * FROM ventes WHERE numventes = ?', variables: [Variable(sale['numventes'])])
+        .getSingleOrNull();
+    final societe = await DatabaseService().database.getAllSoc().then(
+      (socs) => socs.isNotEmpty ? socs.first : null,
+    );
 
     if (!mounted) return;
 
@@ -1485,10 +1479,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Container(
           width: 600,
           height: MediaQuery.of(context).size.height * 0.9,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-          ),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
           child: Column(
             children: [
               Container(
@@ -1509,10 +1500,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
+                    IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
                   ],
                 ),
               ),
@@ -1533,19 +1521,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           child: const Text(
                             'FACTURE DE VENTE',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              letterSpacing: 2,
-                            ),
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 2),
                           ),
                         ),
                       ),
                       const SizedBox(height: 20),
                       Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                        ),
+                        decoration: BoxDecoration(border: Border.all(color: Colors.black)),
                         padding: const EdgeInsets.all(12),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1591,10 +1573,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   _buildInvoiceInfoRow('CLIENT:', '${sale['client']}'),
                                   _buildInvoiceInfoRow('COMMERCIAL:', '${sale['commerc']}'),
                                   _buildInvoiceInfoRow(
-                                      'MODE PAIEMENT:',
-                                      details.isNotEmpty
-                                          ? '${details[0]['modepai'] ?? 'Non spécifié'}'
-                                          : 'Non spécifié'),
+                                    'MODE PAIEMENT:',
+                                    details.isNotEmpty
+                                        ? '${details[0]['modepai'] ?? 'Non spécifié'}'
+                                        : 'Non spécifié',
+                                  ),
                                 ],
                               ),
                             ),
@@ -1603,9 +1586,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 20),
                       Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black),
-                        ),
+                        decoration: BoxDecoration(border: Border.all(color: Colors.black)),
                         child: Column(
                           children: [
                             Container(
@@ -1677,9 +1658,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 20),
               Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black),
-                ),
+                decoration: BoxDecoration(border: Border.all(color: Colors.black)),
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: [
@@ -1690,11 +1669,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             _buildInvoiceTotalRow(
-                                'Remise:', '${_formatNumber(venteData?.read<double>('remise') ?? 0)} %',
-                                isBold: true),
+                              'Remise:',
+                              '${_formatNumber(venteData?.read<double>('remise') ?? 0)} %',
+                              isBold: true,
+                            ),
                             _buildInvoiceTotalRow(
-                                'TOTAL TTC:', '${_formatNumber(venteData?.read<double>('totalttc') ?? 0)} Ar',
-                                isBold: true),
+                              'TOTAL TTC:',
+                              '${_formatNumber(venteData?.read<double>('totalttc') ?? 0)} Ar',
+                              isBold: true,
+                            ),
                           ],
                         ),
                       ],
@@ -1703,16 +1686,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black, width: 0.5),
-                      ),
+                      decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 0.5)),
                       alignment: Alignment.center,
                       child: Text(
                         'Arrêté à la somme de ${AppFunctions.numberToWords((venteData?.read<double>('totalttc') ?? 0).toInt())} Ariary',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -1727,12 +1705,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _showAchatDetails(Map<String, dynamic> achat) async {
     final details = await DatabaseService().database.getAchatDetails(achat['numachats']);
-    final achatData = await DatabaseService().database.customSelect(
-        'SELECT * FROM achats WHERE numachats = ?',
-        variables: [Variable(achat['numachats'])]).getSingleOrNull();
+    final achatData = await DatabaseService().database
+        .customSelect('SELECT * FROM achats WHERE numachats = ?', variables: [Variable(achat['numachats'])])
+        .getSingleOrNull();
 
-    final societe =
-        await DatabaseService().database.getAllSoc().then((socs) => socs.isNotEmpty ? socs.first : null);
+    final societe = await DatabaseService().database.getAllSoc().then(
+      (socs) => socs.isNotEmpty ? socs.first : null,
+    );
 
     if (!mounted) return;
 
@@ -1742,10 +1721,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Container(
           width: 600,
           height: MediaQuery.of(context).size.height * 0.9,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-          ),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
           child: Column(
             children: [
               Container(
@@ -1766,10 +1742,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
+                    IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
                   ],
                 ),
               ),
@@ -1791,19 +1764,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             child: const Text(
                               'BON DE LIVRAISON',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                letterSpacing: 2,
-                              ),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 2),
                             ),
                           ),
                         ),
                         const SizedBox(height: 20),
                         Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black),
-                          ),
+                          decoration: BoxDecoration(border: Border.all(color: Colors.black)),
                           padding: const EdgeInsets.all(12),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1855,9 +1822,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 20),
                         Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black),
-                          ),
+                          decoration: BoxDecoration(border: Border.all(color: Colors.black)),
                           child: Column(
                             children: [
                               Container(
@@ -1903,23 +1868,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                   5: FlexColumnWidth(1.5),
                                 },
                                 children: [
-                                  ...details.asMap().entries.map(
-                                    (entry) {
-                                      final index = entry.key + 1;
-                                      final item = entry.value;
-                                      final montant = (item['q'] ?? 0) * (item['pu'] ?? 0);
-                                      return TableRow(
-                                        children: [
-                                          _buildInvoiceTableCell(index.toString()),
-                                          _buildInvoiceTableCell(item['designation'] ?? ''),
-                                          _buildInvoiceTableCell('${item['q'] ?? 0}'),
-                                          _buildInvoiceTableCell(item['unites'] ?? ''),
-                                          _buildInvoiceTableCell(_formatNumber(item['pu'] ?? 0)),
-                                          _buildInvoiceTableCell(_formatNumber(montant), isAmount: true),
-                                        ],
-                                      );
-                                    },
-                                  ),
+                                  ...details.asMap().entries.map((entry) {
+                                    final index = entry.key + 1;
+                                    final item = entry.value;
+                                    final montant = (item['q'] ?? 0) * (item['pu'] ?? 0);
+                                    return TableRow(
+                                      children: [
+                                        _buildInvoiceTableCell(index.toString()),
+                                        _buildInvoiceTableCell(item['designation'] ?? ''),
+                                        _buildInvoiceTableCell('${item['q'] ?? 0}'),
+                                        _buildInvoiceTableCell(item['unites'] ?? ''),
+                                        _buildInvoiceTableCell(_formatNumber(item['pu'] ?? 0)),
+                                        _buildInvoiceTableCell(_formatNumber(montant), isAmount: true),
+                                      ],
+                                    );
+                                  }),
                                 ],
                               ),
                             ],
@@ -1932,11 +1895,9 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 20),
               Container(
-                margin: EdgeInsets.all(8.0),
+                margin: const EdgeInsets.all(8.0),
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black),
-                ),
+                decoration: BoxDecoration(border: Border.all(color: Colors.black)),
                 child: Column(
                   children: [
                     Row(
@@ -1946,8 +1907,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             _buildInvoiceTotalRow(
-                                'TOTAL TTC:', '${_formatNumber(achatData?.read<double>('totalttc') ?? 0)} Ar',
-                                isBold: true),
+                              'TOTAL TTC:',
+                              '${_formatNumber(achatData?.read<double>('totalttc') ?? 0)} Ar',
+                              isBold: true,
+                            ),
                           ],
                         ),
                       ],
@@ -1956,16 +1919,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black, width: 0.5),
-                      ),
+                      decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 0.5)),
                       alignment: Alignment.center,
                       child: Text(
                         'Arrêté à la somme de ${AppFunctions.numberToWords((achatData?.read<double>('totalttc') ?? 0).toInt())} Ariary',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -2066,10 +2024,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             width: 6,
             height: 6,
-            decoration: const BoxDecoration(
-              color: Colors.blue,
-              shape: BoxShape.circle,
-            ),
+            decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
         ],
@@ -2094,22 +2049,10 @@ Widget _buildInvoiceInfoRow(String label, String value) {
       children: [
         SizedBox(
           width: 90,
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          child: Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500)),
         ),
         Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          child: Text(value, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
         ),
       ],
     ),
@@ -2119,17 +2062,10 @@ Widget _buildInvoiceInfoRow(String label, String value) {
 Widget _buildInvoiceTableCell(String text, {bool isHeader = false, bool isAmount = false}) {
   return Container(
     padding: const EdgeInsets.all(6),
-    decoration: isHeader
-        ? BoxDecoration(
-            color: Colors.grey[200],
-          )
-        : null,
+    decoration: isHeader ? BoxDecoration(color: Colors.grey[200]) : null,
     child: Text(
       text,
-      style: TextStyle(
-        fontSize: 10,
-        fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
-      ),
+      style: TextStyle(fontSize: 10, fontWeight: isHeader ? FontWeight.bold : FontWeight.normal),
       textAlign: isHeader ? TextAlign.center : (isAmount ? TextAlign.right : TextAlign.left),
       overflow: TextOverflow.ellipsis,
     ),
@@ -2141,21 +2077,9 @@ Widget _buildInvoiceTotalRow(String label, String value, {bool isBold = false}) 
     padding: const EdgeInsets.symmetric(vertical: 2),
     child: Row(
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 11, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
         const SizedBox(width: 20),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
+        Text(value, style: TextStyle(fontSize: 11, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
       ],
     ),
   );

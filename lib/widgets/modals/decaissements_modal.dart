@@ -41,7 +41,7 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
           SnackBar(
             content: SelectableText('Erreur: $e'),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 15),
+            duration: const Duration(seconds: 15),
           ),
         );
       }
@@ -79,16 +79,19 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
     if (result != null) {
       try {
         // Récupérer le dernier solde de caisse
-        final dernierMouvement = await (_databaseService.database.select(_databaseService.database.caisse)
-              ..orderBy([(c) => drift.OrderingTerm.desc(c.daty)])
-              ..limit(1))
-            .getSingleOrNull();
-        
+        final dernierMouvement =
+            await (_databaseService.database.select(_databaseService.database.caisse)
+                  ..orderBy([(c) => drift.OrderingTerm.desc(c.daty)])
+                  ..limit(1))
+                .getSingleOrNull();
+
         final dernierSolde = dernierMouvement?.soldes ?? 0.0;
         final nouveauSolde = dernierSolde - result['montant'];
 
         final nextRef = await _getNextRef();
-        await _databaseService.database.into(_databaseService.database.caisse).insert(
+        await _databaseService.database
+            .into(_databaseService.database.caisse)
+            .insert(
               CaisseCompanion.insert(
                 ref: nextRef,
                 daty: drift.Value(result['daty']),
@@ -102,9 +105,9 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
             );
         _loadDecaissements();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Dépense ajoutée avec succès')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Dépense ajoutée avec succès')));
         }
       } catch (e) {
         if (mounted) {
@@ -112,7 +115,7 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
             SnackBar(
               content: SelectableText('Erreur: $e'),
               backgroundColor: Colors.red,
-              duration: Duration(seconds: 15),
+              duration: const Duration(seconds: 15),
             ),
           );
         }
@@ -136,9 +139,11 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
   }
 
   bool _isDepenseManuelle(CaisseData caisse) {
-    return caisse.type == 'Autre dépense' || caisse.type == 'Achat' || 
-           caisse.type == 'Paiement Fournisseur' || caisse.type == 'Salaire' || 
-           caisse.type == 'Charge';
+    return caisse.type == 'Autre dépense' ||
+        caisse.type == 'Achat' ||
+        caisse.type == 'Paiement Fournisseur' ||
+        caisse.type == 'Salaire' ||
+        caisse.type == 'Charge';
   }
 
   Future<void> _editDepense(CaisseData caisse) async {
@@ -149,25 +154,27 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
 
     if (result != null) {
       try {
-        await (_databaseService.database.update(_databaseService.database.caisse)
-              ..where((c) => c.ref.equals(caisse.ref)))
-            .write(CaisseCompanion(
-              lib: drift.Value(result['libelle']),
-              type: drift.Value(result['type']),
-              debit: drift.Value(result['montant']),
-              daty: drift.Value(result['date']),
-            ));
+        await (_databaseService.database.update(
+          _databaseService.database.caisse,
+        )..where((c) => c.ref.equals(caisse.ref))).write(
+          CaisseCompanion(
+            lib: drift.Value(result['libelle']),
+            type: drift.Value(result['type']),
+            debit: drift.Value(result['montant']),
+            daty: drift.Value(result['date']),
+          ),
+        );
         _loadDecaissements();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Dépense modifiée avec succès')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Dépense modifiée avec succès')));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red));
         }
       }
     }
@@ -178,12 +185,11 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmer la suppression'),
-        content: Text('Êtes-vous sûr de vouloir supprimer cette dépense ?\n\nLibellé: ${caisse.lib}\nMontant: ${AppFunctions.formatNumber(caisse.debit ?? 0)} Ar'),
+        content: Text(
+          'Êtes-vous sûr de vouloir supprimer cette dépense ?\n\nLibellé: ${caisse.lib}\nMontant: ${AppFunctions.formatNumber(caisse.debit ?? 0)} Ar',
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -195,20 +201,20 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
 
     if (confirm == true) {
       try {
-        await (_databaseService.database.delete(_databaseService.database.caisse)
-              ..where((c) => c.ref.equals(caisse.ref)))
-            .go();
+        await (_databaseService.database.delete(
+          _databaseService.database.caisse,
+        )..where((c) => c.ref.equals(caisse.ref))).go();
         _loadDecaissements();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Dépense supprimée avec succès')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Dépense supprimée avec succès')));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red));
         }
       }
     }
@@ -226,10 +232,7 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
           minWidth: MediaQuery.of(context).size.width * 0.6,
           maxWidth: MediaQuery.of(context).size.width * 0.8,
         ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey[100],
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: Colors.grey[100]),
         child: Column(
           children: [
             // En-tête
@@ -251,17 +254,14 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                       ),
-                      Spacer(),
-                      IconButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.close),
-                      ),
+                      const Spacer(),
+                      IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
                     ],
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
-                      Spacer(),
+                      const Spacer(),
                       if (!_isLoading)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -295,229 +295,236 @@ class _DecaissementsModalState extends State<DecaissementsModal> with TabNavigat
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _decaissements.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Aucun décaissement trouvé',
+                            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+                          ),
+                        ],
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        // Table avec bordures
+                        Expanded(
+                          child: Container(
+                            margin: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300, width: 1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                // En-tête du tableau
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.shade100,
+                                    border: Border(bottom: BorderSide(color: Colors.grey.shade300, width: 1)),
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(7),
+                                      topRight: Radius.circular(7),
+                                    ),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'Date',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(
+                                          'Libellé',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'Type',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'Montant',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          textAlign: TextAlign.right,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 1,
+                                        child: Text(
+                                          'Actions',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Lignes du tableau
+                                Expanded(
+                                  child: ListView.builder(
+                                    itemCount: _decaissements.length,
+                                    itemBuilder: (context, index) {
+                                      final decaissement = _decaissements[index];
+                                      final isLast = index == _decaissements.length - 1;
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
+                                          border: isLast
+                                              ? null
+                                              : Border(
+                                                  bottom: BorderSide(color: Colors.grey.shade300, width: 0.5),
+                                                ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              flex: 2,
+                                              child: Text(
+                                                decaissement.daty != null
+                                                    ? DateFormat('dd/MM/yyyy').format(decaissement.daty!)
+                                                    : 'N/A',
+                                                style: const TextStyle(fontSize: 13),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 3,
+                                              child: Text(
+                                                decaissement.lib ?? 'N/A',
+                                                style: const TextStyle(fontSize: 13),
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 2,
+                                              child: Center(
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                                  child: Text(
+                                                    decaissement.type ?? 'N/A',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: _getTypeColor(decaissement.type),
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 2,
+                                              child: Text(
+                                                '${AppFunctions.formatNumber(decaissement.debit ?? 0)} Ar',
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: Colors.red,
+                                                ),
+                                                textAlign: TextAlign.right,
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 1,
+                                              child: _isDepenseManuelle(decaissement)
+                                                  ? Row(
+                                                      mainAxisAlignment: MainAxisAlignment.center,
+                                                      children: [
+                                                        IconButton(
+                                                          onPressed: () => _editDepense(decaissement),
+                                                          icon: const Icon(Icons.edit, size: 16),
+                                                          tooltip: 'Modifier',
+                                                          padding: EdgeInsets.zero,
+                                                          constraints: const BoxConstraints(
+                                                            minWidth: 24,
+                                                            minHeight: 24,
+                                                          ),
+                                                        ),
+                                                        IconButton(
+                                                          onPressed: () => _deleteDepense(decaissement),
+                                                          icon: const Icon(
+                                                            Icons.delete,
+                                                            size: 16,
+                                                            color: Colors.red,
+                                                          ),
+                                                          tooltip: 'Supprimer',
+                                                          padding: EdgeInsets.zero,
+                                                          constraints: const BoxConstraints(
+                                                            minWidth: 24,
+                                                            minHeight: 24,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    )
+                                                  : const SizedBox(),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Total
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            border: Border.all(color: Colors.red.shade300, width: 1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
                             children: [
-                              Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Aucun décaissement trouvé',
-                                style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+                              Icon(Icons.money_off, color: Colors.red.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Text(
+                                  'Total des Décaissements',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade600,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '${AppFunctions.formatNumber(_totalDecaissements)} Ar',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                        )
-                      : Column(
-                          children: [
-                            // Table avec bordures
-                            Expanded(
-                              child: Container(
-                                margin: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300, width: 1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Column(
-                                  children: [
-                                    // En-tête du tableau
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.shade100,
-                                        border: Border(
-                                          bottom: BorderSide(color: Colors.grey.shade300, width: 1),
-                                        ),
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(7),
-                                          topRight: Radius.circular(7),
-                                        ),
-                                      ),
-                                      child: const Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              'Date',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 3,
-                                            child: Text(
-                                              'Libellé',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              'Type',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              'Montant',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                              textAlign: TextAlign.right,
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 1,
-                                            child: Text(
-                                              'Actions',
-                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                              textAlign: TextAlign.center,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    // Lignes du tableau
-                                    Expanded(
-                                      child: ListView.builder(
-                                        itemCount: _decaissements.length,
-                                        itemBuilder: (context, index) {
-                                          final decaissement = _decaissements[index];
-                                          final isLast = index == _decaissements.length - 1;
-                                          return Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
-                                              border: isLast
-                                                  ? null
-                                                  : Border(
-                                                      bottom: BorderSide(
-                                                        color: Colors.grey.shade300,
-                                                        width: 0.5,
-                                                      ),
-                                                    ),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: Text(
-                                                    decaissement.daty != null
-                                                        ? DateFormat('dd/MM/yyyy').format(decaissement.daty!)
-                                                        : 'N/A',
-                                                    style: const TextStyle(fontSize: 13),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  flex: 3,
-                                                  child: Text(
-                                                    decaissement.lib ?? 'N/A',
-                                                    style: const TextStyle(fontSize: 13),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: Center(
-                                                    child: Container(
-                                                      padding: const EdgeInsets.symmetric(
-                                                          horizontal: 8, vertical: 4),
-                                                      child: Text(
-                                                        decaissement.type ?? 'N/A',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: _getTypeColor(decaissement.type),
-                                                          fontWeight: FontWeight.w500,
-                                                        ),
-                                                        textAlign: TextAlign.center,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  flex: 2,
-                                                  child: Text(
-                                                    '${AppFunctions.formatNumber(decaissement.debit ?? 0)} Ar',
-                                                    style: const TextStyle(
-                                                      fontSize: 13,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: Colors.red,
-                                                    ),
-                                                    textAlign: TextAlign.right,
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  flex: 1,
-                                                  child: _isDepenseManuelle(decaissement)
-                                                      ? Row(
-                                                          mainAxisAlignment: MainAxisAlignment.center,
-                                                          children: [
-                                                            IconButton(
-                                                              onPressed: () => _editDepense(decaissement),
-                                                              icon: const Icon(Icons.edit, size: 16),
-                                                              tooltip: 'Modifier',
-                                                              padding: EdgeInsets.zero,
-                                                              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                                                            ),
-                                                            IconButton(
-                                                              onPressed: () => _deleteDepense(decaissement),
-                                                              icon: const Icon(Icons.delete, size: 16, color: Colors.red),
-                                                              tooltip: 'Supprimer',
-                                                              padding: EdgeInsets.zero,
-                                                              constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                                                            ),
-                                                          ],
-                                                        )
-                                                      : const SizedBox(),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            // Total
-                            Container(
-                              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade50,
-                                border: Border.all(color: Colors.red.shade300, width: 1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.money_off, color: Colors.red.shade700, size: 20),
-                                  const SizedBox(width: 8),
-                                  const Expanded(
-                                    child: Text(
-                                      'Total des Décaissements',
-                                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red.shade600,
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      '${AppFunctions.formatNumber(_totalDecaissements)} Ar',
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
                         ),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -540,13 +547,7 @@ class _EditDepenseDialogState extends State<_EditDepenseDialog> {
   late DateTime _selectedDate;
   late String _selectedType;
 
-  final List<String> _types = [
-    'Autre dépense',
-    'Achat',
-    'Paiement Fournisseur',
-    'Salaire',
-    'Charge',
-  ];
+  final List<String> _types = ['Autre dépense', 'Achat', 'Paiement Fournisseur', 'Salaire', 'Charge'];
 
   @override
   void initState() {
@@ -568,18 +569,12 @@ class _EditDepenseDialogState extends State<_EditDepenseDialog> {
           children: [
             TextField(
               controller: _libelleController,
-              decoration: const InputDecoration(
-                labelText: 'Libellé',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Libellé', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _selectedType,
-              decoration: const InputDecoration(
-                labelText: 'Type',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
               items: _types.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
               onChanged: (value) => setState(() => _selectedType = value!),
             ),
@@ -605,10 +600,7 @@ class _EditDepenseDialogState extends State<_EditDepenseDialog> {
                 if (date != null) setState(() => _selectedDate = date);
               },
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Date',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Date', border: OutlineInputBorder()),
                 child: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
               ),
             ),
@@ -616,10 +608,7 @@ class _EditDepenseDialogState extends State<_EditDepenseDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
         ElevatedButton(
           onPressed: () {
             if (_libelleController.text.isNotEmpty && _montantController.text.isNotEmpty) {
@@ -649,13 +638,7 @@ class _AjouterDepenseDialogState extends State<_AjouterDepenseDialog> {
   DateTime _selectedDate = DateTime.now();
   String _selectedType = 'Paiement Fournisseur';
 
-  final List<String> _types = [
-    'Autre dépense',
-    'Achat',
-    'Paiement Fournisseur',
-    'Salaire',
-    'Charge',
-  ];
+  final List<String> _types = ['Autre dépense', 'Achat', 'Paiement Fournisseur', 'Salaire', 'Charge'];
 
   @override
   Widget build(BuildContext context) {
@@ -668,18 +651,12 @@ class _AjouterDepenseDialogState extends State<_AjouterDepenseDialog> {
           children: [
             TextField(
               controller: _libelleController,
-              decoration: const InputDecoration(
-                labelText: 'Libellé',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Libellé', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _selectedType,
-              decoration: const InputDecoration(
-                labelText: 'Type',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: 'Type', border: OutlineInputBorder()),
               items: _types.map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
               onChanged: (value) => setState(() => _selectedType = value!),
             ),
@@ -705,10 +682,7 @@ class _AjouterDepenseDialogState extends State<_AjouterDepenseDialog> {
                 if (date != null) setState(() => _selectedDate = date);
               },
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Date',
-                  border: OutlineInputBorder(),
-                ),
+                decoration: const InputDecoration(labelText: 'Date', border: OutlineInputBorder()),
                 child: Text(DateFormat('dd/MM/yyyy').format(_selectedDate)),
               ),
             ),
@@ -716,10 +690,7 @@ class _AjouterDepenseDialogState extends State<_AjouterDepenseDialog> {
         ),
       ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Annuler'),
-        ),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
         ElevatedButton(
           onPressed: () {
             if (_libelleController.text.isNotEmpty && _montantController.text.isNotEmpty) {

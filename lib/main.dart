@@ -5,6 +5,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/splash_screen.dart';
 import 'services/modal_loader.dart';
 import 'services/navigation_service.dart';
+import 'services/network_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,9 @@ Future<void> _initializeApp() async {
     DeviceOrientation.landscapeRight,
     DeviceOrientation.portraitUp,
   ]);
+
+  // Initialiser le gestionnaire réseau
+  await NetworkManager.instance.initialize();
 
   // Pré-chargement des modals fréquents
   ModalLoader.preloadFrequentModals();
@@ -41,10 +45,7 @@ class MyApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('fr', 'FR'),
-        Locale('en', 'US'),
-      ],
+      supportedLocales: const [Locale('fr', 'FR'), Locale('en', 'US')],
     );
   }
 
@@ -56,9 +57,7 @@ class MyApp extends StatelessWidget {
       // Optimisations de performance
       splashFactory: InkRipple.splashFactory,
       // Fix SnackBar configuration
-      snackBarTheme: const SnackBarThemeData(
-        behavior: SnackBarBehavior.floating,
-      ),
+      snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
     );
   }
 }

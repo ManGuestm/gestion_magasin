@@ -37,20 +37,32 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
   }
 
   Future<void> _saveConfiguration() async {
-    await NetworkConfigService.saveConfig(
-      mode: _selectedMode,
-      serverIp: _selectedMode == NetworkMode.client ? _serverIpController.text : null,
-      port: _selectedMode == NetworkMode.client ? _portController.text : null,
-    );
-
-    if (mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Configuration réseau sauvegardée'),
-          backgroundColor: Colors.green,
-        ),
+    try {
+      await NetworkConfigService.saveConfig(
+        mode: _selectedMode,
+        serverIp: _selectedMode == NetworkMode.client ? _serverIpController.text : null,
+        port: _selectedMode == NetworkMode.client ? _portController.text : null,
       );
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Configuration sauvegardée. Redémarrez l\'application pour appliquer les changements.'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

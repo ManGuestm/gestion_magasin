@@ -21,7 +21,9 @@ class AchatService {
   }) async {
     await _databaseService.database.transaction(() async {
       // 1. Insérer l'achat principal
-      await _databaseService.database.into(_databaseService.database.achats).insert(
+      await _databaseService.database
+          .into(_databaseService.database.achats)
+          .insert(
             AchatsCompanion.insert(
               numachats: Value(numAchats),
               nfact: Value(nFacture),
@@ -36,7 +38,9 @@ class AchatService {
 
       // 2. Insérer les détails sans affecter les stocks
       for (final ligne in lignesAchat) {
-        await _databaseService.database.into(_databaseService.database.detachats).insert(
+        await _databaseService.database
+            .into(_databaseService.database.detachats)
+            .insert(
               DetachatsCompanion.insert(
                 numachats: Value(numAchats),
                 designation: Value(ligne['designation']),
@@ -76,12 +80,7 @@ class AchatService {
 
       // 2. Traiter chaque ligne d'achat
       for (final ligne in lignesAchat) {
-        await _traiterLigneAchat(
-          numAchats: numAchats,
-          ligne: ligne,
-          date: date,
-          fournisseur: fournisseur,
-        );
+        await _traiterLigneAchat(numAchats: numAchats, ligne: ligne, date: date, fournisseur: fournisseur);
       }
 
       // 3. Ajuster compte fournisseur si crédit
@@ -117,7 +116,9 @@ class AchatService {
     required DateTime? echeance,
     required double totalTTC,
   }) async {
-    await _databaseService.database.into(_databaseService.database.achats).insert(
+    await _databaseService.database
+        .into(_databaseService.database.achats)
+        .insert(
           AchatsCompanion.insert(
             numachats: Value(numAchats),
             nfact: Value(nFacture),
@@ -145,7 +146,9 @@ class AchatService {
     final prixUnitaire = ligne['prixUnitaire'] as double;
 
     // 1. Insérer détail achat
-    await _databaseService.database.into(_databaseService.database.detachats).insert(
+    await _databaseService.database
+        .into(_databaseService.database.detachats)
+        .insert(
           DetachatsCompanion.insert(
             numachats: Value(numAchats),
             designation: Value(designation),
@@ -158,21 +161,16 @@ class AchatService {
         );
 
     // 2. Récupérer l'article
-    final article = await (_databaseService.database.select(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(designation)))
-        .getSingleOrNull();
+    final article = await (_databaseService.database.select(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(designation))).getSingleOrNull();
 
     if (article == null) {
       throw Exception('Article $designation non trouvé');
     }
 
     // 3. Augmenter stocks par dépôt
-    await _augmenterStockDepot(
-      article: article,
-      depot: depot,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _augmenterStockDepot(article: article, depot: depot, unite: unite, quantite: quantite);
 
     // 4. Calculer et mettre à jour le CMUP
     final nouveauCMUP = await _calculerEtMettreAJourCMUP(
@@ -196,18 +194,10 @@ class AchatService {
     );
 
     // 6. Ajuster stock global article
-    await _ajusterStockGlobalArticleAchat(
-      article: article,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _ajusterStockGlobalArticleAchat(article: article, unite: unite, quantite: quantite);
 
     // 7. Mettre à jour fiche stock
-    await _mettreAJourFicheStockAchat(
-      designation: designation,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _mettreAJourFicheStockAchat(designation: designation, unite: unite, quantite: quantite);
   }
 
   /// Augmente le stock dans la table depart
@@ -223,25 +213,29 @@ class AchatService {
       quantiteAchat: quantite,
     );
 
-    final stockActuel = await (_databaseService.database.select(_databaseService.database.depart)
-          ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-        .getSingleOrNull();
+    final stockActuel = await (_databaseService.database.select(
+      _databaseService.database.depart,
+    )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
     if (stockActuel != null) {
       final nouveauStockU1 = (stockActuel.stocksu1 ?? 0) + conversions['u1']!;
       final nouveauStockU2 = (stockActuel.stocksu2 ?? 0) + conversions['u2']!;
       final nouveauStockU3 = (stockActuel.stocksu3 ?? 0) + conversions['u3']!;
 
-      await (_databaseService.database.update(_databaseService.database.depart)
-            ..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot)))
-          .write(DepartCompanion(
-        stocksu1: Value(nouveauStockU1),
-        stocksu2: Value(nouveauStockU2),
-        stocksu3: Value(nouveauStockU3),
-      ));
+      await (_databaseService.database.update(
+        _databaseService.database.depart,
+      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).write(
+        DepartCompanion(
+          stocksu1: Value(nouveauStockU1),
+          stocksu2: Value(nouveauStockU2),
+          stocksu3: Value(nouveauStockU3),
+        ),
+      );
     } else {
       // Créer nouveau stock si n'existe pas
-      await _databaseService.database.into(_databaseService.database.depart).insert(
+      await _databaseService.database
+          .into(_databaseService.database.depart)
+          .insert(
             DepartCompanion.insert(
               designation: article.designation,
               depots: depot,
@@ -273,7 +267,9 @@ class AchatService {
       quantiteAchat: quantite,
     );
 
-    await _databaseService.database.into(_databaseService.database.stocks).insert(
+    await _databaseService.database
+        .into(_databaseService.database.stocks)
+        .insert(
           StocksCompanion.insert(
             ref: ref,
             daty: Value(date),
@@ -312,13 +308,15 @@ class AchatService {
     final nouveauStockU2 = (article.stocksu2 ?? 0) + conversions['u2']!;
     final nouveauStockU3 = (article.stocksu3 ?? 0) + conversions['u3']!;
 
-    await (_databaseService.database.update(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(article.designation)))
-        .write(ArticlesCompanion(
-      stocksu1: Value(nouveauStockU1),
-      stocksu2: Value(nouveauStockU2),
-      stocksu3: Value(nouveauStockU3),
-    ));
+    await (_databaseService.database.update(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(article.designation))).write(
+      ArticlesCompanion(
+        stocksu1: Value(nouveauStockU1),
+        stocksu2: Value(nouveauStockU2),
+        stocksu3: Value(nouveauStockU3),
+      ),
+    );
   }
 
   /// Ajuste le compte fournisseur pour achat à crédit
@@ -333,7 +331,9 @@ class AchatService {
 
     final ref = 'A-${DateTime.now().millisecondsSinceEpoch}';
 
-    await _databaseService.database.into(_databaseService.database.comptefrns).insert(
+    await _databaseService.database
+        .into(_databaseService.database.comptefrns)
+        .insert(
           ComptefrnsCompanion.insert(
             ref: ref,
             daty: Value(date),
@@ -349,18 +349,15 @@ class AchatService {
         );
 
     // Mettre à jour le solde fournisseur
-    final fournisseurData = await (_databaseService.database.select(_databaseService.database.frns)
-          ..where((f) => f.rsoc.equals(fournisseur)))
-        .getSingleOrNull();
+    final fournisseurData = await (_databaseService.database.select(
+      _databaseService.database.frns,
+    )..where((f) => f.rsoc.equals(fournisseur))).getSingleOrNull();
 
     if (fournisseurData != null) {
       final nouveauSolde = (fournisseurData.soldes ?? 0) + montant;
       await (_databaseService.database.update(_databaseService.database.frns)
             ..where((f) => f.rsoc.equals(fournisseur)))
-          .write(FrnsCompanion(
-        soldes: Value(nouveauSolde),
-        datedernop: Value(date),
-      ));
+          .write(FrnsCompanion(soldes: Value(nouveauSolde), datedernop: Value(date)));
     }
   }
 
@@ -375,14 +372,16 @@ class AchatService {
 
     final ref = 'A-${DateTime.now().millisecondsSinceEpoch ~/ 1000}';
 
-    await _databaseService.database.into(_databaseService.database.caisse).insert(
+    await _databaseService.database
+        .into(_databaseService.database.caisse)
+        .insert(
           CaisseCompanion.insert(
             ref: ref,
             daty: Value(date),
             lib: Value('Achat N° $numAchats | Fournisseur: $fournisseur'),
             credit: Value(montant),
             frns: Value(fournisseur ?? ''),
-            type: Value("Règlement Fournisseur"),
+            type: const Value("Règlement Fournisseur"),
             verification: const Value('JOURNAL'),
           ),
         );
@@ -390,25 +389,23 @@ class AchatService {
 
   /// Valide un achat brouillard vers journal
   Future<void> validerAchatBrouillard(String numAchats) async {
-    final achat = await (_databaseService.database.select(_databaseService.database.achats)
-          ..where((a) => a.numachats.equals(numAchats)))
-        .getSingleOrNull();
+    final achat = await (_databaseService.database.select(
+      _databaseService.database.achats,
+    )..where((a) => a.numachats.equals(numAchats))).getSingleOrNull();
 
     if (achat == null) {
       throw Exception('Achat non trouvé');
     }
 
-    final details = await (_databaseService.database.select(_databaseService.database.detachats)
-          ..where((d) => d.numachats.equals(numAchats)))
-        .get();
+    final details = await (_databaseService.database.select(
+      _databaseService.database.detachats,
+    )..where((d) => d.numachats.equals(numAchats))).get();
 
     await _databaseService.database.transaction(() async {
       // Mettre à jour le statut de l'achat
       await (_databaseService.database.update(_databaseService.database.achats)
             ..where((a) => a.numachats.equals(numAchats)))
-          .write(const AchatsCompanion(
-        verification: Value('JOURNAL'),
-      ));
+          .write(const AchatsCompanion(verification: Value('JOURNAL')));
 
       // Traiter chaque ligne pour créer SEULEMENT les mouvements de stock (pas réinsérer detachats)
       for (final detail in details) {
@@ -468,21 +465,16 @@ class AchatService {
     final prixUnitaire = ligne['prixUnitaire'] as double;
 
     // Récupérer l'article
-    final article = await (_databaseService.database.select(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(designation)))
-        .getSingleOrNull();
+    final article = await (_databaseService.database.select(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(designation))).getSingleOrNull();
 
     if (article == null) {
       throw Exception('Article $designation non trouvé');
     }
 
     // Augmenter stocks par dépôt
-    await _augmenterStockDepot(
-      article: article,
-      depot: depot,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _augmenterStockDepot(article: article, depot: depot, unite: unite, quantite: quantite);
 
     // Calculer et mettre à jour le CMUP
     final nouveauCMUP = await _calculerEtMettreAJourCMUP(
@@ -506,18 +498,10 @@ class AchatService {
     );
 
     // Ajuster stock global article
-    await _ajusterStockGlobalArticleAchat(
-      article: article,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _ajusterStockGlobalArticleAchat(article: article, unite: unite, quantite: quantite);
 
     // Mettre à jour fiche stock
-    await _mettreAJourFicheStockAchat(
-      designation: designation,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _mettreAJourFicheStockAchat(designation: designation, unite: unite, quantite: quantite);
   }
 
   /// Calcule et met à jour le CMUP de l'article
@@ -543,23 +527,23 @@ class AchatService {
     required String unite,
     required double quantite,
   }) async {
-    final ficheExiste = await (_databaseService.database.select(_databaseService.database.fstocks)
-          ..where((f) => f.art.equals(designation)))
-        .getSingleOrNull();
+    final ficheExiste = await (_databaseService.database.select(
+      _databaseService.database.fstocks,
+    )..where((f) => f.art.equals(designation))).getSingleOrNull();
 
     if (ficheExiste != null) {
       // Mettre à jour la fiche existante - pour les achats on augmente qe (entrées)
       double nouvelleQe = (ficheExiste.qe ?? 0) + quantite;
 
-      await (_databaseService.database.update(_databaseService.database.fstocks)
-            ..where((f) => f.art.equals(designation)))
-          .write(FstocksCompanion(
-        qe: Value(nouvelleQe),
-      ));
+      await (_databaseService.database.update(
+        _databaseService.database.fstocks,
+      )..where((f) => f.art.equals(designation))).write(FstocksCompanion(qe: Value(nouvelleQe)));
     } else {
       // Créer nouvelle fiche
       final ref = 'FS-${DateTime.now().millisecondsSinceEpoch}';
-      await _databaseService.database.into(_databaseService.database.fstocks).insert(
+      await _databaseService.database
+          .into(_databaseService.database.fstocks)
+          .insert(
             FstocksCompanion.insert(
               ref: ref,
               art: Value(designation),
@@ -576,22 +560,22 @@ class AchatService {
   Future<void> contrePasserAchatBrouillard(String numAchats) async {
     await _databaseService.database.transaction(() async {
       // Supprimer les détails
-      await (_databaseService.database.delete(_databaseService.database.detachats)
-            ..where((d) => d.numachats.equals(numAchats)))
-          .go();
+      await (_databaseService.database.delete(
+        _databaseService.database.detachats,
+      )..where((d) => d.numachats.equals(numAchats))).go();
 
       // Supprimer l'achat principal
-      await (_databaseService.database.delete(_databaseService.database.achats)
-            ..where((a) => a.numachats.equals(numAchats)))
-          .go();
+      await (_databaseService.database.delete(
+        _databaseService.database.achats,
+      )..where((a) => a.numachats.equals(numAchats))).go();
     });
   }
 
   /// Contre-passe un achat journalisé
   Future<void> contrePasserAchatJournal(String numAchats) async {
-    final achat = await (_databaseService.database.select(_databaseService.database.achats)
-          ..where((a) => a.numachats.equals(numAchats)))
-        .getSingleOrNull();
+    final achat = await (_databaseService.database.select(
+      _databaseService.database.achats,
+    )..where((a) => a.numachats.equals(numAchats))).getSingleOrNull();
 
     if (achat == null) throw Exception('Achat non trouvé');
     if (achat.contre == '1') throw Exception('Achat déjà contre-passé');
@@ -600,15 +584,15 @@ class AchatService {
     }
 
     // Récupérer les détails de l'achat pour ajuster les stocks
-    final details = await (_databaseService.database.select(_databaseService.database.detachats)
-          ..where((d) => d.numachats.equals(numAchats)))
-        .get();
+    final details = await (_databaseService.database.select(
+      _databaseService.database.detachats,
+    )..where((d) => d.numachats.equals(numAchats))).get();
 
     await _databaseService.database.transaction(() async {
       // 1. Marquer comme contre-passé
-      await (_databaseService.database.update(_databaseService.database.achats)
-            ..where((a) => a.numachats.equals(numAchats)))
-          .write(const AchatsCompanion(contre: Value('1')));
+      await (_databaseService.database.update(
+        _databaseService.database.achats,
+      )..where((a) => a.numachats.equals(numAchats))).write(const AchatsCompanion(contre: Value('1')));
 
       // 2. Ajuster les stocks pour chaque ligne d'achat (diminuer les stocks)
       for (final detail in details) {
@@ -647,7 +631,9 @@ class AchatService {
       // 4. Ajuster compte fournisseur (sortie pour annuler l'entrée)
       if (achat.frns != null && achat.frns!.isNotEmpty) {
         final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
-        await _databaseService.database.into(_databaseService.database.comptefrns).insert(
+        await _databaseService.database
+            .into(_databaseService.database.comptefrns)
+            .insert(
               ComptefrnsCompanion.insert(
                 ref: ref,
                 daty: Value(DateTime.now()),
@@ -661,23 +647,27 @@ class AchatService {
             );
 
         // Mettre à jour solde fournisseur
-        final fournisseur = await (_databaseService.database.select(_databaseService.database.frns)
-              ..where((f) => f.rsoc.equals(achat.frns!)))
-            .getSingleOrNull();
+        final fournisseur = await (_databaseService.database.select(
+          _databaseService.database.frns,
+        )..where((f) => f.rsoc.equals(achat.frns!))).getSingleOrNull();
         if (fournisseur != null) {
-          await (_databaseService.database.update(_databaseService.database.frns)
-                ..where((f) => f.rsoc.equals(achat.frns!)))
-              .write(FrnsCompanion(
-            soldes: Value((fournisseur.soldes ?? 0) - (achat.totalttc ?? 0)),
-            datedernop: Value(DateTime.now()),
-          ));
+          await (_databaseService.database.update(
+            _databaseService.database.frns,
+          )..where((f) => f.rsoc.equals(achat.frns!))).write(
+            FrnsCompanion(
+              soldes: Value((fournisseur.soldes ?? 0) - (achat.totalttc ?? 0)),
+              datedernop: Value(DateTime.now()),
+            ),
+          );
         }
       }
 
       // 5. Mouvement caisse si paiement espèces (entrée pour récupérer l'argent)
       if (achat.modepai == 'Espèces') {
         final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
-        await _databaseService.database.into(_databaseService.database.caisse).insert(
+        await _databaseService.database
+            .into(_databaseService.database.caisse)
+            .insert(
               CaisseCompanion.insert(
                 ref: ref,
                 daty: Value(DateTime.now()),
@@ -700,9 +690,9 @@ class AchatService {
     required double prixUnitaire,
   }) async {
     // Récupérer l'article
-    final article = await (_databaseService.database.select(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(designation)))
-        .getSingleOrNull();
+    final article = await (_databaseService.database.select(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(designation))).getSingleOrNull();
 
     if (article == null) {
       throw Exception('Article $designation non trouvé');
@@ -720,42 +710,48 @@ class AchatService {
     final nouveauStockU2 = ((article.stocksu2 ?? 0) - conversions['u2']!).clamp(0.0, double.infinity);
     final nouveauStockU3 = ((article.stocksu3 ?? 0) - conversions['u3']!).clamp(0.0, double.infinity);
 
-    await (_databaseService.database.update(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(designation)))
-        .write(ArticlesCompanion(
-      stocksu1: Value(nouveauStockU1),
-      stocksu2: Value(nouveauStockU2),
-      stocksu3: Value(nouveauStockU3),
-    ));
+    await (_databaseService.database.update(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(designation))).write(
+      ArticlesCompanion(
+        stocksu1: Value(nouveauStockU1),
+        stocksu2: Value(nouveauStockU2),
+        stocksu3: Value(nouveauStockU3),
+      ),
+    );
 
     // Diminuer stock par dépôt
-    final stockDepot = await (_databaseService.database.select(_databaseService.database.depart)
-          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-        .getSingleOrNull();
+    final stockDepot = await (_databaseService.database.select(
+      _databaseService.database.depart,
+    )..where((d) => d.designation.equals(designation) & d.depots.equals(depot))).getSingleOrNull();
 
     if (stockDepot != null) {
-      final nouveauStockDepotU1 =
-          ((stockDepot.stocksu1 ?? 0) - conversions['u1']!).clamp(0.0, double.infinity);
-      final nouveauStockDepotU2 =
-          ((stockDepot.stocksu2 ?? 0) - conversions['u2']!).clamp(0.0, double.infinity);
-      final nouveauStockDepotU3 =
-          ((stockDepot.stocksu3 ?? 0) - conversions['u3']!).clamp(0.0, double.infinity);
+      final nouveauStockDepotU1 = ((stockDepot.stocksu1 ?? 0) - conversions['u1']!).clamp(
+        0.0,
+        double.infinity,
+      );
+      final nouveauStockDepotU2 = ((stockDepot.stocksu2 ?? 0) - conversions['u2']!).clamp(
+        0.0,
+        double.infinity,
+      );
+      final nouveauStockDepotU3 = ((stockDepot.stocksu3 ?? 0) - conversions['u3']!).clamp(
+        0.0,
+        double.infinity,
+      );
 
-      await (_databaseService.database.update(_databaseService.database.depart)
-            ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-          .write(DepartCompanion(
-        stocksu1: Value(nouveauStockDepotU1),
-        stocksu2: Value(nouveauStockDepotU2),
-        stocksu3: Value(nouveauStockDepotU3),
-      ));
+      await (_databaseService.database.update(
+        _databaseService.database.depart,
+      )..where((d) => d.designation.equals(designation) & d.depots.equals(depot))).write(
+        DepartCompanion(
+          stocksu1: Value(nouveauStockDepotU1),
+          stocksu2: Value(nouveauStockDepotU2),
+          stocksu3: Value(nouveauStockDepotU3),
+        ),
+      );
     }
 
     // Mettre à jour la fiche stock pour le contre-passement
-    await _mettreAJourFicheStockContrePassement(
-      designation: designation,
-      unite: unite,
-      quantite: quantite,
-    );
+    await _mettreAJourFicheStockContrePassement(designation: designation, unite: unite, quantite: quantite);
 
     // Recalculer le CMUP après diminution du stock
     await _recalculerCMUPApresContrePassement(article, quantite, prixUnitaire);
@@ -774,9 +770,9 @@ class AchatService {
     final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}-$designation';
 
     // Récupérer l'article pour les conversions
-    final article = await (_databaseService.database.select(_databaseService.database.articles)
-          ..where((a) => a.designation.equals(designation)))
-        .getSingleOrNull();
+    final article = await (_databaseService.database.select(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(designation))).getSingleOrNull();
 
     if (article == null) return;
 
@@ -786,7 +782,9 @@ class AchatService {
       quantiteAchat: quantite,
     );
 
-    await _databaseService.database.into(_databaseService.database.stocks).insert(
+    await _databaseService.database
+        .into(_databaseService.database.stocks)
+        .insert(
           StocksCompanion.insert(
             ref: ref,
             daty: Value(DateTime.now()),
@@ -815,23 +813,23 @@ class AchatService {
     required String unite,
     required double quantite,
   }) async {
-    final ficheExiste = await (_databaseService.database.select(_databaseService.database.fstocks)
-          ..where((f) => f.art.equals(designation)))
-        .getSingleOrNull();
+    final ficheExiste = await (_databaseService.database.select(
+      _databaseService.database.fstocks,
+    )..where((f) => f.art.equals(designation))).getSingleOrNull();
 
     if (ficheExiste != null) {
       // Mettre à jour la fiche existante - pour les contre-passements on augmente qs (sorties)
       double nouvelleQs = (ficheExiste.qs ?? 0) + quantite;
 
-      await (_databaseService.database.update(_databaseService.database.fstocks)
-            ..where((f) => f.art.equals(designation)))
-          .write(FstocksCompanion(
-        qs: Value(nouvelleQs),
-      ));
+      await (_databaseService.database.update(
+        _databaseService.database.fstocks,
+      )..where((f) => f.art.equals(designation))).write(FstocksCompanion(qs: Value(nouvelleQs)));
     } else {
       // Créer nouvelle fiche avec sortie
       final ref = 'FS-${DateTime.now().millisecondsSinceEpoch}';
-      await _databaseService.database.into(_databaseService.database.fstocks).insert(
+      await _databaseService.database
+          .into(_databaseService.database.fstocks)
+          .insert(
             FstocksCompanion.insert(
               ref: ref,
               art: Value(designation),

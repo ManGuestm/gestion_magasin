@@ -84,9 +84,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors du chargement: $e')));
       }
     }
   }
@@ -113,9 +111,9 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement de l\'historique: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur lors du chargement de l\'historique: $e')));
       }
     }
   }
@@ -128,8 +126,9 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
       final db = _databaseService.database;
 
       // Charger les informations de l'achat principal
-      final achat = await (db.select(db.achats)..where((a) => a.numachats.equals(_selectedNumAchats!)))
-          .getSingleOrNull();
+      final achat = await (db.select(
+        db.achats,
+      )..where((a) => a.numachats.equals(_selectedNumAchats!))).getSingleOrNull();
 
       if (achat != null) {
         // Remplir automatiquement le fournisseur et N° Facture
@@ -140,8 +139,9 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
       }
 
       // Charger les détails des articles
-      final detailsAchats =
-          await (db.select(db.detachats)..where((d) => d.numachats.equals(_selectedNumAchats!))).get();
+      final detailsAchats = await (db.select(
+        db.detachats,
+      )..where((d) => d.numachats.equals(_selectedNumAchats!))).get();
 
       final List<Map<String, dynamic>> articlesData = <Map<String, dynamic>>[];
       for (final d in detailsAchats) {
@@ -164,9 +164,9 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement des données: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur lors du chargement des données: $e')));
       }
     }
   }
@@ -176,9 +176,9 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
     final quantiteDisponible = (article['quantite'] ?? 0) - (article['quantiteRetournee'] ?? 0);
 
     if (quantiteRetour <= 0 || quantiteRetour > quantiteDisponible) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Quantité invalide. Maximum disponible: $quantiteDisponible')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Quantité invalide. Maximum disponible: $quantiteDisponible')));
       return;
     }
 
@@ -245,14 +245,20 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
     try {
       final numRetour = 'RET${DateTime.now().millisecondsSinceEpoch}';
       List<String> dateParts = _dateController.text.split('-');
-      DateTime dateForDB =
-          DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+      DateTime dateForDB = DateTime(
+        int.parse(dateParts[2]),
+        int.parse(dateParts[1]),
+        int.parse(dateParts[0]),
+      );
 
       DateTime? echeanceForDB;
       if (_echeanceController.text.isNotEmpty) {
         List<String> echeanceParts = _echeanceController.text.split('-');
-        echeanceForDB =
-            DateTime(int.parse(echeanceParts[2]), int.parse(echeanceParts[1]), int.parse(echeanceParts[0]));
+        echeanceForDB = DateTime(
+          int.parse(echeanceParts[2]),
+          int.parse(echeanceParts[1]),
+          int.parse(echeanceParts[0]),
+        );
       }
 
       final retourCompanion = RetachatsCompanion(
@@ -292,18 +298,16 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
       await _comptabiliserRetour(numRetour, dateForDB, _selectedFournisseur!, _totalTTC);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Retour d\'achat enregistré avec succès')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Retour d\'achat enregistré avec succès')));
       }
 
       _clearForm();
       _loadHistoriqueRetours();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -347,7 +351,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.keyboard_return, color: Colors.white, size: 24),
+                    const Icon(Icons.keyboard_return, color: Colors.white, size: 24),
                     const SizedBox(width: 12),
                     const Text(
                       'RETOUR SUR ACHATS',
@@ -364,9 +368,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                       icon: const Icon(Icons.close, color: Colors.white, size: 24),
                       style: IconButton.styleFrom(
                         backgroundColor: Colors.white.withValues(alpha: 0.2),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   ],
@@ -397,10 +399,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: [
-                    _buildNouveauRetourTab(),
-                    _buildHistoriqueTab(),
-                  ],
+                  children: [_buildNouveauRetourTab(), _buildHistoriqueTab()],
                 ),
               ),
             ],
@@ -428,9 +427,14 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                 children: [
                   SizedBox(
                     width: 100,
-                    child: Text('N° Achats:',
-                        style: TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600, color: Colors.indigo.shade800)),
+                    child: Text(
+                      'N° Achats:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.indigo.shade800,
+                      ),
+                    ),
                   ),
                   SizedBox(
                     width: 150,
@@ -580,9 +584,14 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                     children: [
                       Icon(Icons.shopping_cart, color: Colors.green.shade700, size: 20),
                       const SizedBox(width: 8),
-                      Text('Articles achetés - Cliquez pour retourner',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600, color: Colors.green.shade800)),
+                      Text(
+                        'Articles achetés - Cliquez pour retourner',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -619,24 +628,35 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                               flex: 3,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child:
-                                    Text(article['designation'] ?? '', style: const TextStyle(fontSize: 9)),
+                                child: Text(
+                                  article['designation'] ?? '',
+                                  style: const TextStyle(fontSize: 9),
+                                ),
                               ),
                             ),
                             Expanded(
                               flex: 1,
-                              child: Text('${article['unite']}',
-                                  style: const TextStyle(fontSize: 9), textAlign: TextAlign.center),
+                              child: Text(
+                                '${article['unite']}',
+                                style: const TextStyle(fontSize: 9),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                             Expanded(
                               flex: 1,
-                              child: Text('$quantiteDisponible',
-                                  style: const TextStyle(fontSize: 9), textAlign: TextAlign.center),
+                              child: Text(
+                                '$quantiteDisponible',
+                                style: const TextStyle(fontSize: 9),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                             Expanded(
                               flex: 1,
-                              child: Text('${article['prix']}',
-                                  style: const TextStyle(fontSize: 9), textAlign: TextAlign.center),
+                              child: Text(
+                                '${article['prix']}',
+                                style: const TextStyle(fontSize: 9),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                             SizedBox(
                               width: 60,
@@ -706,29 +726,47 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                         child: const Row(
                           children: [
                             Expanded(
-                                flex: 3,
-                                child: Text('ARTICLES À RETOURNER',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                              flex: 3,
+                              child: Text(
+                                'ARTICLES À RETOURNER',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
                             Expanded(
-                                flex: 1,
-                                child: Text('UNITES',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                              flex: 1,
+                              child: Text(
+                                'UNITES',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
                             Expanded(
-                                flex: 1,
-                                child: Text('QUANTITES',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                              flex: 1,
+                              child: Text(
+                                'QUANTITES',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
                             Expanded(
-                                flex: 2,
-                                child: Text('PRIX UNITAIRE (HT)',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                              flex: 2,
+                              child: Text(
+                                'PRIX UNITAIRE (HT)',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
                             Expanded(
-                                flex: 2,
-                                child: Text('MONTANT',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                              flex: 2,
+                              child: Text(
+                                'MONTANT',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
                             Expanded(
-                                flex: 1,
-                                child: Text('DEPOTS',
-                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold))),
+                              flex: 1,
+                              child: Text(
+                                'DEPOTS',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -838,8 +876,10 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                         children: [
                           Row(
                             children: [
-                              const Text('Mode de paiement:',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Mode de paiement:',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(width: 10),
                               SizedBox(
                                 width: 150,
@@ -851,10 +891,12 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                                     contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                   ),
                                   items: _modesPaiement
-                                      .map((mp) => DropdownMenuItem<String>(
-                                            value: mp.mp,
-                                            child: Text(mp.mp, style: const TextStyle(fontSize: 10)),
-                                          ))
+                                      .map(
+                                        (mp) => DropdownMenuItem<String>(
+                                          value: mp.mp,
+                                          child: Text(mp.mp, style: const TextStyle(fontSize: 10)),
+                                        ),
+                                      )
                                       .toList(),
                                   onChanged: (value) {
                                     setState(() {
@@ -868,8 +910,10 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const Text('Echéance (Date):',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Echéance (Date):',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(width: 10),
                               SizedBox(
                                 width: 100,
@@ -906,8 +950,10 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                       children: [
                         Row(
                           children: [
-                            const Text('Total HT:',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            const Text(
+                              'Total HT:',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
                             const SizedBox(width: 10),
                             SizedBox(
                               width: 100,
@@ -925,18 +971,16 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                             SizedBox(width: 10),
                             SizedBox(
                               width: 100,
-                              child: Text(
-                                '00',
-                                style: TextStyle(fontSize: 11),
-                                textAlign: TextAlign.right,
-                              ),
+                              child: Text('00', style: TextStyle(fontSize: 11), textAlign: TextAlign.right),
                             ),
                           ],
                         ),
                         Row(
                           children: [
-                            const Text('Total TTC:',
-                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            const Text(
+                              'Total TTC:',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
                             const SizedBox(width: 10),
                             SizedBox(
                               width: 100,
@@ -964,8 +1008,9 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                 child: Row(
                   children: [
                     ElevatedButton.icon(
-                      onPressed:
-                          _articlesRetour.isNotEmpty && _selectedFournisseur != null ? _saveRetour : null,
+                      onPressed: _articlesRetour.isNotEmpty && _selectedFournisseur != null
+                          ? _saveRetour
+                          : null,
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(140, 44),
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -973,14 +1018,14 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                             ? Colors.green.shade600
                             : Colors.grey.shade300,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         elevation: _articlesRetour.isNotEmpty && _selectedFournisseur != null ? 3 : 0,
                       ),
                       icon: const Icon(Icons.check_circle, size: 18),
-                      label: const Text('Valider Retour',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      label: const Text(
+                        'Valider Retour',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
@@ -990,14 +1035,14 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         backgroundColor: Colors.orange.shade500,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         elevation: 2,
                       ),
                       icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Réinitialiser',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      label: const Text(
+                        'Réinitialiser',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
                     ),
                     const Spacer(),
                     ElevatedButton.icon(
@@ -1007,14 +1052,14 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         backgroundColor: Colors.grey.shade600,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         elevation: 2,
                       ),
                       icon: const Icon(Icons.close, size: 18),
-                      label:
-                          const Text('Fermer', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      label: const Text(
+                        'Fermer',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ],
                 ),
@@ -1036,22 +1081,29 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
           child: const Row(
             children: [
               Expanded(
-                  flex: 2,
-                  child: Text('N° Retour', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                flex: 2,
+                child: Text('N° Retour', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
               Expanded(
-                  flex: 2, child: Text('Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                flex: 2,
+                child: Text('Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
               Expanded(
-                  flex: 3,
-                  child: Text('Fournisseur', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                flex: 3,
+                child: Text('Fournisseur', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
               Expanded(
-                  flex: 2,
-                  child: Text('N° Facture', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                flex: 2,
+                child: Text('N° Facture', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
               Expanded(
-                  flex: 2,
-                  child: Text('Total HT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                flex: 2,
+                child: Text('Total HT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
               Expanded(
-                  flex: 2,
-                  child: Text('Total TTC', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                flex: 2,
+                child: Text('Total TTC', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
             ],
           ),
         ),
@@ -1059,10 +1111,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
         Expanded(
           child: _historiqueRetours.isEmpty
               ? const Center(
-                  child: Text(
-                    'Aucun retour enregistré',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
+                  child: Text('Aucun retour enregistré', style: TextStyle(fontSize: 12, color: Colors.grey)),
                 )
               : ListView.builder(
                   itemCount: _historiqueRetours.length,
@@ -1085,8 +1134,11 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                           ),
                           Expanded(
                             flex: 2,
-                            child: Text(retour['date'],
-                                style: const TextStyle(fontSize: 9), textAlign: TextAlign.center),
+                            child: Text(
+                              retour['date'],
+                              style: const TextStyle(fontSize: 9),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                           Expanded(
                             flex: 3,
@@ -1097,18 +1149,27 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
                           ),
                           Expanded(
                             flex: 2,
-                            child: Text(retour['nFacture'],
-                                style: const TextStyle(fontSize: 9), textAlign: TextAlign.center),
+                            child: Text(
+                              retour['nFacture'],
+                              style: const TextStyle(fontSize: 9),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
                           Expanded(
                             flex: 2,
-                            child: Text(NumberUtils.formatNumber(retour['totalHT']),
-                                style: const TextStyle(fontSize: 9), textAlign: TextAlign.right),
+                            child: Text(
+                              NumberUtils.formatNumber(retour['totalHT']),
+                              style: const TextStyle(fontSize: 9),
+                              textAlign: TextAlign.right,
+                            ),
                           ),
                           Expanded(
                             flex: 2,
-                            child: Text(NumberUtils.formatNumber(retour['totalTTC']),
-                                style: const TextStyle(fontSize: 9), textAlign: TextAlign.right),
+                            child: Text(
+                              NumberUtils.formatNumber(retour['totalTTC']),
+                              style: const TextStyle(fontSize: 9),
+                              textAlign: TextAlign.right,
+                            ),
                           ),
                         ],
                       ),
@@ -1125,9 +1186,9 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
       final db = _databaseService.database;
 
       // Rechercher l'article dans le stock par dépôt
-      final stockItem = await (db.select(db.depart)
-            ..where((s) => s.designation.equals(designation) & s.depots.equals(depot)))
-          .getSingleOrNull();
+      final stockItem = await (db.select(
+        db.depart,
+      )..where((s) => s.designation.equals(designation) & s.depots.equals(depot))).getSingleOrNull();
 
       if (stockItem != null) {
         // Diminuer le stock (retour = sortie de stock)
@@ -1141,39 +1202,52 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
   }
 
   Future<void> _comptabiliserRetour(
-      String numRetour, DateTime date, String fournisseur, double montant) async {
+    String numRetour,
+    DateTime date,
+    String fournisseur,
+    double montant,
+  ) async {
     try {
       final db = _databaseService.database;
 
       // 1. Encaissement (remboursement du fournisseur)
-      final dernierSoldeCaisse = await (db.select(db.caisse)
-            ..orderBy([(c) => OrderingTerm.desc(c.daty)])
-            ..limit(1))
-          .getSingleOrNull();
+      final dernierSoldeCaisse =
+          await (db.select(db.caisse)
+                ..orderBy([(c) => OrderingTerm.desc(c.daty)])
+                ..limit(1))
+              .getSingleOrNull();
       final nouveauSoldeCaisse = (dernierSoldeCaisse?.soldes ?? 0) + montant;
 
-      await db.into(db.caisse).insert(CaisseCompanion(
-            ref: Value('RET-$numRetour'),
-            daty: Value(date),
-            lib: Value('Retour sur achats - $fournisseur'),
-            credit: Value(montant),
-            debit: const Value(0),
-            soldes: Value(nouveauSoldeCaisse),
-            type: const Value('Retour sur achats'),
-            frns: Value(fournisseur),
-            verification: const Value('JOURNAL'),
-          ));
+      await db
+          .into(db.caisse)
+          .insert(
+            CaisseCompanion(
+              ref: Value('RET-$numRetour'),
+              daty: Value(date),
+              lib: Value('Retour sur achats - $fournisseur'),
+              credit: Value(montant),
+              debit: const Value(0),
+              soldes: Value(nouveauSoldeCaisse),
+              type: const Value('Retour sur achats'),
+              frns: Value(fournisseur),
+              verification: const Value('JOURNAL'),
+            ),
+          );
 
       // 2. Compte fournisseur (diminution de la dette)
-      await db.into(db.comptefrns).insert(ComptefrnsCompanion(
-            ref: Value('RET-$numRetour'),
-            daty: Value(date),
-            lib: Value('Retour sur achats N°$numRetour'),
-            sortie: Value(montant),
-            entres: const Value(0),
-            frns: Value(fournisseur),
-            solde: Value(-montant),
-          ));
+      await db
+          .into(db.comptefrns)
+          .insert(
+            ComptefrnsCompanion(
+              ref: Value('RET-$numRetour'),
+              daty: Value(date),
+              lib: Value('Retour sur achats N°$numRetour'),
+              sortie: Value(montant),
+              entres: const Value(0),
+              frns: Value(fournisseur),
+              solde: Value(-montant),
+            ),
+          );
     } catch (e) {
       debugPrint('Erreur comptabilisation retour: $e');
     }

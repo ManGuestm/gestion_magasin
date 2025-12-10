@@ -78,26 +78,35 @@ class RapportsTab extends StatelessWidget {
         Row(
           children: [
             Expanded(
-                child: _buildRapportCard(
-                    'Total Articles', '${stats['totalArticles'] ?? 0}', Icons.inventory, Colors.blue)),
+              child: _buildRapportCard(
+                'Total Articles',
+                '${stats['totalArticles'] ?? 0}',
+                Icons.inventory,
+                Colors.blue,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
-                child: _buildRapportCard(
-                    'Valeur Stock',
-                    '${AppFunctions.formatNumber(stats['valeurTotale'] ?? 0)} Ar',
-                    Icons.monetization_on,
-                    Colors.green)),
+              child: _buildRapportCard(
+                'Valeur Stock',
+                '${AppFunctions.formatNumber(stats['valeurTotale'] ?? 0)} Ar',
+                Icons.monetization_on,
+                Colors.green,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
-                child: _buildRapportCard(
-                    'Taux Rupture',
-                    '${((stats['articlesRupture'] ?? 0) / (stats['totalArticles'] ?? 1) * 100).toStringAsFixed(1)}%',
-                    Icons.warning,
-                    Colors.red)),
+              child: _buildRapportCard(
+                'Taux Rupture',
+                '${((stats['articlesRupture'] ?? 0) / (stats['totalArticles'] ?? 1) * 100).toStringAsFixed(1)}%',
+                Icons.warning,
+                Colors.red,
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
-                child:
-                    _buildRapportCard('Dépôts Actifs', '${depots.length - 1}', Icons.store, Colors.orange)),
+              child: _buildRapportCard('Dépôts Actifs', '${depots.length - 1}', Icons.store, Colors.orange),
+            ),
           ],
         ),
       ],
@@ -112,16 +121,23 @@ class RapportsTab extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[300]!),
         boxShadow: [
-          BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
         children: [
           Icon(icon, color: color, size: 32),
           const SizedBox(height: 8),
-          Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+          Text(
+            value,
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+          ),
           const SizedBox(height: 4),
-          Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey), textAlign: TextAlign.center),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -134,8 +150,10 @@ class RapportsTab extends StatelessWidget {
     for (final depot in depots.where((d) => d != 'Tous')) {
       final articlesDepot = stock.where((s) => s.depots == depot).length;
       final valeurDepot = stock.where((s) => s.depots == depot).fold(0.0, (sum, s) {
-        final article = articles.firstWhere((a) => a.designation == s.designation,
-            orElse: () => Article(designation: '', cmup: 0));
+        final article = articles.firstWhere(
+          (a) => a.designation == s.designation,
+          orElse: () => const Article(designation: '', cmup: 0),
+        );
         final stockTotal = (s.stocksu1 ?? 0) + (s.stocksu2 ?? 0) + (s.stocksu3 ?? 0);
         return sum + (stockTotal * (article.cmup ?? 0));
       });
@@ -150,23 +168,35 @@ class RapportsTab extends StatelessWidget {
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!)),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius:
-                        const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8))),
+                  color: Colors.grey[50],
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    topRight: Radius.circular(8),
+                  ),
+                ),
                 child: const Row(
                   children: [
-                    Expanded(child: Text('Dépôt', style: TextStyle(fontWeight: FontWeight.bold))),
-                    Expanded(child: Text('Articles', style: TextStyle(fontWeight: FontWeight.bold))),
-                    Expanded(child: Text('Valeur Stock', style: TextStyle(fontWeight: FontWeight.bold))),
-                    Expanded(child: Text('% Total', style: TextStyle(fontWeight: FontWeight.bold))),
+                    Expanded(
+                      child: Text('Dépôt', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Expanded(
+                      child: Text('Articles', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Expanded(
+                      child: Text('Valeur Stock', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Expanded(
+                      child: Text('% Total', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
               ),
@@ -174,12 +204,15 @@ class RapportsTab extends StatelessWidget {
                 final depot = entry.key;
                 final nbArticles = entry.value;
                 final valeur = valeurParDepot[depot] ?? 0;
-                final pourcentage =
-                    (stats['valeurTotale'] ?? 0) > 0 ? (valeur / (stats['valeurTotale'] ?? 1) * 100) : 0;
+                final pourcentage = (stats['valeurTotale'] ?? 0) > 0
+                    ? (valeur / (stats['valeurTotale'] ?? 1) * 100)
+                    : 0;
 
                 return Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[200]!))),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+                  ),
                   child: Row(
                     children: [
                       Expanded(child: Text(depot)),
@@ -220,23 +253,35 @@ class RapportsTab extends StatelessWidget {
         const SizedBox(height: 12),
         Container(
           decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[300]!)),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey[300]!),
+          ),
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius:
-                        const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8))),
+                  color: Colors.grey[50],
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(8),
+                    topRight: Radius.circular(8),
+                  ),
+                ),
                 child: const Row(
                   children: [
-                    Expanded(child: Text('Catégorie', style: TextStyle(fontWeight: FontWeight.bold))),
-                    Expanded(child: Text('Articles', style: TextStyle(fontWeight: FontWeight.bold))),
-                    Expanded(child: Text('Valeur Stock', style: TextStyle(fontWeight: FontWeight.bold))),
-                    Expanded(child: Text('% Articles', style: TextStyle(fontWeight: FontWeight.bold))),
+                    Expanded(
+                      child: Text('Catégorie', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Expanded(
+                      child: Text('Articles', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Expanded(
+                      child: Text('Valeur Stock', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    Expanded(
+                      child: Text('% Articles', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
               ),
@@ -250,7 +295,9 @@ class RapportsTab extends StatelessWidget {
 
                 return Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Colors.grey[200]!))),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+                  ),
                   child: Row(
                     children: [
                       Expanded(child: Text(categorie, overflow: TextOverflow.ellipsis)),

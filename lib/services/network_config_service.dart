@@ -1,5 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'network_client.dart';
+import 'network_server.dart';
+
 enum NetworkMode { server, client }
 
 class NetworkConfigService {
@@ -26,7 +29,31 @@ class NetworkConfigService {
         orElse: () => NetworkMode.server,
       ),
       'serverIp': prefs.getString(_serverIpKey) ?? '',
-      'port': prefs.getString(_portKey) ?? '3306',
+      'port': prefs.getString(_portKey) ?? '8080',
     };
+  }
+
+  static Future<bool> initializeNetwork() async {
+    final config = await loadConfig();
+    final mode = config['mode'] as NetworkMode;
+    
+    if (mode == NetworkMode.server) {
+      final port = int.tryParse(config['port']) ?? 8080;
+      return await NetworkServer.instance.start(port: port);
+    } else {
+      final serverIp = config['serverIp'] as String;
+      final port = int.tryParse(config['port']) ?? 8080;
+      
+      if (serverIp.isEmpty) {
+        throw Exception('Adresse IP du serveur non configurée');
+      }
+      
+      return await NetworkClient.instance.connect(serverIp, port);
+    }
+  }
+
+  static Future<void> stopNetwork() async {
+    await NetworkServer.instance.stop();
+    await NetworkClient.instance.disconnect();
   }
 }

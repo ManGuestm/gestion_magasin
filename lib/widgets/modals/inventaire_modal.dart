@@ -92,14 +92,14 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     'TRANSFERT',
     'AJUSTEMENT',
     'CP VENTE',
-    'CP ACHAT'
+    'CP ACHAT',
   ];
   int? _hoveredMouvementIndex;
 
   @override
   void initState() {
     super.initState();
-    
+
     // Vérifier les permissions
     if (_isVendeur()) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,7 +113,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       });
       return;
     }
-    
+
     _tabController = TabController(length: 4, vsync: this);
     _loadData();
   }
@@ -213,12 +213,14 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       'email': '',
       'nif': '',
       'stat': '',
-      'rcs': ''
+      'rcs': '',
     };
   }
 
   Future<Map<String, List<String>>> _processMetadataAsync(
-      List<Article> articles, List<DepartData> stocks) async {
+    List<Article> articles,
+    List<DepartData> stocks,
+  ) async {
     final depots = <String>{};
     final categories = <String>{};
 
@@ -399,10 +401,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.blue[50],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(8),
-          topRight: Radius.circular(8),
-        ),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
       ),
       child: Row(
         children: [
@@ -428,21 +427,14 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                   const SizedBox(width: 4),
                   Text(
                     'Mode Inventaire',
-                    style: TextStyle(
-                      color: Colors.orange[700],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.orange[700], fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
           ],
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.close),
-          ),
+          IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
         ],
       ),
     );
@@ -538,11 +530,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             ),
             child: Text(
               status,
-              style: TextStyle(
-                color: statusColor,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -562,11 +550,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
         setState(() => _isLoadingPage = false);
-        _scrollController.animateTo(
-          0,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-        );
+        _scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
       }
     });
   }
@@ -593,10 +577,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             children: [
               Icon(Icons.fact_check, color: Colors.orange[700]),
               const SizedBox(width: 8),
-              const Text(
-                'Inventaire Physique',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text('Inventaire Physique', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const Spacer(),
               if (_inventaireMode) ...[
                 SizedBox(
@@ -622,7 +603,8 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                 SizedBox(
                   width: 150,
                   child: DropdownButtonFormField<String>(
-                    initialValue: _selectedDepotInventaire.isNotEmpty &&
+                    initialValue:
+                        _selectedDepotInventaire.isNotEmpty &&
                             _depots.where((d) => d != 'Tous').contains(_selectedDepotInventaire)
                         ? _selectedDepotInventaire
                         : null,
@@ -633,10 +615,12 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                     ),
                     items: _depots
                         .where((depot) => depot != 'Tous')
-                        .map((depot) => DropdownMenuItem(
-                              value: depot,
-                              child: Text(depot, style: const TextStyle(fontSize: 12)),
-                            ))
+                        .map(
+                          (depot) => DropdownMenuItem(
+                            value: depot,
+                            child: Text(depot, style: const TextStyle(fontSize: 12)),
+                          ),
+                        )
                         .toList(),
                     onChanged: (value) {
                       setState(() => _selectedDepotInventaire = value!);
@@ -671,10 +655,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                   onPressed: _cancelInventaire,
                   icon: const Icon(Icons.cancel, size: 16),
                   label: const Text('Annuler'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                  ),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
                 ),
               ],
             ],
@@ -683,10 +664,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             const SizedBox(height: 8),
             Text(
               'Inventaire du ${AppDateUtils.formatDate(_dateInventaire!)} - Dépôt: $_selectedDepotInventaire',
-              style: TextStyle(
-                color: Colors.orange[700],
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(color: Colors.orange[700], fontWeight: FontWeight.w500),
             ),
           ],
         ],
@@ -713,9 +691,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
     return Column(
       children: [
-        Expanded(
-          child: _buildVirtualizedInventaireList(),
-        ),
+        Expanded(child: _buildVirtualizedInventaireList()),
         _buildInventairePagination(),
       ],
     );
@@ -750,10 +726,18 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       child: const Row(
         children: [
           Expanded(
-              flex: 2, child: Text('Article', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-          Expanded(child: Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-          Expanded(child: Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-          Expanded(child: Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+            flex: 2,
+            child: Text('Article', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          ),
+          Expanded(
+            child: Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          ),
+          Expanded(
+            child: Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          ),
+          Expanded(
+            child: Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          ),
           Expanded(
             child: Text(
               'Physique U1',
@@ -788,11 +772,12 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     final depotStock = stock.firstWhere(
       (s) => s.designation == article.designation && s.depots == _selectedDepotInventaire,
       orElse: () => DepartData(
-          designation: article.designation,
-          depots: _selectedDepotInventaire,
-          stocksu1: 0,
-          stocksu2: 0,
-          stocksu3: 0),
+        designation: article.designation,
+        depots: _selectedDepotInventaire,
+        stocksu1: 0,
+        stocksu2: 0,
+        stocksu3: 0,
+      ),
     );
 
     final stockU1 = depotStock.stocksu1 ?? 0;
@@ -837,32 +822,19 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Expanded(
-              child: Text(
-                '$stockU1 ${article.u1 ?? ""}',
-                style: const TextStyle(fontSize: 10),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                '$stockU2 ${article.u2 ?? ""}',
-                style: const TextStyle(fontSize: 10),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                '$stockU3 ${article.u3 ?? ""}',
-                style: const TextStyle(fontSize: 10),
-              ),
-            ),
+            Expanded(child: Text('$stockU1 ${article.u1 ?? ""}', style: const TextStyle(fontSize: 10))),
+            Expanded(child: Text('$stockU2 ${article.u2 ?? ""}', style: const TextStyle(fontSize: 10))),
+            Expanded(child: Text('$stockU3 ${article.u3 ?? ""}', style: const TextStyle(fontSize: 10))),
             Expanded(
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 48),
                 height: 30,
                 child: TextField(
                   enabled: hasU1,
-                  controller:
-                      _getController('${article.designation}_${_selectedDepotInventaire}_u1', physiqueU1),
+                  controller: _getController(
+                    '${article.designation}_${_selectedDepotInventaire}_u1',
+                    physiqueU1,
+                  ),
                   decoration: InputDecoration(
                     border: const OutlineInputBorder(),
                     fillColor: hasU1 ? null : Colors.grey[200],
@@ -884,12 +856,14 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             ),
             Expanded(
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 48),
                 height: 30,
                 child: TextField(
                   enabled: hasU2,
-                  controller:
-                      _getController('${article.designation}_${_selectedDepotInventaire}_u2', physiqueU2),
+                  controller: _getController(
+                    '${article.designation}_${_selectedDepotInventaire}_u2',
+                    physiqueU2,
+                  ),
                   decoration: InputDecoration(
                     border: const OutlineInputBorder(),
                     fillColor: hasU2 ? null : Colors.grey[200],
@@ -911,12 +885,14 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             ),
             Expanded(
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 48),
                 height: 30,
                 child: TextField(
                   enabled: hasU3,
-                  controller:
-                      _getController('${article.designation}_${_selectedDepotInventaire}_u3', physiqueU3),
+                  controller: _getController(
+                    '${article.designation}_${_selectedDepotInventaire}_u3',
+                    physiqueU3,
+                  ),
                   decoration: InputDecoration(
                     border: const OutlineInputBorder(),
                     fillColor: hasU3 ? null : Colors.grey[200],
@@ -1119,8 +1095,9 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             style: const TextStyle(fontSize: 12),
           ),
           IconButton(
-            onPressed:
-                _inventairePage < totalPages - 1 ? () => _changeInventairePage(_inventairePage + 1) : null,
+            onPressed: _inventairePage < totalPages - 1
+                ? () => _changeInventairePage(_inventairePage + 1)
+                : null,
             icon: const Icon(Icons.chevron_right),
           ),
         ],
@@ -1164,7 +1141,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     // Scroll to the specific item within the page
     Future.delayed(const Duration(milliseconds: 100), () {
       final itemIndexInPage = articleIndex % _itemsPerPage;
-      final itemHeight = 60.0; // Approximate height of each item
+      const itemHeight = 60.0; // Approximate height of each item
       final targetOffset = (itemIndexInPage + 1) * itemHeight; // +1 for header
 
       _inventaireScrollController.animateTo(
@@ -1196,10 +1173,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         children: [
           Icon(Icons.swap_horiz, color: Colors.blue[700]),
           const SizedBox(width: 8),
-          const Text(
-            'Mouvements de Stock',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          const Text('Mouvements de Stock', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const Spacer(),
           if (_filteredMouvements.isNotEmpty) ...[
             Container(
@@ -1211,11 +1185,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
               ),
               child: Text(
                 '${_filteredMouvements.length} mouvements',
-                style: TextStyle(
-                  color: Colors.blue[700],
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),
             const SizedBox(width: 8),
@@ -1224,10 +1194,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             onPressed: _exportMouvements,
             icon: const Icon(Icons.download, size: 16),
             label: const Text('Exporter'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
           ),
         ],
       ),
@@ -1273,12 +1240,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                     border: OutlineInputBorder(),
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                  items: _depots
-                      .map((depot) => DropdownMenuItem(
-                            value: depot,
-                            child: Text(depot),
-                          ))
-                      .toList(),
+                  items: _depots.map((depot) => DropdownMenuItem(value: depot, child: Text(depot))).toList(),
                   onChanged: (value) {
                     setState(() => _selectedDepot = value!);
                     _applyMouvementsFilters();
@@ -1295,10 +1257,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                     contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   items: _typesMovement
-                      .map((type) => DropdownMenuItem(
-                            value: type,
-                            child: Text(type),
-                          ))
+                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                       .toList(),
                   onChanged: (value) {
                     setState(() => _selectedMouvementType = value!);
@@ -1371,10 +1330,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
           children: [
             Icon(Icons.inbox, size: 64, color: Colors.grey),
             SizedBox(height: 16),
-            Text(
-              'Aucun mouvement trouvé',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
+            Text('Aucun mouvement trouvé', style: TextStyle(fontSize: 16, color: Colors.grey)),
           ],
         ),
       );
@@ -1382,9 +1338,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
     return Column(
       children: [
-        Expanded(
-          child: _buildVirtualizedMouvementsList(),
-        ),
+        Expanded(child: _buildVirtualizedMouvementsList()),
         _buildMouvementsPagination(),
       ],
     );
@@ -1474,10 +1428,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
           children: [
             Expanded(
               flex: 2,
-              child: Text(
-                AppFunctions.formatDate(mouvement.daty),
-                style: const TextStyle(fontSize: 11),
-              ),
+              child: Text(AppFunctions.formatDate(mouvement.daty), style: const TextStyle(fontSize: 11)),
             ),
             Expanded(
               flex: 3,
@@ -1487,12 +1438,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Expanded(
-              child: Text(
-                mouvement.depots ?? '',
-                style: const TextStyle(fontSize: 11),
-              ),
-            ),
+            Expanded(child: Text(mouvement.depots ?? '', style: const TextStyle(fontSize: 11))),
             Expanded(
               child: Text(
                 isEntree ? '${mouvement.qe ?? 0} ${mouvement.ue ?? 0}' : '',
@@ -1523,11 +1469,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                 ),
                 child: Text(
                   mouvement.verification ?? '',
-                  style: TextStyle(
-                    color: typeColor,
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: typeColor, fontSize: 9, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1571,8 +1513,9 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             style: const TextStyle(fontSize: 12),
           ),
           IconButton(
-            onPressed:
-                _mouvementsPage < totalPages - 1 ? () => _changeMouvementsPage(_mouvementsPage + 1) : null,
+            onPressed: _mouvementsPage < totalPages - 1
+                ? () => _changeMouvementsPage(_mouvementsPage + 1)
+                : null,
             icon: const Icon(Icons.chevron_right),
           ),
         ],
@@ -1651,34 +1594,37 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
               final microseconds = DateTime.now().microsecondsSinceEpoch;
               final ref = 'INV${dateTimestamp}_U1_${globalIndex}_$microseconds';
               await _databaseService.database.customStatement(
-                  'INSERT INTO stocks (ref, daty, lib, refart, qe, qs, depots, verification, ue, us, pue, pus, cmup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                  [
-                    ref,
-                    dateTimestamp,
-                    "Report à nouveau - Inventaire ${AppDateUtils.formatDate(_dateInventaire!)} - $designation ${article.u1 ?? ''}",
-                    designation,
-                    nouveauU1 > stockActuelU1 ? nouveauU1 - stockActuelU1 : 0,
-                    stockActuelU1 > nouveauU1 ? stockActuelU1 - nouveauU1 : 0,
-                    depot,
-                    'INVENTAIRE',
-                    article.u1 ?? '',
-                    article.u1 ?? '',
-                    article.pvu1 ?? 0,
-                    article.pvu1 ?? 0,
-                    article.cmup ?? 0
-                  ]);
+                'INSERT INTO stocks (ref, daty, lib, refart, qe, qs, depots, verification, ue, us, pue, pus, cmup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                  ref,
+                  dateTimestamp,
+                  "Report à nouveau - Inventaire ${AppDateUtils.formatDate(_dateInventaire!)} - $designation ${article.u1 ?? ''}",
+                  designation,
+                  nouveauU1 > stockActuelU1 ? nouveauU1 - stockActuelU1 : 0,
+                  stockActuelU1 > nouveauU1 ? stockActuelU1 - nouveauU1 : 0,
+                  depot,
+                  'INVENTAIRE',
+                  article.u1 ?? '',
+                  article.u1 ?? '',
+                  article.pvu1 ?? 0,
+                  article.pvu1 ?? 0,
+                  article.cmup ?? 0,
+                ],
+              );
 
               // Insérer dans fstocks pour traçabilité
               final fstockRef = 'FS-INV${dateTimestamp}_${designation}_U1_${globalIndex}_$microseconds';
               await _databaseService.database.customStatement(
-                  'INSERT INTO fstocks (ref, art, qe, qs, qst, ue) VALUES (?, ?, ?, ?, ?, ?)', [
-                fstockRef,
-                designation,
-                nouveauU1 > stockActuelU1 ? nouveauU1 - stockActuelU1 : 0,
-                stockActuelU1 > nouveauU1 ? stockActuelU1 - nouveauU1 : 0,
-                0,
-                article.u1 ?? ''
-              ]);
+                'INSERT INTO fstocks (ref, art, qe, qs, qst, ue) VALUES (?, ?, ?, ?, ?, ?)',
+                [
+                  fstockRef,
+                  designation,
+                  nouveauU1 > stockActuelU1 ? nouveauU1 - stockActuelU1 : 0,
+                  stockActuelU1 > nouveauU1 ? stockActuelU1 - nouveauU1 : 0,
+                  0,
+                  article.u1 ?? '',
+                ],
+              );
               globalIndex++;
               await Future.delayed(const Duration(milliseconds: 1));
             }
@@ -1687,34 +1633,37 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
               final microseconds = DateTime.now().microsecondsSinceEpoch;
               final ref = 'INV${dateTimestamp}_U2_${globalIndex}_$microseconds';
               await _databaseService.database.customStatement(
-                  'INSERT INTO stocks (ref, daty, lib, refart, qe, qs, depots, verification, ue, us, pue, pus, cmup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                  [
-                    ref,
-                    dateTimestamp,
-                    'Report à nouveau - Inventaire ${AppDateUtils.formatDate(_dateInventaire!)} - $designation ${article.u2 ?? ''}',
-                    designation,
-                    nouveauU2 > stockActuelU2 ? nouveauU2 - stockActuelU2 : 0,
-                    stockActuelU2 > nouveauU2 ? stockActuelU2 - nouveauU2 : 0,
-                    depot,
-                    'INVENTAIRE',
-                    article.u2 ?? '',
-                    article.u2 ?? '',
-                    article.pvu2 ?? 0,
-                    article.pvu2 ?? 0,
-                    article.cmup ?? 0
-                  ]);
+                'INSERT INTO stocks (ref, daty, lib, refart, qe, qs, depots, verification, ue, us, pue, pus, cmup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [
+                  ref,
+                  dateTimestamp,
+                  'Report à nouveau - Inventaire ${AppDateUtils.formatDate(_dateInventaire!)} - $designation ${article.u2 ?? ''}',
+                  designation,
+                  nouveauU2 > stockActuelU2 ? nouveauU2 - stockActuelU2 : 0,
+                  stockActuelU2 > nouveauU2 ? stockActuelU2 - nouveauU2 : 0,
+                  depot,
+                  'INVENTAIRE',
+                  article.u2 ?? '',
+                  article.u2 ?? '',
+                  article.pvu2 ?? 0,
+                  article.pvu2 ?? 0,
+                  article.cmup ?? 0,
+                ],
+              );
 
               // Insérer dans fstocks pour traçabilité
               final fstockRef = 'FS-INV${dateTimestamp}_${designation}_U2_${globalIndex}_$microseconds';
               await _databaseService.database.customStatement(
-                  'INSERT INTO fstocks (ref, art, qe, qs, qst, ue) VALUES (?, ?, ?, ?, ?, ?)', [
-                fstockRef,
-                designation,
-                nouveauU2 > stockActuelU2 ? nouveauU2 - stockActuelU2 : 0,
-                stockActuelU2 > nouveauU2 ? stockActuelU2 - nouveauU2 : 0,
-                0,
-                article.u2 ?? ''
-              ]);
+                'INSERT INTO fstocks (ref, art, qe, qs, qst, ue) VALUES (?, ?, ?, ?, ?, ?)',
+                [
+                  fstockRef,
+                  designation,
+                  nouveauU2 > stockActuelU2 ? nouveauU2 - stockActuelU2 : 0,
+                  stockActuelU2 > nouveauU2 ? stockActuelU2 - nouveauU2 : 0,
+                  0,
+                  article.u2 ?? '',
+                ],
+              );
               globalIndex++;
               await Future.delayed(const Duration(milliseconds: 1));
             }
@@ -1737,33 +1686,37 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                   article.u3 ?? '',
                   article.pvu3 ?? 0,
                   article.pvu3 ?? 0,
-                  article.cmup ?? 0
+                  article.cmup ?? 0,
                 ],
               );
 
               // Insérer dans fstocks pour traçabilité
               final fstockRef = 'FS-INV${dateTimestamp}_${designation}_U3_${globalIndex}_$microseconds';
               await _databaseService.database.customStatement(
-                  'INSERT INTO fstocks (ref, art, qe, qs, qst, ue) VALUES (?, ?, ?, ?, ?, ?)', [
-                fstockRef,
-                designation,
-                nouveauU3 > stockActuelU3 ? nouveauU3 - stockActuelU3 : 0,
-                stockActuelU3 > nouveauU3 ? stockActuelU3 - nouveauU3 : 0,
-                0,
-                article.u3 ?? ''
-              ]);
+                'INSERT INTO fstocks (ref, art, qe, qs, qst, ue) VALUES (?, ?, ?, ?, ?, ?)',
+                [
+                  fstockRef,
+                  designation,
+                  nouveauU3 > stockActuelU3 ? nouveauU3 - stockActuelU3 : 0,
+                  stockActuelU3 > nouveauU3 ? stockActuelU3 - nouveauU3 : 0,
+                  0,
+                  article.u3 ?? '',
+                ],
+              );
               globalIndex++;
               await Future.delayed(const Duration(milliseconds: 1));
             }
 
             // Mettre à jour les stocks
             await _databaseService.database.customStatement(
-                'UPDATE depart SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ? AND depots = ?',
-                [nouveauU1, nouveauU2, nouveauU3, designation, depot]);
+              'UPDATE depart SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ? AND depots = ?',
+              [nouveauU1, nouveauU2, nouveauU3, designation, depot],
+            );
 
             await _databaseService.database.customStatement(
-                'UPDATE articles SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ?',
-                [nouveauU1, nouveauU2, nouveauU3, designation]);
+              'UPDATE articles SET stocksu1 = ?, stocksu2 = ?, stocksu3 = ? WHERE designation = ?',
+              [nouveauU1, nouveauU2, nouveauU3, designation],
+            );
           }
         }
       });
@@ -1783,19 +1736,13 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
   void _showError(String message) {
     _scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: SelectableText(message),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: SelectableText(message), backgroundColor: Colors.red),
     );
   }
 
   void _showSuccess(String message) {
     _scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: SelectableText(message),
-        backgroundColor: Colors.green,
-      ),
+      SnackBar(content: SelectableText(message), backgroundColor: Colors.green),
     );
   }
 
@@ -1823,7 +1770,8 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   void _applyMouvementsFilters() {
     final filteredMouvements = _mouvements.where((mouvement) {
       // Filtre par recherche
-      final matchesSearch = _mouvementsSearchQuery.isEmpty ||
+      final matchesSearch =
+          _mouvementsSearchQuery.isEmpty ||
           (mouvement.refart?.toLowerCase().contains(_mouvementsSearchQuery.toLowerCase()) ?? false) ||
           (mouvement.lib?.toLowerCase().contains(_mouvementsSearchQuery.toLowerCase()) ?? false);
 
@@ -1847,7 +1795,8 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             return matchesSearch && matchesDepot && matchesType;
           }
 
-          matchesDate = mouvementDate.isAfter(_dateDebutMouvement!.subtract(const Duration(days: 1))) &&
+          matchesDate =
+              mouvementDate.isAfter(_dateDebutMouvement!.subtract(const Duration(days: 1))) &&
               mouvementDate.isBefore(_dateFinMouvement!.add(const Duration(days: 1)));
         } catch (e) {
           matchesDate = true;
@@ -1912,9 +1861,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
   TextEditingController _getController(String key, double value) {
     if (!_inventaireControllers.containsKey(key)) {
-      _inventaireControllers[key] = TextEditingController(
-        text: value > 0 ? value.toString() : '',
-      );
+      _inventaireControllers[key] = TextEditingController(text: value > 0 ? value.toString() : '');
     }
     return _inventaireControllers[key]!;
   }
@@ -1926,18 +1873,9 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         title: const Text('Format d\'export'),
         content: const Text('Choisissez le format d\'export :'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'excel'),
-            child: const Text('Excel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'pdf'),
-            child: const Text('PDF'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, 'excel'), child: const Text('Excel')),
+          TextButton(onPressed: () => Navigator.pop(context, 'pdf'), child: const Text('PDF')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
         ],
       ),
     );
@@ -1955,12 +1893,15 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       final sheet = excel['Inventaire'];
 
       // En-tête professionnel
-      sheet.cell(CellIndex.indexByString('A1')).value =
-          TextCellValue('${_companyInfo['nom']} - INVENTAIRE DES STOCKS');
-      sheet.cell(CellIndex.indexByString('A2')).value =
-          TextCellValue('${_companyInfo['adresse']} - Tél: ${_companyInfo['tel']}');
+      sheet.cell(CellIndex.indexByString('A1')).value = TextCellValue(
+        '${_companyInfo['nom']} - INVENTAIRE DES STOCKS',
+      );
+      sheet.cell(CellIndex.indexByString('A2')).value = TextCellValue(
+        '${_companyInfo['adresse']} - Tél: ${_companyInfo['tel']}',
+      );
       sheet.cell(CellIndex.indexByString('A3')).value = TextCellValue(
-          'Date: ${AppDateUtils.formatDate(DateTime.now())} - Total articles: ${_filteredArticles.length}');
+        'Date: ${AppDateUtils.formatDate(DateTime.now())} - Total articles: ${_filteredArticles.length}',
+      );
 
       // En-têtes de colonnes
       sheet.cell(CellIndex.indexByString('A5')).value = TextCellValue('Article');
@@ -1986,16 +1927,21 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
           status = 'Alerte';
         }
 
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
-            TextCellValue(article.designation);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value =
-            TextCellValue(article.categorie ?? '');
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value =
-            DoubleCellValue(article.stocksu1 ?? 0);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value =
-            DoubleCellValue(article.stocksu2 ?? 0);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value =
-            DoubleCellValue(article.stocksu3 ?? 0);
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue(
+          article.designation,
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(
+          article.categorie ?? '',
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value = DoubleCellValue(
+          article.stocksu1 ?? 0,
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = DoubleCellValue(
+          article.stocksu2 ?? 0,
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = DoubleCellValue(
+          article.stocksu3 ?? 0,
+        );
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row)).value = DoubleCellValue(cmup);
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row)).value = DoubleCellValue(valeur);
         sheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: row)).value = TextCellValue(status);
@@ -2037,14 +1983,14 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                 children: [
                   pw.Container(
                     padding: const pw.EdgeInsets.all(15),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: PdfColors.black, width: 1),
-                    ),
+                    decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                     child: pw.Column(
                       children: [
-                        pw.Text('INVENTAIRE DES STOCKS',
-                            style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-                            textAlign: pw.TextAlign.center),
+                        pw.Text(
+                          'INVENTAIRE DES STOCKS',
+                          style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                          textAlign: pw.TextAlign.center,
+                        ),
                         pw.SizedBox(height: 10),
                         pw.Row(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -2053,22 +1999,38 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                               child: pw.Column(
                                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                                 children: [
-                                  pw.Text('SOCIÉTÉ:',
-                                      style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                                  pw.Text('${_companyInfo['nom']}',
-                                      style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                                  pw.Text('${_companyInfo['adresse']}',
-                                      style: const pw.TextStyle(fontSize: 9)),
-                                  pw.Text('RCS: ${_companyInfo['rcs']}',
-                                      style: const pw.TextStyle(fontSize: 9)),
-                                  pw.Text('STAT: ${_companyInfo['stat']}',
-                                      style: const pw.TextStyle(fontSize: 9)),
-                                  pw.Text('NIF: ${_companyInfo['nif']}',
-                                      style: const pw.TextStyle(fontSize: 9)),
-                                  pw.Text('Email: ${_companyInfo['email']}',
-                                      style: const pw.TextStyle(fontSize: 9)),
-                                  pw.Text('Tél: ${_companyInfo['tel']} / ${_companyInfo['port']}',
-                                      style: const pw.TextStyle(fontSize: 9)),
+                                  pw.Text(
+                                    'SOCIÉTÉ:',
+                                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                                  ),
+                                  pw.Text(
+                                    '${_companyInfo['nom']}',
+                                    style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                                  ),
+                                  pw.Text(
+                                    '${_companyInfo['adresse']}',
+                                    style: const pw.TextStyle(fontSize: 9),
+                                  ),
+                                  pw.Text(
+                                    'RCS: ${_companyInfo['rcs']}',
+                                    style: const pw.TextStyle(fontSize: 9),
+                                  ),
+                                  pw.Text(
+                                    'STAT: ${_companyInfo['stat']}',
+                                    style: const pw.TextStyle(fontSize: 9),
+                                  ),
+                                  pw.Text(
+                                    'NIF: ${_companyInfo['nif']}',
+                                    style: const pw.TextStyle(fontSize: 9),
+                                  ),
+                                  pw.Text(
+                                    'Email: ${_companyInfo['email']}',
+                                    style: const pw.TextStyle(fontSize: 9),
+                                  ),
+                                  pw.Text(
+                                    'Tél: ${_companyInfo['tel']} / ${_companyInfo['port']}',
+                                    style: const pw.TextStyle(fontSize: 9),
+                                  ),
                                 ],
                               ),
                             ),
@@ -2076,12 +2038,18 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                               child: pw.Column(
                                 crossAxisAlignment: pw.CrossAxisAlignment.end,
                                 children: [
-                                  pw.Text('N° DOC: INV${DateTime.now().millisecondsSinceEpoch}',
-                                      style: const pw.TextStyle(fontSize: 10)),
-                                  pw.Text('DATE: ${AppDateUtils.formatDate(DateTime.now())}',
-                                      style: const pw.TextStyle(fontSize: 10)),
-                                  pw.Text('PAGE: $currentPage/$totalPages',
-                                      style: const pw.TextStyle(fontSize: 10)),
+                                  pw.Text(
+                                    'N° DOC: INV${DateTime.now().millisecondsSinceEpoch}',
+                                    style: const pw.TextStyle(fontSize: 10),
+                                  ),
+                                  pw.Text(
+                                    'DATE: ${AppDateUtils.formatDate(DateTime.now())}',
+                                    style: const pw.TextStyle(fontSize: 10),
+                                  ),
+                                  pw.Text(
+                                    'PAGE: $currentPage/$totalPages',
+                                    style: const pw.TextStyle(fontSize: 10),
+                                  ),
                                 ],
                               ),
                             ),
@@ -2101,7 +2069,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                         'Stock U3',
                         'CMUP',
                         'Valeur',
-                        'Statut'
+                        'Statut',
                       ],
                       data: pageArticles.map((article) {
                         final stockTotal =
@@ -2164,18 +2132,9 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         title: const Text('Format d\'export'),
         content: const Text('Choisissez le format d\'export pour les mouvements :'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'excel'),
-            child: const Text('Excel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, 'pdf'),
-            child: const Text('PDF'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context, 'excel'), child: const Text('Excel')),
+          TextButton(onPressed: () => Navigator.pop(context, 'pdf'), child: const Text('PDF')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
         ],
       ),
     );
@@ -2192,12 +2151,15 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       final excel = Excel.createExcel();
       final sheet = excel['Mouvements'];
 
-      sheet.cell(CellIndex.indexByString('A1')).value =
-          TextCellValue('${_companyInfo['nom']} - MOUVEMENTS DE STOCK');
-      sheet.cell(CellIndex.indexByString('A2')).value =
-          TextCellValue('${_companyInfo['adresse']} - Tél: ${_companyInfo['tel']}');
+      sheet.cell(CellIndex.indexByString('A1')).value = TextCellValue(
+        '${_companyInfo['nom']} - MOUVEMENTS DE STOCK',
+      );
+      sheet.cell(CellIndex.indexByString('A2')).value = TextCellValue(
+        '${_companyInfo['adresse']} - Tél: ${_companyInfo['tel']}',
+      );
       sheet.cell(CellIndex.indexByString('A3')).value = TextCellValue(
-          'Date: ${AppDateUtils.formatDate(DateTime.now())} - Total mouvements: ${_filteredMouvements.length}');
+        'Date: ${AppDateUtils.formatDate(DateTime.now())} - Total mouvements: ${_filteredMouvements.length}',
+      );
 
       sheet.cell(CellIndex.indexByString('A5')).value = TextCellValue('Date');
       sheet.cell(CellIndex.indexByString('B5')).value = TextCellValue('Article');
@@ -2211,20 +2173,27 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         final mouvement = _filteredMouvements[i];
         final row = i + 6;
 
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
-            TextCellValue(AppDateUtils.formatDate(mouvement.daty ?? DateTime.now()));
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value =
-            TextCellValue(mouvement.refart ?? '');
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value =
-            TextCellValue(mouvement.depots ?? '');
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value =
-            TextCellValue(mouvement.verification ?? '');
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value =
-            DoubleCellValue(mouvement.qe ?? 0);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row)).value =
-            DoubleCellValue(mouvement.qs ?? 0);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row)).value =
-            DoubleCellValue((mouvement.qe ?? 0) - (mouvement.qs ?? 0));
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value = TextCellValue(
+          AppDateUtils.formatDate(mouvement.daty ?? DateTime.now()),
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value = TextCellValue(
+          mouvement.refart ?? '',
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value = TextCellValue(
+          mouvement.depots ?? '',
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value = TextCellValue(
+          mouvement.verification ?? '',
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value = DoubleCellValue(
+          mouvement.qe ?? 0,
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row)).value = DoubleCellValue(
+          mouvement.qs ?? 0,
+        );
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row)).value = DoubleCellValue(
+          (mouvement.qe ?? 0) - (mouvement.qs ?? 0),
+        );
       }
 
       final directory = await getApplicationDocumentsDirectory();
@@ -2254,14 +2223,14 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
           header: (pw.Context context) {
             return pw.Container(
               padding: const pw.EdgeInsets.all(15),
-              decoration: pw.BoxDecoration(
-                border: pw.Border.all(color: PdfColors.black, width: 1),
-              ),
+              decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
               child: pw.Column(
                 children: [
-                  pw.Text('MOUVEMENTS DE STOCK',
-                      style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
-                      textAlign: pw.TextAlign.center),
+                  pw.Text(
+                    'MOUVEMENTS DE STOCK',
+                    style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                    textAlign: pw.TextAlign.center,
+                  ),
                   pw.SizedBox(height: 10),
                   pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -2270,18 +2239,26 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('SOCIÉTÉ:',
-                                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                            pw.Text('${_companyInfo['nom']}',
-                                style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                            pw.Text(
+                              'SOCIÉTÉ:',
+                              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                            ),
+                            pw.Text(
+                              '${_companyInfo['nom']}',
+                              style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold),
+                            ),
                             pw.Text('${_companyInfo['adresse']}', style: const pw.TextStyle(fontSize: 9)),
                             pw.Text('RCS: ${_companyInfo['rcs']}', style: const pw.TextStyle(fontSize: 9)),
                             pw.Text('STAT: ${_companyInfo['stat']}', style: const pw.TextStyle(fontSize: 9)),
                             pw.Text('NIF: ${_companyInfo['nif']}', style: const pw.TextStyle(fontSize: 9)),
-                            pw.Text('Email: ${_companyInfo['email']}',
-                                style: const pw.TextStyle(fontSize: 9)),
-                            pw.Text('Tél: ${_companyInfo['tel']} / ${_companyInfo['port']}',
-                                style: const pw.TextStyle(fontSize: 9)),
+                            pw.Text(
+                              'Email: ${_companyInfo['email']}',
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                            pw.Text(
+                              'Tél: ${_companyInfo['tel']} / ${_companyInfo['port']}',
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
                           ],
                         ),
                       ),
@@ -2289,12 +2266,18 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.end,
                           children: [
-                            pw.Text('N° DOC: MOV${DateTime.now().millisecondsSinceEpoch}',
-                                style: const pw.TextStyle(fontSize: 10)),
-                            pw.Text('DATE: ${AppDateUtils.formatDate(DateTime.now())}',
-                                style: const pw.TextStyle(fontSize: 10)),
-                            pw.Text('PAGE: ${context.pageNumber}/${context.pagesCount}',
-                                style: const pw.TextStyle(fontSize: 10)),
+                            pw.Text(
+                              'N° DOC: MOV${DateTime.now().millisecondsSinceEpoch}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                            pw.Text(
+                              'DATE: ${AppDateUtils.formatDate(DateTime.now())}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
+                            pw.Text(
+                              'PAGE: ${context.pageNumber}/${context.pagesCount}',
+                              style: const pw.TextStyle(fontSize: 10),
+                            ),
                           ],
                         ),
                       ),

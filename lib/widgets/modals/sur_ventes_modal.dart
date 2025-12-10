@@ -6,8 +6,8 @@ import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../utils/date_utils.dart' as app_date;
 import '../../utils/number_utils.dart';
-import '../common/tab_navigation_widget.dart';
 import '../common/article_navigation_autocomplete.dart';
+import '../common/tab_navigation_widget.dart';
 
 class SurVentesModal extends StatefulWidget {
   const SurVentesModal({super.key});
@@ -63,27 +63,26 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
     } catch (e) {
       // Error handled
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors du chargement: $e')));
       }
     }
   }
 
   Future<void> _loadVentesForClient(String client) async {
     try {
-      final ventes = await (_databaseService.database.select(_databaseService.database.ventes)
-            ..where((v) => v.clt.equals(client))
-            ..orderBy([(v) => drift.OrderingTerm.desc(v.daty)]))
-          .get();
+      final ventes =
+          await (_databaseService.database.select(_databaseService.database.ventes)
+                ..where((v) => v.clt.equals(client))
+                ..orderBy([(v) => drift.OrderingTerm.desc(v.daty)]))
+              .get();
       setState(() {
         _ventes = ventes;
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement des ventes: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur lors du chargement des ventes: $e')));
       }
     }
   }
@@ -92,9 +91,9 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
     if (_selectedVente == null) return;
 
     try {
-      final detailsVente = await (_databaseService.database.select(_databaseService.database.detventes)
-            ..where((d) => d.numventes.equals(_selectedVente!)))
-          .get();
+      final detailsVente = await (_databaseService.database.select(
+        _databaseService.database.detventes,
+      )..where((d) => d.numventes.equals(_selectedVente!))).get();
 
       setState(() {
         _lignesRetour.clear();
@@ -114,15 +113,15 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${detailsVente.length} article(s) chargé(s)')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${detailsVente.length} article(s) chargé(s)')));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement des articles: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur lors du chargement des articles: $e')));
       }
     }
   }
@@ -177,8 +176,10 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('N° Retour:',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              const Text(
+                                'N° Retour:',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(height: 4),
                               TextField(
                                 controller: _numRetourController,
@@ -200,8 +201,10 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Date:',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Date:',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(height: 4),
                               TextField(
                                 controller: _dateController,
@@ -238,18 +241,17 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Client:',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Client:',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(height: 4),
                               SizedBox(
                                 height: 32,
                                 child: ArticleNavigationAutocomplete(
-                                  articles: _clients.map((c) => Article(
-                                    designation: c.rsoc,
-                                    u1: '',
-                                    u2: '',
-                                    u3: '',
-                                  )).toList(),
+                                  articles: _clients
+                                      .map((c) => Article(designation: c.rsoc, u1: '', u2: '', u3: ''))
+                                      .toList(),
                                   onArticleChanged: (article) {
                                     if (article != null) {
                                       setState(() {
@@ -289,15 +291,21 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Vente de référence:',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              const Text(
+                                'Vente de référence:',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
                               const SizedBox(height: 4),
                               Focus(
                                 focusNode: _venteFocusNode,
                                 onKeyEvent: (node, event) {
                                   if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                    if (HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftLeft) ||
-                                        HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftRight)) {
+                                    if (HardwareKeyboard.instance.logicalKeysPressed.contains(
+                                          LogicalKeyboardKey.shiftLeft,
+                                        ) ||
+                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
+                                          LogicalKeyboardKey.shiftRight,
+                                        )) {
                                       debugPrint('Vente: Shift+Tab pressed, moving to Client');
                                       _clientFocusNode.requestFocus();
                                     } else {
@@ -320,8 +328,10 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                                   items: _ventes.map((vente) {
                                     return DropdownMenuItem<String>(
                                       value: vente.numventes,
-                                      child: Text('${vente.numventes} - ${vente.nfact ?? ''}',
-                                          style: const TextStyle(fontSize: 12)),
+                                      child: Text(
+                                        '${vente.numventes} - ${vente.nfact ?? ''}',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
                                     );
                                   }).toList(),
                                   onChanged: (value) {
@@ -341,8 +351,10 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Motif du retour:',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        const Text(
+                          'Motif du retour:',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
                         const SizedBox(height: 4),
                         TextField(
                           controller: _motifController,
@@ -390,43 +402,55 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                             Expanded(
                               flex: 3,
                               child: Center(
-                                child: Text('Désignation',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(
+                                  'Désignation',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
                               ),
                             ),
                             Expanded(
                               flex: 1,
                               child: Center(
-                                child: Text('Unité',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(
+                                  'Unité',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
                               ),
                             ),
                             Expanded(
                               flex: 1,
                               child: Center(
-                                child: Text('Qté Retour',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(
+                                  'Qté Retour',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
                               ),
                             ),
                             Expanded(
                               flex: 2,
                               child: Center(
-                                child: Text('Prix Unitaire',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(
+                                  'Prix Unitaire',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
                               ),
                             ),
                             Expanded(
                               flex: 2,
                               child: Center(
-                                child: Text('Montant',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(
+                                  'Montant',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
                               ),
                             ),
                             Expanded(
                               flex: 1,
                               child: Center(
-                                child: Text('Action',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                child: Text(
+                                  'Action',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
                               ),
                             ),
                           ],
@@ -482,11 +506,16 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                                             padding: const EdgeInsets.symmetric(horizontal: 2),
                                             child: TextField(
                                               controller: TextEditingController(
-                                                text: NumberUtils.formatNumber(ligne['quantiteRetour'] ?? ligne['quantite'] ?? 0)
+                                                text: NumberUtils.formatNumber(
+                                                  ligne['quantiteRetour'] ?? ligne['quantite'] ?? 0,
+                                                ),
                                               ),
                                               decoration: const InputDecoration(
                                                 border: OutlineInputBorder(),
-                                                contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                contentPadding: EdgeInsets.symmetric(
+                                                  horizontal: 4,
+                                                  vertical: 2,
+                                                ),
                                               ),
                                               style: const TextStyle(fontSize: 10),
                                               textAlign: TextAlign.center,
@@ -520,9 +549,13 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                                           flex: 2,
                                           child: Center(
                                             child: Text(
-                                              NumberUtils.formatNumber(ligne['montantRetour'] ?? ligne['montant'] ?? 0),
-                                              style:
-                                                  const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                              NumberUtils.formatNumber(
+                                                ligne['montantRetour'] ?? ligne['montant'] ?? 0,
+                                              ),
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -562,9 +595,9 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                         if (_selectedVente != null) {
                           _chargerArticlesVente();
                         } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Veuillez sélectionner une vente')),
-                          );
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(const SnackBar(content: Text('Veuillez sélectionner une vente')));
                         }
                       },
                       child: const Text('Charger Articles'),
@@ -576,10 +609,7 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
                       child: const Text('Valider Retour'),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Fermer'),
-                    ),
+                    ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
                   ],
                 ),
               ),
@@ -592,17 +622,20 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
 
   Future<void> _saveRetourVente() async {
     if (_selectedClient == null || _selectedVente == null || _lignesRetour.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez remplir tous les champs requis')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Veuillez remplir tous les champs requis')));
       return;
     }
 
     try {
       final numRetour = _numRetourController.text;
       List<String> dateParts = _dateController.text.split('/');
-      DateTime dateForDB =
-          DateTime(int.parse(dateParts[2]), int.parse(dateParts[1]), int.parse(dateParts[0]));
+      DateTime dateForDB = DateTime(
+        int.parse(dateParts[2]),
+        int.parse(dateParts[1]),
+        int.parse(dateParts[0]),
+      );
 
       double totalMontant = 0;
       for (var ligne in _lignesRetour) {
@@ -649,26 +682,30 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
       await _enregistrerDecaissement(numRetour, totalMontant);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Retour sur vente enregistré avec succès')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Retour sur vente enregistré avec succès')));
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
 
   Future<void> _mettreAJourStockRetourVente(
-      String designation, String depot, String unite, double quantite) async {
+    String designation,
+    String depot,
+    String unite,
+    double quantite,
+  ) async {
     try {
       // Créer un mouvement d'ENTRÉE de stock pour le retour sur vente
       final ref = 'RV${DateTime.now().millisecondsSinceEpoch}';
-      await _databaseService.database.into(_databaseService.database.stocks).insert(
+      await _databaseService.database
+          .into(_databaseService.database.stocks)
+          .insert(
             StocksCompanion(
               ref: drift.Value(ref),
               daty: drift.Value(DateTime.now()),
@@ -698,13 +735,15 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
         }
 
         // Mettre à jour le stock global dans la table articles
-        await (_databaseService.database.update(_databaseService.database.articles)
-              ..where((a) => a.designation.equals(designation)))
-            .write(ArticlesCompanion(
-          stocksu1: drift.Value(nouvelleQuantiteU1),
-          stocksu2: drift.Value(nouvelleQuantiteU2),
-          stocksu3: drift.Value(nouvelleQuantiteU3),
-        ));
+        await (_databaseService.database.update(
+          _databaseService.database.articles,
+        )..where((a) => a.designation.equals(designation))).write(
+          ArticlesCompanion(
+            stocksu1: drift.Value(nouvelleQuantiteU1),
+            stocksu2: drift.Value(nouvelleQuantiteU2),
+            stocksu3: drift.Value(nouvelleQuantiteU3),
+          ),
+        );
       }
 
       // Mettre à jour le stock dans la table depart (AUGMENTER le stock)
@@ -726,13 +765,15 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
           nouvelleQuantiteU3 += quantite;
         }
 
-        await (_databaseService.database.update(_databaseService.database.depart)
-              ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-            .write(DepartCompanion(
-          stocksu1: drift.Value(nouvelleQuantiteU1),
-          stocksu2: drift.Value(nouvelleQuantiteU2),
-          stocksu3: drift.Value(nouvelleQuantiteU3),
-        ));
+        await (_databaseService.database.update(
+          _databaseService.database.depart,
+        )..where((d) => d.designation.equals(designation) & d.depots.equals(depot))).write(
+          DepartCompanion(
+            stocksu1: drift.Value(nouvelleQuantiteU1),
+            stocksu2: drift.Value(nouvelleQuantiteU2),
+            stocksu3: drift.Value(nouvelleQuantiteU3),
+          ),
+        );
       } else {
         // Créer une nouvelle entrée si elle n'existe pas
         double stockU1 = 0, stockU2 = 0, stockU3 = 0;
@@ -744,7 +785,9 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
           stockU3 = quantite;
         }
 
-        await _databaseService.database.into(_databaseService.database.depart).insert(
+        await _databaseService.database
+            .into(_databaseService.database.depart)
+            .insert(
               DepartCompanion(
                 designation: drift.Value(designation),
                 depots: drift.Value(depot),
@@ -756,26 +799,22 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur mise à jour stock: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur mise à jour stock: $e')));
       }
     }
   }
 
   Future<void> _ajusterCompteClient(String client, double montant) async {
     try {
-      final compteClient = await (_databaseService.database.select(_databaseService.database.compteclt)
-            ..where((c) => c.clt.equals(client)))
-          .getSingleOrNull();
+      final compteClient = await (_databaseService.database.select(
+        _databaseService.database.compteclt,
+      )..where((c) => c.clt.equals(client))).getSingleOrNull();
 
       if (compteClient != null) {
         final nouveauSolde = (compteClient.solde ?? 0) - montant;
-        await (_databaseService.database.update(_databaseService.database.compteclt)
-              ..where((c) => c.clt.equals(client)))
-            .write(ComptecltCompanion(
-          solde: drift.Value(nouveauSolde),
-        ));
+        await (_databaseService.database.update(
+          _databaseService.database.compteclt,
+        )..where((c) => c.clt.equals(client))).write(ComptecltCompanion(solde: drift.Value(nouveauSolde)));
       }
     } catch (e) {
       // Ignore errors
@@ -784,13 +823,15 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
 
   Future<void> _enregistrerDecaissement(String numRetour, double montant) async {
     try {
-      await _databaseService.database.into(_databaseService.database.caisse).insert(
+      await _databaseService.database
+          .into(_databaseService.database.caisse)
+          .insert(
             CaisseCompanion(
               ref: drift.Value('RV${DateTime.now().millisecondsSinceEpoch}'),
               daty: drift.Value(DateTime.now()),
               lib: drift.Value('Retour sur ventes - $numRetour'),
               debit: drift.Value(montant),
-              type: drift.Value('Retour sur ventes'),
+              type: const drift.Value('Retour sur ventes'),
             ),
           );
     } catch (e) {
