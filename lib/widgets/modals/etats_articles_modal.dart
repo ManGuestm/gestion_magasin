@@ -25,7 +25,7 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> with TabNavigat
 
   Future<void> _loadArticles() async {
     try {
-      final articles = await _databaseService.database.getAllArticles();
+      final articles = await _databaseService.database.getActiveArticles();
       setState(() {
         _articles = articles;
         _isLoading = false;
@@ -33,9 +33,7 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> with TabNavigat
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -47,10 +45,7 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> with TabNavigat
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.9,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey[100],
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: Colors.grey[100]),
         child: Column(
           children: [
             Container(
@@ -95,25 +90,31 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> with TabNavigat
                             child: const Row(
                               children: [
                                 Expanded(
-                                    flex: 3,
-                                    child: Center(
-                                        child: Text('Désignation',
-                                            style: TextStyle(fontWeight: FontWeight.bold)))),
+                                  flex: 3,
+                                  child: Center(
+                                    child: Text('Désignation', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
                                 Expanded(
-                                    child: Center(
-                                        child:
-                                            Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                  child: Center(
+                                    child: Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
                                 Expanded(
-                                    child: Center(
-                                        child:
-                                            Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                  child: Center(
+                                    child: Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
                                 Expanded(
-                                    child: Center(
-                                        child:
-                                            Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                  child: Center(
+                                    child: Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
                                 Expanded(
-                                    child: Center(
-                                        child: Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                  child: Center(
+                                    child: Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -129,7 +130,8 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> with TabNavigat
                                         decoration: BoxDecoration(
                                           color: index % 2 == 0 ? Colors.white : Colors.grey[50],
                                           border: const Border(
-                                              bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                            bottom: BorderSide(color: Colors.grey, width: 0.5),
+                                          ),
                                         ),
                                         child: Row(
                                           children: [
@@ -173,7 +175,9 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> with TabNavigat
                                                 child: Text(
                                                   NumberUtils.formatNumber(article.cmup ?? 0),
                                                   style: const TextStyle(
-                                                      fontSize: 11, fontWeight: FontWeight.bold),
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
                                                 ),
                                               ),
                                             ),

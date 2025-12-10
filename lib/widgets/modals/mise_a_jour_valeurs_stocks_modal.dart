@@ -30,7 +30,7 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
 
   Future<void> _loadArticles() async {
     try {
-      final articles = await _databaseService.database.getAllArticles();
+      final articles = await _databaseService.database.getActiveArticles();
       setState(() {
         _articles = articles;
         _isLoading = false;

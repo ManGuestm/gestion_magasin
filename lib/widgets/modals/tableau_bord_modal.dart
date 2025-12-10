@@ -39,7 +39,7 @@ class _TableauBordModalState extends State<TableauBordModal> with TabNavigationM
       final achats = await _databaseService.database.getAllAchats();
       final clients = await _databaseService.database.getAllClients();
       final fournisseurs = await _databaseService.database.getAllFournisseurs();
-      final articles = await _databaseService.database.getAllArticles();
+      final articles = await _databaseService.database.getActiveArticles();
       final caisses = await _databaseService.database.getAllCaisses();
       final banques = await _databaseService.database.getAllBanques();
 

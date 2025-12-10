@@ -37,7 +37,7 @@ class _EtiquettesPrixModalState extends State<EtiquettesPrixModal> with TabNavig
     setState(() => _isLoading = true);
     try {
       final db = AppDatabase();
-      final articles = await db.getAllArticles();
+      final articles = await db.getActiveArticles();
       setState(() {
         _articles = articles;
         _filteredArticles = articles;

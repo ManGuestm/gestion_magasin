@@ -37,7 +37,7 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
 
   Future<void> _loadData() async {
     try {
-      final articles = await _databaseService.database.getAllArticles();
+      final articles = await _databaseService.database.getActiveArticles();
       final depots = await _databaseService.database.getAllDepots();
 
       // Charger les stocks par dépôt
@@ -64,9 +64,7 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors du chargement: $e')));
       }
     }
   }
@@ -239,43 +237,55 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
                                     Expanded(
                                       flex: 2,
                                       child: Center(
-                                        child: Text('Référence',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        child: Text(
+                                          'Référence',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                     Expanded(
                                       flex: 4,
                                       child: Center(
-                                        child: Text('Désignation',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        child: Text(
+                                          'Désignation',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                     Expanded(
                                       flex: 2,
                                       child: Center(
-                                        child: Text('Stock Actuel',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        child: Text(
+                                          'Stock Actuel',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                     Expanded(
                                       flex: 2,
                                       child: Center(
-                                        child: Text('Stock Min',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        child: Text(
+                                          'Stock Min',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                     Expanded(
                                       flex: 2,
                                       child: Center(
-                                        child: Text('Valeur Stock',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        child: Text(
+                                          'Valeur Stock',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                     Expanded(
                                       flex: 1,
                                       child: Center(
-                                        child: Text('État',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        child: Text(
+                                          'État',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -336,19 +346,17 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
                                                     child: Text(
                                                       NumberUtils.formatNumber(stockActuel),
                                                       style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: stockColor,
-                                                          fontWeight: FontWeight.bold),
+                                                        fontSize: 11,
+                                                        color: stockColor,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
                                                 const Expanded(
                                                   flex: 2,
                                                   child: Center(
-                                                    child: Text(
-                                                      '0',
-                                                      style: TextStyle(fontSize: 11),
-                                                    ),
+                                                    child: Text('0', style: TextStyle(fontSize: 11)),
                                                   ),
                                                 ),
                                                 Expanded(
@@ -357,7 +365,9 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
                                                     child: Text(
                                                       NumberUtils.formatNumber(valeurStock),
                                                       style: const TextStyle(
-                                                          fontSize: 11, fontWeight: FontWeight.bold),
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
@@ -413,7 +423,10 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
                           Text(
                             'Valeur totale: ${NumberUtils.formatNumber(_articlesFiltered.fold(0.0, (sum, article) => sum + _getValeurStock(article)))}',
                             style: const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blue),
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
                           ),
                           ElevatedButton(
                             onPressed: () => Navigator.of(context).pop(),
@@ -439,10 +452,7 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
         Text(label, style: const TextStyle(fontSize: 12)),

@@ -38,7 +38,7 @@ class _BilanCompteResultatModalState extends State<BilanCompteResultatModal> wit
       final achats = await _databaseService.database.getAllAchats();
       final clients = await _databaseService.database.getAllClients();
       final fournisseurs = await _databaseService.database.getAllFournisseurs();
-      final articles = await _databaseService.database.getAllArticles();
+      final articles = await _databaseService.database.getActiveArticles();
       final caisses = await _databaseService.database.getAllCaisses();
       final banques = await _databaseService.database.getAllBanques();
       final autresComptes = await _databaseService.database.getAllAutrescomptes();
@@ -55,16 +55,15 @@ class _BilanCompteResultatModalState extends State<BilanCompteResultatModal> wit
         _stocks = articles.fold(0.0, (sum, a) => sum + ((a.stocksu1 ?? 0) * (a.cmup ?? 0)));
         _creancesClients = clients.fold(0.0, (sum, c) => sum + (c.soldes ?? 0));
         _detteFournisseurs = fournisseurs.fold(0.0, (sum, f) => sum + (f.soldes ?? 0));
-        _tresorerie = caisses.fold(0.0, (sum, c) => sum + ((c.credit ?? 0) - (c.debit ?? 0))) +
+        _tresorerie =
+            caisses.fold(0.0, (sum, c) => sum + ((c.credit ?? 0) - (c.debit ?? 0))) +
             banques.fold(0.0, (sum, b) => sum + ((b.credit ?? 0) - (b.debit ?? 0)));
         _isLoading = false;
       });
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -246,10 +245,7 @@ class _BilanCompteResultatModalState extends State<BilanCompteResultatModal> wit
         child: Container(
           width: MediaQuery.of(context).size.width * 0.95,
           height: MediaQuery.of(context).size.height * 0.9,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.grey[100],
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: Colors.grey[100]),
           child: Column(
             children: [
               Container(
@@ -294,8 +290,8 @@ class _BilanCompteResultatModalState extends State<BilanCompteResultatModal> wit
                 child: _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _selectedType == 'Bilan'
-                        ? _buildBilan()
-                        : _buildCompteResultat(),
+                    ? _buildBilan()
+                    : _buildCompteResultat(),
               ),
             ],
           ),

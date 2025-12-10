@@ -177,7 +177,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   }
 
   Future<List<Article>> _loadArticlesAsync() async {
-    return await _databaseService.database.getAllArticles();
+    return await _databaseService.database.getActiveArticles();
   }
 
   Future<List<DepartData>> _loadStocksAsync() async {

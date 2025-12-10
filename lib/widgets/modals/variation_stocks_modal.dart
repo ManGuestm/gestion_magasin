@@ -124,7 +124,7 @@ class _VariationStocksModalState extends State<VariationStocksModal> with TabNav
       List<Map<String, dynamic>> mouvementsAvecStock = [];
 
       // Obtenir les articles et stocks initiaux
-      final articles = await _databaseService.database.getAllArticles();
+      final articles = await _databaseService.database.getActiveArticles();
       final stocksDepart = await _databaseService.database.select(_databaseService.database.depart).get();
 
       // Initialiser les stocks par dépôt et par unité

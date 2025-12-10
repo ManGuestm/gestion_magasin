@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../database/database.dart';
 import '../common/tab_navigation_widget.dart';
 
@@ -24,7 +25,7 @@ class _EtatTarifaireModalState extends State<EtatTarifaireModal> with TabNavigat
     setState(() => _isLoading = true);
     try {
       final db = AppDatabase();
-      final articles = await db.getAllArticles();
+      final articles = await db.getActiveArticles();
       setState(() {
         _articles = articles;
         _isLoading = false;
@@ -50,13 +51,7 @@ class _EtatTarifaireModalState extends State<EtatTarifaireModal> with TabNavigat
           border: Border.all(color: Colors.black, width: 2),
           color: Colors.grey[200],
         ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildTable(),
-            _buildFooter(),
-          ],
-        ),
+        child: Column(children: [_buildHeader(), _buildTable(), _buildFooter()]),
       ),
     );
   }
@@ -100,9 +95,7 @@ class _EtatTarifaireModalState extends State<EtatTarifaireModal> with TabNavigat
   Widget _buildTable() {
     return Expanded(
       child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey, width: 1),
-        ),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey, width: 1)),
         child: Column(
           children: [
             _buildTableHeader(),
@@ -152,9 +145,7 @@ class _EtatTarifaireModalState extends State<EtatTarifaireModal> with TabNavigat
       width: width,
       alignment: Alignment.center,
       decoration: const BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.black, width: 1),
-        ),
+        border: Border(right: BorderSide(color: Colors.black, width: 1)),
       ),
       child: Text(
         text,
@@ -199,9 +190,7 @@ class _EtatTarifaireModalState extends State<EtatTarifaireModal> with TabNavigat
       padding: const EdgeInsets.symmetric(horizontal: 2),
       alignment: alignment,
       decoration: const BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.black, width: 0.5),
-        ),
+        border: Border(right: BorderSide(color: Colors.black, width: 0.5)),
       ),
       child: Text(
         text,
@@ -241,10 +230,7 @@ class _EtatTarifaireModalState extends State<EtatTarifaireModal> with TabNavigat
       child: InkWell(
         onTap: onPressed,
         child: Center(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 9, color: Colors.black),
-          ),
+          child: Text(text, style: const TextStyle(fontSize: 9, color: Colors.black)),
         ),
       ),
     );

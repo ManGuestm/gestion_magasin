@@ -666,7 +666,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
   Future<void> _loadData() async {
     try {
-      final articles = await _databaseService.database.getAllArticles();
+      final articles = await _databaseService.database.getActiveArticles();
       final allClients = await _databaseService.database.getAllClients();
       final depots = await _databaseService.database.getAllDepots();
       await (_databaseService.database.select(_databaseService.database.soc)).getSingleOrNull();

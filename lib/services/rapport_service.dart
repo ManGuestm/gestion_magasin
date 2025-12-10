@@ -137,7 +137,7 @@ class RapportService {
 
   /// Génère le rapport de rotation des stocks
   Future<List<Map<String, dynamic>>> genererRapportRotationStock({DateTime? debut, DateTime? fin}) async {
-    final articles = await _databaseService.database.getAllArticles();
+    final articles = await _databaseService.database.getActiveArticles();
     List<Map<String, dynamic>> rotations = [];
 
     for (var article in articles) {

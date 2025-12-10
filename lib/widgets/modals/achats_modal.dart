@@ -322,7 +322,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   Future<void> _loadData() async {
     try {
       final fournisseurs = await _databaseService.database.getAllFournisseurs();
-      final articles = await _databaseService.database.getAllArticles();
+      final articles = await _databaseService.database.getActiveArticles();
       final depots = await _databaseService.database
           .select(_databaseService.database.depots)
           .map((d) => d.depots)
@@ -931,7 +931,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         debugPrint('Anciennes lignes trouvées: ${anciennesLignes.length}');
 
         // Recharger les articles pour avoir les stocks actuels
-        _articles = await _databaseService.database.getAllArticles();
+        _articles = await _databaseService.database.getActiveArticles();
 
         // Annuler l'impact des anciennes lignes avec conversion automatique
         for (var ancienneLigne in anciennesLignes) {
@@ -1039,7 +1039,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         );
 
         // Recharger les articles pour avoir les stocks mis à jour après annulation
-        _articles = await _databaseService.database.getAllArticles();
+        _articles = await _databaseService.database.getActiveArticles();
 
         // Insérer les nouvelles lignes avec le MÊME numéro d'achat
         debugPrint('Insertion de ${_lignesAchat.length} nouvelles lignes');

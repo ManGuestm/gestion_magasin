@@ -692,8 +692,8 @@ class Users extends Table {
 
   @override
   List<Set<Column>> get uniqueKeys => [
-        {username},
-      ];
+    {username},
+  ];
 }
 
 // Table Historique CMUP - utilisée par: Mise à jour manuelle des CMUP
@@ -721,52 +721,54 @@ class CmupHistory extends Table {
 /// - Retours: Retachats, Retventes et leurs détails
 /// - Immobilisations: Emb
 /// - Transferts: Transf, Dettransf
-@DriftDatabase(tables: [
-  Soc,
-  Depots,
-  Articles,
-  Clt,
-  Frns,
-  Com,
-  Ventes,
-  Achats,
-  Stocks,
-  Autrescompte,
-  Banque,
-  Blclt,
-  Bq,
-  Ca,
-  Caisse,
-  Chequier,
-  Clti,
-  Compteclt,
-  Comptecom,
-  Comptefrns,
-  Depart,
-  Detachats,
-  Detprod,
-  Dettransf,
-  Detventes,
-  Effets,
-  Emb,
-  Emblclt,
-  Fstocks,
-  Mp,
-  Prod,
-  Pv,
-  Retachats,
-  Retdetachats,
-  Retdeventes,
-  Retventes,
-  Sintrant,
-  Sproduit,
-  Tblunit,
-  Transf,
-  Tribanque,
-  Tricaisse,
-  Users,
-  CmupHistory
-])
+@DriftDatabase(
+  tables: [
+    Soc,
+    Depots,
+    Articles,
+    Clt,
+    Frns,
+    Com,
+    Ventes,
+    Achats,
+    Stocks,
+    Autrescompte,
+    Banque,
+    Blclt,
+    Bq,
+    Ca,
+    Caisse,
+    Chequier,
+    Clti,
+    Compteclt,
+    Comptecom,
+    Comptefrns,
+    Depart,
+    Detachats,
+    Detprod,
+    Dettransf,
+    Detventes,
+    Effets,
+    Emb,
+    Emblclt,
+    Fstocks,
+    Mp,
+    Prod,
+    Pv,
+    Retachats,
+    Retdetachats,
+    Retdeventes,
+    Retventes,
+    Sintrant,
+    Sproduit,
+    Tblunit,
+    Transf,
+    Tribanque,
+    Tricaisse,
+    Users,
+    CmupHistory,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   /// Constructeur de la base de données
   /// Initialise la connexion à la base de données SQLite locale
@@ -784,155 +786,155 @@ class AppDatabase extends _$AppDatabase {
   /// Gère la création initiale et les mises à jour de schéma
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        // Création initiale de toutes les tables
-        onCreate: (Migrator m) {
-          return m.createAll();
-        },
-        // Migration progressive des versions antérieures
-        onUpgrade: (Migrator m, int from, int to) async {
-          if (from == 1) {
-            await m.createTable(depots);
-            await m.createTable(articles);
-            await m.createTable(clt);
-            await m.createTable(frns);
-            await m.createTable(com);
-            await m.createTable(ventes);
-            await m.createTable(achats);
-            await m.createTable(stocks);
-          } else if (from == 2) {
-            await m.createTable(articles);
-            await m.createTable(clt);
-            await m.createTable(frns);
-            await m.createTable(com);
-            await m.createTable(ventes);
-            await m.createTable(achats);
-            await m.createTable(stocks);
-          } else if (from == 3) {
-            await m.createTable(articles);
-            await m.createTable(clt);
-            await m.createTable(frns);
-            await m.createTable(com);
-            await m.createTable(ventes);
-            await m.createTable(achats);
-            await m.createTable(stocks);
-          } else if (from == 4) {
-            await m.createTable(clt);
-            await m.createTable(frns);
-            await m.createTable(com);
-            await m.createTable(ventes);
-            await m.createTable(achats);
-            await m.createTable(stocks);
-          } else if (from == 5) {
-            await m.createTable(autrescompte);
-            await m.createTable(banque);
-            await m.createTable(blclt);
-          } else if (from == 6) {
-            await m.createTable(bq);
-          } else if (from == 7) {
-            await m.createTable(ca);
-          } else if (from == 8) {
-            await m.createTable(caisse);
-          } else if (from == 9) {
-            await m.createTable(chequier);
-          } else if (from == 10) {
-            await m.createTable(clti);
-          } else if (from == 11) {
-            await m.createTable(compteclt);
-          } else if (from == 12) {
-            await m.createTable(comptecom);
-          } else if (from == 13) {
-            await m.createTable(comptefrns);
-          } else if (from == 14) {
-            await m.createTable(depart);
-          } else if (from == 15) {
-            await m.createTable(detachats);
-          } else if (from == 16) {
-            await m.createTable(detprod);
-          } else if (from == 17) {
-            await m.createTable(dettransf);
-          } else if (from == 18) {
-            await m.createTable(detventes);
-          } else if (from == 19) {
-            await m.createTable(effets);
-          } else if (from == 20) {
-            await m.createTable(emb);
-          } else if (from == 21) {
-            await m.createTable(emblclt);
-          } else if (from == 22) {
-            await m.createTable(fstocks);
-          } else if (from == 23) {
-            await m.createTable(mp);
-          } else if (from == 24) {
-            await m.createTable(prod);
-          } else if (from == 25) {
-            await m.createTable(pv);
-          } else if (from == 26) {
-            await m.createTable(retachats);
-          } else if (from == 27) {
-            await m.createTable(retdetachats);
-          } else if (from == 28) {
-            await m.createTable(retdeventes);
-          } else if (from == 29) {
-            await m.createTable(retventes);
-          } else if (from == 30) {
-            await m.createTable(sintrant);
-          } else if (from == 31) {
-            await m.createTable(sproduit);
-          } else if (from == 32) {
-            await m.createTable(tblunit);
-          } else if (from == 33) {
-            await m.createTable(transf);
-          } else if (from == 34) {
-            await m.createTable(tribanque);
-          } else if (from == 35) {
-            await m.createTable(tricaisse);
-          } else if (from == 36) {
-            // Recréer la table depart sans contrainte unique sur designation
-            await m.deleteTable('depart');
-            await m.createTable(depart);
-          } else if (from == 37) {
-            // Recréer la table depart avec clé primaire composite
-            await m.deleteTable('depart');
-            await m.createTable(depart);
-          } else if (from == 38) {
-            // Forcer la recréation de la table depart avec clé primaire composite
-            await m.deleteTable('depart');
-            await m.createTable(depart);
-          } else if (from == 39) {
-            // Migration 39 - colonnes supprimées
-          } else if (from == 40) {
-            // Ajouter la table Users pour l'authentification
-            await m.createTable(users);
-          } else if (from == 41) {
-            // Modifier la table Users pour utiliser username au lieu d'email
-            await m.deleteTable('users');
-            await m.createTable(users);
-          } else if (from == 42) {
-            // Ajouter la colonne diff_prix à la table detventes
-            await m.addColumn(detventes, detventes.diffPrix as GeneratedColumn);
-          } else if (from == 43) {
-            // Ajouter la table CmupHistory
-            await m.createTable(cmupHistory);
-          } else if (from == 44) {
-            // Supprimer les colonnes totalnt, tva, commission, montantRecu, monnaieARendre
-            // Recréer les tables avec les nouvelles structures
-            await m.deleteTable('ventes');
-            await m.createTable(ventes);
-            await m.deleteTable('achats');
-            await m.createTable(achats);
-            await m.deleteTable('retachats');
-            await m.createTable(retachats);
-            await m.deleteTable('retventes');
-            await m.createTable(retventes);
-          } else if (from == 45) {
-            // Ajouter la colonne bonExpedition à la table transf
-            await m.addColumn(transf, transf.bonExpedition as GeneratedColumn);
-          } else if (from == 46) {
-            // Ajouter la colonne pue à la table stocks
-            await m.addColumn(stocks, stocks.pue as GeneratedColumn);
-          }
-        },
-      );
+    // Création initiale de toutes les tables
+    onCreate: (Migrator m) {
+      return m.createAll();
+    },
+    // Migration progressive des versions antérieures
+    onUpgrade: (Migrator m, int from, int to) async {
+      if (from == 1) {
+        await m.createTable(depots);
+        await m.createTable(articles);
+        await m.createTable(clt);
+        await m.createTable(frns);
+        await m.createTable(com);
+        await m.createTable(ventes);
+        await m.createTable(achats);
+        await m.createTable(stocks);
+      } else if (from == 2) {
+        await m.createTable(articles);
+        await m.createTable(clt);
+        await m.createTable(frns);
+        await m.createTable(com);
+        await m.createTable(ventes);
+        await m.createTable(achats);
+        await m.createTable(stocks);
+      } else if (from == 3) {
+        await m.createTable(articles);
+        await m.createTable(clt);
+        await m.createTable(frns);
+        await m.createTable(com);
+        await m.createTable(ventes);
+        await m.createTable(achats);
+        await m.createTable(stocks);
+      } else if (from == 4) {
+        await m.createTable(clt);
+        await m.createTable(frns);
+        await m.createTable(com);
+        await m.createTable(ventes);
+        await m.createTable(achats);
+        await m.createTable(stocks);
+      } else if (from == 5) {
+        await m.createTable(autrescompte);
+        await m.createTable(banque);
+        await m.createTable(blclt);
+      } else if (from == 6) {
+        await m.createTable(bq);
+      } else if (from == 7) {
+        await m.createTable(ca);
+      } else if (from == 8) {
+        await m.createTable(caisse);
+      } else if (from == 9) {
+        await m.createTable(chequier);
+      } else if (from == 10) {
+        await m.createTable(clti);
+      } else if (from == 11) {
+        await m.createTable(compteclt);
+      } else if (from == 12) {
+        await m.createTable(comptecom);
+      } else if (from == 13) {
+        await m.createTable(comptefrns);
+      } else if (from == 14) {
+        await m.createTable(depart);
+      } else if (from == 15) {
+        await m.createTable(detachats);
+      } else if (from == 16) {
+        await m.createTable(detprod);
+      } else if (from == 17) {
+        await m.createTable(dettransf);
+      } else if (from == 18) {
+        await m.createTable(detventes);
+      } else if (from == 19) {
+        await m.createTable(effets);
+      } else if (from == 20) {
+        await m.createTable(emb);
+      } else if (from == 21) {
+        await m.createTable(emblclt);
+      } else if (from == 22) {
+        await m.createTable(fstocks);
+      } else if (from == 23) {
+        await m.createTable(mp);
+      } else if (from == 24) {
+        await m.createTable(prod);
+      } else if (from == 25) {
+        await m.createTable(pv);
+      } else if (from == 26) {
+        await m.createTable(retachats);
+      } else if (from == 27) {
+        await m.createTable(retdetachats);
+      } else if (from == 28) {
+        await m.createTable(retdeventes);
+      } else if (from == 29) {
+        await m.createTable(retventes);
+      } else if (from == 30) {
+        await m.createTable(sintrant);
+      } else if (from == 31) {
+        await m.createTable(sproduit);
+      } else if (from == 32) {
+        await m.createTable(tblunit);
+      } else if (from == 33) {
+        await m.createTable(transf);
+      } else if (from == 34) {
+        await m.createTable(tribanque);
+      } else if (from == 35) {
+        await m.createTable(tricaisse);
+      } else if (from == 36) {
+        // Recréer la table depart sans contrainte unique sur designation
+        await m.deleteTable('depart');
+        await m.createTable(depart);
+      } else if (from == 37) {
+        // Recréer la table depart avec clé primaire composite
+        await m.deleteTable('depart');
+        await m.createTable(depart);
+      } else if (from == 38) {
+        // Forcer la recréation de la table depart avec clé primaire composite
+        await m.deleteTable('depart');
+        await m.createTable(depart);
+      } else if (from == 39) {
+        // Migration 39 - colonnes supprimées
+      } else if (from == 40) {
+        // Ajouter la table Users pour l'authentification
+        await m.createTable(users);
+      } else if (from == 41) {
+        // Modifier la table Users pour utiliser username au lieu d'email
+        await m.deleteTable('users');
+        await m.createTable(users);
+      } else if (from == 42) {
+        // Ajouter la colonne diff_prix à la table detventes
+        await m.addColumn(detventes, detventes.diffPrix as GeneratedColumn);
+      } else if (from == 43) {
+        // Ajouter la table CmupHistory
+        await m.createTable(cmupHistory);
+      } else if (from == 44) {
+        // Supprimer les colonnes totalnt, tva, commission, montantRecu, monnaieARendre
+        // Recréer les tables avec les nouvelles structures
+        await m.deleteTable('ventes');
+        await m.createTable(ventes);
+        await m.deleteTable('achats');
+        await m.createTable(achats);
+        await m.deleteTable('retachats');
+        await m.createTable(retachats);
+        await m.deleteTable('retventes');
+        await m.createTable(retventes);
+      } else if (from == 45) {
+        // Ajouter la colonne bonExpedition à la table transf
+        await m.addColumn(transf, transf.bonExpedition as GeneratedColumn);
+      } else if (from == 46) {
+        // Ajouter la colonne pue à la table stocks
+        await m.addColumn(stocks, stocks.pue as GeneratedColumn);
+      }
+    },
+  );
 
   // ========== MÉTHODES SOCIÉTÉ ==========
   /// Récupère toutes les informations de société
@@ -965,11 +967,12 @@ class AppDatabase extends _$AppDatabase {
 
   /// Récupère le dernier dépôt utilisé dans les détails de ventes
   Future<String?> getDernierDepotUtilise() async {
-    final result = await (select(detventes)
-          ..where((d) => d.depots.isNotNull())
-          ..orderBy([(d) => OrderingTerm.desc(d.daty)])
-          ..limit(1))
-        .getSingleOrNull();
+    final result =
+        await (select(detventes)
+              ..where((d) => d.depots.isNotNull())
+              ..orderBy([(d) => OrderingTerm.desc(d.daty)])
+              ..limit(1))
+            .getSingleOrNull();
     return result?.depots;
   }
 
@@ -1027,10 +1030,7 @@ class AppDatabase extends _$AppDatabase {
     final query = select(achats)
       ..where((a) => a.verification.equals('JOURNAL') & a.contre.isNull() | a.contre.equals("0"));
     final result = await query.get();
-    return result.fold<double>(
-      0.0,
-      (sum, achat) => sum + (achat.totalttc ?? 0.0),
-    );
+    return result.fold<double>(0.0, (sum, achat) => sum + (achat.totalttc ?? 0.0));
   }
 
   /// Calcule le total des ventes (non contre-passées)
@@ -1048,8 +1048,10 @@ class AppDatabase extends _$AppDatabase {
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     final query = select(ventes)
-      ..where((tbl) =>
-          tbl.daty.isBetweenValues(startOfDay, endOfDay) & (tbl.contre.isNull() | tbl.contre.equals("0")));
+      ..where(
+        (tbl) =>
+            tbl.daty.isBetweenValues(startOfDay, endOfDay) & (tbl.contre.isNull() | tbl.contre.equals("0")),
+      );
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
   }
@@ -1099,13 +1101,15 @@ class AppDatabase extends _$AppDatabase {
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     final query = select(ventes)
-      ..where((tbl) =>
-          tbl.daty.isBetweenValues(startOfDay, endOfDay) &
-          tbl.verification.equals('JOURNAL') &
-          (tbl.commerc.equals(userName) |
-              tbl.commerc.like('$userName + %') |
-              tbl.commerc.like('% + $userName')) &
-          (tbl.contre.isNull() | tbl.contre.equals("0")));
+      ..where(
+        (tbl) =>
+            tbl.daty.isBetweenValues(startOfDay, endOfDay) &
+            tbl.verification.equals('JOURNAL') &
+            (tbl.commerc.equals(userName) |
+                tbl.commerc.like('$userName + %') |
+                tbl.commerc.like('% + $userName')) &
+            (tbl.contre.isNull() | tbl.contre.equals("0")),
+      );
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
   }
@@ -1118,15 +1122,17 @@ class AppDatabase extends _$AppDatabase {
       ..limit(limit);
     final result = await query.get();
     return result
-        .map((vente) => {
-              'id': vente.num,
-              'numventes': vente.numventes,
-              'nfact': vente.nfact,
-              'client': vente.clt ?? 'Client inconnu',
-              'date': vente.daty?.toString() ?? DateTime.now().toString(),
-              'total': vente.totalttc ?? 0,
-              'commerc': vente.commerc ?? 'Commercial inconnu',
-            })
+        .map(
+          (vente) => {
+            'id': vente.num,
+            'numventes': vente.numventes,
+            'nfact': vente.nfact,
+            'client': vente.clt ?? 'Client inconnu',
+            'date': vente.daty?.toString() ?? DateTime.now().toString(),
+            'total': vente.totalttc ?? 0,
+            'commerc': vente.commerc ?? 'Commercial inconnu',
+          },
+        )
         .toList();
   }
 
@@ -1138,14 +1144,16 @@ class AppDatabase extends _$AppDatabase {
       ..limit(limit);
     final result = await query.get();
     return result
-        .map((achat) => {
-              'id': achat.num,
-              'numachats': achat.numachats,
-              'nfact': achat.nfact,
-              'fournisseur': achat.frns ?? 'Fournisseur inconnu',
-              'date': achat.daty?.toString() ?? DateTime.now().toString(),
-              'total': achat.totalttc ?? 0,
-            })
+        .map(
+          (achat) => {
+            'id': achat.num,
+            'numachats': achat.numachats,
+            'nfact': achat.nfact,
+            'fournisseur': achat.frns ?? 'Fournisseur inconnu',
+            'date': achat.daty?.toString() ?? DateTime.now().toString(),
+            'total': achat.totalttc ?? 0,
+          },
+        )
         .toList();
   }
 
@@ -1157,13 +1165,15 @@ class AppDatabase extends _$AppDatabase {
     final endOfMonth = DateTime(now.year, now.month + 1, 1);
 
     final query = select(ventes)
-      ..where((tbl) =>
-          tbl.daty.isBetweenValues(startOfMonth, endOfMonth) &
-          tbl.verification.equals('JOURNAL') &
-          (tbl.commerc.equals(userName) |
-              tbl.commerc.like('$userName + %') |
-              tbl.commerc.like('% + $userName')) &
-          (tbl.contre.isNull() | tbl.contre.equals("0")));
+      ..where(
+        (tbl) =>
+            tbl.daty.isBetweenValues(startOfMonth, endOfMonth) &
+            tbl.verification.equals('JOURNAL') &
+            (tbl.commerc.equals(userName) |
+                tbl.commerc.like('$userName + %') |
+                tbl.commerc.like('% + $userName')) &
+            (tbl.contre.isNull() | tbl.contre.equals("0")),
+      );
     final result = await query.get();
     return result.fold<double>(0.0, (sum, vente) => sum + (vente.totalttc ?? 0));
   }
@@ -1229,17 +1239,18 @@ class AppDatabase extends _$AppDatabase {
         AND (v.contre IS NULL OR v.contre = 0)
         AND v.daty >= ?
       ''',
-      variables: [
-        Variable.withDateTime(startOfDay),
-      ],
+      variables: [Variable.withDateTime(startOfDay)],
     ).getSingleOrNull();
 
     return result?.data['benefice']?.toDouble() ?? 0.0;
   }
 
   /// Récupère les différences de prix de vente par rapport aux prix standards
-  Future<List<Map<String, dynamic>>> getDifferencesPrixVente(DateTime? dateDebut, DateTime? dateFin,
-      [String? blNumero]) async {
+  Future<List<Map<String, dynamic>>> getDifferencesPrixVente(
+    DateTime? dateDebut,
+    DateTime? dateFin, [
+    String? blNumero,
+  ]) async {
     String whereClause = "WHERE v.verification = 'JOURNAL'";
     List<Variable> variables = [];
 
@@ -1260,8 +1271,7 @@ class AppDatabase extends _$AppDatabase {
       variables.add(Variable('%$blNumero%'));
     }
 
-    final result = await customSelect(
-      '''
+    final result = await customSelect('''
       SELECT 
         v.daty as date_vente,
         v.numventes as numero_vente,
@@ -1291,23 +1301,23 @@ class AppDatabase extends _$AppDatabase {
             ELSE a.pvu1
           END, 0) - COALESCE(dv.pu, 0)) > 0.01
       ORDER BY v.daty DESC, v.numventes DESC
-      ''',
-      variables: variables,
-    ).get();
+      ''', variables: variables).get();
 
     return result
-        .map((row) => {
-              'date_vente': row.readNullable<String>('date_vente'),
-              'numero_vente': row.readNullable<String>('numero_vente'),
-              'bl_numero': row.readNullable<String>('bl_numero'),
-              'nom_article': row.readNullable<String>('nom_article'),
-              'unite': row.readNullable<String>('unite'),
-              'quantite': row.readNullable<double>('quantite') ?? 0.0,
-              'prix_standard': row.readNullable<double>('prix_standard') ?? 0.0,
-              'prix_vendu': row.readNullable<double>('prix_vendu') ?? 0.0,
-              'nom_client': row.readNullable<String>('nom_client'),
-              'commerciale': row.readNullable<String>('commerciale'),
-            })
+        .map(
+          (row) => {
+            'date_vente': row.readNullable<String>('date_vente'),
+            'numero_vente': row.readNullable<String>('numero_vente'),
+            'bl_numero': row.readNullable<String>('bl_numero'),
+            'nom_article': row.readNullable<String>('nom_article'),
+            'unite': row.readNullable<String>('unite'),
+            'quantite': row.readNullable<double>('quantite') ?? 0.0,
+            'prix_standard': row.readNullable<double>('prix_standard') ?? 0.0,
+            'prix_vendu': row.readNullable<double>('prix_vendu') ?? 0.0,
+            'nom_client': row.readNullable<String>('nom_client'),
+            'commerciale': row.readNullable<String>('commerciale'),
+          },
+        )
         .toList();
   }
 
@@ -1323,6 +1333,10 @@ class AppDatabase extends _$AppDatabase {
   // ========== MÉTHODES ARTICLES ==========
   /// Récupère tous les articles
   Future<List<Article>> getAllArticles() => select(articles).get();
+
+  /// Récupère les articles actifs (action='A')
+  Future<List<Article>> getActiveArticles() =>
+      (select(articles)..where((tbl) => tbl.action.equals('A'))).get();
 
   /// Récupère un article par désignation
   Future<Article?> getArticleByDesignation(String designation) =>
@@ -1631,10 +1645,9 @@ class AppDatabase extends _$AppDatabase {
             final nouveauSolde = (client.soldes ?? 0.0) + montantCredit;
 
             // Mettre à jour le solde dans la table clients
-            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!))).write(CltCompanion(
-              soldes: Value(nouveauSolde),
-              datedernop: vente.daty,
-            ));
+            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!))).write(
+              CltCompanion(soldes: Value(nouveauSolde), datedernop: vente.daty),
+            );
 
             // Insérer l'écriture dans compteclt
             await insererEcritureCompteClient(
@@ -1655,10 +1668,9 @@ class AppDatabase extends _$AppDatabase {
             final nouveauSolde = (client.soldes ?? 0.0) - avance;
 
             // Mettre à jour le solde dans la table clients
-            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!))).write(CltCompanion(
-              soldes: Value(nouveauSolde),
-              datedernop: vente.daty,
-            ));
+            await (update(clt)..where((c) => c.rsoc.equals(vente.clt.value!))).write(
+              CltCompanion(soldes: Value(nouveauSolde), datedernop: vente.daty),
+            );
 
             // Insérer l'écriture dans compteclt
             await insererEcritureCompteClient(
@@ -1688,8 +1700,10 @@ class AppDatabase extends _$AppDatabase {
     String numVente,
   ) async {
     // 1. Mettre à jour le stock par dépôt (table depart)
-    final stockDepart = await customSelect('SELECT * FROM depart WHERE designation = ? AND depots = ?',
-        variables: [Variable(designation), Variable(depot)]).getSingleOrNull();
+    final stockDepart = await customSelect(
+      'SELECT * FROM depart WHERE designation = ? AND depots = ?',
+      variables: [Variable(designation), Variable(depot)],
+    ).getSingleOrNull();
 
     // Convertir la quantité vendue selon l'unité
     double quantiteU1 = 0, quantiteU2 = 0;
@@ -1709,16 +1723,20 @@ class AppDatabase extends _$AppDatabase {
       final stockU2Actuel = stockDepart.read<double?>('stocksu2') ?? 0;
 
       await customStatement(
-          'UPDATE depart SET stocksu1 = ?, stocksu2 = ? WHERE designation = ? AND depots = ?',
-          [stockU1Actuel - quantiteU1, stockU2Actuel - quantiteU2, designation, depot]);
+        'UPDATE depart SET stocksu1 = ?, stocksu2 = ? WHERE designation = ? AND depots = ?',
+        [stockU1Actuel - quantiteU1, stockU2Actuel - quantiteU2, designation, depot],
+      );
     }
 
     // 2. Mettre à jour le stock global (table articles)
     final stockGlobalU1 = (article.stocksu1 ?? 0) - quantiteU1;
     final stockGlobalU2 = (article.stocksu2 ?? 0) - quantiteU2;
 
-    await customStatement('UPDATE articles SET stocksu1 = ?, stocksu2 = ? WHERE designation = ?',
-        [stockGlobalU1, stockGlobalU2, designation]);
+    await customStatement('UPDATE articles SET stocksu1 = ?, stocksu2 = ? WHERE designation = ?', [
+      stockGlobalU1,
+      stockGlobalU2,
+      designation,
+    ]);
 
     // 3. Créer un mouvement de stock dans la table stocks
     await _creerMouvementStock(
@@ -1747,21 +1765,23 @@ class AppDatabase extends _$AppDatabase {
     String? verification,
   }) async {
     final ref = 'CLT${DateTime.now().millisecondsSinceEpoch}';
-    await into(compteclt).insert(ComptecltCompanion(
-      ref: Value(ref),
-      daty: Value(date),
-      lib: Value(libelle),
-      numventes: numVentes != null ? Value(numVentes) : const Value.absent(),
-      nfact: nFact != null ? Value(nFact) : const Value.absent(),
-      refart: refArt != null ? Value(refArt) : const Value.absent(),
-      qs: quantite != null ? Value(quantite) : const Value.absent(),
-      pus: prixUnitaire != null ? Value(prixUnitaire) : const Value.absent(),
-      entres: entrees != null ? Value(entrees) : const Value.absent(),
-      sorties: sorties != null ? Value(sorties) : const Value.absent(),
-      solde: Value(nouveauSolde),
-      clt: Value(rsocClient),
-      verification: verification != null ? Value(verification) : const Value.absent(),
-    ));
+    await into(compteclt).insert(
+      ComptecltCompanion(
+        ref: Value(ref),
+        daty: Value(date),
+        lib: Value(libelle),
+        numventes: numVentes != null ? Value(numVentes) : const Value.absent(),
+        nfact: nFact != null ? Value(nFact) : const Value.absent(),
+        refart: refArt != null ? Value(refArt) : const Value.absent(),
+        qs: quantite != null ? Value(quantite) : const Value.absent(),
+        pus: prixUnitaire != null ? Value(prixUnitaire) : const Value.absent(),
+        entres: entrees != null ? Value(entrees) : const Value.absent(),
+        sorties: sorties != null ? Value(sorties) : const Value.absent(),
+        solde: Value(nouveauSolde),
+        clt: Value(rsocClient),
+        verification: verification != null ? Value(verification) : const Value.absent(),
+      ),
+    );
   }
 
   /// Crée un mouvement de stock
@@ -1778,24 +1798,25 @@ class AppDatabase extends _$AppDatabase {
     final ref = 'MVT${DateTime.now().millisecondsSinceEpoch}';
 
     await customStatement(
-        '''INSERT INTO stocks (ref, daty, lib, refart, qe, qs, entres, sortie, ue, us, depots, numventes, numachats, verification)
+      '''INSERT INTO stocks (ref, daty, lib, refart, qe, qs, entres, sortie, ue, us, depots, numventes, numachats, verification)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        [
-          ref,
-          DateTime.now().toIso8601String(),
-          '$type - $designation',
-          designation,
-          quantiteEntree ?? 0,
-          quantiteSortie ?? 0,
-          quantiteEntree ?? 0,
-          quantiteSortie ?? 0,
-          unite,
-          unite,
-          depot,
-          numVente,
-          numAchat,
-          type
-        ]);
+      [
+        ref,
+        DateTime.now().toIso8601String(),
+        '$type - $designation',
+        designation,
+        quantiteEntree ?? 0,
+        quantiteSortie ?? 0,
+        quantiteEntree ?? 0,
+        quantiteSortie ?? 0,
+        unite,
+        unite,
+        depot,
+        numVente,
+        numAchat,
+        type,
+      ],
+    );
   }
 
   // ========== MÉTHODES SPÉCIALISÉES STOCKS ==========
@@ -1818,15 +1839,22 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Initialise le stock d'un article dans un dépôt
-  Future<void> initialiserStockArticleDepot(String designation, String depot,
-      {double? stockU1, double? stockU2, double? stockU3}) async {
-    await into(depart).insertOnConflictUpdate(DepartCompanion(
-      designation: Value(designation),
-      depots: Value(depot),
-      stocksu1: Value(stockU1 ?? 0),
-      stocksu2: Value(stockU2 ?? 0),
-      stocksu3: Value(stockU3 ?? 0),
-    ));
+  Future<void> initialiserStockArticleDepot(
+    String designation,
+    String depot, {
+    double? stockU1,
+    double? stockU2,
+    double? stockU3,
+  }) async {
+    await into(depart).insertOnConflictUpdate(
+      DepartCompanion(
+        designation: Value(designation),
+        depots: Value(depot),
+        stocksu1: Value(stockU1 ?? 0),
+        stocksu2: Value(stockU2 ?? 0),
+        stocksu3: Value(stockU3 ?? 0),
+      ),
+    );
   }
 
   // ========== MÉTHODES SPÉCIALISÉES PRIX ==========
@@ -1837,11 +1865,7 @@ class AppDatabase extends _$AppDatabase {
     final prixVente = await (select(pv)..where((p) => p.designation.equals(designation))).getSingleOrNull();
 
     if (prixVente != null) {
-      return {
-        'u1': prixVente.pvu1 ?? 0,
-        'u2': prixVente.pvu2 ?? 0,
-        'u3': prixVente.pvu3 ?? 0,
-      };
+      return {'u1': prixVente.pvu1 ?? 0, 'u2': prixVente.pvu2 ?? 0, 'u3': prixVente.pvu3 ?? 0};
     }
 
     // Sinon calculer à partir du CMUP avec marge
@@ -1882,8 +1906,11 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Récupère le top des articles vendus
-  Future<List<Map<String, dynamic>>> getTopArticlesVendus(int limite,
-      {DateTime? debut, DateTime? fin}) async {
+  Future<List<Map<String, dynamic>>> getTopArticlesVendus(
+    int limite, {
+    DateTime? debut,
+    DateTime? fin,
+  }) async {
     String query = '''
       SELECT
         dv.designation,
@@ -1910,12 +1937,14 @@ class AppDatabase extends _$AppDatabase {
     final result = await customSelect(query, variables: params.map((p) => Variable(p)).toList()).get();
 
     return result
-        .map((row) => {
-              'designation': row.read<String>('designation'),
-              'quantite_totale': row.read<double>('quantite_totale'),
-              'chiffre_affaires': row.read<double>('chiffre_affaires'),
-              'nombre_ventes': row.read<int>('nombre_ventes'),
-            })
+        .map(
+          (row) => {
+            'designation': row.read<String>('designation'),
+            'quantite_totale': row.read<double>('quantite_totale'),
+            'chiffre_affaires': row.read<double>('chiffre_affaires'),
+            'nombre_ventes': row.read<int>('nombre_ventes'),
+          },
+        )
         .toList();
   }
 
@@ -1959,8 +1988,7 @@ class AppDatabase extends _$AppDatabase {
       params.add(fournisseur);
     }
 
-    final result = await customSelect(
-      '''
+    final result = await customSelect('''
       SELECT 
         a.frns as fournisseur,
         COUNT(*) as nombre_achats,
@@ -1976,22 +2004,22 @@ class AppDatabase extends _$AppDatabase {
       $whereClause
       GROUP BY a.frns
       ORDER BY montant_total DESC
-      ''',
-      variables: params.map((p) => Variable(p)).toList(),
-    ).get();
+      ''', variables: params.map((p) => Variable(p)).toList()).get();
 
     return result
-        .map((row) => {
-              'fournisseur': row.read<String>('fournisseur'),
-              'nombre_achats': row.read<int>('nombre_achats'),
-              'montant_total': row.read<double>('montant_total'),
-              'montant_moyen': row.read<double>('montant_moyen'),
-              'premier_achat': row.readNullable<String>('premier_achat'),
-              'dernier_achat': row.readNullable<String>('dernier_achat'),
-              'telephone': row.readNullable<String>('telephone') ?? '',
-              'email': row.readNullable<String>('email') ?? '',
-              'solde_compte': row.readNullable<double>('solde_compte') ?? 0.0,
-            })
+        .map(
+          (row) => {
+            'fournisseur': row.read<String>('fournisseur'),
+            'nombre_achats': row.read<int>('nombre_achats'),
+            'montant_total': row.read<double>('montant_total'),
+            'montant_moyen': row.read<double>('montant_moyen'),
+            'premier_achat': row.readNullable<String>('premier_achat'),
+            'dernier_achat': row.readNullable<String>('dernier_achat'),
+            'telephone': row.readNullable<String>('telephone') ?? '',
+            'email': row.readNullable<String>('email') ?? '',
+            'solde_compte': row.readNullable<double>('solde_compte') ?? 0.0,
+          },
+        )
         .toList();
   }
 
@@ -2012,10 +2040,7 @@ class AppDatabase extends _$AppDatabase {
       LEFT JOIN compteclt cc ON cc.clt = c.client
     ''';
 
-    final result = await customSelect(
-      query,
-      variables: [Variable(rsocClient)],
-    ).getSingle();
+    final result = await customSelect(query, variables: [Variable(rsocClient)]).getSingle();
 
     final soldeVentes = result.read<double>('solde_ventes');
     final soldeRetours = result.read<double>('solde_retours');
@@ -2057,10 +2082,11 @@ class AppDatabase extends _$AppDatabase {
 
   /// Authentifie un utilisateur
   Future<User?> authenticateUser(String username, String motDePasse) async {
-    final user = await (select(users)
-          ..where(
-              (u) => u.username.equals(username) & u.motDePasse.equals(motDePasse) & u.actif.equals(true)))
-        .getSingleOrNull();
+    final user =
+        await (select(users)..where(
+              (u) => u.username.equals(username) & u.motDePasse.equals(motDePasse) & u.actif.equals(true),
+            ))
+            .getSingleOrNull();
     return user;
   }
 
@@ -2072,21 +2098,24 @@ class AppDatabase extends _$AppDatabase {
       final hashedPassword = _hashPassword('admin123');
 
       if (existingAdmins.isEmpty) {
-        await into(users).insert(UsersCompanion(
-          id: const Value('admin'),
-          nom: const Value('Administrateur'),
-          username: const Value('admin'),
-          motDePasse: Value(hashedPassword),
-          role: const Value('Administrateur'),
-          actif: const Value(true),
-          dateCreation: Value(DateTime.now()),
-        ));
+        await into(users).insert(
+          UsersCompanion(
+            id: const Value('admin'),
+            nom: const Value('Administrateur'),
+            username: const Value('admin'),
+            motDePasse: Value(hashedPassword),
+            role: const Value('Administrateur'),
+            actif: const Value(true),
+            dateCreation: Value(DateTime.now()),
+          ),
+        );
       } else {
         // Prendre le premier admin et mettre à jour si nécessaire
         final existingAdmin = existingAdmins.first;
         if (existingAdmin.motDePasse == 'admin123') {
-          await (update(users)..where((u) => u.id.equals(existingAdmin.id)))
-              .write(UsersCompanion(motDePasse: Value(hashedPassword)));
+          await (update(users)..where((u) => u.id.equals(existingAdmin.id))).write(
+            UsersCompanion(motDePasse: Value(hashedPassword)),
+          );
         }
       }
 
@@ -2150,8 +2179,9 @@ class AppDatabase extends _$AppDatabase {
       }
 
       // 3. Marquer la vente comme contre passée
-      await (update(ventes)..where((v) => v.numventes.equals(numVentes)))
-          .write(const VentesCompanion(verification: Value('CONTRE_PASSE')));
+      await (update(ventes)..where((v) => v.numventes.equals(numVentes))).write(
+        const VentesCompanion(verification: Value('CONTRE_PASSE')),
+      );
 
       // 4. Ajuster le solde client si nécessaire
       if (vente.clt != null && vente.totalttc != null) {
@@ -2170,9 +2200,9 @@ class AppDatabase extends _$AppDatabase {
     String numVentes,
   ) async {
     // 1. Remettre le stock par dépôt (table depart)
-    final stockDepart = await (select(depart)
-          ..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-        .getSingleOrNull();
+    final stockDepart = await (select(
+      depart,
+    )..where((d) => d.designation.equals(designation) & d.depots.equals(depot))).getSingleOrNull();
 
     if (stockDepart != null) {
       // Convertir la quantité à remettre selon l'unité
@@ -2188,19 +2218,23 @@ class AppDatabase extends _$AppDatabase {
       }
 
       // Ajouter au stock du dépôt
-      await (update(depart)..where((d) => d.designation.equals(designation) & d.depots.equals(depot)))
-          .write(DepartCompanion(
-        stocksu1: Value((stockDepart.stocksu1 ?? 0) + quantiteU1),
-        stocksu2: Value((stockDepart.stocksu2 ?? 0) + quantiteU2),
-      ));
+      await (update(depart)..where((d) => d.designation.equals(designation) & d.depots.equals(depot))).write(
+        DepartCompanion(
+          stocksu1: Value((stockDepart.stocksu1 ?? 0) + quantiteU1),
+          stocksu2: Value((stockDepart.stocksu2 ?? 0) + quantiteU2),
+        ),
+      );
     }
 
     // 2. Remettre le stock global (table articles)
-    await (update(articles)..where((a) => a.designation.equals(designation))).write(ArticlesCompanion(
-      stocksu1:
-          Value((article.stocksu1 ?? 0) + (unite == article.u1 ? quantite : quantite / (article.tu2u1 ?? 1))),
-      stocksu2: Value((article.stocksu2 ?? 0) + (unite == article.u2 ? quantite : 0)),
-    ));
+    await (update(articles)..where((a) => a.designation.equals(designation))).write(
+      ArticlesCompanion(
+        stocksu1: Value(
+          (article.stocksu1 ?? 0) + (unite == article.u1 ? quantite : quantite / (article.tu2u1 ?? 1)),
+        ),
+        stocksu2: Value((article.stocksu2 ?? 0) + (unite == article.u2 ? quantite : 0)),
+      ),
+    );
 
     // 3. Créer un mouvement de stock de remise
     await _creerMouvementStock(
@@ -2219,10 +2253,9 @@ class AppDatabase extends _$AppDatabase {
     if (client != null) {
       final nouveauSolde = (client.soldes ?? 0) - montantVente;
 
-      await (update(clt)..where((c) => c.rsoc.equals(rsocClient))).write(CltCompanion(
-        soldes: Value(nouveauSolde),
-        datedernop: Value(DateTime.now()),
-      ));
+      await (update(clt)..where((c) => c.rsoc.equals(rsocClient))).write(
+        CltCompanion(soldes: Value(nouveauSolde), datedernop: Value(DateTime.now())),
+      );
 
       // Insérer l'écriture de contre-passage dans compteclt
       await insererEcritureCompteClient(
@@ -2252,7 +2285,7 @@ class AppDatabase extends _$AppDatabase {
     if (vente.verification != 'Journal') {
       return {
         'possible': false,
-        'raison': 'Seules les ventes validées (Journal) peuvent être contre passées'
+        'raison': 'Seules les ventes validées (Journal) peuvent être contre passées',
       };
     }
 
@@ -2269,21 +2302,23 @@ class AppDatabase extends _$AppDatabase {
 
   /// Récupère les détails d'une vente
   Future<List<Map<String, dynamic>>> getVenteDetails(String numVentes) async {
-    final query = select(detventes)
-        .join([leftOuterJoin(ventes, ventes.numventes.equalsExp(detventes.numventes))])
-      ..where(detventes.numventes.equals(numVentes));
+    final query = select(detventes).join([
+      leftOuterJoin(ventes, ventes.numventes.equalsExp(detventes.numventes)),
+    ])..where(detventes.numventes.equals(numVentes));
 
     final results = await query.get();
     return results
-        .map((row) => {
-              'designation': row.readTable(detventes).designation,
-              'unites': row.readTable(detventes).unites,
-              'q': row.readTable(detventes).q,
-              'pu': row.readTable(detventes).pu,
-              'modepai': row.readTable(ventes).modepai,
-              'remise': row.readTable(ventes).remise,
-              'totalTTC': row.readTable(ventes).totalttc,
-            })
+        .map(
+          (row) => {
+            'designation': row.readTable(detventes).designation,
+            'unites': row.readTable(detventes).unites,
+            'q': row.readTable(detventes).q,
+            'pu': row.readTable(detventes).pu,
+            'modepai': row.readTable(ventes).modepai,
+            'remise': row.readTable(ventes).remise,
+            'totalTTC': row.readTable(ventes).totalttc,
+          },
+        )
         .toList();
   }
 
@@ -2291,12 +2326,7 @@ class AppDatabase extends _$AppDatabase {
   Future<List<Map<String, dynamic>>> getAchatDetails(String numAchats) async {
     final details = await (select(detachats)..where((d) => d.numachats.equals(numAchats))).get();
     return details
-        .map((d) => {
-              'designation': d.designation,
-              'unites': d.unites,
-              'q': d.q,
-              'pu': d.pu,
-            })
+        .map((d) => {'designation': d.designation, 'unites': d.unites, 'q': d.q, 'pu': d.pu})
         .toList();
   }
 
@@ -2320,10 +2350,9 @@ class AppDatabase extends _$AppDatabase {
       final nouveauSolde = affectation == 'Débit' ? soldeActuel + montant : soldeActuel - montant;
 
       // Mettre à jour le solde dans la table clients
-      await (update(clt)..where((c) => c.rsoc.equals(raisonSociale))).write(CltCompanion(
-        soldes: Value(nouveauSolde),
-        datedernop: Value(date),
-      ));
+      await (update(clt)..where((c) => c.rsoc.equals(raisonSociale))).write(
+        CltCompanion(soldes: Value(nouveauSolde), datedernop: Value(date)),
+      );
 
       // Insérer l'écriture dans compteclt
       await insererEcritureCompteClient(
@@ -2336,15 +2365,17 @@ class AppDatabase extends _$AppDatabase {
         verification: 'REGULARISATION',
       );
     } else {
-      await into(comptefrns).insert(ComptefrnsCompanion(
-        ref: Value(ref),
-        daty: Value(date),
-        lib: Value(libelle),
-        entres: Value(affectation == 'Crédit' ? montant : 0.0),
-        sortie: Value(affectation == 'Débit' ? montant : 0.0),
-        frns: Value(raisonSociale),
-        solde: Value(affectation == 'Crédit' ? montant : -montant),
-      ));
+      await into(comptefrns).insert(
+        ComptefrnsCompanion(
+          ref: Value(ref),
+          daty: Value(date),
+          lib: Value(libelle),
+          entres: Value(affectation == 'Crédit' ? montant : 0.0),
+          sortie: Value(affectation == 'Débit' ? montant : 0.0),
+          frns: Value(raisonSociale),
+          solde: Value(affectation == 'Crédit' ? montant : -montant),
+        ),
+      );
     }
   }
 

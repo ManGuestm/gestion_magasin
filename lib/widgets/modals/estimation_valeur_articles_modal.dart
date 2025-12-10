@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../database/database.dart';
 import '../../utils/stock_converter.dart';
 import '../common/tab_navigation_widget.dart';
@@ -11,7 +12,8 @@ class EstimationValeurArticlesModal extends StatefulWidget {
   State<EstimationValeurArticlesModal> createState() => _EstimationValeurArticlesModalState();
 }
 
-class _EstimationValeurArticlesModalState extends State<EstimationValeurArticlesModal> with TabNavigationMixin {
+class _EstimationValeurArticlesModalState extends State<EstimationValeurArticlesModal>
+    with TabNavigationMixin {
   List<Article> _articles = [];
   bool _isLoading = false;
   double _totalValeur = 0;
@@ -26,7 +28,7 @@ class _EstimationValeurArticlesModalState extends State<EstimationValeurArticles
     setState(() => _isLoading = true);
     try {
       final db = AppDatabase();
-      final articles = await db.getAllArticles();
+      final articles = await db.getActiveArticles();
       double total = 0;
       for (var article in articles) {
         final stockTotal = StockConverter.calculerStockTotalU3(
@@ -63,14 +65,7 @@ class _EstimationValeurArticlesModalState extends State<EstimationValeurArticles
           border: Border.all(color: Colors.black, width: 2),
           color: Colors.grey[200],
         ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildTable(),
-            _buildSummary(),
-            _buildFooter(),
-          ],
-        ),
+        child: Column(children: [_buildHeader(), _buildTable(), _buildSummary(), _buildFooter()]),
       ),
     );
   }
@@ -114,9 +109,7 @@ class _EstimationValeurArticlesModalState extends State<EstimationValeurArticles
   Widget _buildTable() {
     return Expanded(
       child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey, width: 1),
-        ),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey, width: 1)),
         child: Column(
           children: [
             _buildTableHeader(),
@@ -165,9 +158,7 @@ class _EstimationValeurArticlesModalState extends State<EstimationValeurArticles
       width: width,
       alignment: Alignment.center,
       decoration: const BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.black, width: 1),
-        ),
+        border: Border(right: BorderSide(color: Colors.black, width: 1)),
       ),
       child: Text(
         text,
@@ -214,9 +205,7 @@ class _EstimationValeurArticlesModalState extends State<EstimationValeurArticles
       padding: const EdgeInsets.symmetric(horizontal: 2),
       alignment: alignment,
       decoration: const BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.black, width: 0.5),
-        ),
+        border: Border(right: BorderSide(color: Colors.black, width: 0.5)),
       ),
       child: Text(
         text,
@@ -275,10 +264,7 @@ class _EstimationValeurArticlesModalState extends State<EstimationValeurArticles
       child: InkWell(
         onTap: onPressed,
         child: Center(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 9, color: Colors.black),
-          ),
+          child: Text(text, style: const TextStyle(fontSize: 9, color: Colors.black)),
         ),
       ),
     );

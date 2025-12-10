@@ -58,7 +58,7 @@ class StockService {
 
       if (stockSuffisant && quantiteRestante > 0) {
         double quantiteAPrendre = quantiteRestante;
-        
+
         // Calculer le stock total disponible en unité de vente
         double stockTotalU3 = StockConverter.calculerStockTotalU3(
           article: article,
@@ -66,7 +66,7 @@ class StockService {
           stockU2: stocks['u2'] ?? 0,
           stockU3: stocks['u3'] ?? 0,
         );
-        
+
         // Convertir en unité de vente pour affichage
         double stockDisponibleUniteVente = stockTotalU3;
         if (uniteVente == article.u2 && article.tu3u2 != null) {
@@ -74,7 +74,7 @@ class StockService {
         } else if (uniteVente == article.u1 && article.tu2u1 != null && article.tu3u2 != null) {
           stockDisponibleUniteVente = stockTotalU3 / (article.tu2u1! * article.tu3u2!);
         }
-        
+
         if (quantiteAPrendre > stockDisponibleUniteVente) {
           quantiteAPrendre = stockDisponibleUniteVente;
         }
@@ -124,9 +124,9 @@ class StockService {
   }) async {
     await _databaseService.database.transaction(() async {
       // Déduire du dépôt source
-      final stockSource = await (_databaseService.database.select(_databaseService.database.depart)
-            ..where((d) => d.designation.equals(designation) & d.depots.equals(depotSource)))
-          .getSingleOrNull();
+      final stockSource = await (_databaseService.database.select(
+        _databaseService.database.depart,
+      )..where((d) => d.designation.equals(designation) & d.depots.equals(depotSource))).getSingleOrNull();
 
       if (stockSource != null) {
         Map<String, double> nouveauxStocksSource = {
@@ -147,19 +147,22 @@ class StockService {
           }
         }
 
-        await (_databaseService.database.update(_databaseService.database.depart)
-              ..where((d) => d.designation.equals(designation) & d.depots.equals(depotSource)))
-            .write(DepartCompanion(
-          stocksu1: Value(nouveauxStocksSource['u1']!),
-          stocksu2: Value(nouveauxStocksSource['u2']!),
-          stocksu3: Value(nouveauxStocksSource['u3']!),
-        ));
+        await (_databaseService.database.update(
+          _databaseService.database.depart,
+        )..where((d) => d.designation.equals(designation) & d.depots.equals(depotSource))).write(
+          DepartCompanion(
+            stocksu1: Value(nouveauxStocksSource['u1']!),
+            stocksu2: Value(nouveauxStocksSource['u2']!),
+            stocksu3: Value(nouveauxStocksSource['u3']!),
+          ),
+        );
       }
 
       // Ajouter au dépôt destination
-      final stockDestination = await (_databaseService.database.select(_databaseService.database.depart)
-            ..where((d) => d.designation.equals(designation) & d.depots.equals(depotDestination)))
-          .getSingleOrNull();
+      final stockDestination =
+          await (_databaseService.database.select(_databaseService.database.depart)
+                ..where((d) => d.designation.equals(designation) & d.depots.equals(depotDestination)))
+              .getSingleOrNull();
 
       if (stockDestination != null) {
         Map<String, double> nouveauxStocksDestination = {
@@ -180,13 +183,15 @@ class StockService {
           }
         }
 
-        await (_databaseService.database.update(_databaseService.database.depart)
-              ..where((d) => d.designation.equals(designation) & d.depots.equals(depotDestination)))
-            .write(DepartCompanion(
-          stocksu1: Value(nouveauxStocksDestination['u1']!),
-          stocksu2: Value(nouveauxStocksDestination['u2']!),
-          stocksu3: Value(nouveauxStocksDestination['u3']!),
-        ));
+        await (_databaseService.database.update(
+          _databaseService.database.depart,
+        )..where((d) => d.designation.equals(designation) & d.depots.equals(depotDestination))).write(
+          DepartCompanion(
+            stocksu1: Value(nouveauxStocksDestination['u1']!),
+            stocksu2: Value(nouveauxStocksDestination['u2']!),
+            stocksu3: Value(nouveauxStocksDestination['u3']!),
+          ),
+        );
       } else {
         // Créer l'entrée si elle n'existe pas
         Map<String, double> stocksInitiaux = {'u1': 0, 'u2': 0, 'u3': 0};
@@ -215,7 +220,7 @@ class StockService {
 
   /// Génère un rapport de stock critique
   Future<List<Map<String, dynamic>>> genererRapportStockCritique({double seuilCritique = 10}) async {
-    final articles = await _databaseService.database.getAllArticles();
+    final articles = await _databaseService.database.getActiveArticles();
     List<Map<String, dynamic>> articlesCritiques = [];
 
     for (var article in articles) {

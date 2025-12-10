@@ -31,7 +31,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
     setState(() => _isLoading = true);
     try {
       final db = DatabaseService().database;
-      final articles = await db.getAllArticles();
+      final articles = await db.getActiveArticles();
       setState(() {
         _articles = articles;
         _isLoading = false;
@@ -81,11 +81,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
           border: Border.all(color: Colors.black, width: 3),
           color: Colors.white,
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.3),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5)),
           ],
         ),
         child: Column(
@@ -210,11 +206,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
       ),
       child: Text(
         'ÉTAT DE STOCKS AU $today',
-        style: const TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
-        ),
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2),
         textAlign: TextAlign.center,
       ),
     );
@@ -229,10 +221,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
       ),
       child: Row(
         children: [
-          const Text(
-            'DÉPÔTS:',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-          ),
+          const Text('DÉPÔTS:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(width: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -240,10 +229,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
               border: Border.all(color: Colors.black, width: 1),
               color: Colors.white,
             ),
-            child: Text(
-              _selectedDepot,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-            ),
+            child: Text(_selectedDepot, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
           ),
           const Spacer(),
           Text(
@@ -258,9 +244,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
   Widget _buildTable() {
     return Expanded(
       child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey, width: 1),
-        ),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey, width: 1)),
         child: Column(
           children: [
             _buildTableHeader(),
@@ -310,9 +294,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
       width: width,
       alignment: Alignment.center,
       decoration: const BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.white, width: 1),
-        ),
+        border: Border(right: BorderSide(color: Colors.white, width: 1)),
       ),
       child: Text(
         text,
@@ -374,9 +356,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       alignment: alignment,
       decoration: const BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.grey, width: 0.5),
-        ),
+        border: Border(right: BorderSide(color: Colors.grey, width: 0.5)),
       ),
       child: Text(
         text,
@@ -436,11 +416,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
     for (int i = 0; i < _articles.length; i++) {
       final article = _articles[i];
       final stockDisplay = await _formatGlobalStockDisplay(article);
-      stockData.add({
-        'numero': '${i + 1}',
-        'designation': article.designation,
-        'stock': stockDisplay,
-      });
+      stockData.add({'numero': '${i + 1}', 'designation': article.designation, 'stock': stockDisplay});
     }
 
     // Pagination: environ 35 lignes par page
@@ -478,16 +454,18 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
                   ],
                 ),
                 // Lignes de données pour cette page
-                ...donneesPage.map((item) => pw.TableRow(
-                      decoration: pw.BoxDecoration(
-                        color: int.parse(item['numero']!) % 2 == 0 ? PdfColors.white : PdfColors.grey100,
-                      ),
-                      children: [
-                        _buildPdfCell(item['numero']!, align: pw.TextAlign.center),
-                        _buildPdfCell(item['designation']!),
-                        _buildPdfCell(item['stock']!, align: pw.TextAlign.right),
-                      ],
-                    )),
+                ...donneesPage.map(
+                  (item) => pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                      color: int.parse(item['numero']!) % 2 == 0 ? PdfColors.white : PdfColors.grey100,
+                    ),
+                    children: [
+                      _buildPdfCell(item['numero']!, align: pw.TextAlign.center),
+                      _buildPdfCell(item['designation']!),
+                      _buildPdfCell(item['stock']!, align: pw.TextAlign.right),
+                    ],
+                  ),
+                ),
               ],
             ),
           ],
@@ -507,9 +485,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
         // En-tête société
         pw.Container(
           padding: const pw.EdgeInsets.all(12),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.black, width: 2),
-          ),
+          decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 2)),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
@@ -541,9 +517,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
         // Informations légales
         pw.Container(
           padding: const pw.EdgeInsets.all(8),
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: PdfColors.black, width: 1),
-          ),
+          decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
@@ -582,10 +556,14 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('DÉPÔTS: $_selectedDepot - Total: ${_articles.length} articles',
-                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
-              pw.Text('Page $pageActuelle / $totalPages',
-                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.Text(
+                'DÉPÔTS: $_selectedDepot - Total: ${_articles.length} articles',
+                style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.Text(
+                'Page $pageActuelle / $totalPages',
+                style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+              ),
             ],
           ),
         ),
@@ -615,11 +593,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
       padding: const pw.EdgeInsets.all(6),
       child: pw.Text(
         text,
-        style: pw.TextStyle(
-          fontSize: 11,
-          fontWeight: pw.FontWeight.bold,
-          color: PdfColors.white,
-        ),
+        style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
         textAlign: pw.TextAlign.center,
       ),
     );
@@ -628,11 +602,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
   pw.Widget _buildPdfCell(String text, {pw.TextAlign align = pw.TextAlign.left}) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(4),
-      child: pw.Text(
-        text,
-        style: const pw.TextStyle(fontSize: 10),
-        textAlign: align,
-      ),
+      child: pw.Text(text, style: const pw.TextStyle(fontSize: 10), textAlign: align),
     );
   }
 
@@ -640,10 +610,7 @@ class _EtatStocksModalState extends State<EtatStocksModal> with TabNavigationMix
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 16),
-      label: Text(
-        text,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-      ),
+      label: Text(text, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
       style: ElevatedButton.styleFrom(
         backgroundColor: text == 'Fermer' ? Colors.grey[600] : Colors.black87,
         foregroundColor: Colors.white,

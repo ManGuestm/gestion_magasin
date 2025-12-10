@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../database/database.dart';
 import '../common/tab_navigation_widget.dart';
 
@@ -26,7 +27,7 @@ class _FicheStocksModalState extends State<FicheStocksModal> with TabNavigationM
     setState(() => _isLoading = true);
     try {
       final db = AppDatabase();
-      final articles = await db.getAllArticles();
+      final articles = await db.getActiveArticles();
       setState(() {
         _articles = articles;
         _isLoading = false;
@@ -38,7 +39,7 @@ class _FicheStocksModalState extends State<FicheStocksModal> with TabNavigationM
 
   Future<void> _loadMouvements() async {
     if (_selectedArticle == null) return;
-    
+
     setState(() => _isLoading = true);
     try {
       final db = AppDatabase();
@@ -73,14 +74,7 @@ class _FicheStocksModalState extends State<FicheStocksModal> with TabNavigationM
           border: Border.all(color: Colors.black, width: 2),
           color: Colors.grey[200],
         ),
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildFilters(),
-            _buildTable(),
-            _buildFooter(),
-          ],
-        ),
+        child: Column(children: [_buildHeader(), _buildFilters(), _buildTable(), _buildFooter()]),
       ),
     );
   }
@@ -149,11 +143,16 @@ class _FicheStocksModalState extends State<FicheStocksModal> with TabNavigationM
               ),
               style: const TextStyle(fontSize: 9, color: Colors.black),
               items: [
-                const DropdownMenuItem(value: null, child: Text('Sélectionner un article', style: TextStyle(fontSize: 9))),
-                ..._articles.map((article) => DropdownMenuItem(
-                      value: article.designation,
-                      child: Text(article.designation, style: const TextStyle(fontSize: 9)),
-                    )),
+                const DropdownMenuItem(
+                  value: null,
+                  child: Text('Sélectionner un article', style: TextStyle(fontSize: 9)),
+                ),
+                ..._articles.map(
+                  (article) => DropdownMenuItem(
+                    value: article.designation,
+                    child: Text(article.designation, style: const TextStyle(fontSize: 9)),
+                  ),
+                ),
               ],
               onChanged: (value) {
                 setState(() {
@@ -171,9 +170,7 @@ class _FicheStocksModalState extends State<FicheStocksModal> with TabNavigationM
   Widget _buildTable() {
     return Expanded(
       child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey, width: 1),
-        ),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey, width: 1)),
         child: Column(
           children: [
             _buildTableHeader(),
@@ -223,9 +220,7 @@ class _FicheStocksModalState extends State<FicheStocksModal> with TabNavigationM
       width: width,
       alignment: Alignment.center,
       decoration: const BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.black, width: 1),
-        ),
+        border: Border(right: BorderSide(color: Colors.black, width: 1)),
       ),
       child: Text(
         text,
@@ -266,9 +261,7 @@ class _FicheStocksModalState extends State<FicheStocksModal> with TabNavigationM
       padding: const EdgeInsets.symmetric(horizontal: 2),
       alignment: alignment,
       decoration: const BoxDecoration(
-        border: Border(
-          right: BorderSide(color: Colors.black, width: 0.5),
-        ),
+        border: Border(right: BorderSide(color: Colors.black, width: 0.5)),
       ),
       child: Text(
         text,
@@ -307,10 +300,7 @@ class _FicheStocksModalState extends State<FicheStocksModal> with TabNavigationM
       child: InkWell(
         onTap: onPressed,
         child: Center(
-          child: Text(
-            text,
-            style: const TextStyle(fontSize: 9, color: Colors.black),
-          ),
+          child: Text(text, style: const TextStyle(fontSize: 9, color: Colors.black)),
         ),
       ),
     );

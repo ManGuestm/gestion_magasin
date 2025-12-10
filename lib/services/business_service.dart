@@ -224,7 +224,7 @@ class BusinessService {
 
   /// Effectue un inventaire complet
   Future<Map<String, dynamic>> effectuerInventaire({String? depot}) async {
-    final articles = await _databaseService.database.getAllArticles();
+    final articles = await _databaseService.database.getActiveArticles();
 
     Map<String, dynamic> resultat = {
       'totalArticles': articles.length,
