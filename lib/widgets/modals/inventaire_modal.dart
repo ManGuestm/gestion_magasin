@@ -10,6 +10,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../constants/app_functions.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../services/auth_service.dart';
 import '../../utils/date_utils.dart';
 import '../../utils/stock_converter.dart';
 import '../common/article_navigation_autocomplete.dart';
@@ -98,8 +99,28 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   @override
   void initState() {
     super.initState();
+    
+    // Vérifier les permissions
+    if (_isVendeur()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Accès refusé: Les vendeurs ne peuvent pas accéder à l\'inventaire'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+      return;
+    }
+    
     _tabController = TabController(length: 4, vsync: this);
     _loadData();
+  }
+
+  bool _isVendeur() {
+    final authService = AuthService();
+    return authService.currentUserRole == 'Vendeur';
   }
 
   @override

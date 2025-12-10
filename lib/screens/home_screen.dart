@@ -11,6 +11,7 @@ import '../database/database_service.dart';
 import '../services/auth_service.dart';
 import '../services/menu_service.dart';
 import '../services/modal_loader.dart';
+import '../services/network_config_service.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
 import '../widgets/modals/ventes_jour_modal.dart';
@@ -320,6 +321,34 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(
               'Session: ${currentUser?.nom ?? 'Utilisateur'} (${currentUser?.role ?? 'Invité'})',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(width: 16),
+            FutureBuilder<Map<String, dynamic>>(
+              future: NetworkConfigService.loadConfig(),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  final mode = snapshot.data!['mode'] as NetworkMode;
+                  return Row(
+                    children: [
+                      Icon(
+                        mode == NetworkMode.server ? Icons.dns : Icons.computer,
+                        size: 14,
+                        color: mode == NetworkMode.server ? Colors.green : Colors.blue,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Mode: ${mode == NetworkMode.server ? 'Serveur' : 'Client'}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: mode == NetworkMode.server ? Colors.green[700] : Colors.blue[700],
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                return const SizedBox.shrink();
+              },
             ),
             const Spacer(),
             // Bouton de déconnexion

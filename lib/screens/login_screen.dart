@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../database/database_service.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
+import 'network_config_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -371,111 +371,141 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 30),
 
                     // Informations par défaut
-                    Container(
+                    // Container(
+                    //   width: double.infinity,
+                    //   padding: const EdgeInsets.all(16),
+                    //   decoration: BoxDecoration(
+                    //     gradient: LinearGradient(
+                    //       colors: [Colors.blue[50]!, Colors.indigo[50]!],
+                    //     ),
+                    //     borderRadius: BorderRadius.circular(12),
+                    //     border: Border.all(color: Colors.blue[200]!, width: 1),
+                    //   ),
+                    //   child: Column(
+                    //     children: [
+                    //       Row(
+                    //         children: [
+                    //           Icon(Icons.info_outline, color: Colors.blue[600], size: 18),
+                    //           const SizedBox(width: 8),
+                    //           Text(
+                    //             'Compte par défaut',
+                    //             style: TextStyle(
+                    //               fontSize: 13,
+                    //               fontWeight: FontWeight.bold,
+                    //               color: Colors.blue[700],
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //       const SizedBox(height: 12),
+                    //       Row(
+                    //         children: [
+                    //           Expanded(
+                    //             child: Container(
+                    //               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    //               decoration: BoxDecoration(
+                    //                 color: Colors.white,
+                    //                 borderRadius: BorderRadius.circular(8),
+                    //                 border: Border.all(color: Colors.blue[200]!),
+                    //               ),
+                    //               child: Row(
+                    //                 children: [
+                    //                   Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                    //                   const SizedBox(width: 8),
+                    //                   const Expanded(
+                    //                     child: SelectableText(
+                    //                       'admin',
+                    //                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    //                     ),
+                    //                   ),
+                    //                   IconButton(
+                    //                     icon: Icon(Icons.copy, size: 16, color: Colors.grey[600]),
+                    //                     onPressed: () {
+                    //                       Clipboard.setData(const ClipboardData(text: 'admin'));
+                    //                       ScaffoldMessenger.of(context).showSnackBar(
+                    //                         const SnackBar(
+                    //                           content: Text('Nom d\'utilisateur copié'),
+                    //                           duration: Duration(seconds: 1),
+                    //                         ),
+                    //                       );
+                    //                     },
+                    //                     padding: EdgeInsets.zero,
+                    //                     constraints: const BoxConstraints(),
+                    //                   ),
+                    //                 ],
+                    //               ),
+                    //             ),
+                    //           ),
+                    //           const SizedBox(width: 12),
+                    //           Expanded(
+                    //             child: Container(
+                    //               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    //               decoration: BoxDecoration(
+                    //                 color: Colors.white,
+                    //                 borderRadius: BorderRadius.circular(8),
+                    //                 border: Border.all(color: Colors.blue[200]!),
+                    //               ),
+                    //               child: Row(
+                    //                 children: [
+                    //                   Icon(Icons.lock, size: 16, color: Colors.grey[600]),
+                    //                   const SizedBox(width: 8),
+                    //                   const Expanded(
+                    //                     child: SelectableText(
+                    //                       'admin123',
+                    //                       style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                    //                     ),
+                    //                   ),
+                    //                   IconButton(
+                    //                     icon: Icon(Icons.copy, size: 16, color: Colors.grey[600]),
+                    //                     onPressed: () {
+                    //                       Clipboard.setData(const ClipboardData(text: 'admin123'));
+                    //                       ScaffoldMessenger.of(context).showSnackBar(
+                    //                         const SnackBar(
+                    //                           content: Text('Mot de passe copié'),
+                    //                           duration: Duration(seconds: 1),
+                    //                         ),
+                    //                       );
+                    //                     },
+                    //                     padding: EdgeInsets.zero,
+                    //                     constraints: const BoxConstraints(),
+                    //                   ),
+                    //                 ],
+                    //               ),
+                    //             ),
+                    //           ),
+                    //         ],
+                    //       ),
+                    //     ],
+                    //   ),
+                    // ),
+                    // const SizedBox(height: 20),
+
+                    // Bouton Configuration réseau
+                    SizedBox(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.blue[50]!, Colors.indigo[50]!],
+                      height: 48,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const NetworkConfigScreen(),
+                            ),
+                          );
+                        },
+                        icon: Icon(Icons.settings, color: Colors.indigo[600]),
+                        label: Text(
+                          'Configuration réseau',
+                          style: TextStyle(
+                            color: Colors.indigo[600],
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue[200]!, width: 1),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.info_outline, color: Colors.blue[600], size: 18),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Compte par défaut',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue[700],
-                                ),
-                              ),
-                            ],
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Colors.indigo[600]!, width: 1.5),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.blue[200]!),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.person, size: 16, color: Colors.grey[600]),
-                                      const SizedBox(width: 8),
-                                      const Expanded(
-                                        child: SelectableText(
-                                          'admin',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.copy, size: 16, color: Colors.grey[600]),
-                                        onPressed: () {
-                                          Clipboard.setData(const ClipboardData(text: 'admin'));
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Nom d\'utilisateur copié'),
-                                              duration: Duration(seconds: 1),
-                                            ),
-                                          );
-                                        },
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.blue[200]!),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.lock, size: 16, color: Colors.grey[600]),
-                                      const SizedBox(width: 8),
-                                      const Expanded(
-                                        child: SelectableText(
-                                          'admin123',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        icon: Icon(Icons.copy, size: 16, color: Colors.grey[600]),
-                                        onPressed: () {
-                                          Clipboard.setData(const ClipboardData(text: 'admin123'));
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Mot de passe copié'),
-                                              duration: Duration(seconds: 1),
-                                            ),
-                                          );
-                                        },
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ],

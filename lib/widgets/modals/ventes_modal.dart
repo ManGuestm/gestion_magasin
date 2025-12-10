@@ -276,6 +276,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   bool _peutValiderBrouillard() {
     if (!_isExistingPurchase || _numVentesController.text.isEmpty) return false;
 
+    // Empêcher les vendeurs de valider vers le journal
+    if (_isVendeur()) return false;
+
     // Vérifier si la vente actuelle est en brouillard
     return _isVenteBrouillard();
   }
@@ -1205,6 +1208,17 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   Future<void> _importerLignesVente() async {
+    // Empêcher l'accès aux vendeurs
+    if (_isVendeur()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Accès refusé: Les vendeurs ne peuvent pas importer des lignes de vente'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     final choix = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(

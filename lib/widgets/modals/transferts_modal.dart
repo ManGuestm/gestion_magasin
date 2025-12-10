@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
-import '../common/tab_navigation_widget.dart';
+import '../../services/auth_service.dart';
 import '../common/article_navigation_autocomplete.dart';
+import '../common/enhanced_autocomplete.dart';
+import '../common/tab_navigation_widget.dart';
 import 'bon_transfert_preview.dart';
 
 class TransfertsModal extends StatefulWidget {
@@ -27,14 +29,10 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
 
   // Focus nodes for tab navigation
   final FocusNode _bonExpeditionFocusNode = FocusNode();
-  final FocusNode _depotVenantFocusNode = FocusNode();
-  final FocusNode _depotVersFocusNode = FocusNode();
-  final FocusNode _uniteFocusNode = FocusNode();
+  final FocusNode _unitesFocusNode = FocusNode();
   final FocusNode _quantiteFocusNode = FocusNode();
   final FocusNode _ajouterFocusNode = FocusNode();
   final FocusNode _validerFocusNode = FocusNode();
-  final FocusNode _nouveauFocusNode = FocusNode();
-  final FocusNode _apercuFocusNode = FocusNode();
 
   late final List<FocusNode> _focusNodes;
 
@@ -54,6 +52,7 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
 
   // Stock management
   final Map<String, double> _stocksDisponibles = {};
+  final Map<String, Map<String, double>> _stocksParUnite = {}; // depot -> {unite -> stock}
 
   // Transfer state
   String _selectedFormat = 'A5';
@@ -61,20 +60,36 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
   @override
   void initState() {
     super.initState();
+
+    // Vérifier les permissions
+    if (_isVendeur()) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Accès refusé: Les vendeurs ne peuvent pas accéder aux transferts'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      });
+      return;
+    }
+
     _focusNodes = [
       _bonExpeditionFocusNode,
-      _depotVenantFocusNode,
-      _depotVersFocusNode,
       _articleFocusNode,
-      _uniteFocusNode,
+      _unitesFocusNode,
       _quantiteFocusNode,
       _ajouterFocusNode,
       _validerFocusNode,
-      _nouveauFocusNode,
-      _apercuFocusNode,
     ];
     _loadData();
     _initializeForm();
+  }
+
+  bool _isVendeur() {
+    final authService = AuthService();
+    return authService.currentUserRole == 'Vendeur';
   }
 
   @override
@@ -217,14 +232,31 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
   void _onArticleSelected(Article? article) async {
     setState(() {
       _selectedArticle = article;
-      if (article != null) {
-        _selectedUnite = article.u1;
-        _quantiteController.clear();
-      }
+      _selectedUnite = null;
+      _quantiteController.clear();
     });
 
     if (article != null) {
       await _chargerStocksDepots(article);
+      await _syncUnitsForArticle();
+    }
+  }
+
+  Future<void> _syncUnitsForArticle() async {
+    if (_selectedArticle != null) {
+      final units = _getUnitsForSelectedArticle();
+      if (units.isNotEmpty && units.first != 'Pce') {
+        setState(() {
+          _selectedUnite = units.first;
+        });
+        await _chargerStocksDepots(_selectedArticle!);
+      }
+    }
+  }
+
+  void _syncUnitsOnTab() {
+    if (_selectedArticle != null) {
+      _syncUnitsForArticle();
     }
   }
 
@@ -236,7 +268,23 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
 
       setState(() {
         _stocksDisponibles.clear();
+        _stocksParUnite.clear();
+
         for (var stock in stocksDepart) {
+          // Stocker les stocks par unité pour chaque dépôt
+          final depotStocks = <String, double>{};
+          if (article.u1?.isNotEmpty == true) {
+            depotStocks[article.u1!] = stock.stocksu1 ?? 0;
+          }
+          if (article.u2?.isNotEmpty == true) {
+            depotStocks[article.u2!] = stock.stocksu2 ?? 0;
+          }
+          if (article.u3?.isNotEmpty == true) {
+            depotStocks[article.u3!] = stock.stocksu3 ?? 0;
+          }
+          _stocksParUnite[stock.depots] = depotStocks;
+
+          // Calculer le stock pour l'unité sélectionnée
           double stockTotal = 0;
           if (_selectedUnite == article.u1) {
             stockTotal = stock.stocksu1 ?? 0;
@@ -251,40 +299,44 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
     } catch (e) {
       setState(() {
         _stocksDisponibles.clear();
+        _stocksParUnite.clear();
       });
     }
   }
 
-  List<DropdownMenuItem<String>> _getUnitsForSelectedArticle() {
-    if (_selectedArticle == null) {
-      return const [
-        DropdownMenuItem(value: 'Pce', child: Text('Pce', style: TextStyle(fontSize: 12))),
-      ];
+  List<String> _getUnitsForSelectedArticle() {
+    if (_selectedArticle == null || _selectedDepotVenant == null) {
+      return ['Pce'];
     }
 
-    List<DropdownMenuItem<String>> units = [];
-    if (_selectedArticle!.u1?.isNotEmpty == true) {
-      units.add(DropdownMenuItem(
-        value: _selectedArticle!.u1,
-        child: Text(_selectedArticle!.u1!, style: const TextStyle(fontSize: 12)),
-      ));
-    }
-    if (_selectedArticle!.u2?.isNotEmpty == true) {
-      units.add(DropdownMenuItem(
-        value: _selectedArticle!.u2,
-        child: Text(_selectedArticle!.u2!, style: const TextStyle(fontSize: 12)),
-      ));
-    }
-    if (_selectedArticle!.u3?.isNotEmpty == true) {
-      units.add(DropdownMenuItem(
-        value: _selectedArticle!.u3,
-        child: Text(_selectedArticle!.u3!, style: const TextStyle(fontSize: 12)),
-      ));
+    List<String> units = [];
+    final depotStocks = _stocksParUnite[_selectedDepotVenant!];
+
+    if (depotStocks != null) {
+      // Vérifier chaque unité de l'article
+      if (_selectedArticle!.u1?.isNotEmpty == true) {
+        final stockU1 = depotStocks[_selectedArticle!.u1!] ?? 0;
+        if (stockU1 > 0) {
+          units.add(_selectedArticle!.u1!);
+        }
+      }
+
+      if (_selectedArticle!.u2?.isNotEmpty == true) {
+        final stockU2 = depotStocks[_selectedArticle!.u2!] ?? 0;
+        if (stockU2 > 0) {
+          units.add(_selectedArticle!.u2!);
+        }
+      }
+
+      if (_selectedArticle!.u3?.isNotEmpty == true) {
+        final stockU3 = depotStocks[_selectedArticle!.u3!] ?? 0;
+        if (stockU3 > 0) {
+          units.add(_selectedArticle!.u3!);
+        }
+      }
     }
 
-    return units.isEmpty
-        ? [const DropdownMenuItem(value: 'Pce', child: Text('Pce', style: TextStyle(fontSize: 12)))]
-        : units;
+    return units.isEmpty ? ['Pce'] : units;
   }
 
   void _onUniteChanged(String? unite) async {
@@ -356,8 +408,8 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                 daty: drift.Value(_selectedDate),
                 de: drift.Value(_selectedDepotVenant!),
                 au: drift.Value(_selectedDepotVers!),
-                bonExpedition: _bonExpeditionController.text.isNotEmpty 
-                    ? drift.Value(_bonExpeditionController.text) 
+                bonExpedition: _bonExpeditionController.text.isNotEmpty
+                    ? drift.Value(_bonExpeditionController.text)
                     : const drift.Value.absent(),
               ),
             );
@@ -500,26 +552,6 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
   String _formatDate(DateTime? date) {
     if (date == null) return '';
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
-  }
-
-  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.tab) {
-        final currentIndex = _focusNodes.indexOf(node);
-        if (currentIndex != -1) {
-          int nextIndex;
-          if (HardwareKeyboard.instance.isShiftPressed) {
-            nextIndex = (currentIndex - 1) % _focusNodes.length;
-            if (nextIndex < 0) nextIndex = _focusNodes.length - 1;
-          } else {
-            nextIndex = (currentIndex + 1) % _focusNodes.length;
-          }
-          _focusNodes[nextIndex].requestFocus();
-          return KeyEventResult.handled;
-        }
-      }
-    }
-    return KeyEventResult.ignored;
   }
 
   Future<void> _chargerTransfertExistant(TransfData transfert) async {
@@ -765,19 +797,15 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                                     SizedBox(
                                       width: 120,
                                       height: 25,
-                                      child: Focus(
+                                      child: TextField(
+                                        controller: _bonExpeditionController,
                                         focusNode: _bonExpeditionFocusNode,
-                                        onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                        child: TextField(
-                                          controller: _bonExpeditionController,
-                                          focusNode: _bonExpeditionFocusNode,
-                                          autofocus: true,
-                                          decoration: const InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          ),
-                                          style: const TextStyle(fontSize: 12),
+                                        autofocus: true,
+                                        decoration: const InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                         ),
+                                        style: const TextStyle(fontSize: 12),
                                       ),
                                     ),
                                   ],
@@ -835,31 +863,27 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                                     SizedBox(
                                       width: 150,
                                       height: 25,
-                                      child: Focus(
-                                        focusNode: _depotVenantFocusNode,
-                                        onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                        child: DropdownButtonFormField<String>(
-                                          initialValue: _selectedDepotVenant,
-                                          decoration: const InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          ),
-                                          items: _depots.map((depot) {
-                                            return DropdownMenuItem<String>(
-                                              value: depot.depots,
-                                              child: Text(depot.depots, style: const TextStyle(fontSize: 12)),
-                                            );
-                                          }).toList(),
-                                          onChanged: (value) {
-                                            setState(() {
-                                              _selectedDepotVenant = value;
-                                              _selectedDepotVers = null;
-                                              _selectedArticle = null;
-                                              _articlesAvecStock = [];
-                                            });
-                                            _chargerArticlesAvecStock();
-                                          },
+                                      child: DropdownButtonFormField<String>(
+                                        initialValue: _selectedDepotVenant,
+                                        decoration: const InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                         ),
+                                        items: _depots.map((depot) {
+                                          return DropdownMenuItem<String>(
+                                            value: depot.depots,
+                                            child: Text(depot.depots, style: const TextStyle(fontSize: 12)),
+                                          );
+                                        }).toList(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _selectedDepotVenant = value;
+                                            _selectedDepotVers = null;
+                                            _selectedArticle = null;
+                                            _articlesAvecStock = [];
+                                          });
+                                          _chargerArticlesAvecStock();
+                                        },
                                       ),
                                     ),
                                   ],
@@ -873,29 +897,25 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                                     SizedBox(
                                       width: 150,
                                       height: 25,
-                                      child: Focus(
-                                        focusNode: _depotVersFocusNode,
-                                        onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                        child: DropdownButtonFormField<String>(
-                                          initialValue: _selectedDepotVers,
-                                          decoration: const InputDecoration(
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                          ),
-                                          items: _depots
-                                              .where((depot) => depot.depots != _selectedDepotVenant)
-                                              .map((depot) {
-                                            return DropdownMenuItem<String>(
-                                              value: depot.depots,
-                                              child: Text(depot.depots, style: const TextStyle(fontSize: 12)),
-                                            );
-                                          }).toList(),
-                                          onChanged: (value) {
-                                            setState(() {
-                                              _selectedDepotVers = value;
-                                            });
-                                          },
+                                      child: DropdownButtonFormField<String>(
+                                        initialValue: _selectedDepotVers,
+                                        decoration: const InputDecoration(
+                                          border: OutlineInputBorder(),
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                         ),
+                                        items: _depots
+                                            .where((depot) => depot.depots != _selectedDepotVenant)
+                                            .map((depot) {
+                                          return DropdownMenuItem<String>(
+                                            value: depot.depots,
+                                            child: Text(depot.depots, style: const TextStyle(fontSize: 12)),
+                                          );
+                                        }).toList(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _selectedDepotVers = value;
+                                          });
+                                        },
                                       ),
                                     ),
                                   ],
@@ -916,20 +936,17 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                                       const SizedBox(height: 4),
                                       SizedBox(
                                         height: 25,
-                                        child: Focus(
+                                        child: ArticleNavigationAutocomplete(
+                                          articles: _articlesAvecStock,
+                                          selectedArticle: _selectedArticle,
+                                          onArticleChanged: _onArticleSelected,
                                           focusNode: _articleFocusNode,
-                                          onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                          child: ArticleNavigationAutocomplete(
-                                            articles: _articlesAvecStock,
-                                            selectedArticle: _selectedArticle,
-                                            onArticleChanged: _onArticleSelected,
-                                            focusNode: _articleFocusNode,
-                                            decoration: const InputDecoration(
-                                              border: OutlineInputBorder(),
-                                              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                            ),
-                                            style: const TextStyle(fontSize: 12),
+                                          onTabPressed: _syncUnitsOnTab,
+                                          decoration: const InputDecoration(
+                                            border: OutlineInputBorder(),
+                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                           ),
+                                          style: const TextStyle(fontSize: 12),
                                         ),
                                       ),
                                     ],
@@ -945,18 +962,18 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                                       const SizedBox(height: 4),
                                       SizedBox(
                                         height: 25,
-                                        child: Focus(
-                                          focusNode: _uniteFocusNode,
-                                          onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                          child: DropdownButtonFormField<String>(
-                                            initialValue: _selectedUnite,
-                                            decoration: const InputDecoration(
-                                              border: OutlineInputBorder(),
-                                              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                            ),
-                                            items: _getUnitsForSelectedArticle(),
-                                            onChanged: _onUniteChanged,
+                                        child: EnhancedAutocomplete<String>(
+                                          options: _getUnitsForSelectedArticle(),
+                                          displayStringForOption: (String option) => option,
+                                          onSelected: (String unite) {
+                                            _onUniteChanged(unite);
+                                          },
+                                          focusNode: _unitesFocusNode,
+                                          decoration: const InputDecoration(
+                                            border: OutlineInputBorder(),
+                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                           ),
+                                          style: const TextStyle(fontSize: 12),
                                         ),
                                       ),
                                     ],
@@ -972,36 +989,32 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                                       const SizedBox(height: 4),
                                       SizedBox(
                                         height: 25,
-                                        child: Focus(
+                                        child: TextField(
+                                          controller: _quantiteController,
                                           focusNode: _quantiteFocusNode,
-                                          onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                          child: TextField(
-                                            controller: _quantiteController,
-                                            focusNode: _quantiteFocusNode,
-                                            decoration: const InputDecoration(
-                                              border: OutlineInputBorder(),
-                                              contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                            ),
-                                            style: const TextStyle(fontSize: 12),
-                                            keyboardType: TextInputType.number,
-                                            inputFormatters: [
-                                              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
-                                            ],
-                                            onChanged: (value) {
-                                              if (_selectedDepotVenant != null && value.isNotEmpty) {
-                                                double quantite = double.tryParse(value) ?? 0.0;
-                                                double stockDisponible =
-                                                    _stocksDisponibles[_selectedDepotVenant] ?? 0;
-                                                if (quantite > stockDisponible && stockDisponible > 0) {
-                                                  _quantiteController.text = stockDisponible.toInt().toString();
-                                                  _quantiteController.selection = TextSelection.fromPosition(
-                                                    TextPosition(offset: _quantiteController.text.length),
-                                                  );
-                                                }
-                                              }
-                                              setState(() {});
-                                            },
+                                          decoration: const InputDecoration(
+                                            border: OutlineInputBorder(),
+                                            contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                           ),
+                                          style: const TextStyle(fontSize: 12),
+                                          keyboardType: TextInputType.number,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))
+                                          ],
+                                          onChanged: (value) {
+                                            if (_selectedDepotVenant != null && value.isNotEmpty) {
+                                              double quantite = double.tryParse(value) ?? 0.0;
+                                              double stockDisponible =
+                                                  _stocksDisponibles[_selectedDepotVenant] ?? 0;
+                                              if (quantite > stockDisponible && stockDisponible > 0) {
+                                                _quantiteController.text = stockDisponible.toInt().toString();
+                                                _quantiteController.selection = TextSelection.fromPosition(
+                                                  TextPosition(offset: _quantiteController.text.length),
+                                                );
+                                              }
+                                            }
+                                            setState(() {});
+                                          },
                                         ),
                                       ),
                                     ],
@@ -1011,19 +1024,15 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                                 Column(
                                   children: [
                                     const SizedBox(height: 16),
-                                    Focus(
+                                    ElevatedButton(
+                                      onPressed: _peutAjouterLigne() ? _ajouterLigne : null,
                                       focusNode: _ajouterFocusNode,
-                                      onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                      child: ElevatedButton(
-                                        onPressed: _peutAjouterLigne() ? _ajouterLigne : null,
-                                        focusNode: _ajouterFocusNode,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.green,
-                                          foregroundColor: Colors.white,
-                                          minimumSize: const Size(60, 25),
-                                        ),
-                                        child: const Text('Ajouter', style: TextStyle(fontSize: 12)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        foregroundColor: Colors.white,
+                                        minimumSize: const Size(60, 25),
                                       ),
+                                      child: const Text('Ajouter', style: TextStyle(fontSize: 12)),
                                     ),
                                   ],
                                 ),
@@ -1223,47 +1232,33 @@ class _TransfertsModalState extends State<TransfertsModal> with TabNavigationMix
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                Focus(
-                                  focusNode: _nouveauFocusNode,
-                                  onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                  child: ElevatedButton(
-                                    onPressed: _creerNouveauTransfert,
-                                    focusNode: _nouveauFocusNode,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue,
-                                      foregroundColor: Colors.white,
-                                      minimumSize: const Size(60, 30),
-                                    ),
-                                    child: const Text('Créer', style: TextStyle(fontSize: 12)),
+                                ElevatedButton(
+                                  onPressed: _creerNouveauTransfert,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(60, 30),
                                   ),
+                                  child: const Text('Créer', style: TextStyle(fontSize: 12)),
                                 ),
-                                Focus(
+                                ElevatedButton(
+                                  onPressed: _lignesTransfert.isNotEmpty ? _validerTransfert : null,
                                   focusNode: _validerFocusNode,
-                                  onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                  child: ElevatedButton(
-                                    onPressed: _lignesTransfert.isNotEmpty ? _validerTransfert : null,
-                                    focusNode: _validerFocusNode,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.green,
-                                      foregroundColor: Colors.white,
-                                      minimumSize: const Size(60, 30),
-                                    ),
-                                    child: const Text('Enregistrer', style: TextStyle(fontSize: 12)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(60, 30),
                                   ),
+                                  child: const Text('Enregistrer', style: TextStyle(fontSize: 12)),
                                 ),
-                                Focus(
-                                  focusNode: _apercuFocusNode,
-                                  onKeyEvent: (node, event) => _handleKeyEvent(node, event),
-                                  child: ElevatedButton(
-                                    onPressed: _lignesTransfert.isNotEmpty ? _ouvrirApercuBT : null,
-                                    focusNode: _apercuFocusNode,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.orange,
-                                      foregroundColor: Colors.white,
-                                      minimumSize: const Size(70, 30),
-                                    ),
-                                    child: const Text('Aperçu BT', style: TextStyle(fontSize: 12)),
+                                ElevatedButton(
+                                  onPressed: _lignesTransfert.isNotEmpty ? _ouvrirApercuBT : null,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.orange,
+                                    foregroundColor: Colors.white,
+                                    minimumSize: const Size(70, 30),
                                   ),
+                                  child: const Text('Aperçu BT', style: TextStyle(fontSize: 12)),
                                 ),
                                 ElevatedButton(
                                   onPressed: () => Navigator.of(context).pop(),
