@@ -25,7 +25,7 @@ class _RelanceClientsModalState extends State<RelanceClientsModal> with TabNavig
 
   Future<void> _loadClients() async {
     try {
-      final allClients = await _databaseService.database.getAllClients();
+      final allClients = await _databaseService.database.getActiveClients();
       // Filtrer les clients avec solde débiteur (à relancer)
       final clientsARelancer = allClients.where((c) => (c.soldes ?? 0) > 0).toList();
       setState(() {

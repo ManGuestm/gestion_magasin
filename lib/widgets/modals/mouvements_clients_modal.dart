@@ -33,7 +33,7 @@ class _MouvementsClientsModalState extends State<MouvementsClientsModal> with Ta
     setState(() => _isLoading = true);
 
     try {
-      final clients = await _databaseService.database.getAllClients();
+      final clients = await _databaseService.database.getActiveClients();
       final mouvements = await _databaseService.database.getAllCompteclts();
       final users = await _databaseService.database.getAllUsers();
 

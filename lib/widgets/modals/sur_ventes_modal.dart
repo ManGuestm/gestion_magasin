@@ -56,7 +56,7 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
 
   Future<void> _loadData() async {
     try {
-      final clients = await _databaseService.database.getAllClients();
+      final clients = await _databaseService.database.getActiveClients();
       setState(() {
         _clients = clients;
       });

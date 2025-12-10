@@ -12,10 +12,7 @@ import '../common/tab_navigation_widget.dart';
 class RegularisationCompteTiersModal extends StatefulWidget {
   final VoidCallback? onPaymentSuccess;
 
-  const RegularisationCompteTiersModal({
-    super.key,
-    this.onPaymentSuccess,
-  });
+  const RegularisationCompteTiersModal({super.key, this.onPaymentSuccess});
 
   @override
   State<RegularisationCompteTiersModal> createState() => _RegularisationCompteTiersModalState();
@@ -115,8 +112,8 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final clients = await _databaseService.database.getAllClients();
-      final suppliers = await _databaseService.database.getAllFournisseurs();
+      final clients = await _databaseService.database.getActiveClients();
+      final suppliers = await _databaseService.database.getActiveFournisseurs();
 
       final paymentModes = await _databaseService.database.select(_databaseService.database.mp).get();
 
@@ -139,9 +136,9 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
   Future<void> _loadClientMovements(String clientCode) async {
     try {
-      final movements = await _databaseService.database
-          .getAllCompteclts()
-          .then((all) => all.where((m) => m.clt == clientCode).toList());
+      final movements = await _databaseService.database.getAllCompteclts().then(
+        (all) => all.where((m) => m.clt == clientCode).toList(),
+      );
 
       // Récupérer le solde réel du client depuis la table clt
       final client = await _databaseService.database.getClientByRsoc(clientCode);
@@ -160,9 +157,9 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
   Future<void> _loadSupplierMovements(String supplierCode) async {
     try {
-      final movements = await _databaseService.database
-          .getAllComptefrns()
-          .then((all) => all.where((m) => m.frns == supplierCode).toList());
+      final movements = await _databaseService.database.getAllComptefrns().then(
+        (all) => all.where((m) => m.frns == supplierCode).toList(),
+      );
 
       // Récupérer le solde réel du fournisseur depuis la table frns
       final supplier = await _databaseService.database.getFournisseurByRsoc(supplierCode);
@@ -223,8 +220,10 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
     // 1. Mettre à jour le solde client
     final nouveauSolde = _clientBalance - amount;
-    await _databaseService.database
-        .customStatement('UPDATE clt SET soldes = ? WHERE rsoc = ?', [nouveauSolde, _selectedClient!.rsoc]);
+    await _databaseService.database.customStatement('UPDATE clt SET soldes = ? WHERE rsoc = ?', [
+      nouveauSolde,
+      _selectedClient!.rsoc,
+    ]);
 
     // 2. Écriture compte client
     await _databaseService.database.insererEcritureCompteClient(
@@ -241,41 +240,41 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
     if (_paymentMethod == 'Espèces') {
       // Récupérer le dernier solde de caisse
       final dernierMouvement = await _databaseService.database
-          .customSelect(
-            'SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1',
-          )
+          .customSelect('SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1')
           .getSingleOrNull();
 
       final dernierSolde = dernierMouvement?.data['soldes'] as double? ?? 0.0;
       final nouveauSolde = dernierSolde + amount;
 
       await _databaseService.database.customStatement(
-          'INSERT INTO caisse (ref, daty, lib, credit, debit, soldes, type, clt, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            ref,
-            _paymentDate.millisecondsSinceEpoch ~/ 1000,
-            libelle,
-            amount,
-            0.0,
-            nouveauSolde,
-            'ENCAISSEMENT',
-            _selectedClient!.rsoc,
-            'REGLEMENT'
-          ]);
+        'INSERT INTO caisse (ref, daty, lib, credit, debit, soldes, type, clt, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          ref,
+          _paymentDate.millisecondsSinceEpoch ~/ 1000,
+          libelle,
+          amount,
+          0.0,
+          nouveauSolde,
+          'ENCAISSEMENT',
+          _selectedClient!.rsoc,
+          'REGLEMENT',
+        ],
+      );
     } else {
       await _databaseService.database.customStatement(
-          'INSERT INTO banque (ref, daty, lib, credit, debit, soldes, type, clt, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            ref,
-            _paymentDate.millisecondsSinceEpoch ~/ 1000,
-            libelle,
-            amount,
-            0.0,
-            amount,
-            'ENCAISSEMENT',
-            _selectedClient!.rsoc,
-            'REGLEMENT'
-          ]);
+        'INSERT INTO banque (ref, daty, lib, credit, debit, soldes, type, clt, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          ref,
+          _paymentDate.millisecondsSinceEpoch ~/ 1000,
+          libelle,
+          amount,
+          0.0,
+          amount,
+          'ENCAISSEMENT',
+          _selectedClient!.rsoc,
+          'REGLEMENT',
+        ],
+      );
     }
   }
 
@@ -286,65 +285,70 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
     // 1. Mettre à jour le solde fournisseur
     final nouveauSolde = _supplierBalance - amount;
-    await _databaseService.database.customStatement(
-        'UPDATE frns SET soldes = ? WHERE rsoc = ?', [nouveauSolde, _selectedSupplier!.rsoc]);
+    await _databaseService.database.customStatement('UPDATE frns SET soldes = ? WHERE rsoc = ?', [
+      nouveauSolde,
+      _selectedSupplier!.rsoc,
+    ]);
 
     // 2. Mettre à jour le montant réglé dans les achats
     await _databaseService.database.customStatement(
-        'UPDATE achats SET regl = COALESCE(regl, 0) + ? WHERE frns = ? AND (totalttc - COALESCE(regl, 0)) > 0',
-        [amount, _selectedSupplier!.rsoc]);
+      'UPDATE achats SET regl = COALESCE(regl, 0) + ? WHERE frns = ? AND (totalttc - COALESCE(regl, 0)) > 0',
+      [amount, _selectedSupplier!.rsoc],
+    );
 
     // 3. Écriture compte fournisseur
-    await _databaseService.database.insertComptefrns(ComptefrnsCompanion(
-      ref: Value(ref),
-      daty: Value(_paymentDate),
-      lib: Value(libelle),
-      entres: const Value(0.0),
-      sortie: Value(amount),
-      solde: Value(nouveauSolde),
-      frns: Value(_selectedSupplier!.rsoc),
-      verification: const Value('REGLEMENT'),
-    ));
+    await _databaseService.database.insertComptefrns(
+      ComptefrnsCompanion(
+        ref: Value(ref),
+        daty: Value(_paymentDate),
+        lib: Value(libelle),
+        entres: const Value(0.0),
+        sortie: Value(amount),
+        solde: Value(nouveauSolde),
+        frns: Value(_selectedSupplier!.rsoc),
+        verification: const Value('REGLEMENT'),
+      ),
+    );
 
     // 4. Décaissement selon le mode de paiement
     if (_paymentMethod == 'Espèces') {
       // Récupérer le dernier solde de caisse
       final dernierMouvement = await _databaseService.database
-          .customSelect(
-            'SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1',
-          )
+          .customSelect('SELECT soldes FROM caisse ORDER BY daty DESC LIMIT 1')
           .getSingleOrNull();
 
       final dernierSolde = dernierMouvement?.data['soldes'] as double? ?? 0.0;
       final nouveauSolde = dernierSolde - amount;
 
       await _databaseService.database.customStatement(
-          'INSERT INTO caisse (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            ref,
-            _paymentDate.millisecondsSinceEpoch ~/ 1000,
-            libelle,
-            amount,
-            0.0,
-            nouveauSolde,
-            'DECAISSEMENT',
-            _selectedSupplier!.rsoc,
-            'REGLEMENT'
-          ]);
+        'INSERT INTO caisse (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          ref,
+          _paymentDate.millisecondsSinceEpoch ~/ 1000,
+          libelle,
+          amount,
+          0.0,
+          nouveauSolde,
+          'DECAISSEMENT',
+          _selectedSupplier!.rsoc,
+          'REGLEMENT',
+        ],
+      );
     } else {
       await _databaseService.database.customStatement(
-          'INSERT INTO banque (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [
-            ref,
-            _paymentDate.millisecondsSinceEpoch ~/ 1000,
-            libelle,
-            amount,
-            0.0,
-            -amount,
-            'DECAISSEMENT',
-            _selectedSupplier!.rsoc,
-            'REGLEMENT'
-          ]);
+        'INSERT INTO banque (ref, daty, lib, debit, credit, soldes, type, frns, verification) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          ref,
+          _paymentDate.millisecondsSinceEpoch ~/ 1000,
+          libelle,
+          amount,
+          0.0,
+          -amount,
+          'DECAISSEMENT',
+          _selectedSupplier!.rsoc,
+          'REGLEMENT',
+        ],
+      );
     }
   }
 
@@ -370,19 +374,13 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
 
   void _showError(String message) {
     _scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: SelectableText(message),
-        backgroundColor: Colors.red,
-      ),
+      SnackBar(content: SelectableText(message), backgroundColor: Colors.red),
     );
   }
 
   void _showSuccess(String message) {
     _scaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(
-        content: SelectableText(message),
-        backgroundColor: Colors.green,
-      ),
+      SnackBar(content: SelectableText(message), backgroundColor: Colors.green),
     );
   }
 
@@ -448,10 +446,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                         Expanded(
                           child: TabBarView(
                             controller: _tabController,
-                            children: [
-                              _buildClientTab(),
-                              _buildSupplierTab(),
-                            ],
+                            children: [_buildClientTab(), _buildSupplierTab()],
                           ),
                         ),
                         _buildFooter(),
@@ -476,10 +471,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
       ),
       child: Row(
         children: [
@@ -522,9 +514,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
     return Container(
       decoration: BoxDecoration(
         color: Colors.grey[50],
-        border: Border(
-          bottom: BorderSide(color: Colors.grey[300]!, width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!, width: 1)),
       ),
       child: TabBar(
         controller: _tabController,
@@ -534,14 +524,8 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
         indicatorWeight: 3,
         labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         tabs: const [
-          Tab(
-            icon: Icon(Icons.person),
-            text: 'RÈGLEMENT CLIENTS',
-          ),
-          Tab(
-            icon: Icon(Icons.business),
-            text: 'RÈGLEMENT FOURNISSEURS',
-          ),
+          Tab(icon: Icon(Icons.person), text: 'RÈGLEMENT CLIENTS'),
+          Tab(icon: Icon(Icons.business), text: 'RÈGLEMENT FOURNISSEURS'),
         ],
       ),
     );
@@ -553,15 +537,9 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 1,
-            child: _buildClientSelectionPanel(),
-          ),
+          Expanded(flex: 1, child: _buildClientSelectionPanel()),
           const SizedBox(width: 24),
-          Expanded(
-            flex: 1,
-            child: _buildPaymentPanel(),
-          ),
+          Expanded(flex: 1, child: _buildPaymentPanel()),
         ],
       ),
     );
@@ -573,15 +551,9 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 1,
-            child: _buildSupplierSelectionPanel(),
-          ),
+          Expanded(flex: 1, child: _buildSupplierSelectionPanel()),
           const SizedBox(width: 24),
-          Expanded(
-            flex: 1,
-            child: _buildPaymentPanel(),
-          ),
+          Expanded(flex: 1, child: _buildPaymentPanel()),
         ],
       ),
     );
@@ -594,11 +566,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[300]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -617,13 +585,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
               children: [
                 Icon(Icons.person, color: Colors.purple[600], size: 20),
                 const SizedBox(width: 8),
-                const Text(
-                  'Sélection Client',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                const Text('Sélection Client', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -644,9 +606,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                   decoration: InputDecoration(
                     labelText: 'Client',
                     prefixIcon: Icon(Icons.person, color: Colors.purple[600]),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
@@ -657,17 +617,12 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                     decoration: BoxDecoration(
                       color: _clientBalance > 0 ? Colors.red[50] : Colors.green[50],
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _clientBalance > 0 ? Colors.red[200]! : Colors.green[200]!,
-                      ),
+                      border: Border.all(color: _clientBalance > 0 ? Colors.red[200]! : Colors.green[200]!),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Solde dû:',
-                          style: TextStyle(fontWeight: FontWeight.w500),
-                        ),
+                        const Text('Solde dû:', style: TextStyle(fontWeight: FontWeight.w500)),
                         Text(
                           _formatAmount(_clientBalance),
                           style: TextStyle(
@@ -688,11 +643,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 'Mouvements en cours',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[700],
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
               ),
             ),
             const SizedBox(height: 8),
@@ -700,22 +651,21 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: _clientMovements
-                    .map((m) => _buildMovementTile(
-                          m.nfact ?? '',
-                          m.daty,
-                          (m.sorties ?? 0.0) > 0 ? -(m.sorties ?? 0.0) : (m.entres ?? 0.0),
-                          m.lib ?? '',
-                        ))
+                    .map(
+                      (m) => _buildMovementTile(
+                        m.nfact ?? '',
+                        m.daty,
+                        (m.sorties ?? 0.0) > 0 ? -(m.sorties ?? 0.0) : (m.entres ?? 0.0),
+                        m.lib ?? '',
+                      ),
+                    )
                     .toList(),
               ),
             ),
           ] else if (_selectedClient != null)
             const Expanded(
               child: Center(
-                child: Text(
-                  'Aucun mouvement en cours',
-                  style: TextStyle(color: Colors.grey),
-                ),
+                child: Text('Aucun mouvement en cours', style: TextStyle(color: Colors.grey)),
               ),
             ),
         ],
@@ -730,11 +680,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[300]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -755,10 +701,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                 const SizedBox(width: 8),
                 const Text(
                   'Sélection Fournisseur',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -780,9 +723,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                   decoration: InputDecoration(
                     labelText: 'Fournisseur',
                     prefixIcon: Icon(Icons.business, color: Colors.purple[600]),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
@@ -793,17 +734,12 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                     decoration: BoxDecoration(
                       color: _supplierBalance > 0 ? Colors.red[50] : Colors.green[50],
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _supplierBalance > 0 ? Colors.red[200]! : Colors.green[200]!,
-                      ),
+                      border: Border.all(color: _supplierBalance > 0 ? Colors.red[200]! : Colors.green[200]!),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'Solde dû:',
-                          style: TextStyle(fontWeight: FontWeight.w500),
-                        ),
+                        const Text('Solde dû:', style: TextStyle(fontWeight: FontWeight.w500)),
                         Text(
                           _formatAmount(_supplierBalance),
                           style: TextStyle(
@@ -824,11 +760,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 'Mouvements en cours',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey[700],
-                ),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.grey[700]),
               ),
             ),
             const SizedBox(height: 8),
@@ -836,22 +768,21 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: _supplierMovements
-                    .map((m) => _buildMovementTile(
-                          m.nfact ?? '',
-                          m.daty,
-                          (m.sortie ?? 0.0) > 0 ? -(m.sortie ?? 0.0) : (m.entres ?? 0.0),
-                          m.lib ?? '',
-                        ))
+                    .map(
+                      (m) => _buildMovementTile(
+                        m.nfact ?? '',
+                        m.daty,
+                        (m.sortie ?? 0.0) > 0 ? -(m.sortie ?? 0.0) : (m.entres ?? 0.0),
+                        m.lib ?? '',
+                      ),
+                    )
                     .toList(),
               ),
             ),
           ] else if (_selectedSupplier != null)
             const Expanded(
               child: Center(
-                child: Text(
-                  'Aucun mouvement en cours',
-                  style: TextStyle(color: Colors.grey),
-                ),
+                child: Text('Aucun mouvement en cours', style: TextStyle(color: Colors.grey)),
               ),
             ),
         ],
@@ -866,9 +797,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
       decoration: BoxDecoration(
         color: amount > 0 ? Colors.red[50] : Colors.green[50],
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: amount > 0 ? Colors.red[200]! : Colors.green[200]!,
-        ),
+        border: Border.all(color: amount > 0 ? Colors.red[200]! : Colors.green[200]!),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -876,10 +805,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "N° Facture/BL:  $reference",
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
+              Text("N° Facture/BL:  $reference", style: const TextStyle(fontWeight: FontWeight.w500)),
               Text(
                 _formatAmount(amount),
                 style: TextStyle(
@@ -913,11 +839,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey[300]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -938,11 +860,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                 const SizedBox(width: 8),
                 Text(
                   'Règlement',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.purple[800],
-                  ),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.purple[800]),
                 ),
               ],
             ),
@@ -984,9 +902,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                         decoration: InputDecoration(
                           labelText: 'Mode de paiement',
                           prefixIcon: Icon(Icons.credit_card, color: Colors.purple[600]),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(color: Colors.purple[600]!, width: 2),
@@ -1022,9 +938,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                           backgroundColor: Colors.purple[600],
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           elevation: 2,
                         ),
                         child: _isLoading
@@ -1038,10 +952,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                               )
                             : const Text(
                                 'ENREGISTRER LE RÈGLEMENT',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                               ),
                       ),
                     ),
@@ -1075,9 +986,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.purple[600]),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: Colors.purple[600]!, width: 2),
@@ -1107,15 +1016,10 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
           decoration: InputDecoration(
             labelText: 'Date de paiement',
             prefixIcon: Icon(Icons.calendar_today, color: Colors.purple[600]),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           ),
-          child: Text(
-            DateFormat('dd/MM/yyyy').format(_paymentDate),
-            style: const TextStyle(fontSize: 16),
-          ),
+          child: Text(DateFormat('dd/MM/yyyy').format(_paymentDate), style: const TextStyle(fontSize: 16)),
         ),
       ),
     );
@@ -1126,9 +1030,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.grey[50],
-        border: Border(
-          top: BorderSide(color: Colors.grey[300]!, width: 1),
-        ),
+        border: Border(top: BorderSide(color: Colors.grey[300]!, width: 1)),
         borderRadius: const BorderRadius.only(
           bottomLeft: Radius.circular(16),
           bottomRight: Radius.circular(16),
@@ -1139,20 +1041,13 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
         children: [
           Text(
             'Régularisation des comptes clients et fournisseurs',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[600],
-              fontStyle: FontStyle.italic,
-            ),
+            style: TextStyle(fontSize: 13, color: Colors.grey[600], fontStyle: FontStyle.italic),
           ),
           TextButton(
             onPressed: _resetForm,
             child: Text(
               'Réinitialiser',
-              style: TextStyle(
-                color: Colors.purple[600],
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(color: Colors.purple[600], fontWeight: FontWeight.w500),
             ),
           ),
         ],

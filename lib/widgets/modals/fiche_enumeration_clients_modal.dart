@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../database/database_service.dart';
+
 import '../../database/database.dart';
+import '../../database/database_service.dart';
 import '../common/base_modal.dart';
 
 class FicheEnumerationClientsModal extends StatefulWidget {
@@ -25,7 +26,7 @@ class _FicheEnumerationClientsModalState extends State<FicheEnumerationClientsMo
   Future<void> _loadClients() async {
     setState(() => _isLoading = true);
     try {
-      final clients = await DatabaseService().database.getAllClients();
+      final clients = await DatabaseService().database.getActiveClients();
       setState(() {
         _clients = clients;
         _sortClients();
@@ -34,9 +35,7 @@ class _FicheEnumerationClientsModalState extends State<FicheEnumerationClientsMo
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -75,10 +74,9 @@ class _FicheEnumerationClientsModalState extends State<FicheEnumerationClientsMo
 
   String _formatNumber(double? number) {
     if (number == null) return '0';
-    return number.toStringAsFixed(0).replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]} ',
-    );
+    return number
+        .toStringAsFixed(0)
+        .replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ');
   }
 
   @override
@@ -147,17 +145,12 @@ class _FicheEnumerationClientsModalState extends State<FicheEnumerationClientsMo
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                             ),
                           ),
-                          title: Text(
-                            client.rsoc,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                          title: Text(client.rsoc, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (client.nif != null && client.nif!.isNotEmpty)
-                                Text('NIF: ${client.nif}'),
-                              if (client.tel != null && client.tel!.isNotEmpty)
-                                Text('Tél: ${client.tel}'),
+                              if (client.nif != null && client.nif!.isNotEmpty) Text('NIF: ${client.nif}'),
+                              if (client.tel != null && client.tel!.isNotEmpty) Text('Tél: ${client.tel}'),
                               if (client.commercial != null && client.commercial!.isNotEmpty)
                                 Text('Commercial: ${client.commercial}'),
                             ],
@@ -175,10 +168,7 @@ class _FicheEnumerationClientsModalState extends State<FicheEnumerationClientsMo
                               ),
                               Text(
                                 (client.soldes ?? 0) > 0 ? 'Débiteur' : 'Créditeur',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
+                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                               ),
                             ],
                           ),
@@ -226,18 +216,11 @@ class _FicheEnumerationClientsModalState extends State<FicheEnumerationClientsMo
   Widget _buildStatCard(String title, String value, Color color) {
     return Column(
       children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-        ),
+        Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
         ),
       ],
     );
@@ -252,10 +235,7 @@ class _FicheEnumerationClientsModalState extends State<FicheEnumerationClientsMo
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              client.rsoc,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
+            Text(client.rsoc, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             if (client.nif != null) Text('NIF: ${client.nif}'),
             if (client.tel != null) Text('Téléphone: ${client.tel}'),
@@ -273,12 +253,7 @@ class _FicheEnumerationClientsModalState extends State<FicheEnumerationClientsMo
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Fermer'),
-          ),
-        ],
+        actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer'))],
       ),
     );
   }

@@ -321,7 +321,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<void> _loadData() async {
     try {
-      final fournisseurs = await _databaseService.database.getAllFournisseurs();
+      final fournisseurs = await _databaseService.database.getActiveFournisseurs();
       final articles = await _databaseService.database.getActiveArticles();
       final depots = await _databaseService.database
           .select(_databaseService.database.depots)

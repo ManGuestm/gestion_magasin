@@ -1408,6 +1408,9 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  /// Récupère les clients actifs (action='A')
+  Future<List<CltData>> getActiveClients() => (select(clt)..where((tbl) => tbl.action.equals('A'))).get();
+
   /// Récupère un client par raison sociale
   Future<CltData?> getClientByRsoc(String rsoc) =>
       (select(clt)..where((tbl) => tbl.rsoc.equals(rsoc))).getSingleOrNull();
@@ -1425,6 +1428,9 @@ class AppDatabase extends _$AppDatabase {
   // ========== MÉTHODES FOURNISSEURS ==========
   /// Récupère tous les fournisseurs
   Future<List<Frn>> getAllFournisseurs() => select(frns).get();
+
+  /// Récupère les actives fournisseurs
+  Future<List<Frn>> getActiveFournisseurs() => (select(frns)..where((tbl) => tbl.action.equals('A'))).get();
 
   /// Récupère un fournisseur par raison sociale
   Future<Frn?> getFournisseurByRsoc(String rsoc) =>

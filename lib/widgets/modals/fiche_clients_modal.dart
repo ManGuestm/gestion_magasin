@@ -34,7 +34,7 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
   Future<void> _loadClients() async {
     setState(() => _isLoading = true);
     try {
-      final clients = await DatabaseService().database.getAllClients();
+      final clients = await DatabaseService().database.getActiveClients();
       setState(() {
         _clients = clients;
         _filteredClients = clients;
@@ -43,9 +43,7 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -54,20 +52,21 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredClients = _clients
-          .where((client) =>
-              client.rsoc.toLowerCase().contains(query) ||
-              (client.nif?.toLowerCase().contains(query) ?? false) ||
-              (client.tel?.toLowerCase().contains(query) ?? false))
+          .where(
+            (client) =>
+                client.rsoc.toLowerCase().contains(query) ||
+                (client.nif?.toLowerCase().contains(query) ?? false) ||
+                (client.tel?.toLowerCase().contains(query) ?? false),
+          )
           .toList();
     });
   }
 
   String _formatNumber(double? number) {
     if (number == null) return '0';
-    return number.toStringAsFixed(0).replaceAllMapped(
-          RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]} ',
-        );
+    return number
+        .toStringAsFixed(0)
+        .replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ');
   }
 
   @override
@@ -179,9 +178,7 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
                         backgroundColor: Colors.blue.shade600,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                     ),
                   ],
@@ -217,149 +214,119 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
                       ),
                     )
                   : _filteredClients.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Aucun client trouvé',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Essayez de modifier vos critères de recherche',
+                            style: TextStyle(color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                    )
+                  : DataTableWidget<CltData>(
+                      itemHeight: 30,
+                      headers: const ['Raison Sociale', 'NIF', 'Téléphone', 'Email', 'Solde', 'Commercial'],
+                      items: _filteredClients,
+                      rowBuilder: (client, isSelected) => [
+                        Expanded(
+                          flex: 1,
+                          child: Row(
                             children: [
-                              Icon(
-                                Icons.people_outline,
-                                size: 64,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Aucun client trouvé',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey.shade600,
-                                  fontWeight: FontWeight.w500,
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: (client.soldes ?? 0) < 0 ? Colors.red : Colors.green,
+                                  shape: BoxShape.circle,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Essayez de modifier vos critères de recherche',
-                                style: TextStyle(
-                                  color: Colors.grey.shade500,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  client.rsoc,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                                 ),
                               ),
                             ],
                           ),
-                        )
-                      : DataTableWidget<CltData>(
-                          itemHeight: 30,
-                          headers: const [
-                            'Raison Sociale',
-                            'NIF',
-                            'Téléphone',
-                            'Email',
-                            'Solde',
-                            'Commercial',
-                          ],
-                          items: _filteredClients,
-                          rowBuilder: (client, isSelected) => [
-                            Expanded(
-                              flex: 1,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: (client.soldes ?? 0) < 0 ? Colors.red : Colors.green,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      client.rsoc,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                client.nif ?? '-',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  if (client.tel != null && client.tel!.isNotEmpty) ...[
-                                    Icon(Icons.phone, size: 12, color: Colors.grey.shade600),
-                                    const SizedBox(width: 4),
-                                  ],
-                                  Expanded(
-                                    child: Text(
-                                      client.tel ?? '-',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  if (client.email != null && client.email!.isNotEmpty) ...[
-                                    Icon(Icons.email, size: 12, color: Colors.grey.shade600),
-                                    const SizedBox(width: 4),
-                                  ],
-                                  Expanded(
-                                    child: Text(
-                                      client.email ?? '-',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Container(
-                                alignment: Alignment.centerRight,
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                child: Text(
-                                  '${_formatNumber(client.soldes)} Ar',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: (client.soldes ?? 0) > 0
-                                        ? Colors.red.shade700
-                                        : Colors.green.shade700,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  client.commercial ?? '-',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey.shade700,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                          onItemSelected: (client) => _showClientDetails(client),
                         ),
+                        Expanded(
+                          child: Text(
+                            client.nif ?? '-',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              if (client.tel != null && client.tel!.isNotEmpty) ...[
+                                Icon(Icons.phone, size: 12, color: Colors.grey.shade600),
+                                const SizedBox(width: 4),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  client.tel ?? '-',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              if (client.email != null && client.email!.isNotEmpty) ...[
+                                Icon(Icons.email, size: 12, color: Colors.grey.shade600),
+                                const SizedBox(width: 4),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  client.email ?? '-',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Text(
+                              '${_formatNumber(client.soldes)} Ar',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: (client.soldes ?? 0) > 0 ? Colors.red.shade700 : Colors.green.shade700,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              client.commercial ?? '-',
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                            ),
+                          ),
+                        ),
+                      ],
+                      onItemSelected: (client) => _showClientDetails(client),
+                    ),
             ),
           ),
         ],
@@ -387,24 +354,14 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
                       color: Colors.blue.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      Icons.person,
-                      color: Colors.blue.shade600,
-                      size: 24,
-                    ),
+                    child: Icon(Icons.person, color: Colors.blue.shade600, size: 24),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          client.rsoc,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                        Text(client.rsoc, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -426,10 +383,7 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  ),
+                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
                 ],
               ),
               const SizedBox(height: 24),
@@ -496,10 +450,7 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Fermer'),
-                  ),
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
                 ],
               ),
             ],
@@ -517,11 +468,7 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1)),
           ],
         ),
         child: Row(
@@ -542,19 +489,11 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                   ),
                   Text(
                     value,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
                   ),
                 ],
               ),
@@ -575,19 +514,11 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
             width: 120,
             child: Text(
               label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade700),
             ),
           ),
           Expanded(
-            child: Text(
-              value.isEmpty ? '-' : value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            child: Text(value.isEmpty ? '-' : value, style: const TextStyle(fontWeight: FontWeight.w500)),
           ),
         ],
       ),

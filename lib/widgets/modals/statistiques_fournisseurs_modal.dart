@@ -34,7 +34,7 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
   Future<void> _initializeData() async {
     // Vérifier s'il y a des données, sinon créer des données de test
     final achats = await _databaseService.database.getAllAchats();
-    final fournisseurs = await _databaseService.database.getAllFournisseurs();
+    final fournisseurs = await _databaseService.database.getActiveFournisseurs();
 
     if (achats.isEmpty || fournisseurs.isEmpty) {
       await _createTestData();
@@ -124,7 +124,7 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
       debugPrint('Total achats dans la base: ${totalAchats.length}');
 
       // Debug: vérifier s'il y a des fournisseurs
-      final totalFournisseurs = await _databaseService.database.getAllFournisseurs();
+      final totalFournisseurs = await _databaseService.database.getActiveFournisseurs();
       debugPrint('Total fournisseurs dans la base: ${totalFournisseurs.length}');
 
       final statistiques = await _databaseService.database.getStatistiquesFournisseurs(
@@ -142,32 +142,36 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
 
         setState(() {
           _statistiques = statsAll
-              .map((stat) => {
-                    'fournisseur': stat['fournisseur'],
-                    'nombreAchats': stat['nombre_achats'],
-                    'totalHT': stat['montant_total'] * 0.8,
-                    'totalTTC': stat['montant_total'],
-                    'moyenneAchat': stat['montant_moyen'],
-                    'premierAchat': stat['premier_achat'],
-                    'dernierAchat': stat['dernier_achat'],
-                    'totalPeriode': stat['montant_total'],
-                  })
+              .map(
+                (stat) => {
+                  'fournisseur': stat['fournisseur'],
+                  'nombreAchats': stat['nombre_achats'],
+                  'totalHT': stat['montant_total'] * 0.8,
+                  'totalTTC': stat['montant_total'],
+                  'moyenneAchat': stat['montant_moyen'],
+                  'premierAchat': stat['premier_achat'],
+                  'dernierAchat': stat['dernier_achat'],
+                  'totalPeriode': stat['montant_total'],
+                },
+              )
               .toList();
           _isLoading = false;
         });
       } else {
         setState(() {
           _statistiques = statistiques
-              .map((stat) => {
-                    'fournisseur': stat['fournisseur'],
-                    'nombreAchats': stat['nombre_achats'],
-                    'totalHT': stat['montant_total'] * 0.8,
-                    'totalTTC': stat['montant_total'],
-                    'moyenneAchat': stat['montant_moyen'],
-                    'premierAchat': stat['premier_achat'],
-                    'dernierAchat': stat['dernier_achat'],
-                    'totalPeriode': stat['montant_total'],
-                  })
+              .map(
+                (stat) => {
+                  'fournisseur': stat['fournisseur'],
+                  'nombreAchats': stat['nombre_achats'],
+                  'totalHT': stat['montant_total'] * 0.8,
+                  'totalTTC': stat['montant_total'],
+                  'moyenneAchat': stat['montant_moyen'],
+                  'premierAchat': stat['premier_achat'],
+                  'dernierAchat': stat['dernier_achat'],
+                  'totalPeriode': stat['montant_total'],
+                },
+              )
               .toList();
           _isLoading = false;
         });
@@ -178,9 +182,7 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors du chargement: $e')));
       }
     }
   }
@@ -275,10 +277,7 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
       child: Container(
         width: 1200,
         height: MediaQuery.of(context).size.height * 0.9,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.grey[100],
-        ),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: Colors.grey[100]),
         child: Column(
           children: [
             // Title bar
@@ -286,10 +285,7 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: const BoxDecoration(
                 color: Colors.purple,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
+                borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
               ),
               child: Row(
                 children: [
@@ -297,11 +293,7 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
                   const SizedBox(width: 8),
                   const Text(
                     'Statistiques Fournisseurs',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   IconButton(
@@ -376,8 +368,11 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
                   _buildSummaryCard('Nb Fournisseurs', _statistiques.length.toDouble(), Colors.blue),
                   _buildSummaryCard('Total Achats', _totalAchats.toDouble(), Colors.orange),
                   _buildSummaryCard('CA Total', _totalGeneral, Colors.green),
-                  _buildSummaryCard('CA Moyen',
-                      _statistiques.isNotEmpty ? _totalGeneral / _statistiques.length : 0, Colors.purple),
+                  _buildSummaryCard(
+                    'CA Moyen',
+                    _statistiques.isNotEmpty ? _totalGeneral / _statistiques.length : 0,
+                    Colors.purple,
+                  ),
                 ],
               ),
             ),
@@ -415,78 +410,86 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
                       child: _isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : _statistiques.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    'Aucune donnée trouvée',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.grey,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                )
-                              : SingleChildScrollView(
-                                  child: SingleChildScrollView(
-                                    scrollDirection: Axis.horizontal,
-                                    child: Column(
-                                      children: _statistiques.asMap().entries.map((entry) {
-                                        final index = entry.key;
-                                        final stat = entry.value;
-                                        final pourcentage = _totalGeneral > 0
-                                            ? (stat['totalTTC'] as double) / _totalGeneral * 100
-                                            : 0.0;
-
-                                        return Focus(
-                                          autofocus: true,
-                                          onKeyEvent: (node, event) => handleTabNavigation(event),
-                                          child: InkWell(
-                                            onTap: () => _showFournisseurDetails(stat['fournisseur']),
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
-                                                border: Border(
-                                                  bottom: BorderSide(color: Colors.grey.shade200),
-                                                ),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  _buildDataCell(stat['fournisseur'] ?? '', 200),
-                                                  _buildDataCell(stat['nombreAchats'].toString(), 100,
-                                                      isNumber: true),
-                                                  _buildDataCell(
-                                                      NumberUtils.formatNumber(stat['totalHT'] as double),
-                                                      120,
-                                                      isNumber: true),
-                                                  _buildDataCell(
-                                                      NumberUtils.formatNumber(stat['totalTTC'] as double),
-                                                      120,
-                                                      isNumber: true),
-                                                  _buildDataCell(
-                                                      NumberUtils.formatNumber(
-                                                          stat['moyenneAchat'] as double),
-                                                      120,
-                                                      isNumber: true),
-                                                  _buildDataCell(
-                                                      stat['premierAchat'] != null
-                                                          ? _formatDateFromTimestamp(stat['premierAchat'])
-                                                          : '',
-                                                      120),
-                                                  _buildDataCell(
-                                                      stat['dernierAchat'] != null
-                                                          ? _formatDateFromTimestamp(stat['dernierAchat'])
-                                                          : '',
-                                                      120),
-                                                  _buildDataCell('${pourcentage.toStringAsFixed(1)}%', 100,
-                                                      isNumber: true),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ),
+                          ? const Center(
+                              child: Text(
+                                'Aucune donnée trouvée',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                  fontStyle: FontStyle.italic,
                                 ),
+                              ),
+                            )
+                          : SingleChildScrollView(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Column(
+                                  children: _statistiques.asMap().entries.map((entry) {
+                                    final index = entry.key;
+                                    final stat = entry.value;
+                                    final pourcentage = _totalGeneral > 0
+                                        ? (stat['totalTTC'] as double) / _totalGeneral * 100
+                                        : 0.0;
+
+                                    return Focus(
+                                      autofocus: true,
+                                      onKeyEvent: (node, event) => handleTabNavigation(event),
+                                      child: InkWell(
+                                        onTap: () => _showFournisseurDetails(stat['fournisseur']),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
+                                            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              _buildDataCell(stat['fournisseur'] ?? '', 200),
+                                              _buildDataCell(
+                                                stat['nombreAchats'].toString(),
+                                                100,
+                                                isNumber: true,
+                                              ),
+                                              _buildDataCell(
+                                                NumberUtils.formatNumber(stat['totalHT'] as double),
+                                                120,
+                                                isNumber: true,
+                                              ),
+                                              _buildDataCell(
+                                                NumberUtils.formatNumber(stat['totalTTC'] as double),
+                                                120,
+                                                isNumber: true,
+                                              ),
+                                              _buildDataCell(
+                                                NumberUtils.formatNumber(stat['moyenneAchat'] as double),
+                                                120,
+                                                isNumber: true,
+                                              ),
+                                              _buildDataCell(
+                                                stat['premierAchat'] != null
+                                                    ? _formatDateFromTimestamp(stat['premierAchat'])
+                                                    : '',
+                                                120,
+                                              ),
+                                              _buildDataCell(
+                                                stat['dernierAchat'] != null
+                                                    ? _formatDateFromTimestamp(stat['dernierAchat'])
+                                                    : '',
+                                                120,
+                                              ),
+                                              _buildDataCell(
+                                                '${pourcentage.toStringAsFixed(1)}%',
+                                                100,
+                                                isNumber: true,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                            ),
                     ),
                   ],
                 ),
@@ -504,23 +507,13 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(
               title.contains('Nb') || title.contains('Total Achats')
                   ? value.toInt().toString()
                   : NumberUtils.formatNumber(value),
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
             ),
           ],
         ),
@@ -558,10 +551,12 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
 
   Future<void> _showFournisseurDetails(String fournisseur) async {
     try {
-      final achats = await _databaseService.database.customSelect(
-        'SELECT * FROM achats WHERE frns = ? ORDER BY daty DESC',
-        variables: [Variable(fournisseur)],
-      ).get();
+      final achats = await _databaseService.database
+          .customSelect(
+            'SELECT * FROM achats WHERE frns = ? ORDER BY daty DESC',
+            variables: [Variable(fournisseur)],
+          )
+          .get();
 
       if (!mounted) return;
 
@@ -583,10 +578,7 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
-                    IconButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
-                    ),
+                    IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
                   ],
                 ),
                 const Divider(),
@@ -624,19 +616,21 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
 
                                 return Column(
                                   children: details
-                                      .map((detail) => ListTile(
-                                            dense: true,
-                                            leading: const Icon(Icons.inventory_2, size: 16),
-                                            title: Text(detail['designation'] ?? 'Article inconnu'),
-                                            subtitle: Text(
-                                              'Qté: ${detail['q'] ?? 0} ${detail['unites'] ?? ''} - '
-                                              'PU: ${NumberUtils.formatNumber(detail['pu'] ?? 0)} Ar',
-                                            ),
-                                            trailing: Text(
-                                              '${NumberUtils.formatNumber((detail['q'] ?? 0) * (detail['pu'] ?? 0))} Ar',
-                                              style: const TextStyle(fontWeight: FontWeight.bold),
-                                            ),
-                                          ))
+                                      .map(
+                                        (detail) => ListTile(
+                                          dense: true,
+                                          leading: const Icon(Icons.inventory_2, size: 16),
+                                          title: Text(detail['designation'] ?? 'Article inconnu'),
+                                          subtitle: Text(
+                                            'Qté: ${detail['q'] ?? 0} ${detail['unites'] ?? ''} - '
+                                            'PU: ${NumberUtils.formatNumber(detail['pu'] ?? 0)} Ar',
+                                          ),
+                                          trailing: Text(
+                                            '${NumberUtils.formatNumber((detail['q'] ?? 0) * (detail['pu'] ?? 0))} Ar',
+                                            style: const TextStyle(fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      )
                                       .toList(),
                                 );
                               },
@@ -653,26 +647,25 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
         ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
     }
   }
 
   Future<List<Map<String, dynamic>>> _getAchatDetails(String numAchats) async {
     try {
-      final details = await _databaseService.database.customSelect(
-        'SELECT * FROM detachats WHERE numachats = ?',
-        variables: [Variable(numAchats)],
-      ).get();
+      final details = await _databaseService.database
+          .customSelect('SELECT * FROM detachats WHERE numachats = ?', variables: [Variable(numAchats)])
+          .get();
 
       return details
-          .map((row) => {
-                'designation': row.readNullable<String>('designation'),
-                'unites': row.readNullable<String>('unites'),
-                'q': row.readNullable<double>('q'),
-                'pu': row.readNullable<double>('pu'),
-              })
+          .map(
+            (row) => {
+              'designation': row.readNullable<String>('designation'),
+              'unites': row.readNullable<String>('unites'),
+              'q': row.readNullable<double>('q'),
+              'pu': row.readNullable<double>('pu'),
+            },
+          )
           .toList();
     } catch (e) {
       return [];
@@ -683,9 +676,7 @@ class _StatistiquesFournisseursModalState extends State<StatistiquesFournisseurs
     return Container(
       width: width,
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade200),
-      ),
+      decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade200)),
       child: Text(
         text,
         style: const TextStyle(fontSize: 12),

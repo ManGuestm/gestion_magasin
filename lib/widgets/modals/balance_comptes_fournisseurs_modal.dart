@@ -34,7 +34,7 @@ class _BalanceComptesFournisseursModalState extends State<BalanceComptesFourniss
 
   Future<void> _loadFournisseurs() async {
     try {
-      final fournisseurs = await DatabaseService().database.getAllFournisseurs();
+      final fournisseurs = await DatabaseService().database.getActiveFournisseurs();
       setState(() => _fournisseurs = fournisseurs);
     } catch (e) {
       debugPrint('Erreur chargement fournisseurs: $e');

@@ -26,8 +26,30 @@ class NetworkDatabaseService {
   }
 
   // Méthodes spécifiques pour l'application
-  Future<List<Article>> getActiveArticles() async {
+  Future<List<Article>> getAllArticles() async {
     final result = await customSelect('SELECT * FROM articles ORDER BY designation');
+    return result
+        .map(
+          (row) => Article(
+            designation: row['designation'],
+            u1: row['u1'],
+            u2: row['u2'],
+            u3: row['u3'],
+            pvu1: row['pvu1'],
+            pvu2: row['pvu2'],
+            pvu3: row['pvu3'],
+            stocksu1: row['stocksu1'],
+            stocksu2: row['stocksu2'],
+            stocksu3: row['stocksu3'],
+            categorie: row['categorie'],
+          ),
+        )
+        .toList();
+  }
+
+  // Méthodes spécifiques pour l'application
+  Future<List<Article>> getActiveArticles() async {
+    final result = await customSelect('SELECT * FROM articles WHERE action="A" ORDER BY designation');
     return result
         .map(
           (row) => Article(
@@ -65,6 +87,24 @@ class NetworkDatabaseService {
         .toList();
   }
 
+  Future<List<CltData>> getActiveClients() async {
+    final result = await customSelect('SELECT * FROM clt WHERE action="A" ORDER BY rsoc');
+    return result
+        .map(
+          (row) => CltData(
+            rsoc: row['rsoc'],
+            adr: row['adr'],
+            tel: row['tel'],
+            email: row['email'],
+            nif: row['nif'],
+            stat: row['stat'],
+            rcs: row['rcs'],
+            soldes: row['soldes'],
+          ),
+        )
+        .toList();
+  }
+
   Future<List<Depot>> getAllDepots() async {
     final result = await customSelect('SELECT * FROM depots ORDER BY depots');
     return result.map((row) => Depot(depots: row['depots'])).toList();
@@ -72,6 +112,24 @@ class NetworkDatabaseService {
 
   Future<List<Frn>> getAllFournisseurs() async {
     final result = await customSelect('SELECT * FROM frns ORDER BY rsoc');
+    return result
+        .map(
+          (row) => Frn(
+            rsoc: row['rsoc'],
+            adr: row['adr'],
+            tel: row['tel'],
+            email: row['email'],
+            nif: row['nif'],
+            stat: row['stat'],
+            rcs: row['rcs'],
+            soldes: row['soldes'],
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<Frn>> getActiveFournisseurs() async {
+    final result = await customSelect('SELECT * FROM frns WHERE action="A" ORDER BY rsoc');
     return result
         .map(
           (row) => Frn(

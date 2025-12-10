@@ -34,7 +34,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
 
   Future<void> _loadClients() async {
     try {
-      final clients = await DatabaseService().database.getAllClients();
+      final clients = await DatabaseService().database.getActiveClients();
       setState(() => _clients = clients);
     } catch (e) {
       debugPrint('Erreur chargement clients: $e');
@@ -52,9 +52,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -63,8 +61,9 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
     final db = DatabaseService().database;
     List<Map<String, dynamic>> balances = [];
 
-    List<CltData> clientsToProcess =
-        _selectedClient != null ? _clients.where((c) => c.rsoc == _selectedClient).toList() : _clients;
+    List<CltData> clientsToProcess = _selectedClient != null
+        ? _clients.where((c) => c.rsoc == _selectedClient).toList()
+        : _clients;
 
     for (final client in clientsToProcess) {
       String whereClause = 'WHERE clt = ?';
@@ -80,8 +79,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
         params.add(_dateFin!.toIso8601String());
       }
 
-      final result = await db.customSelect(
-        '''
+      final result = await db.customSelect('''
         SELECT 
           clt,
           COALESCE(SUM(entres), 0) as total_entrees,
@@ -90,9 +88,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
         FROM compteclt 
         $whereClause
         GROUP BY clt
-        ''',
-        variables: params.map((p) => Variable(p)).toList(),
-      ).getSingleOrNull();
+        ''', variables: params.map((p) => Variable(p)).toList()).getSingleOrNull();
 
       double totalEntrees = result?.read<double>('total_entrees') ?? 0.0;
       double totalSorties = result?.read<double>('total_sorties') ?? 0.0;
@@ -145,12 +141,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                 // Statistiques rapides
                 Row(
                   children: [
-                    _buildStatCard(
-                      'Clients',
-                      _balances.length.toString(),
-                      Icons.people,
-                      Colors.blue,
-                    ),
+                    _buildStatCard('Clients', _balances.length.toString(), Icons.people, Colors.blue),
                     const SizedBox(width: 12),
                     _buildStatCard(
                       'Débiteurs',
@@ -215,10 +206,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: DatePickerField(
-                                controller: _dateDebutController,
-                                label: 'Date début',
-                              ),
+                              child: DatePickerField(controller: _dateDebutController, label: 'Date début'),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -228,10 +216,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: DatePickerField(
-                                controller: _dateFinController,
-                                label: 'Date fin',
-                              ),
+                              child: DatePickerField(controller: _dateFinController, label: 'Date fin'),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -239,21 +224,15 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                             child: DropdownButtonFormField<String>(
                               decoration: InputDecoration(
                                 labelText: 'Client spécifique',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                                 prefixIcon: Icon(Icons.person, color: Colors.grey.shade600),
                               ),
                               initialValue: _selectedClient,
                               items: [
-                                const DropdownMenuItem<String>(
-                                  value: null,
-                                  child: Text('Tous les clients'),
+                                const DropdownMenuItem<String>(value: null, child: Text('Tous les clients')),
+                                ..._clients.map(
+                                  (c) => DropdownMenuItem<String>(value: c.rsoc, child: Text(c.rsoc)),
                                 ),
-                                ..._clients.map((c) => DropdownMenuItem<String>(
-                                      value: c.rsoc,
-                                      child: Text(c.rsoc),
-                                    )),
                               ],
                               onChanged: (value) {
                                 setState(() => _selectedClient = value);
@@ -276,9 +255,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                               backgroundColor: Colors.green.shade600,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                             ),
                           ),
                         ],
@@ -317,154 +294,130 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                       ),
                     )
                   : _balances.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.account_balance_wallet_outlined, size: 64, color: Colors.grey.shade400),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Aucune balance trouvée',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Modifiez les filtres pour voir les données',
+                            style: TextStyle(color: Colors.grey.shade500),
+                          ),
+                        ],
+                      ),
+                    )
+                  : DataTableWidget<Map<String, dynamic>>(
+                      headers: const [
+                        'Client',
+                        'NIF',
+                        'Téléphone',
+                        'Solde Initial',
+                        'Total Entrées',
+                        'Total Sorties',
+                        'Solde Final',
+                      ],
+                      items: _balances,
+                      rowBuilder: (balance, isSelected) => [
+                        Expanded(
+                          flex: 2,
+                          child: Row(
                             children: [
-                              Icon(
-                                Icons.account_balance_wallet_outlined,
-                                size: 64,
-                                color: Colors.grey.shade400,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Aucune balance trouvée',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  color: Colors.grey.shade600,
-                                  fontWeight: FontWeight.w500,
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: balance['solde_final'] > 0 ? Colors.red : Colors.green,
+                                  shape: BoxShape.circle,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Modifiez les filtres pour voir les données',
-                                style: TextStyle(
-                                  color: Colors.grey.shade500,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  balance['client'],
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                                 ),
                               ),
                             ],
                           ),
-                        )
-                      : DataTableWidget<Map<String, dynamic>>(
-                          headers: const [
-                            'Client',
-                            'NIF',
-                            'Téléphone',
-                            'Solde Initial',
-                            'Total Entrées',
-                            'Total Sorties',
-                            'Solde Final',
-                          ],
-                          items: _balances,
-                          rowBuilder: (balance, isSelected) => [
-                            Expanded(
-                              flex: 2,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: balance['solde_final'] > 0 ? Colors.red : Colors.green,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      balance['client'],
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                balance['nif'] ?? '-',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade700,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Row(
-                                children: [
-                                  if (balance['telephone'] != null && balance['telephone'].isNotEmpty) ...[
-                                    Icon(Icons.phone, size: 12, color: Colors.grey.shade600),
-                                    const SizedBox(width: 4),
-                                  ],
-                                  Expanded(
-                                    child: Text(
-                                      balance['telephone'] ?? '-',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: Colors.grey.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                '${_formatNumber(balance['solde_initial'])} Ar',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade700,
-                                ),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                '${_formatNumber(balance['total_entrees'])} Ar',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.blue.shade700,
-                                ),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                '${_formatNumber(balance['total_sorties'])} Ar',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.orange.shade700,
-                                ),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: balance['solde_final'] > 0
-                                      ? Colors.red.withValues(alpha: 0.1)
-                                      : Colors.green.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  '${_formatNumber(balance['solde_final'])} Ar',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: balance['solde_final'] > 0
-                                        ? Colors.red.shade700
-                                        : Colors.green.shade700,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ],
-                          onItemSelected: (balance) => _showBalanceDetails(balance),
                         ),
+                        Expanded(
+                          child: Text(
+                            balance['nif'] ?? '-',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                          ),
+                        ),
+                        Expanded(
+                          child: Row(
+                            children: [
+                              if (balance['telephone'] != null && balance['telephone'].isNotEmpty) ...[
+                                Icon(Icons.phone, size: 12, color: Colors.grey.shade600),
+                                const SizedBox(width: 4),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  balance['telephone'] ?? '-',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${_formatNumber(balance['solde_initial'])} Ar',
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${_formatNumber(balance['total_entrees'])} Ar',
+                            style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            '${_formatNumber(balance['total_sorties'])} Ar',
+                            style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: balance['solde_final'] > 0
+                                  ? Colors.red.withValues(alpha: 0.1)
+                                  : Colors.green.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${_formatNumber(balance['solde_final'])} Ar',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: balance['solde_final'] > 0
+                                    ? Colors.red.shade700
+                                    : Colors.green.shade700,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                      onItemSelected: (balance) => _showBalanceDetails(balance),
+                    ),
             ),
           ),
         ],
@@ -480,11 +433,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 2,
-              offset: const Offset(0, 1),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0, 1)),
           ],
         ),
         child: Row(
@@ -505,19 +454,11 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
                   ),
                   Text(
                     value,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: color,
-                    ),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
                   ),
                 ],
               ),
@@ -548,11 +489,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                       color: Colors.green.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(
-                      Icons.account_balance_wallet,
-                      color: Colors.green.shade600,
-                      size: 24,
-                    ),
+                    child: Icon(Icons.account_balance_wallet, color: Colors.green.shade600, size: 24),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -561,10 +498,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                       children: [
                         Text(
                           balance['client'],
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Container(
@@ -587,10 +521,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
                       ],
                     ),
                   ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close),
-                  ),
+                  IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
                 ],
               ),
               const SizedBox(height: 24),
@@ -617,9 +548,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue.shade50, Colors.blue.shade100],
-                  ),
+                  gradient: LinearGradient(colors: [Colors.blue.shade50, Colors.blue.shade100]),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
@@ -710,10 +639,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Fermer'),
-                  ),
+                  TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
                 ],
               ),
             ],
@@ -732,17 +658,11 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
             width: 80,
             child: Text(
               label,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey.shade700),
             ),
           ),
           Expanded(
-            child: Text(
-              value.isEmpty ? '-' : value,
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
+            child: Text(value.isEmpty ? '-' : value, style: const TextStyle(fontWeight: FontWeight.w500)),
           ),
         ],
       ),
@@ -752,30 +672,20 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
   Widget _buildMovementCard(String title, String value, IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
       child: Column(
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(height: 4),
           Text(
             title,
-            style: TextStyle(
-              fontSize: 10,
-              color: Colors.grey.shade600,
-            ),
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
             textAlign: TextAlign.center,
           ),
         ],

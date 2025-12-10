@@ -73,7 +73,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
   Future<void> _loadData() async {
     try {
       final db = _databaseService.database;
-      final fournisseur = await db.getAllFournisseurs();
+      final fournisseur = await db.getActiveFournisseurs();
       final modesPaiement = await db.select(db.mp).get();
       final achats = await db.getAllAchats();
 
