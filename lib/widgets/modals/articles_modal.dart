@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -104,13 +105,8 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue[600]!, Colors.blue[700]!],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
+        gradient: LinearGradient(colors: [Colors.blue[600]!, Colors.blue[700]!]),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
       ),
       child: Row(
         children: [
@@ -188,10 +184,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
           children: [
             Icon(Icons.search, color: Colors.blue[600], size: 20),
             const SizedBox(width: 8),
-            const Text(
-              'Rechercher:',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
+            const Text('Rechercher:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
             const SizedBox(width: 16),
             Expanded(
               child: Container(
@@ -268,13 +261,8 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue[50]!, Colors.blue[100]!],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
+        gradient: LinearGradient(colors: [Colors.blue[50]!, Colors.blue[100]!]),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
         border: Border(bottom: BorderSide(color: Colors.blue[200]!)),
       ),
       child: Row(
@@ -297,11 +285,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
         borderRadius: BorderRadius.circular(4),
         color: Colors.white,
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 2, offset: const Offset(0, 1)),
         ],
       ),
       child: Column(
@@ -310,9 +294,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue[600]!, Colors.blue[700]!],
-              ),
+              gradient: LinearGradient(colors: [Colors.blue[600]!, Colors.blue[700]!]),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(4),
                 topRight: Radius.circular(4),
@@ -320,20 +302,14 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
             ),
             child: const Text(
               'SITUATION DE STOCKS DANS CHAQUE DÉPÔT',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
               textAlign: TextAlign.center,
             ),
           ),
           Container(
             height: 28,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.grey[200]!, Colors.grey[300]!],
-              ),
+              gradient: LinearGradient(colors: [Colors.grey[200]!, Colors.grey[300]!]),
             ),
             child: Row(
               children: [
@@ -342,17 +318,11 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
                   child: Container(
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      border: Border(
-                        right: BorderSide(color: Colors.grey[400]!, width: 1),
-                      ),
+                      border: Border(right: BorderSide(color: Colors.grey[400]!, width: 1)),
                     ),
                     child: const Text(
                       'DÉPÔTS',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87),
                     ),
                   ),
                 ),
@@ -362,11 +332,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
                     alignment: Alignment.center,
                     child: const Text(
                       'STOCKS DISPONIBLES',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87),
                     ),
                   ),
                 ),
@@ -383,9 +349,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
                   height: 22,
                   decoration: BoxDecoration(
                     color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                    border: Border(
-                      bottom: BorderSide(color: Colors.grey[200]!, width: 0.5),
-                    ),
+                    border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
                   ),
                   child: Row(
                     children: [
@@ -395,16 +359,11 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           alignment: Alignment.centerLeft,
                           decoration: BoxDecoration(
-                            border: Border(
-                              right: BorderSide(color: Colors.grey[200]!, width: 0.5),
-                            ),
+                            border: Border(right: BorderSide(color: Colors.grey[200]!, width: 0.5)),
                           ),
                           child: Text(
                             depot.depots,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Colors.black87,
-                            ),
+                            style: const TextStyle(fontSize: 11, color: Colors.black87),
                           ),
                         ),
                       ),
@@ -418,10 +377,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
                             builder: (context, snapshot) {
                               return Text(
                                 _getStockTextForDepot(snapshot.data),
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.black87,
-                                ),
+                                style: const TextStyle(fontSize: 11, color: Colors.black87),
                               );
                             },
                           ),
@@ -480,8 +436,9 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   Future<String> _getAllStocksText(Article article) async {
     try {
       final db = DatabaseService().database;
-      final stocksDepart =
-          await (db.select(db.depart)..where((d) => d.designation.equals(article.designation))).get();
+      final stocksDepart = await (db.select(
+        db.depart,
+      )..where((d) => d.designation.equals(article.designation))).get();
 
       if (stocksDepart.isEmpty) {
         return 'Aucun stock';
@@ -603,10 +560,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
                 future: _getAllStocksText(article),
                 builder: (context, snapshot) => Text(
                   snapshot.data ?? AppConstants.loadingMessage,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isSelected ? Colors.blue[800] : Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 12, color: isSelected ? Colors.blue[800] : Colors.black87),
                 ),
               ),
             ),
@@ -628,9 +582,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
         decoration: BoxDecoration(
           color: isActive ? Colors.green[100] : Colors.red[100],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive ? Colors.green[300]! : Colors.red[300]!,
-          ),
+          border: Border.all(color: isActive ? Colors.green[300]! : Colors.red[300]!),
         ),
         child: Text(
           isActive ? 'Actif' : 'Inactif',
@@ -658,7 +610,8 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
       decoration: BoxDecoration(
         border: Border(right: BorderSide(color: Colors.grey[200]!, width: 0.5)),
       ),
-      child: child ??
+      child:
+          child ??
           Text(
             text,
             style: TextStyle(
@@ -740,12 +693,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   void _showContextMenu(BuildContext context, Offset position) {
     showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx + 1,
-        position.dy + 1,
-      ),
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
       items: <PopupMenuEntry<String>>[
         const PopupMenuItem<String>(
           value: 'create',
@@ -758,6 +706,14 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
         const PopupMenuItem<String>(
           value: 'delete',
           child: Text('Supprimer', style: TextStyle(fontSize: 12)),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          value: 'toggle_status',
+          child: Text(
+            _selectedArticle?.action == 'A' ? 'Désactiver' : 'Activer',
+            style: const TextStyle(fontSize: 12),
+          ),
         ),
         const PopupMenuDivider(),
         const PopupMenuItem<String>(
@@ -810,16 +766,19 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
           _showHistoriqueStock();
         }
         break;
+      case 'toggle_status':
+        if (_selectedArticle != null) {
+          _toggleArticleStatus(_selectedArticle!);
+        }
+        break;
     }
   }
 
   void _showMouvementStock(TypeMouvement type) {
     showDialog(
       context: context,
-      builder: (context) => MouvementStockModal(
-        refArticle: _selectedArticle!.designation,
-        typeMouvement: type,
-      ),
+      builder: (context) =>
+          MouvementStockModal(refArticle: _selectedArticle!.designation, typeMouvement: type),
     ).then((result) {
       if (result == true) {
         _loadArticles(); // Recharger pour mettre à jour les stocks
@@ -830,9 +789,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   void _showHistoriqueStock() {
     showDialog(
       context: context,
-      builder: (context) => HistoriqueStockModal(
-        refArticle: _selectedArticle!.designation,
-      ),
+      builder: (context) => HistoriqueStockModal(refArticle: _selectedArticle!.designation),
     );
   }
 
@@ -854,6 +811,32 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
       }
     } catch (e) {
       debugPrint('Erreur lors de la suppression: $e');
+    }
+  }
+
+  Future<void> _toggleArticleStatus(Article article) async {
+    try {
+      final newStatus = article.action == 'A' ? 'I' : 'A';
+      await DatabaseService().database.updateArticle(
+        ArticlesCompanion(designation: Value(article.designation), action: Value(newStatus)),
+      );
+      await _loadArticles();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Article ${newStatus == 'A' ? 'activé' : 'désactivé'} avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur lors du changement de statut: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors du changement de statut'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
@@ -978,8 +961,9 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
 
   void _goToPrevious() {
     if (_selectedArticle != null && _filteredArticles.isNotEmpty) {
-      final currentIndex =
-          _filteredArticles.indexWhere((a) => a.designation == _selectedArticle?.designation);
+      final currentIndex = _filteredArticles.indexWhere(
+        (a) => a.designation == _selectedArticle?.designation,
+      );
       if (currentIndex > 0) {
         _selectArticle(_filteredArticles[currentIndex - 1]);
       }
@@ -988,8 +972,9 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
 
   void _goToNext() {
     if (_selectedArticle != null && _filteredArticles.isNotEmpty) {
-      final currentIndex =
-          _filteredArticles.indexWhere((a) => a.designation == _selectedArticle?.designation);
+      final currentIndex = _filteredArticles.indexWhere(
+        (a) => a.designation == _selectedArticle?.designation,
+      );
       if (currentIndex < _filteredArticles.length - 1) {
         _selectArticle(_filteredArticles[currentIndex + 1]);
       }
