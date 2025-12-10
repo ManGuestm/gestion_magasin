@@ -1,6 +1,7 @@
 [Setup]
 AppName=Gestion Grossiste
 AppVersion=1.0.2
+AppPublisher=Parfait Rakotoarisaona
 DefaultDirName={autopf}\Gestion Grossiste
 DefaultGroupName=Gestion Grossiste
 OutputDir=installer
