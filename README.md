@@ -1,63 +1,122 @@
 # Gestion de Magasin
 
-Application de gestion de magasin développée avec Flutter pour desktop Windows.
+Application professionnelle de gestion de magasin développée avec Flutter pour desktop Windows.
 
-## Fonctionnalités
+## 🚀 Fonctionnalités
 
-### Modules principaux
+### Modules Principaux
 
-- **Commerces** : Gestion des opérations commerciales
-- **Gestions** : Administration et gestion générale
-- **Trésorerie** : Gestion financière et comptable
-- **États** : Rapports et statistiques
-- **Paramètres** : Configuration de l'application
-- **Aide** : Documentation et support
+- **Commerces** : Ventes, achats, gestion articles/clients/fournisseurs
+- **Gestions** : Stocks, transferts, dépôts, inventaires
+- **Trésorerie** : Caisse, banque, comptes clients/fournisseurs
+- **États** : Rapports détaillés et statistiques
+- **Paramètres** : Configuration société et système
 
-### Module États
+### Fonctionnalités Avancées
 
-- Articles
-- Clients
-- Commerciaux
-- Immobilisations
-- Autres Comptes
-- Marges
-- Statistiques Achats
-- Statistiques Ventes
+- **Authentification sécurisée** avec cryptage bcrypt
+- **Architecture réseau** serveur/client avec synchronisation temps réel
+- **Gestion multi-utilisateurs** avec contrôle d'accès par rôles
+- **Audit complet** des actions utilisateurs
+- **Sauvegarde automatique** programmable
+- **Validation de données** en temps réel
+- **Génération PDF** pour factures et rapports
 
-## Installation
+## 🛠️ Technologies
 
-1. Assurez-vous d'avoir Flutter installé avec support desktop Windows
-2. Clonez le projet
-3. Exécutez `flutter pub get` pour installer les dépendances
-4. Lancez l'application avec `flutter run -d windows`
+- **Framework** : Flutter 3.10+
+- **Base de données** : SQLite avec Drift ORM
+- **Sécurité** : bcrypt, validation avancée
+- **Réseau** : HTTP/WebSocket pour synchronisation
+- **Architecture** : Clean Architecture avec services
 
-## Configuration requise
+## 📋 Prérequis
 
-- Flutter SDK >=3.10.0
 - Windows 10 ou supérieur
-- Visual Studio 2019 ou supérieur (pour la compilation)
+- Flutter SDK ≥3.10.0
+- Visual Studio 2019+ (pour compilation)
 
-## Structure du projet
+## 🔧 Installation
 
-```
+1. **Cloner le projet**
+
+   ```bash
+   git clone <repository-url>
+   cd gestion_magasin
+   ```
+
+2. **Installer les dépendances**
+
+   ```bash
+   flutter pub get
+   ```
+
+3. **Lancer l'application**
+
+   ```bash
+   flutter run -d windows
+   ```
+
+## 👤 Connexion par défaut
+
+- **Utilisateur** : `admin`
+- **Mot de passe** : `admin123`
+
+## 🏗️ Architecture
+
+```text
 lib/
-├── main.dart              # Point d'entrée de l'application
-├── screens/
-│   └── home_screen.dart   # Écran principal avec menu
-├── widgets/
-│   └── menu_card.dart     # Widget pour les cartes du menu
-└── models/                # Modèles de données (à développer)
+├── database/           # Modèles et base de données
+├── screens/           # Écrans principaux
+├── widgets/           # Composants réutilisables
+├── services/          # Services métier
+└── main.dart         # Point d'entrée
 ```
 
-## Développement
+## 🔐 Sécurité
 
-L'application utilise une architecture modulaire avec :
+- Cryptage bcrypt pour mots de passe
+- Audit trail complet
+- Contrôle d'accès basé sur les rôles
+- Validation de données stricte
+- Sauvegarde chiffrée
 
-- Navigation par cartes sur l'écran principal
-- Sous-menu contextuel pour les États
-- Interface adaptée pour desktop Windows
-- Thème Material Design 3
+## 📊 Gestion des Données
 
+- **Articles** : Stock multi-dépôts, CMUP automatique
+- **Clients/Fournisseurs** : Comptes, soldes, historique
+- **Ventes/Achats** : Workflow brouillard → journal
+- **Stocks** : Mouvements tracés, inventaires
+- **Trésorerie** : Caisse, banque, règlements
 
+## 🌐 Mode Réseau
 
- Optimiser les performances du modal d'inventaire en ajoutant la pagination, le chargement asynchrone et la virtualisation pour éviter les plantages avec de nombreux articles dans l'Inventare Physique
+L'application supporte deux modes :
+
+- **Serveur** : Héberge la base de données
+- **Client** : Se connecte au serveur avec synchronisation temps réel
+
+## 📈 Rapports
+
+- Statistiques ventes/achats
+- États de stocks par dépôt
+- Comptes clients/fournisseurs
+- Marges et bénéfices
+- Différences de prix
+
+## 🔧 Configuration
+
+Accès via **Paramètres** :
+
+- Configuration société
+- Gestion utilisateurs
+- Paramètres réseau
+- Sauvegarde automatique
+
+## 📝 Licence
+
+Propriétaire - Tous droits réservés
+
+## 🆘 Support
+
+Pour toute assistance technique, contactez l'équipe de développement.

@@ -1,3 +1,10 @@
+# Pour build 64-bit et 32-bit
+if(CMAKE_CL_64)
+    set(ARCHITECTURE "x64")
+else()
+    set(ARCHITECTURE "x86")
+endif()
+
 # Project-level configuration.
 cmake_minimum_required(VERSION 3.14)
 project(gestion_magasin LANGUAGES CXX)

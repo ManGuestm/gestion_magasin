@@ -1,0 +1,3 @@
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/CMakeFiles/sqlite3-populate.dir
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/CMakeFiles/edit_cache.dir
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/CMakeFiles/rebuild_cache.dir

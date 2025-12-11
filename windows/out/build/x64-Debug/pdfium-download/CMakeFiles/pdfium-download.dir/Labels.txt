@@ -1,0 +1,14 @@
+# Target labels
+ pdfium-download
+# Source files and their labels
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/CMakeFiles/pdfium-download
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/CMakeFiles/pdfium-download.rule
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/CMakeFiles/pdfium-download-complete.rule
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/pdfium-download-prefix/src/pdfium-download-stamp/pdfium-download-build.rule
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/pdfium-download-prefix/src/pdfium-download-stamp/pdfium-download-configure.rule
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/pdfium-download-prefix/src/pdfium-download-stamp/pdfium-download-download.rule
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/pdfium-download-prefix/src/pdfium-download-stamp/pdfium-download-install.rule
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/pdfium-download-prefix/src/pdfium-download-stamp/pdfium-download-mkdir.rule
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/pdfium-download-prefix/src/pdfium-download-stamp/pdfium-download-patch.rule
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/pdfium-download-prefix/src/pdfium-download-stamp/pdfium-download-test.rule
+C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/pdfium-download/pdfium-download-prefix/src/pdfium-download-stamp/pdfium-download-update.rule

@@ -1,5 +1,7 @@
 // export 'ventes_modal/ventes_modal.dart';
 
+import 'dart:async';
+
 import 'package:collection/collection.dart';
 import 'package:drift/drift.dart' as drift hide Column;
 import 'package:file_picker/file_picker.dart';
@@ -37,6 +39,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
   final VenteService _venteService = VenteService();
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
+  // Focus node pour les raccourcis globaux
+  late final FocusNode _globalShortcutsFocusNode;
 
   // Controllers
   final TextEditingController _numVentesController = TextEditingController();
@@ -126,9 +131,19 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   late final FocusNode _searchArticleFocusNode;
   final FocusNode _keyboardFocusNode = FocusNode();
 
+  // Timer pour maintenir le focus global
+  Timer? _globalFocusTimer;
+
   @override
   void initState() {
     super.initState();
+
+    // Initialiser le focus node pour les raccourcis globaux
+    _globalShortcutsFocusNode = FocusNode(
+      debugLabel: 'GlobalShortcutsFocusNode',
+      canRequestFocus: true,
+      skipTraversal: true, // Ne pas être inclus dans la navigation Tab
+    );
 
     // Initialize focus nodes with tab navigation
     _clientFocusNode = createFocusNode();
@@ -176,13 +191,32 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
     // Position cursor in client field after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _keyboardFocusNode.requestFocus();
-      Future.delayed(const Duration(milliseconds: 200), () {
+      // Donner le focus au nœud global pour les raccourcis
+      _globalShortcutsFocusNode.requestFocus();
+      Future.delayed(const Duration(milliseconds: 100), () {
         _clientFocusNode.requestFocus();
+      });
+      // Maintenir le focus après la construction du FutureBuilder
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _clientFocusNode.requestFocus();
+        }
       });
     });
     // Créer le Future une seule fois
     _ventesFuture = _getVentesAvecStatut();
+
+    // S'assurer que les raccourcis globaux restent actifs
+    _globalFocusTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      // Vérifier périodiquement si le focus global est perdu
+      if (!_globalShortcutsFocusNode.hasFocus && !_globalShortcutsFocusNode.hasPrimaryFocus) {
+        _ensureGlobalShortcutsFocus();
+      }
+    });
   }
 
   void _reloadVentesList() {
@@ -198,6 +232,27 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     await Future.wait([_loadData(), _loadDefaultDepot()]);
 
     _initializeForm();
+
+    // Maintenir le focus sur le champ Client après le chargement
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted) {
+        _clientFocusNode.requestFocus();
+        // S'assurer que le focus global reste actif pour les raccourcis
+        _ensureGlobalShortcutsFocus();
+      }
+    });
+  }
+
+  // Méthode pour s'assurer que les raccourcis globaux restent actifs
+  void _ensureGlobalShortcutsFocus() {
+    if (!_globalShortcutsFocusNode.hasFocus) {
+      // Donner temporairement le focus au nœud global puis revenir au champ actuel
+      final currentFocus = FocusScope.of(context).focusedChild;
+      _globalShortcutsFocusNode.requestFocus();
+      Future.delayed(const Duration(milliseconds: 50), () {
+        currentFocus?.requestFocus();
+      });
+    }
   }
 
   // Remplacer la méthode _getVentesAvecStatut() par :
@@ -448,6 +503,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           _selectedVerification = 'JOURNAL';
           _statutVente = StatutVente.journal;
         });
+
+        // Réactiver les raccourcis globaux
+        _ensureGlobalShortcutsFocus();
       }
     } catch (e) {
       if (mounted) {
@@ -542,11 +600,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
       _calculerTotaux();
 
-      if (mounted) {
-        Future.delayed(const Duration(milliseconds: 100), () {
-          _designationFocusNode.requestFocus();
-        });
-      }
+      // Ne pas changer le focus lors du chargement d'une vente existante
+      // Le focus reste sur le champ client par défaut
     } catch (e) {
       setState(() {
         _isExistingPurchase = false;
@@ -576,6 +631,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
   @override
   void dispose() {
+    _globalFocusTimer?.cancel();
+    _globalShortcutsFocusNode.dispose();
     _autocompleteController?.dispose();
     _numVentesController.dispose();
     _dateController.dispose();
@@ -659,7 +716,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     _selectedVerification = 'BROUILLARD';
 
     // Focus sur client après initialisation
-    Future.delayed(const Duration(milliseconds: 300), () {
+    Future.delayed(const Duration(milliseconds: 100), () {
       _clientFocusNode.requestFocus();
     });
   }
@@ -2041,6 +2098,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     // Retourner le focus au champ désignation pour une nouvelle saisie
     Future.delayed(const Duration(milliseconds: 100), () {
       _designationFocusNode.requestFocus();
+      // Maintenir les raccourcis globaux actifs
+      _ensureGlobalShortcutsFocus();
     });
   }
 
@@ -2233,6 +2292,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
         // Réinitialiser le formulaire
         _reinitialiserFormulaire();
+
+        // Réactiver les raccourcis globaux
+        _ensureGlobalShortcutsFocus();
       }
     } catch (e) {
       if (mounted) {
@@ -2367,6 +2429,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
         // RELEVANT: Recharger la liste des ventes immédiatement
         _reloadVentesList();
+
+        // Réactiver les raccourcis globaux
+        _ensureGlobalShortcutsFocus();
       }
     } catch (e) {
       if (mounted) {
@@ -3446,92 +3511,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
   }
 
-  void _handleKeyboardShortcut(KeyEvent event) {
-    if (event is KeyDownEvent) {
-      final isCtrl = HardwareKeyboard.instance.isControlPressed;
-      final isShift = HardwareKeyboard.instance.isShiftPressed;
-
-      // Ctrl+S : Sauvegarder brouillard ou valider vente
-      if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyS) {
-        if (_peutValiderBrouillard()) {
-          _sauvegarderModificationsBrouillard();
-        } else if (_lignesVente.isNotEmpty) {
-          _validerVente();
-        }
-      }
-      // Ctrl+J : Accéder à la dernière vente Journal
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyJ) {
-        _ventesFuture?.then((ventes) {
-          final journals = ventes.where((v) => v['verification'] == 'JOURNAL' && v['contre'] != '1').toList();
-          if (journals.isNotEmpty) {
-            final dernierJournal = journals.first;
-            _chargerVenteExistante(dernierJournal['numventes']);
-          }
-        });
-      }
-      // Ctrl+Shift+X : Accéder à la dernière vente contre-passée
-      else if (isCtrl && isShift && event.logicalKey == LogicalKeyboardKey.keyX) {
-        _ventesFuture?.then((ventes) {
-          final contrePassees = ventes
-              .where((v) => v['verification'] == 'JOURNAL' && v['contre'] == '1')
-              .toList();
-          if (contrePassees.isNotEmpty) {
-            final derniereCP = contrePassees.first;
-            _chargerVenteExistante(derniereCP['numventes']);
-          }
-        });
-      }
-      // Ctrl+F : Focus sur champ de recherche d'article
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyF) {
-        _searchArticleFocusNode.requestFocus();
-        Future.delayed(const Duration(milliseconds: 50), () {
-          _searchArticleController.selection = TextSelection(
-            baseOffset: 0,
-            extentOffset: _searchArticleController.text.length,
-          );
-        });
-      }
-      // Ctrl+P : Imprimer Facture
-      else if (isCtrl && !isShift && event.logicalKey == LogicalKeyboardKey.keyP) {
-        if (_lignesVente.isNotEmpty) {
-          _imprimerFacture();
-        }
-      }
-      // Ctrl+Shift+P : Imprimer BL
-      else if (isCtrl && isShift && event.logicalKey == LogicalKeyboardKey.keyP) {
-        if (_lignesVente.isNotEmpty) {
-          _imprimerBL();
-        }
-      }
-      // Ctrl+N : Créer nouvelle vente
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyN) {
-        _creerNouvelleVente();
-      }
-      // Ctrl+D : Contre-passer
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyD) {
-        if (_isExistingPurchase) {
-          _contrePasserVente();
-        }
-      }
-      // F3 : Enregistrer brouillard
-      else if (event.logicalKey == LogicalKeyboardKey.f3) {
-        if (_peutValiderBrouillard()) {
-          _validerBrouillardVersJournal();
-        }
-      }
-      // Escape : Fermer
-      // else if (event.logicalKey == LogicalKeyboardKey.escape) {
-      //   Navigator.of(context).pop();
-      // }
-
-      // Gestion de la navigation Tab/Shift+Tab
-      final tabResult = handleTabNavigation(event);
-      if (tabResult == KeyEventResult.handled) {
-        return;
-      }
-    }
-  }
-
   Widget _buildVentesListByStatus(String statut) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _ventesFuture,
@@ -3711,1894 +3690,194 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: Focus(
-        autofocus: true,
-        onKeyEvent: (node, event) {
-          _handleKeyboardShortcut(event);
-          return KeyEventResult.ignored;
+      child: Shortcuts(
+        shortcuts: const <ShortcutActivator, Intent>{
+          // Raccourcis globaux avec Ctrl
+          SingleActivator(LogicalKeyboardKey.keyS, control: true): SaveIntent(),
+          SingleActivator(LogicalKeyboardKey.keyN, control: true): NewSaleIntent(),
+          SingleActivator(LogicalKeyboardKey.keyD, control: true): CancelSaleIntent(),
+          SingleActivator(LogicalKeyboardKey.keyP, control: true): PrintInvoiceIntent(),
+          SingleActivator(LogicalKeyboardKey.keyF, control: true): SearchArticleIntent(),
+          SingleActivator(LogicalKeyboardKey.keyJ, control: true): LastJournalIntent(),
+
+          // Raccourcis avec Ctrl+Shift
+          SingleActivator(LogicalKeyboardKey.keyP, control: true, shift: true): PrintBLIntent(),
+
+          SingleActivator(LogicalKeyboardKey.keyX, control: true, shift: true): LastCanceledIntent(),
+
+          // Raccourcis simples
+          SingleActivator(LogicalKeyboardKey.escape): CloseIntent(),
+          SingleActivator(LogicalKeyboardKey.f3): ValidateIntent(),
         },
-        child: Dialog(
-          constraints: BoxConstraints(
-            minHeight: MediaQuery.of(context).size.height * 0.7,
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-            minWidth: MediaQuery.of(context).size.width * 0.7,
-            maxWidth: MediaQuery.of(context).size.width * 0.99,
-          ),
-          backgroundColor: Colors.grey[100],
-          child: ScaffoldMessenger(
-            key: _scaffoldMessengerKey,
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              body: Container(
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.all(Radius.circular(16)),
-                  color: Colors.grey[100],
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            SaveIntent: CallbackAction<SaveIntent>(
+              onInvoke: (intent) {
+                if (_peutValiderBrouillard()) {
+                  _sauvegarderModificationsBrouillard();
+                } else if (_lignesVente.isNotEmpty) {
+                  _validerVente();
+                }
+                return null;
+              },
+            ),
+            NewSaleIntent: CallbackAction<NewSaleIntent>(
+              onInvoke: (intent) {
+                _creerNouvelleVente();
+                return null;
+              },
+            ),
+            CancelSaleIntent: CallbackAction<CancelSaleIntent>(
+              onInvoke: (intent) {
+                if (_isExistingPurchase) {
+                  _contrePasserVente();
+                }
+                return null;
+              },
+            ),
+            PrintInvoiceIntent: CallbackAction<PrintInvoiceIntent>(
+              onInvoke: (intent) {
+                if (_lignesVente.isNotEmpty) {
+                  _imprimerFacture();
+                }
+                return null;
+              },
+            ),
+            PrintBLIntent: CallbackAction<PrintBLIntent>(
+              onInvoke: (intent) {
+                if (_lignesVente.isNotEmpty) {
+                  _imprimerBL();
+                }
+                return null;
+              },
+            ),
+            SearchArticleIntent: CallbackAction<SearchArticleIntent>(
+              onInvoke: (intent) {
+                _searchArticleFocusNode.requestFocus();
+                Future.delayed(const Duration(milliseconds: 50), () {
+                  if (_searchArticleController.text.isNotEmpty) {
+                    _searchArticleController.selection = TextSelection(
+                      baseOffset: 0,
+                      extentOffset: _searchArticleController.text.length,
+                    );
+                  }
+                });
+                return null;
+              },
+            ),
+            LastJournalIntent: CallbackAction<LastJournalIntent>(
+              onInvoke: (intent) {
+                _ventesFuture?.then((ventes) {
+                  final journals = ventes
+                      .where((v) => v['verification'] == 'JOURNAL' && v['contre'] != '1')
+                      .toList();
+                  if (journals.isNotEmpty) {
+                    final dernierJournal = journals.first;
+                    _chargerVenteExistante(dernierJournal['numventes']);
+                  }
+                });
+                return null;
+              },
+            ),
+            LastCanceledIntent: CallbackAction<LastCanceledIntent>(
+              onInvoke: (intent) {
+                _ventesFuture?.then((ventes) {
+                  final contrePassees = ventes
+                      .where((v) => v['verification'] == 'JOURNAL' && v['contre'] == '1')
+                      .toList();
+                  if (contrePassees.isNotEmpty) {
+                    final derniereCP = contrePassees.first;
+                    _chargerVenteExistante(derniereCP['numventes']);
+                  }
+                });
+                return null;
+              },
+            ),
+            CloseIntent: CallbackAction<CloseIntent>(
+              onInvoke: (intent) {
+                Navigator.of(context).pop();
+                return null;
+              },
+            ),
+            ValidateIntent: CallbackAction<ValidateIntent>(
+              onInvoke: (intent) {
+                if (_peutValiderBrouillard()) {
+                  _validerBrouillardVersJournal();
+                }
+                return null;
+              },
+            ),
+          },
+          child: FocusScope(
+            autofocus: true,
+            child: Focus(
+              focusNode: _globalShortcutsFocusNode,
+              canRequestFocus: true,
+              descendantsAreFocusable: true,
+              onKeyEvent: (node, event) {
+                // Gérer la navigation Tab personnalisée
+                final tabResult = handleTabNavigation(event);
+                return tabResult == KeyEventResult.handled ? KeyEventResult.handled : KeyEventResult.ignored;
+              },
+              child: Dialog(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height * 0.7,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                  minWidth: MediaQuery.of(context).size.width * 0.7,
+                  maxWidth: MediaQuery.of(context).size.width * 0.99,
                 ),
-                child: Column(
-                  children: [
-                    // Title bar
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      height: 35,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(left: 16),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    'VENTES (${widget.tousDepots ? 'Tous dépôts' : 'Dépôt MAG'})',
-                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                                  ),
-                                  if (_isExistingPurchase && _statutVenteActuelle != null) ...[
-                                    const SizedBox(width: 16),
-                                    FutureBuilder<bool>(
-                                      future: _isVenteContrePassee(),
-                                      builder: (context, snapshot) {
-                                        final isContrePassee = snapshot.data ?? false;
-                                        return Container(
-                                          decoration: BoxDecoration(
-                                            color: _statutVenteActuelle == StatutVente.brouillard
-                                                ? Colors.orange
-                                                : (isContrePassee ? Colors.red : Colors.green),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          child: Text(
-                                            _statutVenteActuelle == StatutVente.brouillard
-                                                ? 'BROUILLARD'
-                                                : (isContrePassee ? 'CP' : 'JOURNALÉ'),
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.close, size: 20),
-                            padding: EdgeInsets.zero,
-                          ),
-                        ],
+                backgroundColor: Colors.grey[100],
+                child: ScaffoldMessenger(
+                  key: _scaffoldMessengerKey,
+                  child: Scaffold(
+                    backgroundColor: Colors.transparent,
+                    body: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.all(Radius.circular(16)),
+                        color: Colors.grey[100],
                       ),
-                    ),
-
-                    // Main content with sidebar
-                    Expanded(
-                      child: Row(
+                      child: Column(
                         children: [
-                          // Left sidebar - Sales list
+                          // Title bar
                           Container(
-                            width: 250,
-                            decoration: const BoxDecoration(
-                              border: Border(right: BorderSide(color: Colors.grey, width: 1)),
-                              color: Colors.white,
-                            ),
-                            child: _isVendeur()
-                                ? // Vendeur: Simple list without tabs
-                                  Column(
-                                    children: [
-                                      // Search field
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        child: TextField(
-                                          controller: _searchVentesController,
-                                          decoration: const InputDecoration(
-                                            hintText: 'Rechercher vente...',
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            prefixIcon: Icon(Icons.search, size: 16),
-                                          ),
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                      // Header
-                                      Container(
-                                        height: 35,
-                                        decoration: const BoxDecoration(
-                                          border: Border(bottom: BorderSide(color: Colors.grey, width: 1)),
-                                        ),
-                                        child: const Center(
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(Icons.pending, size: 12, color: Colors.orange),
-                                              SizedBox(width: 4),
-                                              Text(
-                                                'Mes Ventes en attente',
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.orange,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      // Sales list
-                                      Expanded(child: _buildVentesListByStatus('BROUILLARD')),
-                                    ],
-                                  )
-                                : // Other users: Three columns layout
-                                  Column(
-                                    children: [
-                                      // Search field
-                                      Container(
-                                        padding: const EdgeInsets.all(8),
-                                        child: TextField(
-                                          controller: _searchVentesController,
-                                          decoration: const InputDecoration(
-                                            hintText: 'Rechercher vente...',
-                                            border: OutlineInputBorder(),
-                                            contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            prefixIcon: Icon(Icons.search, size: 16),
-                                          ),
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                      // Three columns layout
-                                      Expanded(
-                                        child: Column(
-                                          children: [
-                                            // Brouillard column
-                                            Expanded(
-                                              child: Column(
-                                                children: [
-                                                  Container(
-                                                    height: 35,
-                                                    decoration: const BoxDecoration(
-                                                      border: Border(
-                                                        bottom: BorderSide(color: Colors.grey, width: 1),
-                                                        right: BorderSide(color: Colors.grey, width: 1),
-                                                      ),
-                                                    ),
-                                                    child: const Center(
-                                                      child: Row(
-                                                        mainAxisAlignment: MainAxisAlignment.center,
-                                                        children: [
-                                                          Icon(Icons.pending, size: 12, color: Colors.orange),
-                                                          SizedBox(width: 4),
-                                                          Text(
-                                                            'Brouillard',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight: FontWeight.w500,
-                                                              color: Colors.orange,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    child: Container(
-                                                      decoration: const BoxDecoration(
-                                                        border: Border(
-                                                          right: BorderSide(color: Colors.grey, width: 1),
-                                                        ),
-                                                      ),
-                                                      child: _buildVentesListByStatus('BROUILLARD'),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            // Journal column
-                                            Expanded(
-                                              child: Column(
-                                                children: [
-                                                  Container(
-                                                    height: 35,
-                                                    decoration: const BoxDecoration(
-                                                      border: Border(
-                                                        bottom: BorderSide(color: Colors.grey, width: 1),
-                                                        right: BorderSide(color: Colors.grey, width: 1),
-                                                      ),
-                                                    ),
-                                                    child: const Center(
-                                                      child: Row(
-                                                        mainAxisAlignment: MainAxisAlignment.center,
-                                                        children: [
-                                                          Icon(
-                                                            Icons.check_circle,
-                                                            size: 12,
-                                                            color: Colors.green,
-                                                          ),
-                                                          SizedBox(width: 4),
-                                                          Text(
-                                                            'Journal (Ctrl+J)',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight: FontWeight.w500,
-                                                              color: Colors.green,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Expanded(
-                                                    child: Container(
-                                                      decoration: const BoxDecoration(
-                                                        border: Border(
-                                                          right: BorderSide(color: Colors.grey, width: 1),
-                                                        ),
-                                                      ),
-                                                      child: _buildVentesListByStatus('JOURNAL'),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            // Contre-passé column
-                                            Expanded(
-                                              child: Column(
-                                                children: [
-                                                  Container(
-                                                    height: 35,
-                                                    decoration: const BoxDecoration(
-                                                      border: Border(
-                                                        bottom: BorderSide(color: Colors.grey, width: 1),
-                                                      ),
-                                                    ),
-                                                    child: const Center(
-                                                      child: Row(
-                                                        mainAxisAlignment: MainAxisAlignment.center,
-                                                        children: [
-                                                          Icon(Icons.cancel, size: 12, color: Colors.red),
-                                                          SizedBox(width: 4),
-                                                          Text(
-                                                            'Contre-passé (Ctrl+Shift+X)',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight: FontWeight.w500,
-                                                              color: Colors.red,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  Expanded(child: _buildVentesListByStatus('CONTRE_PASSE')),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-
-                          // center Content - Main form
-                          Expanded(
-                            child: Column(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            height: 35,
+                            child: Row(
                               children: [
-                                // Top section
-                                Container(
-                                  color: const Color(0xFFE6E6FA),
-                                  padding: const EdgeInsets.all(8),
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Column(
-                                            children: [
-                                              Container(
-                                                width: 120,
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 1,
-                                                ),
-                                                color: _selectedVerification == 'JOURNAL'
-                                                    ? Colors.green
-                                                    : Colors.orange,
-                                                child: const Text(
-                                                  'Enregistrement',
-                                                  style: TextStyle(color: Colors.white, fontSize: 12),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              SizedBox(
-                                                width: 120,
-                                                height: 25,
-                                                child: DropdownButtonFormField<String>(
-                                                  initialValue: _selectedVerification,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding: EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                  ),
-                                                  items: const [
-                                                    DropdownMenuItem(
-                                                      value: 'BROUILLARD',
-                                                      child: Text(
-                                                        'Brouillard',
-                                                        style: TextStyle(fontSize: 12),
-                                                      ),
-                                                    ),
-                                                    DropdownMenuItem(
-                                                      value: 'JOURNAL',
-                                                      child: Text('Journal', style: TextStyle(fontSize: 12)),
-                                                    ),
-                                                  ],
-                                                  onChanged: _isExistingPurchase
-                                                      ? null
-                                                      : (value) {
-                                                          if (value != null) {
-                                                            setState(() {
-                                                              _selectedVerification = value;
-                                                              _statutVente = value == 'JOURNAL'
-                                                                  ? StatutVente.journal
-                                                                  : StatutVente.brouillard;
-                                                            });
-                                                          }
-                                                        },
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: Wrap(
-                                              spacing: 8,
-                                              runSpacing: 4,
-                                              children: [
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Text('N° ventes', style: TextStyle(fontSize: 12)),
-                                                    const SizedBox(width: 4),
-                                                    SizedBox(
-                                                      width: 80,
-                                                      height: 25,
-                                                      child: TextField(
-                                                        controller: _numVentesController,
-                                                        textAlign: TextAlign.center,
-                                                        decoration: const InputDecoration(
-                                                          border: OutlineInputBorder(),
-                                                          contentPadding: EdgeInsets.symmetric(
-                                                            horizontal: 4,
-                                                            vertical: 2,
-                                                          ),
-                                                          fillColor: Color(0xFFF5F5F5),
-                                                          filled: true,
-                                                        ),
-                                                        readOnly: true,
-                                                        style: const TextStyle(fontSize: 12),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Text('Date', style: TextStyle(fontSize: 12)),
-                                                    const SizedBox(width: 4),
-                                                    SizedBox(
-                                                      width: 100,
-                                                      height: 25,
-                                                      child: TextField(
-                                                        controller: _dateController,
-                                                        textAlign: TextAlign.center,
-                                                        decoration: const InputDecoration(
-                                                          border: OutlineInputBorder(),
-                                                          contentPadding: EdgeInsets.symmetric(
-                                                            horizontal: 4,
-                                                            vertical: 2,
-                                                          ),
-                                                        ),
-                                                        style: const TextStyle(fontSize: 12),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Text(
-                                                      'N° Facture/ BL',
-                                                      style: TextStyle(fontSize: 12),
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    SizedBox(
-                                                      width: 80,
-                                                      height: 25,
-                                                      child: TextField(
-                                                        controller: _nFactureController,
-                                                        textAlign: TextAlign.center,
-                                                        decoration: const InputDecoration(
-                                                          border: OutlineInputBorder(),
-                                                          contentPadding: EdgeInsets.symmetric(
-                                                            horizontal: 4,
-                                                            vertical: 2,
-                                                          ),
-                                                        ),
-                                                        style: const TextStyle(fontSize: 12),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Text('Heure', style: TextStyle(fontSize: 12)),
-                                                    const SizedBox(width: 4),
-                                                    SizedBox(
-                                                      width: 80,
-                                                      height: 25,
-                                                      child: TextField(
-                                                        controller: _heureController,
-                                                        textAlign: TextAlign.center,
-                                                        decoration: const InputDecoration(
-                                                          border: OutlineInputBorder(),
-                                                          contentPadding: EdgeInsets.symmetric(
-                                                            horizontal: 4,
-                                                            vertical: 2,
-                                                          ),
-                                                        ),
-                                                        style: const TextStyle(fontSize: 12),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Row(
-                                        children: [
-                                          const Text('Clients', style: TextStyle(fontSize: 12)),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: SizedBox(
-                                              height: 25,
-                                              child: Focus(
-                                                onKeyEvent: (node, event) {
-                                                  if (event is KeyDownEvent &&
-                                                      event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed =
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftLeft,
-                                                        ) ||
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftRight,
-                                                        );
-
-                                                    if (isShiftPressed) {
-                                                      // Pas de champ précédent, rester sur le client
-                                                      return KeyEventResult.ignored;
-                                                    } else {
-                                                      _designationFocusNode.requestFocus();
-                                                      return KeyEventResult.handled;
-                                                    }
-                                                  }
-                                                  return KeyEventResult.ignored;
-                                                },
-                                                child: EnhancedAutocomplete<CltData>(
-                                                  options: _clients,
-                                                  displayStringForOption: (client) => client.rsoc,
-                                                  onSelected: (client) {
-                                                    setState(() {
-                                                      _selectedClient = client.rsoc;
-                                                      _clientController.text = client.rsoc;
-                                                      _showCreditMode = _shouldShowCreditMode(client);
-                                                      if ((!_showCreditMode || _isVendeur()) &&
-                                                          _selectedModePaiement == 'A crédit') {
-                                                        _selectedModePaiement = 'Espèces';
-                                                      }
-                                                    });
-                                                    _chargerSoldeClient(client.rsoc);
-                                                    // Navigate to next field on selection
-                                                    _designationFocusNode.requestFocus();
-                                                  },
-                                                  controller: _clientController,
-                                                  focusNode: _clientFocusNode,
-                                                  hintText: 'Rechercher un client...',
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding: EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                    focusedBorder: OutlineInputBorder(
-                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
-                                                    ),
-                                                  ),
-                                                  style: const TextStyle(fontSize: 12),
-                                                  onSubmitted: (value) async {
-                                                    await _verifierEtCreerClient(value);
-                                                    _designationFocusNode.requestFocus();
-                                                  },
-                                                  onTabPressed: () async {
-                                                    final currentText = _clientController.text.trim();
-                                                    if (currentText.isNotEmpty) {
-                                                      await _verifierEtCreerClient(currentText);
-                                                    }
-                                                    _designationFocusNode.requestFocus();
-                                                  },
-                                                  onShiftTabPressed: () => _clientFocusNode.requestFocus(),
-                                                  enabled: _selectedVerification != 'JOURNAL',
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Article selection section
-                                Container(
-                                  color: const Color(0xFFE6E6FA),
-                                  padding: const EdgeInsets.all(8),
-                                  child: Row(
-                                    children: [
-                                      //Désignation Articles, champ autocomplete avec navigation au clavier
-                                      Expanded(
-                                        flex: 2,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text(
-                                              'Désignation Articles',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            SizedBox(
-                                              height: 25,
-                                              child: Focus(
-                                                onKeyEvent: (node, event) {
-                                                  if (event is KeyDownEvent &&
-                                                      event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed =
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftLeft,
-                                                        ) ||
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftRight,
-                                                        );
-
-                                                    if (isShiftPressed) {
-                                                      _clientFocusNode.requestFocus();
-                                                    } else {
-                                                      widget.tousDepots
-                                                          ? _depotFocusNode.requestFocus()
-                                                          : _uniteFocusNode.requestFocus();
-                                                    }
-                                                    return KeyEventResult.handled;
-                                                  }
-                                                  return KeyEventResult.ignored;
-                                                },
-                                                child: ArticleNavigationAutocomplete(
-                                                  articles: _articles,
-                                                  initialArticle: _getLastAddedArticle(),
-                                                  selectedArticle: _selectedArticle, // Add synchronization
-                                                  onArticleChanged: (article) {
-                                                    _onArticleSelected(article);
-                                                  },
-                                                  focusNode: _designationFocusNode,
-                                                  hintText: _isClientSelected
-                                                      ? 'Rechercher un article... (← → pour naviguer)'
-                                                      : 'Sélectionnez d\'abord un client',
-                                                  decoration: InputDecoration(
-                                                    border: const OutlineInputBorder(),
-                                                    contentPadding: const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                    focusedBorder: const OutlineInputBorder(
-                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
-                                                    ),
-                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
-                                                    filled: !_isClientSelected,
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: _isClientSelected ? Colors.black : Colors.grey,
-                                                  ),
-                                                  onTabPressed: () => widget.tousDepots
-                                                      ? _depotFocusNode.requestFocus()
-                                                      : _uniteFocusNode.requestFocus(),
-                                                  onShiftTabPressed: () => _clientFocusNode.requestFocus(),
-                                                  onNextArticleSet: () {
-                                                    // Vider le champ unité seulement si on n'est pas en mode modification
-                                                    if (!_isModifyingLine) {
-                                                      setState(() {
-                                                        _selectedUnite = null;
-                                                        _uniteController.clear();
-                                                      });
-                                                    }
-                                                  },
-                                                  enabled: _isClientSelected,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            if (_selectedArticle != null) const SizedBox(height: 16),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      // Dépôts autocomplete
-                                      if (widget.tousDepots) ...[
-                                        Expanded(
-                                          flex: 1,
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Text('Dépôts', style: TextStyle(fontSize: 12)),
-                                              const SizedBox(height: 4),
-                                              SizedBox(
-                                                height: 25,
-                                                child: Focus(
-                                                  onKeyEvent: (node, event) {
-                                                    if (event is KeyDownEvent &&
-                                                        event.logicalKey == LogicalKeyboardKey.tab) {
-                                                      final isShiftPressed =
-                                                          HardwareKeyboard.instance.logicalKeysPressed
-                                                              .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                          HardwareKeyboard.instance.logicalKeysPressed
-                                                              .contains(LogicalKeyboardKey.shiftRight);
-
-                                                      if (isShiftPressed) {
-                                                        _designationFocusNode.requestFocus();
-                                                      } else {
-                                                        _uniteFocusNode.requestFocus();
-                                                      }
-                                                      return KeyEventResult.handled;
-                                                    }
-                                                    return KeyEventResult.ignored;
-                                                  },
-                                                  child: EnhancedAutocomplete<String>(
-                                                    options: _depots.map((depot) => depot.depots).toList(),
-                                                    displayStringForOption: (depot) => depot,
-                                                    controller: _depotController,
-                                                    focusNode: _depotFocusNode,
-                                                    onSelected: (depot) {
-                                                      _onDepotChanged(depot);
-                                                      _uniteFocusNode.requestFocus();
-                                                    },
-                                                    onSubmitted: (value) async {
-                                                      await _verifierDepot(value);
-                                                      _uniteFocusNode.requestFocus();
-                                                    },
-                                                    onTabPressed: () async {
-                                                      await _verifierDepot(_depotController.text);
-                                                      _uniteFocusNode.requestFocus();
-                                                    },
-                                                    onShiftTabPressed: () =>
-                                                        _designationFocusNode.requestFocus(),
-                                                    onFocusLost: (value) async {
-                                                      await _verifierDepot(value);
-                                                    },
-                                                    hintText: 'Dépôt...',
-                                                    decoration: InputDecoration(
-                                                      border: const OutlineInputBorder(),
-                                                      contentPadding: const EdgeInsets.symmetric(
-                                                        horizontal: 4,
-                                                        vertical: 2,
-                                                      ),
-                                                      focusedBorder: const OutlineInputBorder(
-                                                        borderSide: BorderSide(color: Colors.blue, width: 2),
-                                                      ),
-                                                      fillColor: _isClientSelected ? null : Colors.grey[200],
-                                                      filled: !_isClientSelected,
-                                                    ),
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: _isClientSelected ? Colors.black : Colors.grey,
-                                                    ),
-                                                    enabled: _isClientSelected,
-                                                  ),
-                                                ),
-                                              ),
-                                              if (_selectedArticle != null) const SizedBox(height: 19),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                      ],
-                                      //Unités disponible de l'article
-                                      Expanded(
-                                        flex: 1,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('Unités', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(height: 3),
-                                            SizedBox(
-                                              height: 25,
-                                              child: Focus(
-                                                onKeyEvent: (node, event) {
-                                                  if (event is KeyDownEvent &&
-                                                      event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed =
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftLeft,
-                                                        ) ||
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftRight,
-                                                        );
-
-                                                    if (isShiftPressed) {
-                                                      widget.tousDepots
-                                                          ? _depotFocusNode.requestFocus()
-                                                          : _designationFocusNode.requestFocus();
-                                                    } else {
-                                                      _quantiteFocusNode.requestFocus();
-                                                    }
-                                                    return KeyEventResult.handled;
-                                                  }
-                                                  return KeyEventResult.ignored;
-                                                },
-                                                child: EnhancedAutocomplete<String>(
-                                                  options: _selectedArticle != null
-                                                      ? _getUnitsForSelectedArticle()
-                                                            .map((item) => item.value!)
-                                                            .toList()
-                                                      : [''],
-                                                  displayStringForOption: (unit) => unit,
-                                                  controller: _uniteController,
-                                                  onSelected: (unit) {
-                                                    if (_selectedArticle != null) {
-                                                      _verifierUniteArticle(unit);
-                                                    }
-                                                    _quantiteFocusNode.requestFocus();
-                                                  },
-                                                  focusNode: _uniteFocusNode,
-                                                  hintText: 'Unité...',
-                                                  decoration: InputDecoration(
-                                                    border: const OutlineInputBorder(),
-                                                    contentPadding: const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
-                                                    filled: !_isClientSelected,
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: _isClientSelected ? Colors.black : Colors.grey,
-                                                  ),
-                                                  onSubmitted: (value) {
-                                                    if (_selectedArticle != null && value.isNotEmpty) {
-                                                      _verifierUniteArticle(value);
-                                                    }
-                                                    _quantiteFocusNode.requestFocus();
-                                                  },
-                                                  onTabPressed: () => _quantiteFocusNode.requestFocus(),
-                                                  onShiftTabPressed: () => widget.tousDepots
-                                                      ? _depotFocusNode.requestFocus()
-                                                      : _designationFocusNode.requestFocus(),
-                                                  onFocusLost: (value) {
-                                                    if (_selectedArticle != null && value.isNotEmpty) {
-                                                      _verifierUniteArticle(value);
-                                                    }
-                                                  },
-                                                  enabled: _isClientSelected,
-                                                ),
-                                              ),
-                                            ),
-                                            if (_selectedArticle != null && _uniteAffichage.isNotEmpty)
-                                              Text(
-                                                _uniteAffichage,
-                                                style: const TextStyle(fontSize: 11, color: Colors.blue),
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      //Quantités avec stock disponible en rouge si insuffisant
-                                      Expanded(
-                                        flex: 2,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Text('Quantités', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(height: 4),
-                                            SizedBox(
-                                              height: 25,
-                                              child: Focus(
-                                                onKeyEvent: (node, event) {
-                                                  if (event is KeyDownEvent &&
-                                                      event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed =
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftLeft,
-                                                        ) ||
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftRight,
-                                                        );
-
-                                                    if (isShiftPressed) {
-                                                      _uniteFocusNode.requestFocus();
-                                                    } else {
-                                                      _validerQuantite(_quantiteController.text);
-                                                      _prixFocusNode.requestFocus();
-                                                    }
-                                                    return KeyEventResult.handled;
-                                                  }
-                                                  return KeyEventResult.ignored;
-                                                },
-                                                child: TextField(
-                                                  controller: _quantiteController,
-                                                  focusNode: _quantiteFocusNode,
-                                                  inputFormatters: [
-                                                    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-                                                  ],
-                                                  decoration: InputDecoration(
-                                                    border: OutlineInputBorder(
-                                                      borderSide: BorderSide(
-                                                        color: _isQuantiteInsuffisante()
-                                                            ? Colors.red
-                                                            : Colors.grey,
-                                                        width: 1,
-                                                      ),
-                                                    ),
-                                                    enabledBorder: OutlineInputBorder(
-                                                      borderSide: BorderSide(
-                                                        color: _isQuantiteInsuffisante()
-                                                            ? Colors.red
-                                                            : Colors.grey,
-                                                        width: 1,
-                                                      ),
-                                                    ),
-                                                    contentPadding: const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                    focusedBorder: OutlineInputBorder(
-                                                      borderSide: BorderSide(
-                                                        color: _isQuantiteInsuffisante()
-                                                            ? Colors.red
-                                                            : Colors.blue,
-                                                        width: 2,
-                                                      ),
-                                                    ),
-                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
-                                                    filled: !_isClientSelected,
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: !_isClientSelected
-                                                        ? Colors.grey
-                                                        : _isQuantiteInsuffisante()
-                                                        ? Colors.red
-                                                        : Colors.black,
-                                                  ),
-                                                  onChanged: (value) {
-                                                    setState(() {}); // Refresh to update color
-                                                  },
-                                                  // ENTER/TAB in Quantités goes to Prix
-                                                  onSubmitted: (value) {
-                                                    _prixFocusNode.requestFocus();
-                                                  },
-                                                  readOnly:
-                                                      _selectedVerification == 'JOURNAL' ||
-                                                      !_isClientSelected,
-                                                ),
-                                              ),
-                                            ),
-                                            if (_selectedArticle != null && _selectedDepot != null)
-                                              FutureBuilder<String>(
-                                                future: _getStocksToutesUnites(
-                                                  _selectedArticle!,
-                                                  _selectedDepot!,
-                                                ),
-                                                builder: (context, snapshot) {
-                                                  if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                                                    return Text(
-                                                      '${snapshot.data}',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: _stockInsuffisant
-                                                            ? Colors.red
-                                                            : Colors.green[700],
-                                                      ),
-                                                    );
-                                                  }
-                                                  return const SizedBox.shrink();
-                                                },
-                                              ),
-                                            if (_selectedArticle != null && _selectedUnite == "")
-                                              const SizedBox(height: 16),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      //Prix de vente unitaire HT de l'article
-                                      Expanded(
-                                        flex: 2,
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [Text('P.U HT', style: TextStyle(fontSize: 12))],
-                                            ),
-                                            const SizedBox(height: 4),
-                                            SizedBox(
-                                              height: 25,
-                                              child: Focus(
-                                                onKeyEvent: (node, event) {
-                                                  if (event is KeyDownEvent &&
-                                                      event.logicalKey == LogicalKeyboardKey.tab) {
-                                                    final isShiftPressed =
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftLeft,
-                                                        ) ||
-                                                        HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                          LogicalKeyboardKey.shiftRight,
-                                                        );
-
-                                                    if (isShiftPressed) {
-                                                      _quantiteFocusNode.requestFocus();
-                                                    } else {
-                                                      _ajouterFocusNode.requestFocus();
-                                                    }
-                                                    return KeyEventResult.handled;
-                                                  }
-                                                  return KeyEventResult.ignored;
-                                                },
-                                                child: TextField(
-                                                  controller: _prixController,
-                                                  focusNode: _prixFocusNode,
-                                                  decoration: InputDecoration(
-                                                    border: const OutlineInputBorder(),
-                                                    contentPadding: const EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                    focusedBorder: const OutlineInputBorder(
-                                                      borderSide: BorderSide(color: Colors.blue, width: 2),
-                                                    ),
-                                                    fillColor: _isClientSelected ? null : Colors.grey[200],
-                                                    filled: !_isClientSelected,
-                                                  ),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: _isClientSelected ? Colors.black : Colors.grey,
-                                                  ),
-                                                  // onChanged: (value) => _calculerMontant(),
-                                                  // ENTER in Prix goes to Ajouter
-                                                  onSubmitted: (value) => _ajouterFocusNode.requestFocus(),
-                                                  readOnly:
-                                                      _selectedVerification == 'JOURNAL' ||
-                                                      !_isClientSelected,
-                                                ),
-                                              ),
-                                            ),
-                                            if (_selectedArticle != null) const SizedBox(height: 16),
-                                          ],
-                                        ),
-                                      ),
-
-                                      //Bouton Ajouter et Annuler
-                                      if (_shouldShowAddButton()) ...[
-                                        const SizedBox(width: 8),
-                                        Column(
-                                          children: [
-                                            const SizedBox(height: 16),
-                                            Column(
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    // AJOUTER/MODIFIER BUTTON
-                                                    Focus(
-                                                      focusNode: _ajouterFocusNode,
-                                                      onKeyEvent: (node, event) {
-                                                        if (event is KeyDownEvent) {
-                                                          if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                            final isShiftPressed =
-                                                                HardwareKeyboard.instance.logicalKeysPressed
-                                                                    .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                                HardwareKeyboard.instance.logicalKeysPressed
-                                                                    .contains(LogicalKeyboardKey.shiftRight);
-
-                                                            if (isShiftPressed) {
-                                                              _prixFocusNode.requestFocus();
-                                                            } else {
-                                                              _annulerFocusNode.requestFocus();
-                                                            }
-                                                            return KeyEventResult.handled;
-                                                          } else if (event.logicalKey ==
-                                                              LogicalKeyboardKey.enter) {
-                                                            if (_ajouterFocusNode.hasFocus &&
-                                                                _isClientSelected) {
-                                                              _ajouterLigne();
-                                                            }
-                                                            return KeyEventResult.handled;
-                                                          }
-                                                        }
-                                                        return KeyEventResult.ignored;
-                                                      },
-                                                      child: Container(
-                                                        decoration: BoxDecoration(
-                                                          border: _ajouterFocusNode.hasFocus
-                                                              ? Border.all(color: Colors.blue, width: 3)
-                                                              : null,
-                                                          borderRadius: BorderRadius.circular(4),
-                                                          boxShadow: _ajouterFocusNode.hasFocus
-                                                              ? [
-                                                                  BoxShadow(
-                                                                    color: Colors.blue.withValues(alpha: 0.3),
-                                                                    blurRadius: 4,
-                                                                    spreadRadius: 1,
-                                                                  ),
-                                                                ]
-                                                              : null,
-                                                        ),
-                                                        child: ElevatedButton(
-                                                          onPressed: _isClientSelected ? _ajouterLigne : null,
-                                                          style: ElevatedButton.styleFrom(
-                                                            backgroundColor: _ajouterFocusNode.hasFocus
-                                                                ? Colors.green[600]
-                                                                : (_isClientSelected
-                                                                      ? Colors.green
-                                                                      : Colors.grey),
-                                                            foregroundColor: Colors.white,
-                                                            minimumSize: const Size(60, 35),
-                                                            elevation: _ajouterFocusNode.hasFocus ? 4 : 2,
-                                                          ),
-                                                          child: Text(
-                                                            _ajouterFocusNode.hasFocus
-                                                                ? (_isModifyingLine
-                                                                      ? 'Modifier ↵'
-                                                                      : 'Ajouter ↵')
-                                                                : (_isModifyingLine ? 'Modifier' : 'Ajouter'),
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight: _ajouterFocusNode.hasFocus
-                                                                  ? FontWeight.bold
-                                                                  : FontWeight.normal,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 4),
-                                                    // ANNULER BUTTON
-                                                    Focus(
-                                                      focusNode: _annulerFocusNode,
-                                                      onKeyEvent: (node, event) {
-                                                        if (event is KeyDownEvent) {
-                                                          if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                            final isShiftPressed =
-                                                                HardwareKeyboard.instance.logicalKeysPressed
-                                                                    .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                                HardwareKeyboard.instance.logicalKeysPressed
-                                                                    .contains(LogicalKeyboardKey.shiftRight);
-
-                                                            if (isShiftPressed) {
-                                                              _ajouterFocusNode.requestFocus();
-                                                            } else {
-                                                              _clientFocusNode.requestFocus();
-                                                            }
-                                                            return KeyEventResult.handled;
-                                                          } else if (event.logicalKey ==
-                                                              LogicalKeyboardKey.enter) {
-                                                            if (_annulerFocusNode.hasFocus &&
-                                                                _isClientSelected) {
-                                                              _isModifyingLine
-                                                                  ? _annulerModificationLigne()
-                                                                  : _resetArticleForm();
-                                                            }
-                                                            return KeyEventResult.handled;
-                                                          }
-                                                        }
-                                                        return KeyEventResult.ignored;
-                                                      },
-                                                      child: Container(
-                                                        decoration: BoxDecoration(
-                                                          border: _annulerFocusNode.hasFocus
-                                                              ? Border.all(color: Colors.blue, width: 3)
-                                                              : null,
-                                                          borderRadius: BorderRadius.circular(4),
-                                                          boxShadow: _annulerFocusNode.hasFocus
-                                                              ? [
-                                                                  BoxShadow(
-                                                                    color: Colors.blue.withValues(alpha: 0.3),
-                                                                    blurRadius: 4,
-                                                                    spreadRadius: 1,
-                                                                  ),
-                                                                ]
-                                                              : null,
-                                                        ),
-                                                        child: ElevatedButton(
-                                                          onPressed: _isClientSelected
-                                                              ? (_isModifyingLine
-                                                                    ? _annulerModificationLigne
-                                                                    : _resetArticleForm)
-                                                              : null,
-                                                          style: ElevatedButton.styleFrom(
-                                                            backgroundColor: _annulerFocusNode.hasFocus
-                                                                ? Colors.orange[600]
-                                                                : (_isClientSelected
-                                                                      ? Colors.orange
-                                                                      : Colors.grey),
-                                                            foregroundColor: Colors.white,
-                                                            minimumSize: const Size(60, 35),
-                                                            elevation: _annulerFocusNode.hasFocus ? 4 : 2,
-                                                          ),
-                                                          child: Text(
-                                                            _annulerFocusNode.hasFocus
-                                                                ? 'Annuler ↵'
-                                                                : 'Annuler',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight: _annulerFocusNode.hasFocus
-                                                                  ? FontWeight.bold
-                                                                  : FontWeight.normal,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                if (_selectedArticle != null) const SizedBox(height: 16),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-
-                                // Articles table: // Lignes de vente list section
                                 Expanded(
-                                  child: Container(
-                                    margin: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.grey, width: 1),
-                                      color: Colors.white,
-                                    ),
-                                    child: Column(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(left: 16),
+                                    child: Row(
                                       children: [
-                                        Container(
-                                          height: 25,
-                                          decoration: BoxDecoration(color: Colors.orange[300]),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                width: 30,
-                                                alignment: Alignment.center,
-                                                decoration: const BoxDecoration(
-                                                  border: Border(
-                                                    right: BorderSide(color: Colors.grey, width: 1),
-                                                    bottom: BorderSide(color: Colors.grey, width: 1),
-                                                  ),
-                                                ),
-                                                child: const Icon(Icons.delete, size: 12),
-                                              ),
-                                              Expanded(
-                                                flex: 3,
-                                                child: Container(
-                                                  alignment: Alignment.center,
-                                                  decoration: const BoxDecoration(
-                                                    border: Border(
-                                                      right: BorderSide(color: Colors.grey, width: 1),
-                                                      bottom: BorderSide(color: Colors.grey, width: 1),
-                                                    ),
-                                                  ),
-                                                  child: const Text(
-                                                    'DESIGNATION',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 1,
-                                                child: Container(
-                                                  alignment: Alignment.center,
-                                                  decoration: const BoxDecoration(
-                                                    border: Border(
-                                                      right: BorderSide(color: Colors.grey, width: 1),
-                                                      bottom: BorderSide(color: Colors.grey, width: 1),
-                                                    ),
-                                                  ),
-                                                  child: const Text(
-                                                    'UNITES',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 1,
-                                                child: Container(
-                                                  alignment: Alignment.center,
-                                                  decoration: const BoxDecoration(
-                                                    border: Border(
-                                                      right: BorderSide(color: Colors.grey, width: 1),
-                                                      bottom: BorderSide(color: Colors.grey, width: 1),
-                                                    ),
-                                                  ),
-                                                  child: const Text(
-                                                    'QUANTITES',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Container(
-                                                  alignment: Alignment.center,
-                                                  decoration: const BoxDecoration(
-                                                    border: Border(
-                                                      right: BorderSide(color: Colors.grey, width: 1),
-                                                      bottom: BorderSide(color: Colors.grey, width: 1),
-                                                    ),
-                                                  ),
-                                                  child: const Text(
-                                                    'PRIX UNITAIRE (HT)',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Expanded(
-                                                flex: 2,
-                                                child: Container(
-                                                  alignment: Alignment.center,
-                                                  decoration: const BoxDecoration(
-                                                    border: Border(
-                                                      right: BorderSide(color: Colors.grey, width: 1),
-                                                      bottom: BorderSide(color: Colors.grey, width: 1),
-                                                    ),
-                                                  ),
-                                                  child: const Text(
-                                                    'MONTANT',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              if (widget.tousDepots)
-                                                Expanded(
-                                                  flex: 1,
-                                                  child: Container(
-                                                    alignment: Alignment.center,
-                                                    decoration: const BoxDecoration(
-                                                      border: Border(
-                                                        bottom: BorderSide(color: Colors.grey, width: 1),
-                                                      ),
-                                                    ),
-                                                    child: const Text(
-                                                      'DEPOTS',
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        fontWeight: FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                            ],
-                                          ),
+                                        Text(
+                                          'VENTES (${widget.tousDepots ? 'Tous dépôts' : 'Dépôt MAG'})',
+                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                                         ),
-                                        Expanded(
-                                          child: _lignesVente.isEmpty
-                                              ? const Center(
-                                                  child: Text(
-                                                    'Aucun article ajouté',
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      color: Colors.grey,
-                                                      fontStyle: FontStyle.italic,
-                                                    ),
-                                                  ),
-                                                )
-                                              : ListView.builder(
-                                                  itemCount: _lignesVente.length,
-                                                  itemExtent: 18,
-                                                  itemBuilder: (context, index) {
-                                                    final ligne = _lignesVente[index];
-                                                    return MouseRegion(
-                                                      onEnter: (_) {
-                                                        setState(() {
-                                                          _selectedRowIndex = index;
-                                                        });
-                                                      },
-                                                      onExit: (_) {
-                                                        setState(() {
-                                                          _selectedRowIndex = index;
-                                                        });
-                                                      },
-                                                      child: GestureDetector(
-                                                        onTap: () {
-                                                          setState(() {
-                                                            _selectedRowIndex = index;
-                                                          });
-                                                        },
-                                                        onSecondaryTapDown: _selectedVerification == 'JOURNAL'
-                                                            ? null
-                                                            : (details) =>
-                                                                  _showContextMenu(context, details, index),
-                                                        child: Container(
-                                                          height: 18,
-                                                          decoration: BoxDecoration(
-                                                            color: _selectedRowIndex == index
-                                                                ? Colors.blue[200]
-                                                                : (index % 2 == 0
-                                                                      ? Colors.white
-                                                                      : Colors.grey[50]),
-                                                          ),
-                                                          child: Row(
-                                                            children: [
-                                                              Container(
-                                                                width: 30,
-                                                                alignment: Alignment.center,
-                                                                decoration: const BoxDecoration(
-                                                                  border: Border(
-                                                                    right: BorderSide(
-                                                                      color: Colors.grey,
-                                                                      width: 1,
-                                                                    ),
-                                                                    bottom: BorderSide(
-                                                                      color: Colors.grey,
-                                                                      width: 1,
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                                child: IconButton(
-                                                                  icon: const Icon(Icons.close, size: 12),
-                                                                  onPressed: () => _supprimerLigne(index),
-                                                                  padding: EdgeInsets.zero,
-                                                                  constraints: const BoxConstraints(),
-                                                                ),
-                                                              ),
-                                                              Expanded(
-                                                                flex: 3,
-                                                                child: Container(
-                                                                  padding: const EdgeInsets.only(left: 4),
-                                                                  alignment: Alignment.centerLeft,
-                                                                  decoration: const BoxDecoration(
-                                                                    border: Border(
-                                                                      right: BorderSide(
-                                                                        color: Colors.grey,
-                                                                        width: 1,
-                                                                      ),
-                                                                      bottom: BorderSide(
-                                                                        color: Colors.grey,
-                                                                        width: 1,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                  child: Text(
-                                                                    ligne['designation'] ?? '',
-                                                                    style: const TextStyle(fontSize: 11),
-                                                                    overflow: TextOverflow.ellipsis,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              Expanded(
-                                                                flex: 1,
-                                                                child: Container(
-                                                                  padding: const EdgeInsets.symmetric(
-                                                                    horizontal: 4,
-                                                                  ),
-                                                                  alignment: Alignment.center,
-                                                                  decoration: const BoxDecoration(
-                                                                    border: Border(
-                                                                      right: BorderSide(
-                                                                        color: Colors.grey,
-                                                                        width: 1,
-                                                                      ),
-                                                                      bottom: BorderSide(
-                                                                        color: Colors.grey,
-                                                                        width: 1,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                  child: Text(
-                                                                    ligne['unites'] ?? '',
-                                                                    style: const TextStyle(fontSize: 11),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              Expanded(
-                                                                flex: 1,
-                                                                child: Container(
-                                                                  padding: const EdgeInsets.symmetric(
-                                                                    horizontal: 4,
-                                                                  ),
-                                                                  alignment: Alignment.center,
-                                                                  decoration: const BoxDecoration(
-                                                                    border: Border(
-                                                                      right: BorderSide(
-                                                                        color: Colors.grey,
-                                                                        width: 1,
-                                                                      ),
-                                                                      bottom: BorderSide(
-                                                                        color: Colors.grey,
-                                                                        width: 1,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                  child: Text(
-                                                                    (ligne['quantite'] as double?)
-                                                                            ?.round()
-                                                                            .toString() ??
-                                                                        '0',
-                                                                    style: const TextStyle(fontSize: 11),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              Expanded(
-                                                                flex: 2,
-                                                                child: Container(
-                                                                  padding: const EdgeInsets.symmetric(
-                                                                    horizontal: 4,
-                                                                  ),
-                                                                  alignment: Alignment.center,
-                                                                  decoration: const BoxDecoration(
-                                                                    border: Border(
-                                                                      right: BorderSide(
-                                                                        color: Colors.grey,
-                                                                        width: 1,
-                                                                      ),
-                                                                      bottom: BorderSide(
-                                                                        color: Colors.grey,
-                                                                        width: 1,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                  child: Text(
-                                                                    AppFunctions.formatNumber(
-                                                                      ligne['prixUnitaire']?.toDouble() ?? 0,
-                                                                    ),
-                                                                    style: const TextStyle(fontSize: 11),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              Expanded(
-                                                                flex: 2,
-                                                                child: Container(
-                                                                  padding: const EdgeInsets.symmetric(
-                                                                    horizontal: 4,
-                                                                  ),
-                                                                  alignment: Alignment.center,
-                                                                  decoration: BoxDecoration(
-                                                                    border: Border(
-                                                                      right: widget.tousDepots
-                                                                          ? const BorderSide(
-                                                                              color: Colors.grey,
-                                                                              width: 1,
-                                                                            )
-                                                                          : BorderSide.none,
-                                                                      bottom: const BorderSide(
-                                                                        color: Colors.grey,
-                                                                        width: 1,
-                                                                      ),
-                                                                    ),
-                                                                  ),
-                                                                  child: Text(
-                                                                    AppFunctions.formatNumber(
-                                                                      ligne['montant']?.toDouble() ?? 0,
-                                                                    ),
-                                                                    style: const TextStyle(fontSize: 11),
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              if (widget.tousDepots)
-                                                                Expanded(
-                                                                  flex: 1,
-                                                                  child: Container(
-                                                                    padding: const EdgeInsets.symmetric(
-                                                                      horizontal: 4,
-                                                                    ),
-                                                                    alignment: Alignment.center,
-                                                                    decoration: const BoxDecoration(
-                                                                      border: Border(
-                                                                        bottom: BorderSide(
-                                                                          color: Colors.grey,
-                                                                          width: 1,
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                    child: Text(
-                                                                      ligne['depot'] ?? '',
-                                                                      style: const TextStyle(fontSize: 11),
-                                                                    ),
-                                                                  ),
-                                                                ),
-                                                            ],
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
-                                                ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-
-                                // Bottom section - Invoice-style totals and payment
-                                Container(
-                                  color: Colors.white,
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      // Left side - Payment details
-                                      Expanded(
-                                        flex: 2,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            border: Border.all(color: Colors.grey.shade300),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              const Text(
-                                                'MODE DE PAIEMENT',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              SizedBox(
-                                                height: 25,
-                                                width: double.infinity,
-                                                child: ModePaiementDropdown(
-                                                  selectedMode: _selectedModePaiement,
-                                                  showCreditMode: _showCreditMode && !_isVendeur(),
-                                                  tousDepots: widget.tousDepots,
-                                                  onChanged: (value) {
-                                                    setState(() {
-                                                      _selectedModePaiement = value;
-                                                    });
-                                                    _calculerTotaux();
-                                                  },
-                                                ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              if (_showCreditMode && !_isVendeur() && widget.tousDepots) ...[
-                                                const SizedBox(height: 12),
-                                                Row(
-                                                  children: [
-                                                    const Text(
-                                                      'Solde antérieur:',
-                                                      style: TextStyle(fontSize: 12),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: SizedBox(
-                                                        height: 25,
-                                                        child: TextField(
-                                                          controller: _soldeAnterieurController,
-                                                          decoration: const InputDecoration(
-                                                            border: OutlineInputBorder(),
-                                                            contentPadding: EdgeInsets.symmetric(
-                                                              horizontal: 8,
-                                                              vertical: 4,
-                                                            ),
-                                                            fillColor: Color(0xFFF5F5F5),
-                                                            filled: true,
-                                                          ),
-                                                          style: const TextStyle(fontSize: 12),
-                                                          textAlign: TextAlign.right,
-                                                          readOnly: true,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 8),
-                                                Row(
-                                                  children: [
-                                                    Text(
-                                                      _selectedModePaiement == 'A crédit'
-                                                          ? 'Solde dû client:'
-                                                          : 'Nouveau solde:',
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: _selectedModePaiement == 'A crédit'
-                                                            ? Colors.red
-                                                            : Colors.black,
-                                                        fontWeight: _selectedModePaiement == 'A crédit'
-                                                            ? FontWeight.w500
-                                                            : FontWeight.normal,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: SizedBox(
-                                                        height: 25,
-                                                        child: TextField(
-                                                          controller: _nouveauSoldeController,
-                                                          decoration: InputDecoration(
-                                                            border: const OutlineInputBorder(),
-                                                            contentPadding: const EdgeInsets.symmetric(
-                                                              horizontal: 8,
-                                                              vertical: 4,
-                                                            ),
-                                                            fillColor: _selectedModePaiement == 'A crédit'
-                                                                ? Colors.red.shade50
-                                                                : const Color(0xFFF5F5F5),
-                                                            filled: true,
-                                                          ),
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            color: _selectedModePaiement == 'A crédit'
-                                                                ? Colors.red
-                                                                : Colors.black,
-                                                            fontWeight: _selectedModePaiement == 'A crédit'
-                                                                ? FontWeight.w500
-                                                                : FontWeight.normal,
-                                                          ),
-                                                          readOnly: true,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      // Right side - Invoice totals
-                                      if (!_isVendeur())
-                                        Expanded(
-                                          flex: 2,
-                                          child: Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              border: Border.all(color: Colors.grey.shade300),
-                                              borderRadius: BorderRadius.circular(4),
-                                              color: Colors.grey.shade50,
-                                            ),
-                                            child: Column(
-                                              children: [
-                                                const Text(
-                                                  'RÉCAPITULATIF FACTURE',
-                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                                ),
-
-                                                const SizedBox(height: 8),
-                                                // Remise
-                                                Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                  children: [
-                                                    Row(
-                                                      children: [
-                                                        const Text('Remise:', style: TextStyle(fontSize: 12)),
-                                                        const SizedBox(width: 4),
-                                                        SizedBox(
-                                                          width: 50,
-                                                          height: 25,
-                                                          child: TextField(
-                                                            controller: _remiseController,
-                                                            decoration: const InputDecoration(
-                                                              border: OutlineInputBorder(),
-                                                              contentPadding: EdgeInsets.symmetric(
-                                                                horizontal: 4,
-                                                                vertical: 2,
-                                                              ),
-                                                              suffixText: '%',
-                                                            ),
-                                                            style: const TextStyle(fontSize: 12),
-                                                            textAlign: TextAlign.center,
-                                                            onChanged: (value) => _calculerTotaux(),
-                                                            readOnly: _selectedVerification == 'JOURNAL',
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                    SizedBox(
-                                                      width: 100,
-                                                      height: 25,
-                                                      child: TextField(
-                                                        controller: TextEditingController(
-                                                          text: _calculateRemiseAmount(),
-                                                        ),
-                                                        decoration: const InputDecoration(
-                                                          border: OutlineInputBorder(),
-                                                          contentPadding: EdgeInsets.symmetric(
-                                                            horizontal: 4,
-                                                            vertical: 2,
-                                                          ),
-                                                          fillColor: Colors.white,
-                                                          filled: true,
-                                                        ),
-                                                        style: const TextStyle(fontSize: 12),
-                                                        textAlign: TextAlign.right,
-                                                        readOnly: true,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const Divider(height: 16),
-                                                // Total TTC
-                                                Row(
-                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                  children: [
-                                                    const Text(
-                                                      'TOTAL TTC:',
-                                                      style: TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                    SizedBox(
-                                                      width: 100,
-                                                      height: 30,
-                                                      child: TextField(
-                                                        controller: _totalTTCController,
-                                                        decoration: const InputDecoration(
-                                                          border: OutlineInputBorder(),
-                                                          contentPadding: EdgeInsets.symmetric(
-                                                            horizontal: 4,
-                                                            vertical: 2,
-                                                          ),
-                                                        ),
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: Colors.blue,
-                                                        ),
-                                                        textAlign: TextAlign.right,
-                                                        readOnly: true,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-
-                                // Action buttons
-                                Container(
-                                  width: double.infinity,
-                                  decoration: const BoxDecoration(color: Color(0xFFFFB6C1)),
-                                  padding: const EdgeInsets.all(8),
-                                  child: Wrap(
-                                    spacing: 4,
-                                    runSpacing: 4,
-                                    alignment: WrapAlignment.end,
-                                    children: [
-                                      //Bouton Nouvel vente
-                                      if (_isExistingPurchase) ...[
-                                        Tooltip(
-                                          message: 'Créer nouveau (Ctrl+N)',
-                                          child: ElevatedButton(
-                                            onPressed: _creerNouvelleVente,
-                                            style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                            child: const Text(
-                                              'Créer (Ctrl+N)',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                        ),
-                                        if (_peutValiderBrouillard()) ...[
-                                          Tooltip(
-                                            message: 'Valider la vente (F3)',
-                                            child: ElevatedButton(
-                                              onPressed: _validerBrouillardVersJournal,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.green,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(80, 30),
-                                              ),
-                                              child: const Text(
-                                                'Valider la vente(F3)',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                            ),
-                                          ),
-                                          // Bouton Contre-passer vente brouillard
-                                          Tooltip(
-                                            message: 'Contre-passer vente brouillard',
-                                            child: ElevatedButton(
-                                              onPressed: _contrePasserVenteBrouillard,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(80, 30),
-                                              ),
-                                              child: const Text(
-                                                'Supprimer Brouillard',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                      // Bouton Importation
-                                      if (!_isExistingPurchase)
-                                        Tooltip(
-                                          message: 'Importer lignes d\'achat',
-                                          child: ElevatedButton(
-                                            onPressed: _importerLignesVente,
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.orange,
-                                              foregroundColor: Colors.white,
-                                              minimumSize: const Size(60, 30),
-                                            ),
-                                            child: const Text(
-                                              'Importer lignes',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                        ),
-                                      if (!_peutValiderBrouillard()) ...[
-                                        //Bouton Contre passer
-                                        if (_isExistingPurchase) ...[
+                                        if (_isExistingPurchase && _statutVenteActuelle != null) ...[
+                                          const SizedBox(width: 16),
                                           FutureBuilder<bool>(
                                             future: _isVenteContrePassee(),
                                             builder: (context, snapshot) {
                                               final isContrePassee = snapshot.data ?? false;
-                                              return Tooltip(
-                                                message: isContrePassee
-                                                    ? 'Vente déjà contre-passée'
-                                                    : 'Contre-passer (Ctrl+D)',
-                                                child: ElevatedButton(
-                                                  onPressed: isContrePassee ? null : _contrePasserVente,
-                                                  style: ElevatedButton.styleFrom(
-                                                    minimumSize: const Size(80, 30),
-                                                    backgroundColor: isContrePassee ? Colors.grey : null,
-                                                  ),
-                                                  child: const Text(
-                                                    'Contre Passer (Ctrl+D)',
-                                                    style: TextStyle(fontSize: 12),
+                                              return Container(
+                                                decoration: BoxDecoration(
+                                                  color: _statutVenteActuelle == StatutVente.brouillard
+                                                      ? Colors.orange
+                                                      : (isContrePassee ? Colors.red : Colors.green),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 2,
+                                                ),
+                                                child: Text(
+                                                  _statutVenteActuelle == StatutVente.brouillard
+                                                      ? 'BROUILLARD'
+                                                      : (isContrePassee ? 'CP' : 'JOURNALÉ'),
+                                                  style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
                                                   ),
                                                 ),
                                               );
@@ -5606,510 +3885,2511 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                           ),
                                         ],
                                       ],
-
-                                      //Bouton Modifier/ Enregistrer
-                                      Tooltip(
-                                        message: _isExistingPurchase
-                                            ? 'Modifier (Ctrl+S)'
-                                            : 'Enregistrer (Ctrl+S)',
-                                        child: ElevatedButton(
-                                          onPressed: _selectedVerification == 'JOURNAL'
-                                              ? null
-                                              : (_isExistingPurchase ? _modifierVente : _validerVente),
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: _isExistingPurchase ? Colors.blue : Colors.green,
-                                            foregroundColor: Colors.white,
-                                            minimumSize: const Size(60, 30),
-                                          ),
-                                          child: Text(
-                                            _isExistingPurchase
-                                                ? 'Modifier (Ctrl+S)'
-                                                : 'Enregistrer (Ctrl+S)',
-                                            style: const TextStyle(fontSize: 12),
-                                          ),
-                                        ),
-                                      ),
-
-                                      //Popup menu format papier d'impression
-                                      PopupMenuButton<String>(
-                                        style: const ButtonStyle(
-                                          padding: WidgetStateProperty.fromMap({
-                                            WidgetState.hovered: EdgeInsets.all(0),
-                                            WidgetState.focused: EdgeInsets.all(0),
-                                            WidgetState.pressed: EdgeInsets.all(0),
-                                          }),
-                                        ),
-                                        menuPadding: const EdgeInsets.all(2),
-                                        initialValue: _selectedFormat,
-                                        itemBuilder: (BuildContext context) => [
-                                          const PopupMenuItem(
-                                            value: 'A4',
-                                            child: Text('Format A4', style: TextStyle(fontSize: 12)),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'A5',
-                                            child: Text('Format A5', style: TextStyle(fontSize: 12)),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'A6',
-                                            child: Text('Format A6', style: TextStyle(fontSize: 12)),
-                                          ),
-                                        ],
-                                        onSelected: (value) {
-                                          if (value == 'facture') {
-                                            _apercuFacture();
-                                          } else if (value == 'bl') {
-                                            _apercuBL();
-                                          } else {
-                                            setState(() {
-                                              _selectedFormat = value;
-                                            });
-                                          }
-                                        },
-                                        child: Container(
-                                          constraints: const BoxConstraints(
-                                            minWidth: 60,
-                                            minHeight: 18,
-                                            maxHeight: 30,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                                          decoration: BoxDecoration(
-                                            color: Colors.orange,
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              const Icon(Icons.print, color: Colors.white, size: 16),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                _selectedFormat,
-                                                style: const TextStyle(color: Colors.white, fontSize: 12),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              const Icon(
-                                                Icons.arrow_drop_down,
-                                                color: Colors.white,
-                                                size: 16,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                      //Bouton d'impression facture
-                                      FutureBuilder<bool>(
-                                        future: _isVenteContrePassee(),
-                                        builder: (context, snapshot) {
-                                          final isContrePassee = snapshot.data ?? false;
-                                          return Tooltip(
-                                            message: 'Imprimer Facture (Ctrl+P)',
-                                            child: ElevatedButton(
-                                              onPressed: isContrePassee ? null : _imprimerFacture,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: _selectedVerification != 'JOURNAL'
-                                                    ? Colors.grey
-                                                    : Colors.teal,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(60, 30),
-                                              ),
-                                              child: const Text(
-                                                'Imprimer Facture (Ctrl+P)',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      // Bouton d'Aperçu Facture
-                                      FutureBuilder<bool>(
-                                        future: _isVenteContrePassee(),
-                                        builder: (context, snapshot) {
-                                          final isContrePassee = snapshot.data ?? false;
-                                          return Tooltip(
-                                            message: 'Aperçu Facture',
-                                            child: ElevatedButton(
-                                              onPressed: isContrePassee ? null : _apercuFacture,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: _selectedVerification != 'JOURNAL'
-                                                    ? Colors.grey
-                                                    : Colors.orange,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(60, 30),
-                                              ),
-                                              child: const Text(
-                                                'Aperçu Facture',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      // Bouton d'impression BL
-                                      FutureBuilder<bool>(
-                                        future: _isVenteContrePassee(),
-                                        builder: (context, snapshot) {
-                                          final isContrePassee = snapshot.data ?? false;
-                                          return Tooltip(
-                                            message: 'Imprimer Bon de Livraison (Ctrl+Shift+P)',
-                                            child: ElevatedButton(
-                                              onPressed: isContrePassee ? null : _imprimerBL,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: _selectedVerification != 'JOURNAL'
-                                                    ? Colors.grey
-                                                    : Colors.teal,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(60, 30),
-                                              ),
-                                              child: const Text(
-                                                'Imprimer BL (Ctrl+Shift+P)',
-                                                style: TextStyle(fontSize: 12),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      //Bouton aperçus BL
-                                      FutureBuilder<bool>(
-                                        future: _isVenteContrePassee(),
-                                        builder: (context, snapshot) {
-                                          final isContrePassee = snapshot.data ?? false;
-                                          return Tooltip(
-                                            message: 'Aperçu Bon de Livraison',
-                                            child: ElevatedButton(
-                                              onPressed: isContrePassee ? null : _apercuBL,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: _selectedVerification != 'JOURNAL'
-                                                    ? Colors.grey
-                                                    : Colors.orange,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(60, 30),
-                                              ),
-                                              child: const Text('Aperçu BL', style: TextStyle(fontSize: 12)),
-                                            ),
-                                          );
-                                        },
-                                      ),
-
-                                      //Bouton de fermeture du modal de vente
-                                      Tooltip(
-                                        message: 'Fermer (Echap)',
-                                        child: ElevatedButton(
-                                          onPressed: () => Navigator.of(context).pop(),
-                                          style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                          child: const Text('Fermer', style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                    ],
+                                    ),
                                   ),
+                                ),
+                                IconButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  icon: const Icon(Icons.close, size: 20),
+                                  padding: EdgeInsets.zero,
                                 ),
                               ],
                             ),
                           ),
 
-                          // Right sidebar - Article details
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            width: _isRightSidebarCollapsed ? 40 : 280,
-                            decoration: const BoxDecoration(
-                              border: Border(left: BorderSide(color: Colors.grey, width: 1)),
-                              color: Colors.white,
-                            ),
-                            child: Column(
+                          // Main content with sidebar
+                          Expanded(
+                            child: Row(
                               children: [
-                                // Header with toggle button
+                                // Left sidebar - Sales list
                                 Container(
-                                  height: 35,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue[50],
-                                    border: const Border(bottom: BorderSide(color: Colors.grey, width: 1)),
+                                  width: 250,
+                                  decoration: const BoxDecoration(
+                                    border: Border(right: BorderSide(color: Colors.grey, width: 1)),
+                                    color: Colors.white,
                                   ),
-                                  child: Row(
-                                    children: [
-                                      if (!_isRightSidebarCollapsed) ...[
-                                        const Expanded(
-                                          child: Text(
-                                            'Détails Article',
-                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                          ),
-                                        ),
-                                      ],
-                                      IconButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            _isRightSidebarCollapsed = !_isRightSidebarCollapsed;
-                                          });
-                                        },
-                                        icon: Icon(
-                                          _isRightSidebarCollapsed ? Icons.chevron_left : Icons.chevron_right,
-                                          size: 16,
-                                        ),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                // Content
-                                if (!_isRightSidebarCollapsed)
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        // Champ de recherche d'article
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          child: EnhancedAutocomplete<Article>(
-                                            options: _articles,
-                                            displayStringForOption: (article) => article.designation,
-                                            onSelected: (article) {
-                                              setState(() {
-                                                _searchedArticle = article;
-                                              });
-                                            },
-                                            hintText: 'Nom de l\'article...',
-                                            controller: _searchArticleController,
-                                            focusNode: _searchArticleFocusNode,
-                                            decoration: const InputDecoration(
-                                              labelText: 'Rechercher article',
-                                              labelStyle: TextStyle(fontSize: 12),
-                                              border: OutlineInputBorder(),
-                                              contentPadding: EdgeInsets.symmetric(
-                                                horizontal: 8,
-                                                vertical: 12,
+                                  child: _isVendeur()
+                                      ? // Vendeur: Simple list without tabs
+                                        Column(
+                                          children: [
+                                            // Search field
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              child: TextField(
+                                                controller: _searchVentesController,
+                                                decoration: const InputDecoration(
+                                                  hintText: 'Rechercher vente...',
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding: EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                                  prefixIcon: Icon(Icons.search, size: 16),
+                                                ),
+                                                style: const TextStyle(fontSize: 12),
                                               ),
-                                              isDense: true,
                                             ),
-                                            style: const TextStyle(fontSize: 12),
-                                          ),
-                                        ),
-                                        // Détails de l'article
-                                        Expanded(
-                                          child: _searchedArticle == null
-                                              ? const Center(
-                                                  child: Text(
-                                                    'Saisissez le nom d\'un article\npour voir ses détails',
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                                                  ),
-                                                )
-                                              : SingleChildScrollView(
-                                                  padding: const EdgeInsets.all(8),
-                                                  child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                                    children: [
-                                                      // Article name
-                                                      Container(
-                                                        width: double.infinity,
-                                                        padding: const EdgeInsets.all(8),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.blue[50],
-                                                          borderRadius: BorderRadius.circular(4),
-                                                          border: Border.all(color: Colors.blue[200]!),
-                                                        ),
-                                                        child: Text(
-                                                          _searchedArticle!.designation,
-                                                          style: const TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight: FontWeight.w500,
-                                                          ),
-                                                          maxLines: 2,
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 12),
-                                                      // Prix de vente
-                                                      const Text(
-                                                        'PRIX DE VENTE',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: Colors.green,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      _buildPriceRow(
-                                                        _searchedArticle!.u1,
-                                                        _searchedArticle!.pvu1,
-                                                      ),
-                                                      _buildPriceRow(
-                                                        _searchedArticle!.u2,
-                                                        _searchedArticle!.pvu2,
-                                                      ),
-                                                      _buildPriceRow(
-                                                        _searchedArticle!.u3,
-                                                        _searchedArticle!.pvu3,
-                                                      ),
-                                                      const SizedBox(height: 12),
-                                                      // Conversions
-                                                      const Text(
-                                                        'CONVERSIONS',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: Colors.orange,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-
-                                                      _buildConversionRow(
-                                                        _searchedArticle!.u1,
-                                                        _searchedArticle!.u2,
-                                                        _searchedArticle!.tu2u1,
-                                                      ),
-                                                      _buildConversionRow(
-                                                        _searchedArticle!.u2,
-                                                        _searchedArticle!.u3,
-                                                        _searchedArticle!.tu3u2,
-                                                      ),
-                                                      const SizedBox(height: 12),
-                                                      // Prix d'achat
-                                                      const Text(
-                                                        'PRIX D\'ACHAT',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: Colors.red,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(height: 4),
-                                                      Container(
-                                                        width: double.infinity,
-                                                        padding: const EdgeInsets.all(6),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.red[50],
-                                                          borderRadius: BorderRadius.circular(4),
-                                                          border: Border.all(color: Colors.red[200]!),
-                                                        ),
-                                                        child: Text(
-                                                          'CMUP: ${AppFunctions.formatNumber(_searchedArticle!.cmup ?? 0)}',
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            color: Colors.red[700],
-                                                            fontWeight: FontWeight.w500,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
+                                            // Header
+                                            Container(
+                                              height: 35,
+                                              decoration: const BoxDecoration(
+                                                border: Border(
+                                                  bottom: BorderSide(color: Colors.grey, width: 1),
                                                 ),
-                                        ),
-
-                                        // Section Différences de prix
-                                        if (_lignesVente.isNotEmpty) ...[
-                                          const SizedBox(height: 16),
-                                          Container(
-                                            padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.orange.shade50,
-                                              borderRadius: BorderRadius.circular(4),
-                                              border: Border.all(color: Colors.orange.shade200),
+                                              ),
+                                              child: const Center(
+                                                child: Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(Icons.pending, size: 12, color: Colors.orange),
+                                                    SizedBox(width: 4),
+                                                    Text(
+                                                      'Mes Ventes en attente',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w500,
+                                                        color: Colors.orange,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'Différences de prix',
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.orange.shade700,
+                                            // Sales list
+                                            Expanded(child: _buildVentesListByStatus('BROUILLARD')),
+                                          ],
+                                        )
+                                      : // Other users: Three columns layout
+                                        Column(
+                                          children: [
+                                            // Search field
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              child: TextField(
+                                                controller: _searchVentesController,
+                                                decoration: const InputDecoration(
+                                                  hintText: 'Rechercher vente...',
+                                                  border: OutlineInputBorder(),
+                                                  contentPadding: EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
                                                   ),
+                                                  prefixIcon: Icon(Icons.search, size: 16),
                                                 ),
-                                                const SizedBox(height: 8),
-                                                // Liste des différences par ligne
-                                                ...(_lignesVente
-                                                    .where((ligne) => (ligne['diffPrix'] ?? 0) != 0)
-                                                    .map(
-                                                      (ligne) => Padding(
-                                                        padding: const EdgeInsets.symmetric(vertical: 2),
-                                                        child: Column(
-                                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                                          children: [
-                                                            Row(
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                            ),
+                                            // Three columns layout
+                                            Expanded(
+                                              child: Column(
+                                                children: [
+                                                  // Brouillard column
+                                                  Expanded(
+                                                    child: Column(
+                                                      children: [
+                                                        Container(
+                                                          height: 35,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              bottom: BorderSide(
+                                                                color: Colors.grey,
+                                                                width: 1,
+                                                              ),
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: const Center(
+                                                            child: Row(
+                                                              mainAxisAlignment: MainAxisAlignment.center,
                                                               children: [
-                                                                Expanded(
-                                                                  child: Text(
-                                                                    ligne['designation'] ?? '',
-                                                                    style: const TextStyle(
-                                                                      fontSize: 11,
-                                                                      fontWeight: FontWeight.w500,
-                                                                    ),
-                                                                    overflow: TextOverflow.ellipsis,
-                                                                  ),
+                                                                Icon(
+                                                                  Icons.pending,
+                                                                  size: 12,
+                                                                  color: Colors.orange,
                                                                 ),
+                                                                SizedBox(width: 4),
                                                                 Text(
-                                                                  AppFunctions.formatNumber(
-                                                                    (ligne['diffPrix'] ?? 0) *
-                                                                        (ligne['quantite'] ?? 0),
-                                                                  ),
+                                                                  'Brouillard',
                                                                   style: TextStyle(
-                                                                    fontSize: 11,
-                                                                    fontWeight: FontWeight.bold,
-                                                                    color: (ligne['diffPrix'] ?? 0) >= 0
-                                                                        ? Colors.green
-                                                                        : Colors.red,
+                                                                    fontSize: 12,
+                                                                    fontWeight: FontWeight.w500,
+                                                                    color: Colors.orange,
                                                                   ),
                                                                 ),
                                                               ],
                                                             ),
-                                                            Padding(
-                                                              padding: const EdgeInsets.only(left: 8, top: 1),
-                                                              child: Text(
-                                                                '${AppFunctions.formatNumber(ligne['quantite'] ?? 0)} ${ligne['unites'] ?? ''} x ${AppFunctions.formatNumber(ligne['diffPrix'] ?? 0)} Ar',
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: Container(
+                                                            decoration: const BoxDecoration(
+                                                              border: Border(
+                                                                right: BorderSide(
+                                                                  color: Colors.grey,
+                                                                  width: 1,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            child: _buildVentesListByStatus('BROUILLARD'),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  // Journal column
+                                                  Expanded(
+                                                    child: Column(
+                                                      children: [
+                                                        Container(
+                                                          height: 35,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              bottom: BorderSide(
+                                                                color: Colors.grey,
+                                                                width: 1,
+                                                              ),
+                                                              right: BorderSide(color: Colors.grey, width: 1),
+                                                            ),
+                                                          ),
+                                                          child: const Center(
+                                                            child: Row(
+                                                              mainAxisAlignment: MainAxisAlignment.center,
+                                                              children: [
+                                                                Icon(
+                                                                  Icons.check_circle,
+                                                                  size: 12,
+                                                                  color: Colors.green,
+                                                                ),
+                                                                SizedBox(width: 4),
+                                                                Text(
+                                                                  'Journal (Ctrl+J)',
+                                                                  style: TextStyle(
+                                                                    fontSize: 12,
+                                                                    fontWeight: FontWeight.w500,
+                                                                    color: Colors.green,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: Container(
+                                                            decoration: const BoxDecoration(
+                                                              border: Border(
+                                                                right: BorderSide(
+                                                                  color: Colors.grey,
+                                                                  width: 1,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            child: _buildVentesListByStatus('JOURNAL'),
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  // Contre-passé column
+                                                  Expanded(
+                                                    child: Column(
+                                                      children: [
+                                                        Container(
+                                                          height: 35,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              bottom: BorderSide(
+                                                                color: Colors.grey,
+                                                                width: 1,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          child: const Center(
+                                                            child: Row(
+                                                              mainAxisAlignment: MainAxisAlignment.center,
+                                                              children: [
+                                                                Icon(
+                                                                  Icons.cancel,
+                                                                  size: 12,
+                                                                  color: Colors.red,
+                                                                ),
+                                                                SizedBox(width: 4),
+                                                                Text(
+                                                                  'Contre-passé (Ctrl+Shift+X)',
+                                                                  style: TextStyle(
+                                                                    fontSize: 12,
+                                                                    fontWeight: FontWeight.w500,
+                                                                    color: Colors.red,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        Expanded(
+                                                          child: _buildVentesListByStatus('CONTRE_PASSE'),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+
+                                // center Content - Main form
+                                Expanded(
+                                  child: Column(
+                                    children: [
+                                      // Top section
+                                      Container(
+                                        color: const Color(0xFFE6E6FA),
+                                        padding: const EdgeInsets.all(8),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Column(
+                                                  children: [
+                                                    Container(
+                                                      width: 120,
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 1,
+                                                      ),
+                                                      color: _selectedVerification == 'JOURNAL'
+                                                          ? Colors.green
+                                                          : Colors.orange,
+                                                      child: const Text(
+                                                        'Enregistrement',
+                                                        style: TextStyle(color: Colors.white, fontSize: 12),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    SizedBox(
+                                                      width: 120,
+                                                      height: 25,
+                                                      child: DropdownButtonFormField<String>(
+                                                        initialValue: _selectedVerification,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                            horizontal: 4,
+                                                            vertical: 2,
+                                                          ),
+                                                        ),
+                                                        items: const [
+                                                          DropdownMenuItem(
+                                                            value: 'BROUILLARD',
+                                                            child: Text(
+                                                              'Brouillard',
+                                                              style: TextStyle(fontSize: 12),
+                                                            ),
+                                                          ),
+                                                          DropdownMenuItem(
+                                                            value: 'JOURNAL',
+                                                            child: Text(
+                                                              'Journal',
+                                                              style: TextStyle(fontSize: 12),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                        onChanged: _isExistingPurchase
+                                                            ? null
+                                                            : (value) {
+                                                                if (value != null) {
+                                                                  setState(() {
+                                                                    _selectedVerification = value;
+                                                                    _statutVente = value == 'JOURNAL'
+                                                                        ? StatutVente.journal
+                                                                        : StatutVente.brouillard;
+                                                                  });
+                                                                }
+                                                              },
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(width: 16),
+                                                Expanded(
+                                                  child: Wrap(
+                                                    spacing: 8,
+                                                    runSpacing: 4,
+                                                    children: [
+                                                      Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Text(
+                                                            'N° ventes',
+                                                            style: TextStyle(fontSize: 12),
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          SizedBox(
+                                                            width: 80,
+                                                            height: 25,
+                                                            child: TextField(
+                                                              controller: _numVentesController,
+                                                              textAlign: TextAlign.center,
+                                                              decoration: const InputDecoration(
+                                                                border: OutlineInputBorder(),
+                                                                contentPadding: EdgeInsets.symmetric(
+                                                                  horizontal: 4,
+                                                                  vertical: 2,
+                                                                ),
+                                                                fillColor: Color(0xFFF5F5F5),
+                                                                filled: true,
+                                                              ),
+                                                              readOnly: true,
+                                                              style: const TextStyle(fontSize: 12),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Text('Date', style: TextStyle(fontSize: 12)),
+                                                          const SizedBox(width: 4),
+                                                          SizedBox(
+                                                            width: 100,
+                                                            height: 25,
+                                                            child: TextField(
+                                                              controller: _dateController,
+                                                              textAlign: TextAlign.center,
+                                                              decoration: const InputDecoration(
+                                                                border: OutlineInputBorder(),
+                                                                contentPadding: EdgeInsets.symmetric(
+                                                                  horizontal: 4,
+                                                                  vertical: 2,
+                                                                ),
+                                                              ),
+                                                              style: const TextStyle(fontSize: 12),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Text(
+                                                            'N° Facture/ BL',
+                                                            style: TextStyle(fontSize: 12),
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          SizedBox(
+                                                            width: 80,
+                                                            height: 25,
+                                                            child: TextField(
+                                                              controller: _nFactureController,
+                                                              textAlign: TextAlign.center,
+                                                              decoration: const InputDecoration(
+                                                                border: OutlineInputBorder(),
+                                                                contentPadding: EdgeInsets.symmetric(
+                                                                  horizontal: 4,
+                                                                  vertical: 2,
+                                                                ),
+                                                              ),
+                                                              style: const TextStyle(fontSize: 12),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          const Text('Heure', style: TextStyle(fontSize: 12)),
+                                                          const SizedBox(width: 4),
+                                                          SizedBox(
+                                                            width: 80,
+                                                            height: 25,
+                                                            child: TextField(
+                                                              controller: _heureController,
+                                                              textAlign: TextAlign.center,
+                                                              decoration: const InputDecoration(
+                                                                border: OutlineInputBorder(),
+                                                                contentPadding: EdgeInsets.symmetric(
+                                                                  horizontal: 4,
+                                                                  vertical: 2,
+                                                                ),
+                                                              ),
+                                                              style: const TextStyle(fontSize: 12),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              children: [
+                                                const Text('Clients', style: TextStyle(fontSize: 12)),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: SizedBox(
+                                                    height: 25,
+                                                    child: Focus(
+                                                      onKeyEvent: (node, event) {
+                                                        if (event is KeyDownEvent &&
+                                                            event.logicalKey == LogicalKeyboardKey.tab) {
+                                                          final isShiftPressed =
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftRight);
+
+                                                          if (isShiftPressed) {
+                                                            // Pas de champ précédent, rester sur le client
+                                                            return KeyEventResult.ignored;
+                                                          } else {
+                                                            _designationFocusNode.requestFocus();
+                                                            return KeyEventResult.handled;
+                                                          }
+                                                        }
+                                                        return KeyEventResult.ignored;
+                                                      },
+                                                      child: EnhancedAutocomplete<CltData>(
+                                                        options: _clients,
+                                                        displayStringForOption: (client) => client.rsoc,
+                                                        onSelected: (client) {
+                                                          setState(() {
+                                                            _selectedClient = client.rsoc;
+                                                            _clientController.text = client.rsoc;
+                                                            _showCreditMode = _shouldShowCreditMode(client);
+                                                            if ((!_showCreditMode || _isVendeur()) &&
+                                                                _selectedModePaiement == 'A crédit') {
+                                                              _selectedModePaiement = 'Espèces';
+                                                            }
+                                                          });
+                                                          _chargerSoldeClient(client.rsoc);
+                                                          // Navigate to next field on selection
+                                                          _designationFocusNode.requestFocus();
+                                                        },
+                                                        controller: _clientController,
+                                                        focusNode: _clientFocusNode,
+                                                        hintText: 'Rechercher un client...',
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                            horizontal: 4,
+                                                            vertical: 2,
+                                                          ),
+                                                          focusedBorder: OutlineInputBorder(
+                                                            borderSide: BorderSide(
+                                                              color: Colors.blue,
+                                                              width: 2,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        style: const TextStyle(fontSize: 12),
+                                                        onSubmitted: (value) async {
+                                                          await _verifierEtCreerClient(value);
+                                                          _designationFocusNode.requestFocus();
+                                                        },
+                                                        onTabPressed: () async {
+                                                          final currentText = _clientController.text.trim();
+                                                          if (currentText.isNotEmpty) {
+                                                            await _verifierEtCreerClient(currentText);
+                                                          }
+                                                          _designationFocusNode.requestFocus();
+                                                        },
+                                                        onShiftTabPressed: () =>
+                                                            _clientFocusNode.requestFocus(),
+                                                        enabled: _selectedVerification != 'JOURNAL',
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      // Article selection section
+                                      Container(
+                                        color: const Color(0xFFE6E6FA),
+                                        padding: const EdgeInsets.all(8),
+                                        child: Row(
+                                          children: [
+                                            //Désignation Articles, champ autocomplete avec navigation au clavier
+                                            Expanded(
+                                              flex: 2,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text(
+                                                    'Désignation Articles',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  SizedBox(
+                                                    height: 25,
+                                                    child: Focus(
+                                                      onKeyEvent: (node, event) {
+                                                        if (event is KeyDownEvent &&
+                                                            event.logicalKey == LogicalKeyboardKey.tab) {
+                                                          final isShiftPressed =
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftRight);
+
+                                                          if (isShiftPressed) {
+                                                            _clientFocusNode.requestFocus();
+                                                          } else {
+                                                            widget.tousDepots
+                                                                ? _depotFocusNode.requestFocus()
+                                                                : _uniteFocusNode.requestFocus();
+                                                          }
+                                                          return KeyEventResult.handled;
+                                                        }
+                                                        return KeyEventResult.ignored;
+                                                      },
+                                                      child: ArticleNavigationAutocomplete(
+                                                        articles: _articles,
+                                                        initialArticle: _getLastAddedArticle(),
+                                                        selectedArticle:
+                                                            _selectedArticle, // Add synchronization
+                                                        onArticleChanged: (article) {
+                                                          _onArticleSelected(article);
+                                                        },
+                                                        focusNode: _designationFocusNode,
+                                                        hintText: _isClientSelected
+                                                            ? 'Rechercher un article... (← → pour naviguer)'
+                                                            : 'Sélectionnez d\'abord un client',
+                                                        decoration: InputDecoration(
+                                                          border: const OutlineInputBorder(),
+                                                          contentPadding: const EdgeInsets.symmetric(
+                                                            horizontal: 4,
+                                                            vertical: 2,
+                                                          ),
+                                                          focusedBorder: const OutlineInputBorder(
+                                                            borderSide: BorderSide(
+                                                              color: Colors.blue,
+                                                              width: 2,
+                                                            ),
+                                                          ),
+                                                          fillColor: _isClientSelected
+                                                              ? null
+                                                              : Colors.grey[200],
+                                                          filled: !_isClientSelected,
+                                                        ),
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: _isClientSelected
+                                                              ? Colors.black
+                                                              : Colors.grey,
+                                                        ),
+                                                        onTabPressed: () => widget.tousDepots
+                                                            ? _depotFocusNode.requestFocus()
+                                                            : _uniteFocusNode.requestFocus(),
+                                                        onShiftTabPressed: () =>
+                                                            _clientFocusNode.requestFocus(),
+                                                        onNextArticleSet: () {
+                                                          // Vider le champ unité seulement si on n'est pas en mode modification
+                                                          if (!_isModifyingLine) {
+                                                            setState(() {
+                                                              _selectedUnite = null;
+                                                              _uniteController.clear();
+                                                            });
+                                                          }
+                                                        },
+                                                        enabled: _isClientSelected,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  if (_selectedArticle != null) const SizedBox(height: 16),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            // Dépôts autocomplete
+                                            if (widget.tousDepots) ...[
+                                              Expanded(
+                                                flex: 1,
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text('Dépôts', style: TextStyle(fontSize: 12)),
+                                                    const SizedBox(height: 4),
+                                                    SizedBox(
+                                                      height: 25,
+                                                      child: Focus(
+                                                        onKeyEvent: (node, event) {
+                                                          if (event is KeyDownEvent &&
+                                                              event.logicalKey == LogicalKeyboardKey.tab) {
+                                                            final isShiftPressed =
+                                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftRight);
+
+                                                            if (isShiftPressed) {
+                                                              _designationFocusNode.requestFocus();
+                                                            } else {
+                                                              _uniteFocusNode.requestFocus();
+                                                            }
+                                                            return KeyEventResult.handled;
+                                                          }
+                                                          return KeyEventResult.ignored;
+                                                        },
+                                                        child: EnhancedAutocomplete<String>(
+                                                          options: _depots
+                                                              .map((depot) => depot.depots)
+                                                              .toList(),
+                                                          displayStringForOption: (depot) => depot,
+                                                          controller: _depotController,
+                                                          focusNode: _depotFocusNode,
+                                                          onSelected: (depot) {
+                                                            _onDepotChanged(depot);
+                                                            _uniteFocusNode.requestFocus();
+                                                          },
+                                                          onSubmitted: (value) async {
+                                                            await _verifierDepot(value);
+                                                            _uniteFocusNode.requestFocus();
+                                                          },
+                                                          onTabPressed: () async {
+                                                            await _verifierDepot(_depotController.text);
+                                                            _uniteFocusNode.requestFocus();
+                                                          },
+                                                          onShiftTabPressed: () =>
+                                                              _designationFocusNode.requestFocus(),
+                                                          onFocusLost: (value) async {
+                                                            await _verifierDepot(value);
+                                                          },
+                                                          hintText: 'Dépôt...',
+                                                          decoration: InputDecoration(
+                                                            border: const OutlineInputBorder(),
+                                                            contentPadding: const EdgeInsets.symmetric(
+                                                              horizontal: 4,
+                                                              vertical: 2,
+                                                            ),
+                                                            focusedBorder: const OutlineInputBorder(
+                                                              borderSide: BorderSide(
+                                                                color: Colors.blue,
+                                                                width: 2,
+                                                              ),
+                                                            ),
+                                                            fillColor: _isClientSelected
+                                                                ? null
+                                                                : Colors.grey[200],
+                                                            filled: !_isClientSelected,
+                                                          ),
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            color: _isClientSelected
+                                                                ? Colors.black
+                                                                : Colors.grey,
+                                                          ),
+                                                          enabled: _isClientSelected,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    if (_selectedArticle != null) const SizedBox(height: 19),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                            ],
+                                            //Unités disponible de l'article
+                                            Expanded(
+                                              flex: 1,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text('Unités', style: TextStyle(fontSize: 12)),
+                                                  const SizedBox(height: 3),
+                                                  SizedBox(
+                                                    height: 25,
+                                                    child: Focus(
+                                                      onKeyEvent: (node, event) {
+                                                        if (event is KeyDownEvent &&
+                                                            event.logicalKey == LogicalKeyboardKey.tab) {
+                                                          final isShiftPressed =
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftRight);
+
+                                                          if (isShiftPressed) {
+                                                            widget.tousDepots
+                                                                ? _depotFocusNode.requestFocus()
+                                                                : _designationFocusNode.requestFocus();
+                                                          } else {
+                                                            _quantiteFocusNode.requestFocus();
+                                                          }
+                                                          return KeyEventResult.handled;
+                                                        }
+                                                        return KeyEventResult.ignored;
+                                                      },
+                                                      child: EnhancedAutocomplete<String>(
+                                                        options: _selectedArticle != null
+                                                            ? _getUnitsForSelectedArticle()
+                                                                  .map((item) => item.value!)
+                                                                  .toList()
+                                                            : [''],
+                                                        displayStringForOption: (unit) => unit,
+                                                        controller: _uniteController,
+                                                        onSelected: (unit) {
+                                                          if (_selectedArticle != null) {
+                                                            _verifierUniteArticle(unit);
+                                                          }
+                                                          _quantiteFocusNode.requestFocus();
+                                                        },
+                                                        focusNode: _uniteFocusNode,
+                                                        hintText: 'Unité...',
+                                                        decoration: InputDecoration(
+                                                          border: const OutlineInputBorder(),
+                                                          contentPadding: const EdgeInsets.symmetric(
+                                                            horizontal: 4,
+                                                            vertical: 2,
+                                                          ),
+                                                          fillColor: _isClientSelected
+                                                              ? null
+                                                              : Colors.grey[200],
+                                                          filled: !_isClientSelected,
+                                                        ),
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: _isClientSelected
+                                                              ? Colors.black
+                                                              : Colors.grey,
+                                                        ),
+                                                        onSubmitted: (value) {
+                                                          if (_selectedArticle != null && value.isNotEmpty) {
+                                                            _verifierUniteArticle(value);
+                                                          }
+                                                          _quantiteFocusNode.requestFocus();
+                                                        },
+                                                        onTabPressed: () => _quantiteFocusNode.requestFocus(),
+                                                        onShiftTabPressed: () => widget.tousDepots
+                                                            ? _depotFocusNode.requestFocus()
+                                                            : _designationFocusNode.requestFocus(),
+                                                        onFocusLost: (value) {
+                                                          if (_selectedArticle != null && value.isNotEmpty) {
+                                                            _verifierUniteArticle(value);
+                                                          }
+                                                        },
+                                                        enabled: _isClientSelected,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (_selectedArticle != null && _uniteAffichage.isNotEmpty)
+                                                    Text(
+                                                      _uniteAffichage,
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors.blue,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            //Quantités avec stock disponible en rouge si insuffisant
+                                            Expanded(
+                                              flex: 2,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text('Quantités', style: TextStyle(fontSize: 12)),
+                                                  const SizedBox(height: 4),
+                                                  SizedBox(
+                                                    height: 25,
+                                                    child: Focus(
+                                                      onKeyEvent: (node, event) {
+                                                        if (event is KeyDownEvent &&
+                                                            event.logicalKey == LogicalKeyboardKey.tab) {
+                                                          final isShiftPressed =
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftRight);
+
+                                                          if (isShiftPressed) {
+                                                            _uniteFocusNode.requestFocus();
+                                                          } else {
+                                                            _validerQuantite(_quantiteController.text);
+                                                            _prixFocusNode.requestFocus();
+                                                          }
+                                                          return KeyEventResult.handled;
+                                                        }
+                                                        return KeyEventResult.ignored;
+                                                      },
+                                                      child: TextField(
+                                                        controller: _quantiteController,
+                                                        focusNode: _quantiteFocusNode,
+                                                        inputFormatters: [
+                                                          FilteringTextInputFormatter.allow(
+                                                            RegExp(r'^\d*\.?\d*'),
+                                                          ),
+                                                        ],
+                                                        decoration: InputDecoration(
+                                                          border: OutlineInputBorder(
+                                                            borderSide: BorderSide(
+                                                              color: _isQuantiteInsuffisante()
+                                                                  ? Colors.red
+                                                                  : Colors.grey,
+                                                              width: 1,
+                                                            ),
+                                                          ),
+                                                          enabledBorder: OutlineInputBorder(
+                                                            borderSide: BorderSide(
+                                                              color: _isQuantiteInsuffisante()
+                                                                  ? Colors.red
+                                                                  : Colors.grey,
+                                                              width: 1,
+                                                            ),
+                                                          ),
+                                                          contentPadding: const EdgeInsets.symmetric(
+                                                            horizontal: 4,
+                                                            vertical: 2,
+                                                          ),
+                                                          focusedBorder: OutlineInputBorder(
+                                                            borderSide: BorderSide(
+                                                              color: _isQuantiteInsuffisante()
+                                                                  ? Colors.red
+                                                                  : Colors.blue,
+                                                              width: 2,
+                                                            ),
+                                                          ),
+                                                          fillColor: _isClientSelected
+                                                              ? null
+                                                              : Colors.grey[200],
+                                                          filled: !_isClientSelected,
+                                                        ),
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: !_isClientSelected
+                                                              ? Colors.grey
+                                                              : _isQuantiteInsuffisante()
+                                                              ? Colors.red
+                                                              : Colors.black,
+                                                        ),
+                                                        onChanged: (value) {
+                                                          setState(() {}); // Refresh to update color
+                                                        },
+                                                        // ENTER/TAB in Quantités goes to Prix
+                                                        onSubmitted: (value) {
+                                                          _prixFocusNode.requestFocus();
+                                                        },
+                                                        readOnly:
+                                                            _selectedVerification == 'JOURNAL' ||
+                                                            !_isClientSelected,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (_selectedArticle != null && _selectedDepot != null)
+                                                    FutureBuilder<String>(
+                                                      future: _getStocksToutesUnites(
+                                                        _selectedArticle!,
+                                                        _selectedDepot!,
+                                                      ),
+                                                      builder: (context, snapshot) {
+                                                        if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                                          return Text(
+                                                            '${snapshot.data}',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color: _stockInsuffisant
+                                                                  ? Colors.red
+                                                                  : Colors.green[700],
+                                                            ),
+                                                          );
+                                                        }
+                                                        return const SizedBox.shrink();
+                                                      },
+                                                    ),
+                                                  if (_selectedArticle != null && _selectedUnite == "")
+                                                    const SizedBox(height: 16),
+                                                ],
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            //Prix de vente unitaire HT de l'article
+                                            Expanded(
+                                              flex: 2,
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  const Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text('P.U HT', style: TextStyle(fontSize: 12)),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 4),
+                                                  SizedBox(
+                                                    height: 25,
+                                                    child: Focus(
+                                                      onKeyEvent: (node, event) {
+                                                        if (event is KeyDownEvent &&
+                                                            event.logicalKey == LogicalKeyboardKey.tab) {
+                                                          final isShiftPressed =
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                              HardwareKeyboard.instance.logicalKeysPressed
+                                                                  .contains(LogicalKeyboardKey.shiftRight);
+
+                                                          if (isShiftPressed) {
+                                                            _quantiteFocusNode.requestFocus();
+                                                          } else {
+                                                            _ajouterFocusNode.requestFocus();
+                                                          }
+                                                          return KeyEventResult.handled;
+                                                        }
+                                                        return KeyEventResult.ignored;
+                                                      },
+                                                      child: TextField(
+                                                        controller: _prixController,
+                                                        focusNode: _prixFocusNode,
+                                                        decoration: InputDecoration(
+                                                          border: const OutlineInputBorder(),
+                                                          contentPadding: const EdgeInsets.symmetric(
+                                                            horizontal: 4,
+                                                            vertical: 2,
+                                                          ),
+                                                          focusedBorder: const OutlineInputBorder(
+                                                            borderSide: BorderSide(
+                                                              color: Colors.blue,
+                                                              width: 2,
+                                                            ),
+                                                          ),
+                                                          fillColor: _isClientSelected
+                                                              ? null
+                                                              : Colors.grey[200],
+                                                          filled: !_isClientSelected,
+                                                        ),
+                                                        style: TextStyle(
+                                                          fontSize: 12,
+                                                          color: _isClientSelected
+                                                              ? Colors.black
+                                                              : Colors.grey,
+                                                        ),
+                                                        // onChanged: (value) => _calculerMontant(),
+                                                        // ENTER in Prix goes to Ajouter
+                                                        onSubmitted: (value) =>
+                                                            _ajouterFocusNode.requestFocus(),
+                                                        readOnly:
+                                                            _selectedVerification == 'JOURNAL' ||
+                                                            !_isClientSelected,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  if (_selectedArticle != null) const SizedBox(height: 16),
+                                                ],
+                                              ),
+                                            ),
+
+                                            //Bouton Ajouter et Annuler
+                                            if (_shouldShowAddButton()) ...[
+                                              const SizedBox(width: 8),
+                                              Column(
+                                                children: [
+                                                  const SizedBox(height: 16),
+                                                  Column(
+                                                    children: [
+                                                      Row(
+                                                        children: [
+                                                          // AJOUTER/MODIFIER BUTTON
+                                                          Focus(
+                                                            focusNode: _ajouterFocusNode,
+                                                            onKeyEvent: (node, event) {
+                                                              if (event is KeyDownEvent) {
+                                                                if (event.logicalKey ==
+                                                                    LogicalKeyboardKey.tab) {
+                                                                  final isShiftPressed =
+                                                                      HardwareKeyboard
+                                                                          .instance
+                                                                          .logicalKeysPressed
+                                                                          .contains(
+                                                                            LogicalKeyboardKey.shiftLeft,
+                                                                          ) ||
+                                                                      HardwareKeyboard
+                                                                          .instance
+                                                                          .logicalKeysPressed
+                                                                          .contains(
+                                                                            LogicalKeyboardKey.shiftRight,
+                                                                          );
+
+                                                                  if (isShiftPressed) {
+                                                                    _prixFocusNode.requestFocus();
+                                                                  } else {
+                                                                    _annulerFocusNode.requestFocus();
+                                                                  }
+                                                                  return KeyEventResult.handled;
+                                                                } else if (event.logicalKey ==
+                                                                    LogicalKeyboardKey.enter) {
+                                                                  if (_ajouterFocusNode.hasFocus &&
+                                                                      _isClientSelected) {
+                                                                    _ajouterLigne();
+                                                                  }
+                                                                  return KeyEventResult.handled;
+                                                                }
+                                                              }
+                                                              return KeyEventResult.ignored;
+                                                            },
+                                                            child: Container(
+                                                              decoration: BoxDecoration(
+                                                                border: _ajouterFocusNode.hasFocus
+                                                                    ? Border.all(color: Colors.blue, width: 3)
+                                                                    : null,
+                                                                borderRadius: BorderRadius.circular(4),
+                                                                boxShadow: _ajouterFocusNode.hasFocus
+                                                                    ? [
+                                                                        BoxShadow(
+                                                                          color: Colors.blue.withValues(
+                                                                            alpha: 0.3,
+                                                                          ),
+                                                                          blurRadius: 4,
+                                                                          spreadRadius: 1,
+                                                                        ),
+                                                                      ]
+                                                                    : null,
+                                                              ),
+                                                              child: ElevatedButton(
+                                                                onPressed: _isClientSelected
+                                                                    ? _ajouterLigne
+                                                                    : null,
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: _ajouterFocusNode.hasFocus
+                                                                      ? Colors.green[600]
+                                                                      : (_isClientSelected
+                                                                            ? Colors.green
+                                                                            : Colors.grey),
+                                                                  foregroundColor: Colors.white,
+                                                                  minimumSize: const Size(60, 35),
+                                                                  elevation: _ajouterFocusNode.hasFocus
+                                                                      ? 4
+                                                                      : 2,
+                                                                ),
+                                                                child: Text(
+                                                                  _ajouterFocusNode.hasFocus
+                                                                      ? (_isModifyingLine
+                                                                            ? 'Modifier ↵'
+                                                                            : 'Ajouter ↵')
+                                                                      : (_isModifyingLine
+                                                                            ? 'Modifier'
+                                                                            : 'Ajouter'),
+                                                                  style: TextStyle(
+                                                                    fontSize: 12,
+                                                                    fontWeight: _ajouterFocusNode.hasFocus
+                                                                        ? FontWeight.bold
+                                                                        : FontWeight.normal,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          // ANNULER BUTTON
+                                                          Focus(
+                                                            focusNode: _annulerFocusNode,
+                                                            onKeyEvent: (node, event) {
+                                                              if (event is KeyDownEvent) {
+                                                                if (event.logicalKey ==
+                                                                    LogicalKeyboardKey.tab) {
+                                                                  final isShiftPressed =
+                                                                      HardwareKeyboard
+                                                                          .instance
+                                                                          .logicalKeysPressed
+                                                                          .contains(
+                                                                            LogicalKeyboardKey.shiftLeft,
+                                                                          ) ||
+                                                                      HardwareKeyboard
+                                                                          .instance
+                                                                          .logicalKeysPressed
+                                                                          .contains(
+                                                                            LogicalKeyboardKey.shiftRight,
+                                                                          );
+
+                                                                  if (isShiftPressed) {
+                                                                    _ajouterFocusNode.requestFocus();
+                                                                  } else {
+                                                                    _clientFocusNode.requestFocus();
+                                                                  }
+                                                                  return KeyEventResult.handled;
+                                                                } else if (event.logicalKey ==
+                                                                    LogicalKeyboardKey.enter) {
+                                                                  if (_annulerFocusNode.hasFocus &&
+                                                                      _isClientSelected) {
+                                                                    _isModifyingLine
+                                                                        ? _annulerModificationLigne()
+                                                                        : _resetArticleForm();
+                                                                  }
+                                                                  return KeyEventResult.handled;
+                                                                }
+                                                              }
+                                                              return KeyEventResult.ignored;
+                                                            },
+                                                            child: Container(
+                                                              decoration: BoxDecoration(
+                                                                border: _annulerFocusNode.hasFocus
+                                                                    ? Border.all(color: Colors.blue, width: 3)
+                                                                    : null,
+                                                                borderRadius: BorderRadius.circular(4),
+                                                                boxShadow: _annulerFocusNode.hasFocus
+                                                                    ? [
+                                                                        BoxShadow(
+                                                                          color: Colors.blue.withValues(
+                                                                            alpha: 0.3,
+                                                                          ),
+                                                                          blurRadius: 4,
+                                                                          spreadRadius: 1,
+                                                                        ),
+                                                                      ]
+                                                                    : null,
+                                                              ),
+                                                              child: ElevatedButton(
+                                                                onPressed: _isClientSelected
+                                                                    ? (_isModifyingLine
+                                                                          ? _annulerModificationLigne
+                                                                          : _resetArticleForm)
+                                                                    : null,
+                                                                style: ElevatedButton.styleFrom(
+                                                                  backgroundColor: _annulerFocusNode.hasFocus
+                                                                      ? Colors.orange[600]
+                                                                      : (_isClientSelected
+                                                                            ? Colors.orange
+                                                                            : Colors.grey),
+                                                                  foregroundColor: Colors.white,
+                                                                  minimumSize: const Size(60, 35),
+                                                                  elevation: _annulerFocusNode.hasFocus
+                                                                      ? 4
+                                                                      : 2,
+                                                                ),
+                                                                child: Text(
+                                                                  _annulerFocusNode.hasFocus
+                                                                      ? 'Annuler ↵'
+                                                                      : 'Annuler',
+                                                                  style: TextStyle(
+                                                                    fontSize: 12,
+                                                                    fontWeight: _annulerFocusNode.hasFocus
+                                                                        ? FontWeight.bold
+                                                                        : FontWeight.normal,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      if (_selectedArticle != null)
+                                                        const SizedBox(height: 16),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+
+                                      // Articles table: // Lignes de vente list section
+                                      Expanded(
+                                        child: Container(
+                                          margin: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            border: Border.all(color: Colors.grey, width: 1),
+                                            color: Colors.white,
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                height: 25,
+                                                decoration: BoxDecoration(color: Colors.orange[300]),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      width: 30,
+                                                      alignment: Alignment.center,
+                                                      decoration: const BoxDecoration(
+                                                        border: Border(
+                                                          right: BorderSide(color: Colors.grey, width: 1),
+                                                          bottom: BorderSide(color: Colors.grey, width: 1),
+                                                        ),
+                                                      ),
+                                                      child: const Icon(Icons.delete, size: 12),
+                                                    ),
+                                                    Expanded(
+                                                      flex: 3,
+                                                      child: Container(
+                                                        alignment: Alignment.center,
+                                                        decoration: const BoxDecoration(
+                                                          border: Border(
+                                                            right: BorderSide(color: Colors.grey, width: 1),
+                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                          ),
+                                                        ),
+                                                        child: const Text(
+                                                          'DESIGNATION',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Expanded(
+                                                      flex: 1,
+                                                      child: Container(
+                                                        alignment: Alignment.center,
+                                                        decoration: const BoxDecoration(
+                                                          border: Border(
+                                                            right: BorderSide(color: Colors.grey, width: 1),
+                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                          ),
+                                                        ),
+                                                        child: const Text(
+                                                          'UNITES',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Expanded(
+                                                      flex: 1,
+                                                      child: Container(
+                                                        alignment: Alignment.center,
+                                                        decoration: const BoxDecoration(
+                                                          border: Border(
+                                                            right: BorderSide(color: Colors.grey, width: 1),
+                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                          ),
+                                                        ),
+                                                        child: const Text(
+                                                          'QUANTITES',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Expanded(
+                                                      flex: 2,
+                                                      child: Container(
+                                                        alignment: Alignment.center,
+                                                        decoration: const BoxDecoration(
+                                                          border: Border(
+                                                            right: BorderSide(color: Colors.grey, width: 1),
+                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                          ),
+                                                        ),
+                                                        child: const Text(
+                                                          'PRIX UNITAIRE (HT)',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    Expanded(
+                                                      flex: 2,
+                                                      child: Container(
+                                                        alignment: Alignment.center,
+                                                        decoration: const BoxDecoration(
+                                                          border: Border(
+                                                            right: BorderSide(color: Colors.grey, width: 1),
+                                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                                          ),
+                                                        ),
+                                                        child: const Text(
+                                                          'MONTANT',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    if (widget.tousDepots)
+                                                      Expanded(
+                                                        flex: 1,
+                                                        child: Container(
+                                                          alignment: Alignment.center,
+                                                          decoration: const BoxDecoration(
+                                                            border: Border(
+                                                              bottom: BorderSide(
+                                                                color: Colors.grey,
+                                                                width: 1,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          child: const Text(
+                                                            'DEPOTS',
+                                                            style: TextStyle(
+                                                              fontSize: 11,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: _lignesVente.isEmpty
+                                                    ? const Center(
+                                                        child: Text(
+                                                          'Aucun article ajouté',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            color: Colors.grey,
+                                                            fontStyle: FontStyle.italic,
+                                                          ),
+                                                        ),
+                                                      )
+                                                    : ListView.builder(
+                                                        itemCount: _lignesVente.length,
+                                                        itemExtent: 18,
+                                                        itemBuilder: (context, index) {
+                                                          final ligne = _lignesVente[index];
+                                                          return MouseRegion(
+                                                            onEnter: (_) {
+                                                              setState(() {
+                                                                _selectedRowIndex = index;
+                                                              });
+                                                            },
+                                                            onExit: (_) {
+                                                              setState(() {
+                                                                _selectedRowIndex = index;
+                                                              });
+                                                            },
+                                                            child: GestureDetector(
+                                                              onTap: () {
+                                                                setState(() {
+                                                                  _selectedRowIndex = index;
+                                                                });
+                                                              },
+                                                              onSecondaryTapDown:
+                                                                  _selectedVerification == 'JOURNAL'
+                                                                  ? null
+                                                                  : (details) => _showContextMenu(
+                                                                      context,
+                                                                      details,
+                                                                      index,
+                                                                    ),
+                                                              child: Container(
+                                                                height: 18,
+                                                                decoration: BoxDecoration(
+                                                                  color: _selectedRowIndex == index
+                                                                      ? Colors.blue[200]
+                                                                      : (index % 2 == 0
+                                                                            ? Colors.white
+                                                                            : Colors.grey[50]),
+                                                                ),
+                                                                child: Row(
+                                                                  children: [
+                                                                    Container(
+                                                                      width: 30,
+                                                                      alignment: Alignment.center,
+                                                                      decoration: const BoxDecoration(
+                                                                        border: Border(
+                                                                          right: BorderSide(
+                                                                            color: Colors.grey,
+                                                                            width: 1,
+                                                                          ),
+                                                                          bottom: BorderSide(
+                                                                            color: Colors.grey,
+                                                                            width: 1,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                      child: IconButton(
+                                                                        icon: const Icon(
+                                                                          Icons.close,
+                                                                          size: 12,
+                                                                        ),
+                                                                        onPressed: () =>
+                                                                            _supprimerLigne(index),
+                                                                        padding: EdgeInsets.zero,
+                                                                        constraints: const BoxConstraints(),
+                                                                      ),
+                                                                    ),
+                                                                    Expanded(
+                                                                      flex: 3,
+                                                                      child: Container(
+                                                                        padding: const EdgeInsets.only(
+                                                                          left: 4,
+                                                                        ),
+                                                                        alignment: Alignment.centerLeft,
+                                                                        decoration: const BoxDecoration(
+                                                                          border: Border(
+                                                                            right: BorderSide(
+                                                                              color: Colors.grey,
+                                                                              width: 1,
+                                                                            ),
+                                                                            bottom: BorderSide(
+                                                                              color: Colors.grey,
+                                                                              width: 1,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                        child: Text(
+                                                                          ligne['designation'] ?? '',
+                                                                          style: const TextStyle(
+                                                                            fontSize: 11,
+                                                                          ),
+                                                                          overflow: TextOverflow.ellipsis,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    Expanded(
+                                                                      flex: 1,
+                                                                      child: Container(
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          horizontal: 4,
+                                                                        ),
+                                                                        alignment: Alignment.center,
+                                                                        decoration: const BoxDecoration(
+                                                                          border: Border(
+                                                                            right: BorderSide(
+                                                                              color: Colors.grey,
+                                                                              width: 1,
+                                                                            ),
+                                                                            bottom: BorderSide(
+                                                                              color: Colors.grey,
+                                                                              width: 1,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                        child: Text(
+                                                                          ligne['unites'] ?? '',
+                                                                          style: const TextStyle(
+                                                                            fontSize: 11,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    Expanded(
+                                                                      flex: 1,
+                                                                      child: Container(
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          horizontal: 4,
+                                                                        ),
+                                                                        alignment: Alignment.center,
+                                                                        decoration: const BoxDecoration(
+                                                                          border: Border(
+                                                                            right: BorderSide(
+                                                                              color: Colors.grey,
+                                                                              width: 1,
+                                                                            ),
+                                                                            bottom: BorderSide(
+                                                                              color: Colors.grey,
+                                                                              width: 1,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                        child: Text(
+                                                                          (ligne['quantite'] as double?)
+                                                                                  ?.round()
+                                                                                  .toString() ??
+                                                                              '0',
+                                                                          style: const TextStyle(
+                                                                            fontSize: 11,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    Expanded(
+                                                                      flex: 2,
+                                                                      child: Container(
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          horizontal: 4,
+                                                                        ),
+                                                                        alignment: Alignment.center,
+                                                                        decoration: const BoxDecoration(
+                                                                          border: Border(
+                                                                            right: BorderSide(
+                                                                              color: Colors.grey,
+                                                                              width: 1,
+                                                                            ),
+                                                                            bottom: BorderSide(
+                                                                              color: Colors.grey,
+                                                                              width: 1,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                        child: Text(
+                                                                          AppFunctions.formatNumber(
+                                                                            ligne['prixUnitaire']
+                                                                                    ?.toDouble() ??
+                                                                                0,
+                                                                          ),
+                                                                          style: const TextStyle(
+                                                                            fontSize: 11,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    Expanded(
+                                                                      flex: 2,
+                                                                      child: Container(
+                                                                        padding: const EdgeInsets.symmetric(
+                                                                          horizontal: 4,
+                                                                        ),
+                                                                        alignment: Alignment.center,
+                                                                        decoration: BoxDecoration(
+                                                                          border: Border(
+                                                                            right: widget.tousDepots
+                                                                                ? const BorderSide(
+                                                                                    color: Colors.grey,
+                                                                                    width: 1,
+                                                                                  )
+                                                                                : BorderSide.none,
+                                                                            bottom: const BorderSide(
+                                                                              color: Colors.grey,
+                                                                              width: 1,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                        child: Text(
+                                                                          AppFunctions.formatNumber(
+                                                                            ligne['montant']?.toDouble() ?? 0,
+                                                                          ),
+                                                                          style: const TextStyle(
+                                                                            fontSize: 11,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    if (widget.tousDepots)
+                                                                      Expanded(
+                                                                        flex: 1,
+                                                                        child: Container(
+                                                                          padding: const EdgeInsets.symmetric(
+                                                                            horizontal: 4,
+                                                                          ),
+                                                                          alignment: Alignment.center,
+                                                                          decoration: const BoxDecoration(
+                                                                            border: Border(
+                                                                              bottom: BorderSide(
+                                                                                color: Colors.grey,
+                                                                                width: 1,
+                                                                              ),
+                                                                            ),
+                                                                          ),
+                                                                          child: Text(
+                                                                            ligne['depot'] ?? '',
+                                                                            style: const TextStyle(
+                                                                              fontSize: 11,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+
+                                      // Bottom section - Invoice-style totals and payment
+                                      Container(
+                                        color: Colors.white,
+                                        padding: const EdgeInsets.all(12),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            // Left side - Payment details
+                                            Expanded(
+                                              flex: 2,
+                                              child: Container(
+                                                padding: const EdgeInsets.all(8),
+                                                decoration: BoxDecoration(
+                                                  border: Border.all(color: Colors.grey.shade300),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text(
+                                                      'MODE DE PAIEMENT',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    SizedBox(
+                                                      height: 25,
+                                                      width: double.infinity,
+                                                      child: ModePaiementDropdown(
+                                                        selectedMode: _selectedModePaiement,
+                                                        showCreditMode: _showCreditMode && !_isVendeur(),
+                                                        tousDepots: widget.tousDepots,
+                                                        onChanged: (value) {
+                                                          setState(() {
+                                                            _selectedModePaiement = value;
+                                                          });
+                                                          _calculerTotaux();
+                                                        },
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    if (_showCreditMode &&
+                                                        !_isVendeur() &&
+                                                        widget.tousDepots) ...[
+                                                      const SizedBox(height: 12),
+                                                      Row(
+                                                        children: [
+                                                          const Text(
+                                                            'Solde antérieur:',
+                                                            style: TextStyle(fontSize: 12),
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                            child: SizedBox(
+                                                              height: 25,
+                                                              child: TextField(
+                                                                controller: _soldeAnterieurController,
+                                                                decoration: const InputDecoration(
+                                                                  border: OutlineInputBorder(),
+                                                                  contentPadding: EdgeInsets.symmetric(
+                                                                    horizontal: 8,
+                                                                    vertical: 4,
+                                                                  ),
+                                                                  fillColor: Color(0xFFF5F5F5),
+                                                                  filled: true,
+                                                                ),
+                                                                style: const TextStyle(fontSize: 12),
+                                                                textAlign: TextAlign.right,
+                                                                readOnly: true,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const SizedBox(height: 8),
+                                                      Row(
+                                                        children: [
+                                                          Text(
+                                                            _selectedModePaiement == 'A crédit'
+                                                                ? 'Solde dû client:'
+                                                                : 'Nouveau solde:',
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              color: _selectedModePaiement == 'A crédit'
+                                                                  ? Colors.red
+                                                                  : Colors.black,
+                                                              fontWeight: _selectedModePaiement == 'A crédit'
+                                                                  ? FontWeight.w500
+                                                                  : FontWeight.normal,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 8),
+                                                          Expanded(
+                                                            child: SizedBox(
+                                                              height: 25,
+                                                              child: TextField(
+                                                                controller: _nouveauSoldeController,
+                                                                decoration: InputDecoration(
+                                                                  border: const OutlineInputBorder(),
+                                                                  contentPadding: const EdgeInsets.symmetric(
+                                                                    horizontal: 8,
+                                                                    vertical: 4,
+                                                                  ),
+                                                                  fillColor:
+                                                                      _selectedModePaiement == 'A crédit'
+                                                                      ? Colors.red.shade50
+                                                                      : const Color(0xFFF5F5F5),
+                                                                  filled: true,
+                                                                ),
                                                                 style: TextStyle(
-                                                                  fontSize: 10,
-                                                                  color: Colors.grey[600],
-                                                                  fontStyle: FontStyle.italic,
+                                                                  fontSize: 12,
+                                                                  color: _selectedModePaiement == 'A crédit'
+                                                                      ? Colors.red
+                                                                      : Colors.black,
+                                                                  fontWeight:
+                                                                      _selectedModePaiement == 'A crédit'
+                                                                      ? FontWeight.w500
+                                                                      : FontWeight.normal,
+                                                                ),
+                                                                readOnly: true,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            // Right side - Invoice totals
+                                            if (!_isVendeur())
+                                              Expanded(
+                                                flex: 2,
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(8),
+                                                  decoration: BoxDecoration(
+                                                    border: Border.all(color: Colors.grey.shade300),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    color: Colors.grey.shade50,
+                                                  ),
+                                                  child: Column(
+                                                    children: [
+                                                      const Text(
+                                                        'RÉCAPITULATIF FACTURE',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.bold,
+                                                        ),
+                                                      ),
+
+                                                      const SizedBox(height: 8),
+                                                      // Remise
+                                                      Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                        children: [
+                                                          Row(
+                                                            children: [
+                                                              const Text(
+                                                                'Remise:',
+                                                                style: TextStyle(fontSize: 12),
+                                                              ),
+                                                              const SizedBox(width: 4),
+                                                              SizedBox(
+                                                                width: 50,
+                                                                height: 25,
+                                                                child: TextField(
+                                                                  controller: _remiseController,
+                                                                  decoration: const InputDecoration(
+                                                                    border: OutlineInputBorder(),
+                                                                    contentPadding: EdgeInsets.symmetric(
+                                                                      horizontal: 4,
+                                                                      vertical: 2,
+                                                                    ),
+                                                                    suffixText: '%',
+                                                                  ),
+                                                                  style: const TextStyle(fontSize: 12),
+                                                                  textAlign: TextAlign.center,
+                                                                  onChanged: (value) => _calculerTotaux(),
+                                                                  readOnly:
+                                                                      _selectedVerification == 'JOURNAL',
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                          SizedBox(
+                                                            width: 100,
+                                                            height: 25,
+                                                            child: TextField(
+                                                              controller: TextEditingController(
+                                                                text: _calculateRemiseAmount(),
+                                                              ),
+                                                              decoration: const InputDecoration(
+                                                                border: OutlineInputBorder(),
+                                                                contentPadding: EdgeInsets.symmetric(
+                                                                  horizontal: 4,
+                                                                  vertical: 2,
+                                                                ),
+                                                                fillColor: Colors.white,
+                                                                filled: true,
+                                                              ),
+                                                              style: const TextStyle(fontSize: 12),
+                                                              textAlign: TextAlign.right,
+                                                              readOnly: true,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                      const Divider(height: 16),
+                                                      // Total TTC
+                                                      Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                        children: [
+                                                          const Text(
+                                                            'TOTAL TTC:',
+                                                            style: TextStyle(
+                                                              fontSize: 13,
+                                                              fontWeight: FontWeight.bold,
+                                                            ),
+                                                          ),
+                                                          SizedBox(
+                                                            width: 100,
+                                                            height: 30,
+                                                            child: TextField(
+                                                              controller: _totalTTCController,
+                                                              decoration: const InputDecoration(
+                                                                border: OutlineInputBorder(),
+                                                                contentPadding: EdgeInsets.symmetric(
+                                                                  horizontal: 4,
+                                                                  vertical: 2,
+                                                                ),
+                                                              ),
+                                                              style: const TextStyle(
+                                                                fontSize: 13,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: Colors.blue,
+                                                              ),
+                                                              textAlign: TextAlign.right,
+                                                              readOnly: true,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      // Action buttons
+                                      Container(
+                                        width: double.infinity,
+                                        decoration: const BoxDecoration(color: Color(0xFFFFB6C1)),
+                                        padding: const EdgeInsets.all(8),
+                                        child: Wrap(
+                                          spacing: 4,
+                                          runSpacing: 4,
+                                          alignment: WrapAlignment.end,
+                                          children: [
+                                            //Bouton Nouvel vente
+                                            if (_isExistingPurchase) ...[
+                                              Tooltip(
+                                                message: 'Créer nouveau (Ctrl+N)',
+                                                child: ElevatedButton(
+                                                  onPressed: _creerNouvelleVente,
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize: const Size(60, 30),
+                                                  ),
+                                                  child: const Text(
+                                                    'Créer (Ctrl+N)',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ),
+                                              if (_peutValiderBrouillard()) ...[
+                                                Tooltip(
+                                                  message: 'Valider la vente (F3)',
+                                                  child: ElevatedButton(
+                                                    onPressed: _validerBrouillardVersJournal,
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: Colors.green,
+                                                      foregroundColor: Colors.white,
+                                                      minimumSize: const Size(80, 30),
+                                                    ),
+                                                    child: const Text(
+                                                      'Valider la vente(F3)',
+                                                      style: TextStyle(fontSize: 12),
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Bouton Contre-passer vente brouillard
+                                                Tooltip(
+                                                  message: 'Contre-passer vente brouillard',
+                                                  child: ElevatedButton(
+                                                    onPressed: _contrePasserVenteBrouillard,
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: Colors.red,
+                                                      foregroundColor: Colors.white,
+                                                      minimumSize: const Size(80, 30),
+                                                    ),
+                                                    child: const Text(
+                                                      'Supprimer Brouillard',
+                                                      style: TextStyle(fontSize: 12),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                            // Bouton Importation
+                                            if (!_isExistingPurchase)
+                                              Tooltip(
+                                                message: 'Importer lignes d\'achat',
+                                                child: ElevatedButton(
+                                                  onPressed: _importerLignesVente,
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.orange,
+                                                    foregroundColor: Colors.white,
+                                                    minimumSize: const Size(60, 30),
+                                                  ),
+                                                  child: const Text(
+                                                    'Importer lignes',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ),
+                                            if (!_peutValiderBrouillard()) ...[
+                                              //Bouton Contre passer
+                                              if (_isExistingPurchase) ...[
+                                                FutureBuilder<bool>(
+                                                  future: _isVenteContrePassee(),
+                                                  builder: (context, snapshot) {
+                                                    final isContrePassee = snapshot.data ?? false;
+                                                    return Tooltip(
+                                                      message: isContrePassee
+                                                          ? 'Vente déjà contre-passée'
+                                                          : 'Contre-passer (Ctrl+D)',
+                                                      child: ElevatedButton(
+                                                        onPressed: isContrePassee ? null : _contrePasserVente,
+                                                        style: ElevatedButton.styleFrom(
+                                                          minimumSize: const Size(80, 30),
+                                                          backgroundColor: isContrePassee
+                                                              ? Colors.grey
+                                                              : null,
+                                                        ),
+                                                        child: const Text(
+                                                          'Contre Passer (Ctrl+D)',
+                                                          style: TextStyle(fontSize: 12),
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              ],
+                                            ],
+
+                                            //Bouton Modifier/ Enregistrer
+                                            Tooltip(
+                                              message: _isExistingPurchase
+                                                  ? 'Modifier (Ctrl+S)'
+                                                  : 'Enregistrer (Ctrl+S)',
+                                              child: ElevatedButton(
+                                                onPressed: _selectedVerification == 'JOURNAL'
+                                                    ? null
+                                                    : (_isExistingPurchase ? _modifierVente : _validerVente),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: _isExistingPurchase
+                                                      ? Colors.blue
+                                                      : Colors.green,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size(60, 30),
+                                                ),
+                                                child: Text(
+                                                  _isExistingPurchase
+                                                      ? 'Modifier (Ctrl+S)'
+                                                      : 'Enregistrer (Ctrl+S)',
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                            ),
+
+                                            //Popup menu format papier d'impression
+                                            PopupMenuButton<String>(
+                                              style: const ButtonStyle(
+                                                padding: WidgetStateProperty.fromMap({
+                                                  WidgetState.hovered: EdgeInsets.all(0),
+                                                  WidgetState.focused: EdgeInsets.all(0),
+                                                  WidgetState.pressed: EdgeInsets.all(0),
+                                                }),
+                                              ),
+                                              menuPadding: const EdgeInsets.all(2),
+                                              initialValue: _selectedFormat,
+                                              itemBuilder: (BuildContext context) => [
+                                                const PopupMenuItem(
+                                                  value: 'A4',
+                                                  child: Text('Format A4', style: TextStyle(fontSize: 12)),
+                                                ),
+                                                const PopupMenuItem(
+                                                  value: 'A5',
+                                                  child: Text('Format A5', style: TextStyle(fontSize: 12)),
+                                                ),
+                                                const PopupMenuItem(
+                                                  value: 'A6',
+                                                  child: Text('Format A6', style: TextStyle(fontSize: 12)),
+                                                ),
+                                              ],
+                                              onSelected: (value) {
+                                                if (value == 'facture') {
+                                                  _apercuFacture();
+                                                } else if (value == 'bl') {
+                                                  _apercuBL();
+                                                } else {
+                                                  setState(() {
+                                                    _selectedFormat = value;
+                                                  });
+                                                }
+                                              },
+                                              child: Container(
+                                                constraints: const BoxConstraints(
+                                                  minWidth: 60,
+                                                  minHeight: 18,
+                                                  maxHeight: 30,
+                                                ),
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 3,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orange,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    const Icon(Icons.print, color: Colors.white, size: 16),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      _selectedFormat,
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 12,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    const Icon(
+                                                      Icons.arrow_drop_down,
+                                                      color: Colors.white,
+                                                      size: 16,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                            //Bouton d'impression facture
+                                            FutureBuilder<bool>(
+                                              future: _isVenteContrePassee(),
+                                              builder: (context, snapshot) {
+                                                final isContrePassee = snapshot.data ?? false;
+                                                return Tooltip(
+                                                  message: 'Imprimer Facture (Ctrl+P)',
+                                                  child: ElevatedButton(
+                                                    onPressed: isContrePassee ? null : _imprimerFacture,
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: _selectedVerification != 'JOURNAL'
+                                                          ? Colors.grey
+                                                          : Colors.teal,
+                                                      foregroundColor: Colors.white,
+                                                      minimumSize: const Size(60, 30),
+                                                    ),
+                                                    child: const Text(
+                                                      'Imprimer Facture (Ctrl+P)',
+                                                      style: TextStyle(fontSize: 12),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            // Bouton d'Aperçu Facture
+                                            FutureBuilder<bool>(
+                                              future: _isVenteContrePassee(),
+                                              builder: (context, snapshot) {
+                                                final isContrePassee = snapshot.data ?? false;
+                                                return Tooltip(
+                                                  message: 'Aperçu Facture',
+                                                  child: ElevatedButton(
+                                                    onPressed: isContrePassee ? null : _apercuFacture,
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: _selectedVerification != 'JOURNAL'
+                                                          ? Colors.grey
+                                                          : Colors.orange,
+                                                      foregroundColor: Colors.white,
+                                                      minimumSize: const Size(60, 30),
+                                                    ),
+                                                    child: const Text(
+                                                      'Aperçu Facture',
+                                                      style: TextStyle(fontSize: 12),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            // Bouton d'impression BL
+                                            FutureBuilder<bool>(
+                                              future: _isVenteContrePassee(),
+                                              builder: (context, snapshot) {
+                                                final isContrePassee = snapshot.data ?? false;
+                                                return Tooltip(
+                                                  message: 'Imprimer Bon de Livraison (Ctrl+Shift+P)',
+                                                  child: ElevatedButton(
+                                                    onPressed: isContrePassee ? null : _imprimerBL,
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: _selectedVerification != 'JOURNAL'
+                                                          ? Colors.grey
+                                                          : Colors.teal,
+                                                      foregroundColor: Colors.white,
+                                                      minimumSize: const Size(60, 30),
+                                                    ),
+                                                    child: const Text(
+                                                      'Imprimer BL (Ctrl+Shift+P)',
+                                                      style: TextStyle(fontSize: 12),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                            //Bouton aperçus BL
+                                            FutureBuilder<bool>(
+                                              future: _isVenteContrePassee(),
+                                              builder: (context, snapshot) {
+                                                final isContrePassee = snapshot.data ?? false;
+                                                return Tooltip(
+                                                  message: 'Aperçu Bon de Livraison',
+                                                  child: ElevatedButton(
+                                                    onPressed: isContrePassee ? null : _apercuBL,
+                                                    style: ElevatedButton.styleFrom(
+                                                      backgroundColor: _selectedVerification != 'JOURNAL'
+                                                          ? Colors.grey
+                                                          : Colors.orange,
+                                                      foregroundColor: Colors.white,
+                                                      minimumSize: const Size(60, 30),
+                                                    ),
+                                                    child: const Text(
+                                                      'Aperçu BL',
+                                                      style: TextStyle(fontSize: 12),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+
+                                            //Bouton de fermeture du modal de vente
+                                            Tooltip(
+                                              message: 'Fermer (Echap)',
+                                              child: ElevatedButton(
+                                                onPressed: () => Navigator.of(context).pop(),
+                                                style: ElevatedButton.styleFrom(
+                                                  minimumSize: const Size(60, 30),
+                                                ),
+                                                child: const Text('Fermer', style: TextStyle(fontSize: 12)),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+
+                                // Right sidebar - Article details
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 300),
+                                  width: _isRightSidebarCollapsed ? 40 : 280,
+                                  decoration: const BoxDecoration(
+                                    border: Border(left: BorderSide(color: Colors.grey, width: 1)),
+                                    color: Colors.white,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      // Header with toggle button
+                                      Container(
+                                        height: 35,
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.blue[50],
+                                          border: const Border(
+                                            bottom: BorderSide(color: Colors.grey, width: 1),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            if (!_isRightSidebarCollapsed) ...[
+                                              const Expanded(
+                                                child: Text(
+                                                  'Détails Article',
+                                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                                ),
+                                              ),
+                                            ],
+                                            IconButton(
+                                              onPressed: () {
+                                                setState(() {
+                                                  _isRightSidebarCollapsed = !_isRightSidebarCollapsed;
+                                                });
+                                              },
+                                              icon: Icon(
+                                                _isRightSidebarCollapsed
+                                                    ? Icons.chevron_left
+                                                    : Icons.chevron_right,
+                                                size: 16,
+                                              ),
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      // Content
+                                      if (!_isRightSidebarCollapsed)
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              // Champ de recherche d'article
+                                              Container(
+                                                padding: const EdgeInsets.all(8),
+                                                child: EnhancedAutocomplete<Article>(
+                                                  options: _articles,
+                                                  displayStringForOption: (article) => article.designation,
+                                                  onSelected: (article) {
+                                                    setState(() {
+                                                      _searchedArticle = article;
+                                                    });
+                                                  },
+                                                  hintText: 'Nom de l\'article...',
+                                                  controller: _searchArticleController,
+                                                  focusNode: _searchArticleFocusNode,
+                                                  decoration: const InputDecoration(
+                                                    labelText: 'Rechercher article',
+                                                    labelStyle: TextStyle(fontSize: 12),
+                                                    border: OutlineInputBorder(),
+                                                    contentPadding: EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 12,
+                                                    ),
+                                                    isDense: true,
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                              // Détails de l'article
+                                              Expanded(
+                                                child: _searchedArticle == null
+                                                    ? const Center(
+                                                        child: Text(
+                                                          'Saisissez le nom d\'un article\npour voir ses détails',
+                                                          textAlign: TextAlign.center,
+                                                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                                                        ),
+                                                      )
+                                                    : SingleChildScrollView(
+                                                        padding: const EdgeInsets.all(8),
+                                                        child: Column(
+                                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                                          children: [
+                                                            // Article name
+                                                            Container(
+                                                              width: double.infinity,
+                                                              padding: const EdgeInsets.all(8),
+                                                              decoration: BoxDecoration(
+                                                                color: Colors.blue[50],
+                                                                borderRadius: BorderRadius.circular(4),
+                                                                border: Border.all(color: Colors.blue[200]!),
+                                                              ),
+                                                              child: Text(
+                                                                _searchedArticle!.designation,
+                                                                style: const TextStyle(
+                                                                  fontSize: 12,
+                                                                  fontWeight: FontWeight.w500,
+                                                                ),
+                                                                maxLines: 2,
+                                                                overflow: TextOverflow.ellipsis,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(height: 12),
+                                                            // Prix de vente
+                                                            const Text(
+                                                              'PRIX DE VENTE',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: Colors.green,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(height: 4),
+                                                            _buildPriceRow(
+                                                              _searchedArticle!.u1,
+                                                              _searchedArticle!.pvu1,
+                                                            ),
+                                                            _buildPriceRow(
+                                                              _searchedArticle!.u2,
+                                                              _searchedArticle!.pvu2,
+                                                            ),
+                                                            _buildPriceRow(
+                                                              _searchedArticle!.u3,
+                                                              _searchedArticle!.pvu3,
+                                                            ),
+                                                            const SizedBox(height: 12),
+                                                            // Conversions
+                                                            const Text(
+                                                              'CONVERSIONS',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: Colors.orange,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(height: 4),
+
+                                                            _buildConversionRow(
+                                                              _searchedArticle!.u1,
+                                                              _searchedArticle!.u2,
+                                                              _searchedArticle!.tu2u1,
+                                                            ),
+                                                            _buildConversionRow(
+                                                              _searchedArticle!.u2,
+                                                              _searchedArticle!.u3,
+                                                              _searchedArticle!.tu3u2,
+                                                            ),
+                                                            const SizedBox(height: 12),
+                                                            // Prix d'achat
+                                                            const Text(
+                                                              'PRIX D\'ACHAT',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: Colors.red,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(height: 4),
+                                                            Container(
+                                                              width: double.infinity,
+                                                              padding: const EdgeInsets.all(6),
+                                                              decoration: BoxDecoration(
+                                                                color: Colors.red[50],
+                                                                borderRadius: BorderRadius.circular(4),
+                                                                border: Border.all(color: Colors.red[200]!),
+                                                              ),
+                                                              child: Text(
+                                                                'CMUP: ${AppFunctions.formatNumber(_searchedArticle!.cmup ?? 0)}',
+                                                                style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  color: Colors.red[700],
+                                                                  fontWeight: FontWeight.w500,
                                                                 ),
                                                               ),
                                                             ),
                                                           ],
                                                         ),
                                                       ),
-                                                    )),
-                                                if (_lignesVente.any(
-                                                  (ligne) => (ligne['diffPrix'] ?? 0) != 0,
-                                                )) ...[
-                                                  const Divider(height: 12),
-                                                  Row(
+                                              ),
+
+                                              // Section Différences de prix
+                                              if (_lignesVente.isNotEmpty) ...[
+                                                const SizedBox(height: 16),
+                                                Container(
+                                                  padding: const EdgeInsets.all(8),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.orange.shade50,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: Colors.orange.shade200),
+                                                  ),
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
                                                     children: [
-                                                      const Expanded(
-                                                        child: Text(
-                                                          'Total Différence:',
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight: FontWeight.bold,
-                                                          ),
-                                                        ),
-                                                      ),
                                                       Text(
-                                                        AppFunctions.formatNumber(_calculateTotalDiffPrix()),
+                                                        'Différences de prix',
                                                         style: TextStyle(
-                                                          fontSize: 12,
+                                                          fontSize: 14,
                                                           fontWeight: FontWeight.bold,
-                                                          color: _calculateTotalDiffPrix() >= 0
-                                                              ? Colors.green
-                                                              : Colors.red,
+                                                          color: Colors.orange.shade700,
                                                         ),
                                                       ),
+                                                      const SizedBox(height: 8),
+                                                      // Liste des différences par ligne
+                                                      ...(_lignesVente
+                                                          .where((ligne) => (ligne['diffPrix'] ?? 0) != 0)
+                                                          .map(
+                                                            (ligne) => Padding(
+                                                              padding: const EdgeInsets.symmetric(
+                                                                vertical: 2,
+                                                              ),
+                                                              child: Column(
+                                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                                children: [
+                                                                  Row(
+                                                                    children: [
+                                                                      Expanded(
+                                                                        child: Text(
+                                                                          ligne['designation'] ?? '',
+                                                                          style: const TextStyle(
+                                                                            fontSize: 11,
+                                                                            fontWeight: FontWeight.w500,
+                                                                          ),
+                                                                          overflow: TextOverflow.ellipsis,
+                                                                        ),
+                                                                      ),
+                                                                      Text(
+                                                                        AppFunctions.formatNumber(
+                                                                          (ligne['diffPrix'] ?? 0) *
+                                                                              (ligne['quantite'] ?? 0),
+                                                                        ),
+                                                                        style: TextStyle(
+                                                                          fontSize: 11,
+                                                                          fontWeight: FontWeight.bold,
+                                                                          color: (ligne['diffPrix'] ?? 0) >= 0
+                                                                              ? Colors.green
+                                                                              : Colors.red,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                  Padding(
+                                                                    padding: const EdgeInsets.only(
+                                                                      left: 8,
+                                                                      top: 1,
+                                                                    ),
+                                                                    child: Text(
+                                                                      '${AppFunctions.formatNumber(ligne['quantite'] ?? 0)} ${ligne['unites'] ?? ''} x ${AppFunctions.formatNumber(ligne['diffPrix'] ?? 0)} Ar',
+                                                                      style: TextStyle(
+                                                                        fontSize: 10,
+                                                                        color: Colors.grey[600],
+                                                                        fontStyle: FontStyle.italic,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            ),
+                                                          )),
+                                                      if (_lignesVente.any(
+                                                        (ligne) => (ligne['diffPrix'] ?? 0) != 0,
+                                                      )) ...[
+                                                        const Divider(height: 12),
+                                                        Row(
+                                                          children: [
+                                                            const Expanded(
+                                                              child: Text(
+                                                                'Total Différence:',
+                                                                style: TextStyle(
+                                                                  fontSize: 12,
+                                                                  fontWeight: FontWeight.bold,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                            Text(
+                                                              AppFunctions.formatNumber(
+                                                                _calculateTotalDiffPrix(),
+                                                              ),
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: _calculateTotalDiffPrix() >= 0
+                                                                    ? Colors.green
+                                                                    : Colors.red,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
                                                     ],
                                                   ),
-                                                ],
+                                                ),
                                               ],
-                                            ),
+                                            ],
                                           ),
-                                        ],
-                                      ],
-                                    ),
+                                        ),
+                                    ],
                                   ),
+                                ),
                               ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -6118,4 +6398,45 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       ),
     );
   }
+}
+
+// Définir les classes Intent
+class SaveIntent extends Intent {
+  const SaveIntent();
+}
+
+class NewSaleIntent extends Intent {
+  const NewSaleIntent();
+}
+
+class CancelSaleIntent extends Intent {
+  const CancelSaleIntent();
+}
+
+class CloseIntent extends Intent {
+  const CloseIntent();
+}
+
+class ValidateIntent extends Intent {
+  const ValidateIntent();
+}
+
+class PrintInvoiceIntent extends Intent {
+  const PrintInvoiceIntent();
+}
+
+class PrintBLIntent extends Intent {
+  const PrintBLIntent();
+}
+
+class SearchArticleIntent extends Intent {
+  const SearchArticleIntent();
+}
+
+class LastJournalIntent extends Intent {
+  const LastJournalIntent();
+}
+
+class LastCanceledIntent extends Intent {
+  const LastCanceledIntent();
 }

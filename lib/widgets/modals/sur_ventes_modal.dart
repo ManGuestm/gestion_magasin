@@ -50,7 +50,8 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
 
   Future<void> _generateNextNumRetour() async {
     // Générer le prochain numéro de retour sur ventes
-    final nextNum = 'RV${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final nextNum = 'RV${timestamp.length > 8 ? timestamp.substring(8) : timestamp}';
     _numRetourController.text = nextNum;
   }
 

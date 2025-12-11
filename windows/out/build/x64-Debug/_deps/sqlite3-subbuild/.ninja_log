@@ -1,0 +1,21 @@
+# ninja log v6
+7	97	7871635952159194	sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-mkdir	6f43dcd4b5a6ac8f
+7	97	7871635952159194	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-mkdir	6f43dcd4b5a6ac8f
+98	11953	7871636070741831	sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-download	ccaee4e063714780
+98	11953	7871636070741831	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-download	ccaee4e063714780
+12111	12186	7871636073095138	sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-configure	62a0572eb7d630fe
+11954	12031	7871636071527478	sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-update	b45e5f1ed63bbe27
+12031	12111	7871636072314329	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-patch	49d3bfc15d8d6469
+11954	12031	7871636071527478	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-update	b45e5f1ed63bbe27
+12031	12111	7871636072314329	sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-patch	49d3bfc15d8d6469
+12111	12186	7871636073095138	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-configure	62a0572eb7d630fe
+12187	12263	7871636073876811	sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-build	c3eaa235ac850879
+12418	12525	7871636076547192	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-done	5442a7cccfef563f
+12187	12263	7871636073876811	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-build	c3eaa235ac850879
+12263	12341	7871636074663067	sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-install	8fdf7f9f02d51dd2
+12418	12525	7871636076547192	sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-done	5442a7cccfef563f
+12263	12341	7871636074663067	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-install	8fdf7f9f02d51dd2
+12341	12418	7871636075448997	sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-test	dcfa79d8db0b06df
+12341	12418	7871636075448997	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/sqlite3-populate-prefix/src/sqlite3-populate-stamp/sqlite3-populate-test	dcfa79d8db0b06df
+12418	12525	7871636076547192	CMakeFiles/sqlite3-populate-complete	5442a7cccfef563f
+12418	12525	7871636076547192	C:/Users/rakpa/Music/gestion_magasin/windows/out/build/x64-Debug/_deps/sqlite3-subbuild/CMakeFiles/sqlite3-populate-complete	5442a7cccfef563f

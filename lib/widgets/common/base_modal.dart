@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter/services.dart';
 import '../../services/keyboard_service.dart';
 
 class BaseModal extends StatelessWidget {
@@ -38,14 +39,13 @@ class BaseModal extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      child: KeyboardService.buildKeyboardHandler(
-        onSave: onSave,
-        onCancel: onCancel ?? () => Navigator.of(context).pop(),
-        onNew: onNew,
-        onDelete: onDelete,
-        onSearch: onSearch,
-        onRefresh: onRefresh,
-        onPrint: onPrint,
+      child: KeyboardShortcutHandler(
+        shortcuts: {
+          if (onSave != null) LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyS): onSave!,
+          if (onCancel != null) LogicalKeySet(LogicalKeyboardKey.escape): onCancel!,
+          if (onNew != null) LogicalKeySet(LogicalKeyboardKey.control, LogicalKeyboardKey.keyN): onNew!,
+          if (onRefresh != null) LogicalKeySet(LogicalKeyboardKey.f5): onRefresh!,
+        },
         child: Dialog(
           backgroundColor: Colors.grey[100],
           child: Container(

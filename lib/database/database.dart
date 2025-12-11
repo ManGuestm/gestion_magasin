@@ -1,12 +1,12 @@
-import 'dart:convert';
 import 'dart:io';
 
-import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+import '../services/security_service.dart';
 
 part 'database.g.dart';
 
@@ -948,6 +948,43 @@ class AppDatabase extends _$AppDatabase {
   Future<int> insertSoc(SocCompanion entry) => into(soc).insert(entry);
 
   /// Met à jour une société existante
+  // Future<int> updateSoc(SocCompanion entry) => update(soc).replace(entry);
+
+  // ========== MÉTHODES UTILISATEURS ==========
+  /// Crée l'utilisateur admin par défaut avec bcrypt
+  Future<void> createDefaultAdmin() async {
+    try {
+      final existingAdmin = await (select(users)..where((u) => u.username.equals('admin'))).getSingleOrNull();
+
+      if (existingAdmin == null) {
+        // Créer un nouvel admin avec bcrypt
+        final hashedPassword = SecurityService.hashPassword('admin123');
+
+        await into(users).insert(
+          UsersCompanion(
+            id: const Value('admin_001'),
+            nom: const Value('Administrateur'),
+            username: const Value('admin'),
+            motDePasse: Value(hashedPassword),
+            role: const Value('Administrateur'),
+            actif: const Value(true),
+            dateCreation: Value(DateTime.now()),
+          ),
+        );
+      } else if (!existingAdmin.motDePasse.startsWith('\$2')) {
+        // Migrer l'ancien mot de passe SHA-256 vers bcrypt
+        final hashedPassword = SecurityService.hashPassword('admin123');
+
+        await (update(
+          users,
+        )..where((u) => u.username.equals('admin'))).write(UsersCompanion(motDePasse: Value(hashedPassword)));
+      }
+    } catch (e) {
+      debugPrint('Erreur création admin par défaut: \$e');
+    }
+  }
+
+  /// Récupère tous les utilisateurs
   Future<bool> updateSoc(SocCompanion entry) => update(soc).replace(entry);
 
   /// Supprime une société par référence
@@ -2094,59 +2131,6 @@ class AppDatabase extends _$AppDatabase {
             ))
             .getSingleOrNull();
     return user;
-  }
-
-  /// Crée l'utilisateur administrateur par défaut avec mot de passe crypté
-  Future<void> createDefaultAdmin() async {
-    try {
-      final existingAdmins = await (select(users)..where((u) => u.role.equals('Administrateur'))).get();
-
-      final hashedPassword = _hashPassword('admin123');
-
-      if (existingAdmins.isEmpty) {
-        await into(users).insert(
-          UsersCompanion(
-            id: const Value('admin'),
-            nom: const Value('Administrateur'),
-            username: const Value('admin'),
-            motDePasse: Value(hashedPassword),
-            role: const Value('Administrateur'),
-            actif: const Value(true),
-            dateCreation: Value(DateTime.now()),
-          ),
-        );
-      } else {
-        // Prendre le premier admin et mettre à jour si nécessaire
-        final existingAdmin = existingAdmins.first;
-        if (existingAdmin.motDePasse == 'admin123') {
-          await (update(users)..where((u) => u.id.equals(existingAdmin.id))).write(
-            UsersCompanion(motDePasse: Value(hashedPassword)),
-          );
-        }
-      }
-
-      // Initialiser les modes de paiement par défaut
-      await _initializeDefaultPaymentModes();
-    } catch (e) {
-      debugPrint('Erreur lors de la création de l\'admin par défaut: $e');
-      // Ne pas faire échouer l'initialisation pour cette erreur
-    }
-  }
-
-  /// Initialise les modes de paiement par défaut
-  Future<void> _initializeDefaultPaymentModes() async {
-    const defaultModes = ['Espèces', 'A crédit', 'Mobile Money'];
-
-    for (final mode in defaultModes) {
-      await customStatement('INSERT OR IGNORE INTO mp (mp) VALUES (?)', [mode]);
-    }
-  }
-
-  /// Crypte un mot de passe avec SHA-256
-  String _hashPassword(String password) {
-    var bytes = utf8.encode(password);
-    var digest = sha256.convert(bytes);
-    return digest.toString();
   }
 
   // ========== MÉTHODES CONTRE PASSER ==========

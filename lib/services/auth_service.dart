@@ -1,9 +1,7 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
-
 import '../database/database.dart';
 import '../database/database_service.dart';
+import 'audit_service.dart';
+import 'security_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -20,29 +18,60 @@ class AuthService {
   Future<bool> login(String username, String password) async {
     try {
       final db = DatabaseService().database;
-      // Crypter le mot de passe pour la comparaison
-      final hashedPassword = _hashPassword(password);
-      final user = await db.authenticateUser(username, hashedPassword);
+      final users = await db.getAllUsers();
 
-      if (user != null) {
-        _currentUser = user;
-        return true;
+      for (final user in users) {
+        if (user.username == username) {
+          if (SecurityService.verifyPassword(password, user.motDePasse)) {
+            _currentUser = user;
+
+            // Log de connexion
+            await AuditService().log(
+              userId: user.id,
+              userName: user.nom,
+              action: AuditAction.login,
+              module: 'Authentification',
+              details: 'Connexion réussie',
+            );
+
+            return true;
+          }
+        }
       }
+
+      // Log de tentative de connexion échouée
+      await AuditService().log(
+        userId: 'unknown',
+        userName: username,
+        action: AuditAction.error,
+        module: 'Authentification',
+        details: 'Tentative de connexion échouée',
+      );
+
       return false;
     } catch (e) {
+      await AuditService().log(
+        userId: 'unknown',
+        userName: username,
+        action: AuditAction.error,
+        module: 'Authentification',
+        details: 'Erreur lors de la connexion: $e',
+      );
       return false;
     }
   }
 
-  /// Crypte un mot de passe avec SHA-256
-  String _hashPassword(String password) {
-    var bytes = utf8.encode(password);
-    var digest = sha256.convert(bytes);
-    return digest.toString();
-  }
-
   /// Déconnecte l'utilisateur actuel
-  void logout() {
+  Future<void> logout() async {
+    if (_currentUser != null) {
+      await AuditService().log(
+        userId: _currentUser!.id,
+        userName: _currentUser!.nom,
+        action: AuditAction.logout,
+        module: 'Authentification',
+        details: 'Déconnexion',
+      );
+    }
     _currentUser = null;
   }
 
@@ -88,12 +117,7 @@ class AuthService {
   ];
 
   /// Permissions pour le rôle Vendeur
-  static const List<String> _vendeurPermissions = [
-    'ventes',
-    'clients',
-    'articles_view',
-    'stocks_view',
-  ];
+  static const List<String> _vendeurPermissions = ['ventes', 'clients', 'articles_view', 'stocks_view'];
 
   /// Vérifie si un vendeur peut accéder à un modal spécifique
   bool isVendeurRestrictedModal(String modalName) {

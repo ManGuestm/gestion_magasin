@@ -12,6 +12,8 @@ import '../services/auth_service.dart';
 import '../services/menu_service.dart';
 import '../services/modal_loader.dart';
 import '../services/network_config_service.dart';
+import '../widgets/common/notification_panel.dart';
+import '../widgets/common/theme_selector.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
 import '../widgets/modals/ventes_jour_modal.dart';
@@ -302,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final currentUser = AuthService().currentUser;
 
     return Container(
-      height: 30,
+      height: 40,
       color: Colors.grey[300],
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -342,6 +344,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 return const SizedBox.shrink();
               },
             ),
+            const NotificationPanel(),
+            const SizedBox(width: 8),
+            const ThemeSelector(),
             const Spacer(),
             // Bouton de déconnexion
             InkWell(

@@ -14,6 +14,7 @@ import '../../services/auth_service.dart';
 import '../../utils/date_utils.dart';
 import '../../utils/stock_converter.dart';
 import '../common/article_navigation_autocomplete.dart';
+import '../common/loading_overlay.dart';
 import 'tabs/rapports_tab.dart';
 import 'tabs/stock_tab.dart';
 
@@ -24,7 +25,7 @@ class InventaireModal extends StatefulWidget {
   State<InventaireModal> createState() => _InventaireModalState();
 }
 
-class _InventaireModalState extends State<InventaireModal> with TickerProviderStateMixin {
+class _InventaireModalState extends State<InventaireModal> with TickerProviderStateMixin, LoadingMixin {
   late TabController _tabController;
   final DatabaseService _databaseService = DatabaseService();
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();

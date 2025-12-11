@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide Column;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +19,7 @@ import '../../utils/stock_converter.dart';
 import '../common/article_navigation_autocomplete.dart';
 import '../common/enhanced_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
+import 'achats_intents.dart';
 import 'add_fournisseur_modal.dart';
 import 'bon_reception_preview.dart';
 
@@ -32,6 +35,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   final AchatService _achatService = AchatService();
   final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
+  // Focus node pour les raccourcis globaux
+  late final FocusNode _globalShortcutsFocusNode;
+
   // Focus nodes
   late final FocusNode _nFactFocusNode;
   late final FocusNode _fournisseurFocusNode;
@@ -42,9 +48,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   late final FocusNode _depotFocusNode;
   late final FocusNode _validerFocusNode;
   late final FocusNode _annulerFocusNode;
-  late final FocusNode _keyboardFocusNode;
+  late final FocusNode keyboardFocusNode;
   late final FocusNode _searchAchatsFocusNode;
   late final FocusNode _echeanceJoursFocusNode;
+
+  // Timer pour maintenir le focus global
+  Timer? _globalFocusTimer;
 
   // Controllers
   final TextEditingController _numAchatsController = TextEditingController();
@@ -118,6 +127,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   @override
   void initState() {
     super.initState();
+
+    // Initialiser le focus node pour les raccourcis globaux
+    _globalShortcutsFocusNode = FocusNode(
+      debugLabel: 'GlobalShortcutsFocusNode',
+      canRequestFocus: true,
+      skipTraversal: true,
+    );
+
     // Initialize focus nodes with tab navigation
     _nFactFocusNode = createFocusNode();
     _fournisseurFocusNode = createFocusNode();
@@ -128,7 +145,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     _depotFocusNode = createFocusNode();
     _validerFocusNode = createFocusNode();
     _annulerFocusNode = createFocusNode();
-    _keyboardFocusNode = createFocusNode();
+    keyboardFocusNode = createFocusNode();
     _searchAchatsFocusNode = createFocusNode();
     _echeanceJoursFocusNode = createFocusNode();
 
@@ -150,7 +167,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     // Focus automatique sur le KeyboardListener pour capturer les raccourcis
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _keyboardFocusNode.requestFocus();
+      _globalShortcutsFocusNode.requestFocus();
+    });
+
+    // S'assurer que les raccourcis globaux restent actifs
+    _globalFocusTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (!_globalShortcutsFocusNode.hasFocus && !_globalShortcutsFocusNode.hasPrimaryFocus) {
+        _ensureGlobalShortcutsFocus();
+      }
     });
   }
 
@@ -238,7 +266,19 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     // Focus automatique sur N° Facture/BL
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nFactFocusNode.requestFocus();
+      _ensureGlobalShortcutsFocus();
     });
+  }
+
+  // Méthode pour s'assurer que les raccourcis globaux restent actifs
+  void _ensureGlobalShortcutsFocus() {
+    if (!_globalShortcutsFocusNode.hasFocus) {
+      final currentFocus = FocusScope.of(context).focusedChild;
+      _globalShortcutsFocusNode.requestFocus();
+      Future.delayed(const Duration(milliseconds: 50), () {
+        currentFocus?.requestFocus();
+      });
+    }
   }
 
   Future<String> _getLastUsedDepot() async {
@@ -686,6 +726,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     // Focus automatique sur Désignation Articles
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _articleFocusNode.requestFocus();
+      _ensureGlobalShortcutsFocus();
     });
   }
 
@@ -1074,8 +1115,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           );
 
           // Créer nouvelle entrée de stock avec le MÊME numéro d'achat
+          // Générer une référence unique avec un délai pour éviter les doublons
+          await Future.delayed(const Duration(milliseconds: 1));
+          final cleanDesignation = ligne['designation'].replaceAll(' ', '');
+          final maxLength = cleanDesignation.length > 10 ? 10 : cleanDesignation.length;
           final stockRef =
-              'ACH-${_numAchatsController.text}-${ligne['designation']}-${DateTime.now().millisecondsSinceEpoch}-${_lignesAchat.indexOf(ligne)}';
+              'ACH-${_numAchatsController.text}-${cleanDesignation.substring(0, maxLength)}-${DateTime.now().millisecondsSinceEpoch}-${_lignesAchat.indexOf(ligne)}';
           await _databaseService.database
               .into(_databaseService.database.stocks)
               .insert(
@@ -2334,70 +2379,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     }
   }
 
-  void _handleKeyboardShortcut(KeyEvent event) {
-    if (event is KeyDownEvent) {
-      final isCtrl = HardwareKeyboard.instance.isControlPressed;
-      final isShift = HardwareKeyboard.instance.isShiftPressed;
-
-      // F3 : Valider l\'achat (priorité absolue, fonctionne sans focus)
-      if (event.logicalKey == LogicalKeyboardKey.f3) {
-        if (_isExistingPurchase && _statutAchatActuel == 'BROUILLARD') {
-          _validerAchatBrouillard();
-        }
-        return; // Empêcher d'autres traitements
-      }
-      // Ctrl+S : Enregistrer/Modifier
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyS) {
-        if (_isExistingPurchase && _statutAchatActuel != 'JOURNAL') {
-          _modifierAchat();
-        } else if (!_isExistingPurchase) {
-          _validerAchat();
-        }
-      }
-      // Ctrl+N : Créer nouveau
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyN) {
-        _creerNouvelAchat();
-      }
-      // Ctrl+P : Imprimer BR
-      else if (isCtrl && !isShift && event.logicalKey == LogicalKeyboardKey.keyP) {
-        _imprimerBonReception();
-      }
-      // Ctrl+Shift+P : Imprimer BR
-      else if (isCtrl && isShift && event.logicalKey == LogicalKeyboardKey.keyP) {
-        if (_lignesAchat.isNotEmpty) {
-          _imprimerBonReception();
-        }
-      }
-      // Ctrl+D : Contre-passer
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyD) {
-        _contrePasserAchat();
-      }
-      // Ctrl+F : Focus sur recherche
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyF) {
-        _searchAchatsFocusNode.requestFocus();
-      }
-      // Ctrl+J : Focus sur Echéance (Jours)
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyJ) {
-        _echeanceJoursFocusNode.requestFocus();
-      }
-      // Ctrl+L : Aller au premier achat Journal
-      else if (isCtrl && event.logicalKey == LogicalKeyboardKey.keyL) {
-        final journalAchats = _getJournalAchats();
-        if (journalAchats.isNotEmpty) {
-          _chargerAchatExistant(journalAchats.first);
-        }
-      }
-      // F1 : Achat précédent
-      else if (event.logicalKey == LogicalKeyboardKey.f1) {
-        if (_achatsNumbers.isNotEmpty) _naviguerAchat(false);
-      }
-      // F2 : Achat suivant
-      else if (event.logicalKey == LogicalKeyboardKey.f2) {
-        if (_achatsNumbers.isNotEmpty) _naviguerAchat(true);
-      }
-    }
-  }
-
   PdfPageFormat get _pdfPageFormat {
     switch (_selectedFormat) {
       case 'A4':
@@ -2407,1910 +2388,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       default:
         return PdfPageFormat.a5; // A5
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: KeyboardListener(
-        focusNode: _keyboardFocusNode,
-        onKeyEvent: _handleKeyboardShortcut,
-        child: Dialog(
-          constraints: BoxConstraints(
-            minHeight: MediaQuery.of(context).size.height * 0.8,
-            minWidth: MediaQuery.of(context).size.width * 0.9,
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-            maxWidth: MediaQuery.of(context).size.width * 0.99,
-          ),
-          backgroundColor: Colors.grey[100],
-          child: ScaffoldMessenger(
-            key: _scaffoldMessengerKey,
-            child: Scaffold(
-              backgroundColor: Colors.transparent,
-              body: Container(
-                decoration: BoxDecoration(
-                  borderRadius: const BorderRadius.all(Radius.circular(16)),
-                  color: Colors.grey[100],
-                ),
-                child: Row(
-                  children: [
-                    // Liste des achats à gauche
-                    Container(
-                      width: 250,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border(right: BorderSide(color: Colors.grey.shade300)),
-                      ),
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.list, size: 16),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Liste des achats',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                            ),
-                            child: TextField(
-                              controller: _searchAchatsController,
-                              focusNode: _searchAchatsFocusNode,
-                              decoration: const InputDecoration(
-                                hintText: 'Rechercher... (Ctrl+F)',
-                                prefixIcon: Icon(Icons.search, size: 16),
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              ),
-                              style: const TextStyle(fontSize: 11),
-                              onChanged: (value) {
-                                setState(() {
-                                  _searchAchatsText = value.toLowerCase();
-                                });
-                              },
-                            ),
-                          ),
-                          Expanded(
-                            child: _achatsNumbers.isEmpty
-                                ? const Center(child: Text('Aucun achat', style: TextStyle(fontSize: 11)))
-                                : Column(
-                                    children: [
-                                      // Section Brouillard
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.orange.shade50,
-                                          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.edit_note, size: 14, color: Colors.orange.shade700),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Brouillard',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.orange.shade700,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 1,
-                                        child: ListView.builder(
-                                          itemCount: _getBrouillardAchats().length,
-                                          itemBuilder: (context, index) {
-                                            final numAchat = _getBrouillardAchats()[index];
-                                            return Container(
-                                              decoration: BoxDecoration(
-                                                color: _numAchatsController.text == numAchat
-                                                    ? Colors.orange.shade100
-                                                    : null,
-                                                border: Border(
-                                                  bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
-                                                ),
-                                              ),
-                                              child: ListTile(
-                                                dense: true,
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 0,
-                                                ),
-                                                title: Text(
-                                                  'N° $numAchat',
-                                                  style: const TextStyle(fontSize: 11),
-                                                ),
-                                                onTap: () => _chargerAchatExistant(numAchat),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      // Section Journal
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.shade50,
-                                          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.check_circle, size: 14, color: Colors.green.shade700),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Journal (Ctrl + L)',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.green.shade700,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 1,
-                                        child: ListView.builder(
-                                          itemCount: _getJournalAchats().length,
-                                          itemBuilder: (context, index) {
-                                            final numAchat = _getJournalAchats()[index];
-                                            return Container(
-                                              decoration: BoxDecoration(
-                                                color: _numAchatsController.text == numAchat
-                                                    ? Colors.green.shade100
-                                                    : null,
-                                                border: Border(
-                                                  bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
-                                                ),
-                                              ),
-                                              child: ListTile(
-                                                dense: true,
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 0,
-                                                ),
-                                                title: Text(
-                                                  'N° $numAchat',
-                                                  style: const TextStyle(fontSize: 11),
-                                                ),
-                                                onTap: () => _chargerAchatExistant(numAchat),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      // Section Contre-passé
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red.shade50,
-                                          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Icon(Icons.block, size: 14, color: Colors.red.shade700),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              'Contre-passé',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.red.shade700,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      Expanded(
-                                        flex: 1,
-                                        child: ListView.builder(
-                                          itemCount: _getContrePasseAchats().length,
-                                          itemBuilder: (context, index) {
-                                            final numAchat = _getContrePasseAchats()[index];
-                                            return Container(
-                                              decoration: BoxDecoration(
-                                                color: _numAchatsController.text == numAchat
-                                                    ? Colors.red.shade100
-                                                    : null,
-                                                border: Border(
-                                                  bottom: BorderSide(color: Colors.grey.shade200, width: 0.5),
-                                                ),
-                                              ),
-                                              child: ListTile(
-                                                dense: true,
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 0,
-                                                ),
-                                                title: Text(
-                                                  'N° $numAchat',
-                                                  style: const TextStyle(fontSize: 11),
-                                                ),
-                                                onTap: () => _chargerAchatExistant(numAchat),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Formulaire principal à droite
-                    Expanded(
-                      child: FocusTraversalGroup(
-                        policy: OrderedTraversalPolicy(),
-                        child: Column(
-                          children: [
-                            // Title bar with close button
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                              height: 35,
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(left: 16),
-                                      child: Row(
-                                        children: [
-                                          const Text(
-                                            'Achat fournisseurs',
-                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                                          ),
-                                          if (_isExistingPurchase && _statutAchatActuel != null) ...[
-                                            const SizedBox(width: 8),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: _statutAchatActuel == 'JOURNAL'
-                                                    ? Colors.green
-                                                    : _statutAchatActuel == 'CONTRE-PASSÉ'
-                                                    ? Colors.red
-                                                    : Colors.orange,
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Text(
-                                                _statutAchatActuel == 'JOURNAL'
-                                                    ? 'J'
-                                                    : _statutAchatActuel == 'CONTRE-PASSÉ'
-                                                    ? 'CP'
-                                                    : 'B',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  ExcludeFocus(
-                                    child: IconButton(
-                                      onPressed: () => Navigator.of(context).pop(),
-                                      icon: const Icon(Icons.close, size: 20),
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            // Top section with form fields
-                            Container(
-                              color: const Color(0xFFE6E6FA),
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                              child: Row(
-                                children: [
-                                  // Left side with Enregistrement button and Journal dropdown
-                                  ExcludeFocus(
-                                    child: Column(
-                                      children: [
-                                        Container(
-                                          width: 120,
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                                          color: Colors.green,
-                                          child: const Text(
-                                            'Enregistrement',
-                                            style: TextStyle(color: Colors.white, fontSize: 12),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        SizedBox(
-                                          width: 120,
-                                          height: 25,
-                                          child: DropdownButtonFormField<String>(
-                                            initialValue: _selectedStatut,
-                                            decoration: InputDecoration(
-                                              border: const OutlineInputBorder(),
-                                              contentPadding: const EdgeInsets.symmetric(
-                                                horizontal: 4,
-                                                vertical: 2,
-                                              ),
-                                              fillColor: _selectedStatut == 'Journal'
-                                                  ? Colors.green.shade100
-                                                  : Colors.orange.shade100,
-                                              filled: true,
-                                            ),
-                                            items: const [
-                                              DropdownMenuItem(
-                                                value: 'Journal',
-                                                child: Text('Journal', style: TextStyle(fontSize: 12)),
-                                              ),
-                                              DropdownMenuItem(
-                                                value: 'Brouillard',
-                                                child: Text('Brouillard', style: TextStyle(fontSize: 12)),
-                                              ),
-                                            ],
-                                            onChanged: _isExistingPurchase
-                                                ? null
-                                                : (value) {
-                                                    setState(() {
-                                                      _selectedStatut = value ?? 'Brouillard';
-                                                    });
-                                                  },
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 32),
-                                  // Form fields
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        // First row: N°Achats, Date et N° Facture
-                                        Row(
-                                          children: [
-                                            const ExcludeFocus(
-                                              child: Text('N° Achats', style: TextStyle(fontSize: 12)),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            SizedBox(
-                                              width: 100,
-                                              height: 25,
-                                              child: ExcludeFocus(
-                                                child: TextField(
-                                                  textAlign: TextAlign.center,
-                                                  controller: _numAchatsController,
-                                                  readOnly: true,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding: EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                    fillColor: Color(0xFFF5F5F5),
-                                                    filled: true,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const Expanded(child: SizedBox()),
-                                            const ExcludeFocus(
-                                              child: Text('Date', style: TextStyle(fontSize: 12)),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            SizedBox(
-                                              width: 140,
-                                              height: 25,
-                                              child: ExcludeFocus(
-                                                child: TextField(
-                                                  controller: _dateController,
-                                                  readOnly: true,
-                                                  decoration: const InputDecoration(
-                                                    border: OutlineInputBorder(),
-                                                    contentPadding: EdgeInsets.symmetric(
-                                                      horizontal: 4,
-                                                      vertical: 2,
-                                                    ),
-                                                    suffixIcon: Icon(Icons.calendar_today, size: 16),
-                                                  ),
-                                                  onTap: () async {
-                                                    final date = await showDatePicker(
-                                                      context: context,
-                                                      initialDate: DateTime.now(),
-                                                      firstDate: DateTime(2000),
-                                                      lastDate: DateTime(2100),
-                                                    );
-                                                    if (date != null) {
-                                                      _dateController.text = app_date.AppDateUtils.formatDate(
-                                                        date,
-                                                      );
-                                                    }
-                                                  },
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            const ExcludeFocus(
-                                              child: Text('N° Facture/ BL', style: TextStyle(fontSize: 12)),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Flexible(
-                                              child: SizedBox(
-                                                width: 150,
-                                                height: 25,
-                                                child: Focus(
-                                                  onKeyEvent: (node, event) {
-                                                    if (event is KeyDownEvent &&
-                                                        event.logicalKey == LogicalKeyboardKey.tab) {
-                                                      _fournisseurFocusNode.requestFocus();
-                                                      return KeyEventResult.handled;
-                                                    }
-                                                    return KeyEventResult.ignored;
-                                                  },
-                                                  child: TextField(
-                                                    textAlign: TextAlign.center,
-                                                    controller: _nFactController,
-                                                    focusNode: _nFactFocusNode,
-                                                    enabled: _statutAchatActuel != 'JOURNAL',
-                                                    onSubmitted: (_) => _fournisseurFocusNode.requestFocus(),
-                                                    decoration: InputDecoration(
-                                                      border: const OutlineInputBorder(),
-                                                      contentPadding: const EdgeInsets.symmetric(
-                                                        horizontal: 4,
-                                                        vertical: 2,
-                                                      ),
-                                                      fillColor: _statutAchatActuel == 'JOURNAL'
-                                                          ? Colors.grey.shade200
-                                                          : null,
-                                                      filled: _statutAchatActuel == 'JOURNAL',
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        // Second row: Label et champ Formulaire
-                                        Row(
-                                          children: [
-                                            const ExcludeFocus(
-                                              child: Text('Fournisseurs', style: TextStyle(fontSize: 12)),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 30,
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: Focus(
-                                                        onFocusChange: (hasFocus) {
-                                                          if (!hasFocus &&
-                                                              _fournisseurController.text.isNotEmpty) {
-                                                            _verifierEtCreerFournisseur(
-                                                              _fournisseurController.text,
-                                                            );
-                                                          }
-                                                        },
-                                                        onKeyEvent: (node, event) {
-                                                          if (event is KeyDownEvent &&
-                                                              event.logicalKey == LogicalKeyboardKey.tab) {
-                                                            final isShiftPressed =
-                                                                HardwareKeyboard.instance.logicalKeysPressed
-                                                                    .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                                HardwareKeyboard.instance.logicalKeysPressed
-                                                                    .contains(LogicalKeyboardKey.shiftRight);
-
-                                                            if (isShiftPressed) {
-                                                              _nFactFocusNode.requestFocus();
-                                                            } else {
-                                                              _articleFocusNode.requestFocus();
-                                                            }
-                                                            return KeyEventResult.handled;
-                                                          }
-                                                          return KeyEventResult.ignored;
-                                                        },
-                                                        child: EnhancedAutocomplete<Frn>(
-                                                          controller: _fournisseurController,
-                                                          focusNode: _fournisseurFocusNode,
-                                                          options: _fournisseurs,
-                                                          displayStringForOption: (frn) => frn.rsoc,
-                                                          onSelected: (frn) {
-                                                            if (_statutAchatActuel != 'JOURNAL') {
-                                                              setState(() {
-                                                                _selectedFournisseur = frn.rsoc;
-                                                              });
-                                                              _articleFocusNode.requestFocus();
-                                                            }
-                                                          },
-                                                          onFieldSubmitted: (_) =>
-                                                              _articleFocusNode.requestFocus(),
-                                                          hintText:
-                                                              'Rechercher fournisseur... (← → pour naviguer)',
-                                                          decoration: InputDecoration(
-                                                            border: const OutlineInputBorder(),
-                                                            contentPadding: const EdgeInsets.symmetric(
-                                                              horizontal: 4,
-                                                              vertical: 2,
-                                                            ),
-                                                            fillColor: _statutAchatActuel == 'JOURNAL'
-                                                                ? Colors.grey.shade200
-                                                                : null,
-                                                            filled: _statutAchatActuel == 'JOURNAL',
-                                                          ),
-                                                          style: const TextStyle(fontSize: 12),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Article selection section
-                            Container(
-                              color: const Color(0xFFE6E6FA),
-                              padding: const EdgeInsets.all(8),
-                              child: Row(
-                                children: [
-                                  // Désignation Articles column
-                                  Expanded(
-                                    flex: 3,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('Désignation Articles', style: TextStyle(fontSize: 12)),
-                                        const SizedBox(height: 4),
-                                        SizedBox(
-                                          height: 30,
-                                          child: ArticleNavigationAutocomplete(
-                                            articles: _articles,
-                                            initialArticle: _lignesAchat.isNotEmpty
-                                                ? _articles
-                                                      .where(
-                                                        (a) =>
-                                                            a.designation == _lignesAchat.last['designation'],
-                                                      )
-                                                      .firstOrNull
-                                                : null,
-                                            selectedArticle: _selectedArticle, // Ajouter la synchronisation
-                                            onArticleChanged: _onArticleSelected,
-                                            focusNode: _articleFocusNode,
-                                            enabled: _statutAchatActuel != 'JOURNAL',
-                                            hintText: 'Rechercher article... (← → pour naviguer)',
-                                            decoration: InputDecoration(
-                                              border: const OutlineInputBorder(),
-                                              contentPadding: const EdgeInsets.symmetric(
-                                                horizontal: 4,
-                                                vertical: 2,
-                                              ),
-                                              fillColor: _statutAchatActuel == 'JOURNAL'
-                                                  ? Colors.grey.shade200
-                                                  : null,
-                                              filled: _statutAchatActuel == 'JOURNAL',
-                                            ),
-                                            style: const TextStyle(fontSize: 12),
-                                            onTabPressed: () => _uniteFocusNode.requestFocus(),
-                                            onShiftTabPressed: () => _fournisseurFocusNode.requestFocus(),
-                                          ),
-                                        ),
-                                        // Affichage des unités disponibles et stock
-                                        if (_selectedArticle == null) ...[const SizedBox(height: 19)],
-                                        if (_selectedArticle != null) ...[
-                                          const SizedBox(height: 2),
-                                          if (_selectedDepot != null)
-                                            FutureBuilder<String>(
-                                              future: _getStocksToutesUnites(
-                                                _selectedArticle!,
-                                                _selectedDepot!,
-                                              ),
-                                              builder: (context, snapshot) {
-                                                if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-                                                  return Text(
-                                                    'Stock: ${snapshot.data}',
-                                                    style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Colors.green.shade700,
-                                                      fontWeight: FontWeight.w500,
-                                                    ),
-                                                  );
-                                                }
-                                                return const SizedBox.shrink();
-                                              },
-                                            ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Unités column
-                                  Expanded(
-                                    flex: 1,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('Unités', style: TextStyle(fontSize: 12)),
-                                        const SizedBox(height: 4),
-                                        SizedBox(
-                                          height: 30,
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Focus(
-                                                  onFocusChange: (hasFocus) {
-                                                    if (!hasFocus &&
-                                                        _uniteController.text.isNotEmpty &&
-                                                        _selectedArticle != null &&
-                                                        _statutAchatActuel != 'JOURNAL') {
-                                                      _verifierUniteArticle(_uniteController.text);
-                                                    }
-                                                  },
-                                                  onKeyEvent: (node, event) {
-                                                    if (event is KeyDownEvent &&
-                                                        event.logicalKey == LogicalKeyboardKey.tab) {
-                                                      final isShiftPressed =
-                                                          HardwareKeyboard.instance.logicalKeysPressed
-                                                              .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                          HardwareKeyboard.instance.logicalKeysPressed
-                                                              .contains(LogicalKeyboardKey.shiftRight);
-
-                                                      if (isShiftPressed) {
-                                                        _articleFocusNode.requestFocus();
-                                                      } else {
-                                                        _quantiteFocusNode.requestFocus();
-                                                      }
-                                                      return KeyEventResult.handled;
-                                                    }
-                                                    return KeyEventResult.ignored;
-                                                  },
-                                                  child: EnhancedAutocomplete<String>(
-                                                    controller: _uniteController,
-                                                    focusNode: _uniteFocusNode,
-                                                    enabled:
-                                                        _selectedArticle != null &&
-                                                        _statutAchatActuel != 'JOURNAL',
-                                                    options: _getUnitsForSelectedArticle()
-                                                        .map((item) => item.value!)
-                                                        .toList(),
-                                                    displayStringForOption: (unite) => unite,
-                                                    onSelected: (unite) {
-                                                      if (_selectedArticle != null &&
-                                                          _statutAchatActuel != 'JOURNAL') {
-                                                        _verifierUniteArticle(unite);
-                                                        _quantiteFocusNode.requestFocus();
-                                                      }
-                                                    },
-                                                    onTabPressed: () => _quantiteFocusNode.requestFocus(),
-                                                    onShiftTabPressed: () => _articleFocusNode.requestFocus(),
-                                                    onFieldSubmitted: (_) =>
-                                                        _quantiteFocusNode.requestFocus(),
-                                                    hintText: 'Unité...',
-                                                    decoration: InputDecoration(
-                                                      border: const OutlineInputBorder(),
-                                                      contentPadding: const EdgeInsets.symmetric(
-                                                        horizontal: 4,
-                                                        vertical: 2,
-                                                      ),
-                                                      fillColor:
-                                                          _selectedArticle == null ||
-                                                              _statutAchatActuel == 'JOURNAL'
-                                                          ? Colors.grey.shade200
-                                                          : null,
-                                                      filled:
-                                                          _selectedArticle == null ||
-                                                          _statutAchatActuel == 'JOURNAL',
-                                                    ),
-                                                    style: const TextStyle(fontSize: 12),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 19),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Quantités column
-                                  Expanded(
-                                    flex: 1,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('Quantités', style: TextStyle(fontSize: 12)),
-                                        const SizedBox(height: 4),
-                                        SizedBox(
-                                          height: 30,
-                                          child: Focus(
-                                            onKeyEvent: (node, event) {
-                                              if (event is KeyDownEvent &&
-                                                  event.logicalKey == LogicalKeyboardKey.tab) {
-                                                final isShiftPressed =
-                                                    HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                      LogicalKeyboardKey.shiftLeft,
-                                                    ) ||
-                                                    HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                      LogicalKeyboardKey.shiftRight,
-                                                    );
-
-                                                if (isShiftPressed) {
-                                                  _uniteFocusNode.requestFocus();
-                                                } else {
-                                                  _prixFocusNode.requestFocus();
-                                                }
-                                                return KeyEventResult.handled;
-                                              }
-                                              return KeyEventResult.ignored;
-                                            },
-                                            child: TextField(
-                                              controller: _quantiteController,
-                                              focusNode: _quantiteFocusNode,
-                                              readOnly:
-                                                  _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
-                                              onSubmitted: (_) => _prixFocusNode.requestFocus(),
-                                              decoration: InputDecoration(
-                                                border: const OutlineInputBorder(),
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                  horizontal: 4,
-                                                  vertical: 2,
-                                                ),
-                                                fillColor:
-                                                    _selectedArticle == null ||
-                                                        _statutAchatActuel == 'JOURNAL'
-                                                    ? Colors.grey.shade200
-                                                    : null,
-                                                filled:
-                                                    _selectedArticle == null ||
-                                                    _statutAchatActuel == 'JOURNAL',
-                                              ),
-                                              style: const TextStyle(fontSize: 12),
-                                              onChanged: (value) {
-                                                setState(() {});
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 19),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // P.U HT column
-                                  Expanded(
-                                    flex: 1,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('P.U HT', style: TextStyle(fontSize: 12)),
-                                        const SizedBox(height: 4),
-                                        SizedBox(
-                                          height: 30,
-                                          child: Focus(
-                                            onKeyEvent: (node, event) {
-                                              if (event is KeyDownEvent &&
-                                                  event.logicalKey == LogicalKeyboardKey.tab) {
-                                                final isShiftPressed =
-                                                    HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                      LogicalKeyboardKey.shiftLeft,
-                                                    ) ||
-                                                    HardwareKeyboard.instance.logicalKeysPressed.contains(
-                                                      LogicalKeyboardKey.shiftRight,
-                                                    );
-
-                                                if (isShiftPressed) {
-                                                  _quantiteFocusNode.requestFocus();
-                                                } else {
-                                                  _depotFocusNode.requestFocus();
-                                                }
-                                                return KeyEventResult.handled;
-                                              }
-                                              return KeyEventResult.ignored;
-                                            },
-                                            child: TextField(
-                                              controller: _prixController,
-                                              focusNode: _prixFocusNode,
-                                              readOnly:
-                                                  _selectedArticle == null || _statutAchatActuel == 'JOURNAL',
-                                              onSubmitted: (_) => _depotFocusNode.requestFocus(),
-                                              decoration: InputDecoration(
-                                                border: const OutlineInputBorder(),
-                                                contentPadding: const EdgeInsets.symmetric(
-                                                  horizontal: 4,
-                                                  vertical: 2,
-                                                ),
-                                                fillColor:
-                                                    _selectedArticle == null ||
-                                                        _statutAchatActuel == 'JOURNAL'
-                                                    ? Colors.grey.shade200
-                                                    : null,
-                                                filled:
-                                                    _selectedArticle == null ||
-                                                    _statutAchatActuel == 'JOURNAL',
-                                              ),
-                                              style: const TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 19),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Dépôts column
-                                  Expanded(
-                                    flex: 1,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text('Dépôts', style: TextStyle(fontSize: 12)),
-                                        const SizedBox(height: 4),
-                                        SizedBox(
-                                          height: 30,
-                                          child: Row(
-                                            children: [
-                                              Expanded(
-                                                child: Focus(
-                                                  onKeyEvent: (node, event) {
-                                                    if (event is KeyDownEvent &&
-                                                        event.logicalKey == LogicalKeyboardKey.tab) {
-                                                      final isShiftPressed =
-                                                          HardwareKeyboard.instance.logicalKeysPressed
-                                                              .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                          HardwareKeyboard.instance.logicalKeysPressed
-                                                              .contains(LogicalKeyboardKey.shiftRight);
-
-                                                      if (isShiftPressed) {
-                                                        _prixFocusNode.requestFocus();
-                                                      } else {
-                                                        if (_isArticleFormValid() &&
-                                                            _statutAchatActuel != 'JOURNAL') {
-                                                          _validerFocusNode.requestFocus();
-                                                        } else {
-                                                          _nFactFocusNode.requestFocus();
-                                                        }
-                                                      }
-                                                      return KeyEventResult.handled;
-                                                    }
-                                                    return KeyEventResult.ignored;
-                                                  },
-                                                  child: EnhancedAutocomplete<String>(
-                                                    controller: _depotController,
-                                                    focusNode: _depotFocusNode,
-                                                    options: _depots,
-                                                    displayStringForOption: (depot) => depot,
-                                                    onSelected: (depot) {
-                                                      if (_statutAchatActuel != 'JOURNAL') {
-                                                        setState(() {
-                                                          _selectedDepot = depot;
-                                                        });
-                                                        if (_isArticleFormValid()) {
-                                                          _validerFocusNode.requestFocus();
-                                                        } else {
-                                                          _nFactFocusNode.requestFocus();
-                                                        }
-                                                      }
-                                                    },
-                                                    onTabPressed: () {
-                                                      if (_isArticleFormValid() &&
-                                                          _statutAchatActuel != 'JOURNAL') {
-                                                        _validerFocusNode.requestFocus();
-                                                      } else {
-                                                        _nFactFocusNode.requestFocus();
-                                                      }
-                                                    },
-                                                    onShiftTabPressed: () => _prixFocusNode.requestFocus(),
-                                                    onSubmitted: (_) {
-                                                      if (_isArticleFormValid() &&
-                                                          _statutAchatActuel != 'JOURNAL') {
-                                                        _validerFocusNode.requestFocus();
-                                                      } else {
-                                                        _nFactFocusNode.requestFocus();
-                                                      }
-                                                    },
-                                                    hintText: 'Dépôt...',
-                                                    decoration: InputDecoration(
-                                                      border: const OutlineInputBorder(),
-                                                      contentPadding: const EdgeInsets.symmetric(
-                                                        horizontal: 4,
-                                                        vertical: 2,
-                                                      ),
-                                                      fillColor: _statutAchatActuel == 'JOURNAL'
-                                                          ? Colors.grey.shade200
-                                                          : null,
-                                                      filled: _statutAchatActuel == 'JOURNAL',
-                                                    ),
-                                                    style: const TextStyle(fontSize: 12),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        const SizedBox(height: 19),
-                                      ],
-                                    ),
-                                  ),
-                                  if (_isArticleFormValid() && _statutAchatActuel != 'JOURNAL') ...[
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      children: [
-                                        const SizedBox(height: 16),
-                                        Row(
-                                          children: [
-                                            Column(
-                                              children: [
-                                                Focus(
-                                                  focusNode: _validerFocusNode,
-                                                  onKeyEvent: (node, event) {
-                                                    if (event is KeyDownEvent) {
-                                                      if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                        final isShiftPressed =
-                                                            HardwareKeyboard.instance.logicalKeysPressed
-                                                                .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                            HardwareKeyboard.instance.logicalKeysPressed
-                                                                .contains(LogicalKeyboardKey.shiftRight);
-
-                                                        if (isShiftPressed) {
-                                                          _depotFocusNode.requestFocus();
-                                                        } else {
-                                                          _annulerFocusNode.requestFocus();
-                                                        }
-                                                        return KeyEventResult.handled;
-                                                      } else if (event.logicalKey ==
-                                                          LogicalKeyboardKey.enter) {
-                                                        if (_validerFocusNode.hasFocus) {
-                                                          _validerAjout();
-                                                        }
-                                                        return KeyEventResult.handled;
-                                                      }
-                                                    }
-                                                    return KeyEventResult.ignored;
-                                                  },
-                                                  child: Container(
-                                                    decoration: BoxDecoration(
-                                                      border: _validerFocusNode.hasFocus
-                                                          ? Border.all(color: Colors.blue, width: 3)
-                                                          : null,
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      boxShadow: _validerFocusNode.hasFocus
-                                                          ? [
-                                                              BoxShadow(
-                                                                color: Colors.blue.withValues(alpha: 0.3),
-                                                                blurRadius: 4,
-                                                                spreadRadius: 1,
-                                                              ),
-                                                            ]
-                                                          : null,
-                                                    ),
-                                                    child: ElevatedButton(
-                                                      onPressed: _validerAjout,
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: _validerFocusNode.hasFocus
-                                                            ? Colors.green[600]
-                                                            : Colors.green,
-                                                        foregroundColor: Colors.white,
-                                                        minimumSize: const Size(60, 35),
-                                                        elevation: _validerFocusNode.hasFocus ? 4 : 2,
-                                                      ),
-                                                      child: Text(
-                                                        _validerFocusNode.hasFocus ? 'Ajouter ↵' : 'Ajouter',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight: _validerFocusNode.hasFocus
-                                                              ? FontWeight.bold
-                                                              : FontWeight.normal,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 16),
-                                              ],
-                                            ),
-                                            const SizedBox(width: 4),
-                                            Column(
-                                              children: [
-                                                Focus(
-                                                  focusNode: _annulerFocusNode,
-                                                  onKeyEvent: (node, event) {
-                                                    if (event is KeyDownEvent) {
-                                                      if (event.logicalKey == LogicalKeyboardKey.tab) {
-                                                        final isShiftPressed =
-                                                            HardwareKeyboard.instance.logicalKeysPressed
-                                                                .contains(LogicalKeyboardKey.shiftLeft) ||
-                                                            HardwareKeyboard.instance.logicalKeysPressed
-                                                                .contains(LogicalKeyboardKey.shiftRight);
-
-                                                        if (isShiftPressed) {
-                                                          _validerFocusNode.requestFocus();
-                                                        } else {
-                                                          _nFactFocusNode.requestFocus();
-                                                        }
-                                                        return KeyEventResult.handled;
-                                                      } else if (event.logicalKey ==
-                                                          LogicalKeyboardKey.enter) {
-                                                        if (_annulerFocusNode.hasFocus) {
-                                                          _resetArticleForm();
-                                                        }
-                                                        return KeyEventResult.handled;
-                                                      }
-                                                    }
-                                                    return KeyEventResult.ignored;
-                                                  },
-                                                  child: Container(
-                                                    decoration: BoxDecoration(
-                                                      border: _annulerFocusNode.hasFocus
-                                                          ? Border.all(color: Colors.blue, width: 3)
-                                                          : null,
-                                                      borderRadius: BorderRadius.circular(4),
-                                                      boxShadow: _annulerFocusNode.hasFocus
-                                                          ? [
-                                                              BoxShadow(
-                                                                color: Colors.blue.withValues(alpha: 0.3),
-                                                                blurRadius: 4,
-                                                                spreadRadius: 1,
-                                                              ),
-                                                            ]
-                                                          : null,
-                                                    ),
-                                                    child: ElevatedButton(
-                                                      onPressed: _resetArticleForm,
-                                                      style: ElevatedButton.styleFrom(
-                                                        backgroundColor: _annulerFocusNode.hasFocus
-                                                            ? Colors.orange[600]
-                                                            : Colors.orange,
-                                                        foregroundColor: Colors.white,
-                                                        minimumSize: const Size(60, 35),
-                                                        elevation: _annulerFocusNode.hasFocus ? 4 : 2,
-                                                      ),
-                                                      child: Text(
-                                                        _annulerFocusNode.hasFocus ? 'Annuler ↵' : 'Annuler',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight: _annulerFocusNode.hasFocus
-                                                              ? FontWeight.bold
-                                                              : FontWeight.normal,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 16),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-
-                            // Articles table
-                            Expanded(
-                              child: Container(
-                                margin: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey, width: 1),
-                                  color: Colors.white,
-                                ),
-                                child: Column(
-                                  children: [
-                                    // Table header
-                                    Container(
-                                      height: 25,
-                                      decoration: BoxDecoration(color: Colors.orange[300]),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 50,
-                                            alignment: Alignment.center,
-                                            decoration: const BoxDecoration(
-                                              border: Border(
-                                                right: BorderSide(color: Colors.grey, width: 1),
-                                                bottom: BorderSide(color: Colors.grey, width: 1),
-                                              ),
-                                            ),
-                                            child: const Text(
-                                              'ACTION',
-                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 3,
-                                            child: Container(
-                                              alignment: Alignment.center,
-                                              decoration: const BoxDecoration(
-                                                border: Border(
-                                                  right: BorderSide(color: Colors.grey, width: 1),
-                                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                                ),
-                                              ),
-                                              child: const Text(
-                                                'DESIGNATION',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 1,
-                                            child: Container(
-                                              alignment: Alignment.center,
-                                              decoration: const BoxDecoration(
-                                                border: Border(
-                                                  right: BorderSide(color: Colors.grey, width: 1),
-                                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                                ),
-                                              ),
-                                              child: const Text(
-                                                'UNITE',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 1,
-                                            child: Container(
-                                              alignment: Alignment.center,
-                                              decoration: const BoxDecoration(
-                                                border: Border(
-                                                  right: BorderSide(color: Colors.grey, width: 1),
-                                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                                ),
-                                              ),
-                                              child: const Text(
-                                                'QUANTITE',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Container(
-                                              alignment: Alignment.center,
-                                              decoration: const BoxDecoration(
-                                                border: Border(
-                                                  right: BorderSide(color: Colors.grey, width: 1),
-                                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                                ),
-                                              ),
-                                              child: const Text(
-                                                'PRIX UNITAIRE',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Container(
-                                              alignment: Alignment.center,
-                                              decoration: const BoxDecoration(
-                                                border: Border(
-                                                  right: BorderSide(color: Colors.grey, width: 1),
-                                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                                ),
-                                              ),
-                                              child: const Text(
-                                                'MONTANT',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 1,
-                                            child: Container(
-                                              alignment: Alignment.center,
-                                              decoration: const BoxDecoration(
-                                                border: Border(
-                                                  bottom: BorderSide(color: Colors.grey, width: 1),
-                                                ),
-                                              ),
-                                              child: const Text(
-                                                'DEPOT',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    // Table content
-                                    Expanded(
-                                      child: _lignesAchat.isEmpty
-                                          ? const Center(
-                                              child: Text(
-                                                'Aucun article ajouté',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  color: Colors.grey,
-                                                  fontStyle: FontStyle.italic,
-                                                ),
-                                              ),
-                                            )
-                                          : ListView.builder(
-                                              itemCount: _lignesAchat.length,
-                                              itemExtent: 18,
-                                              itemBuilder: (context, index) {
-                                                final ligne = _lignesAchat[index];
-                                                return MouseRegion(
-                                                  onEnter: (_) {
-                                                    setState(() {
-                                                      _selectedRowIndex = index;
-                                                    });
-                                                  },
-                                                  onExit: (_) {
-                                                    setState(() {
-                                                      _selectedRowIndex = index;
-                                                    });
-                                                  },
-                                                  child: GestureDetector(
-                                                    onTap: () {
-                                                      setState(() {
-                                                        _selectedRowIndex = index;
-                                                      });
-                                                    },
-                                                    onSecondaryTapUp: _statutAchatActuel == 'JOURNAL'
-                                                        ? null
-                                                        : (details) {
-                                                            showMenu(
-                                                              context: context,
-                                                              position: RelativeRect.fromLTRB(
-                                                                details.globalPosition.dx,
-                                                                details.globalPosition.dy,
-                                                                details.globalPosition.dx,
-                                                                details.globalPosition.dy,
-                                                              ),
-                                                              items: [
-                                                                const PopupMenuItem(
-                                                                  value: 'modifier_ligne',
-                                                                  child: Text(
-                                                                    'Modifier',
-                                                                    style: TextStyle(fontSize: 12),
-                                                                  ),
-                                                                ),
-                                                                const PopupMenuItem(
-                                                                  value: 'supprimer_ligne',
-                                                                  child: Text(
-                                                                    'Supprimer',
-                                                                    style: TextStyle(fontSize: 12),
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ).then((value) {
-                                                              if (value == 'modifier_ligne') {
-                                                                _chargerLigneArticle(index);
-                                                              } else if (value == 'supprimer_ligne') {
-                                                                _supprimerLigne(index);
-                                                              }
-                                                            });
-                                                          },
-                                                    child: Container(
-                                                      height: 18,
-                                                      decoration: BoxDecoration(
-                                                        color: _selectedRowIndex == index
-                                                            ? Colors.blue[300]
-                                                            : (index % 2 == 0
-                                                                  ? Colors.white
-                                                                  : Colors.grey[50]),
-                                                      ),
-                                                      child: Row(
-                                                        children: [
-                                                          Container(
-                                                            width: 50,
-                                                            alignment: Alignment.center,
-                                                            decoration: const BoxDecoration(
-                                                              border: Border(
-                                                                right: BorderSide(
-                                                                  color: Colors.grey,
-                                                                  width: 1,
-                                                                ),
-                                                                bottom: BorderSide(
-                                                                  color: Colors.grey,
-                                                                  width: 1,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            child: IconButton(
-                                                              icon: const Icon(Icons.close, size: 12),
-                                                              onPressed: _statutAchatActuel == 'JOURNAL'
-                                                                  ? null
-                                                                  : () => _supprimerLigne(index),
-                                                              padding: EdgeInsets.zero,
-                                                              constraints: const BoxConstraints(),
-                                                            ),
-                                                          ),
-                                                          Expanded(
-                                                            flex: 3,
-                                                            child: Container(
-                                                              padding: const EdgeInsets.only(left: 4),
-                                                              alignment: Alignment.centerLeft,
-                                                              decoration: const BoxDecoration(
-                                                                border: Border(
-                                                                  right: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                  bottom: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              child: Text(
-                                                                ligne['designation'] ?? '',
-                                                                style: const TextStyle(fontSize: 11),
-                                                                overflow: TextOverflow.ellipsis,
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          Expanded(
-                                                            flex: 1,
-                                                            child: Container(
-                                                              padding: const EdgeInsets.symmetric(
-                                                                horizontal: 4,
-                                                              ),
-                                                              alignment: Alignment.center,
-                                                              decoration: const BoxDecoration(
-                                                                border: Border(
-                                                                  right: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                  bottom: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              child: Text(
-                                                                ligne['unites'] ?? '',
-                                                                style: const TextStyle(fontSize: 11),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          Expanded(
-                                                            flex: 1,
-                                                            child: Container(
-                                                              padding: const EdgeInsets.symmetric(
-                                                                horizontal: 4,
-                                                              ),
-                                                              alignment: Alignment.center,
-                                                              decoration: const BoxDecoration(
-                                                                border: Border(
-                                                                  right: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                  bottom: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              child: Text(
-                                                                (ligne['quantite'] as double?)
-                                                                        ?.round()
-                                                                        .toString() ??
-                                                                    '0',
-                                                                style: const TextStyle(fontSize: 11),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          Expanded(
-                                                            flex: 2,
-                                                            child: Container(
-                                                              padding: const EdgeInsets.symmetric(
-                                                                horizontal: 4,
-                                                              ),
-                                                              alignment: Alignment.center,
-                                                              decoration: const BoxDecoration(
-                                                                border: Border(
-                                                                  right: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                  bottom: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              child: Text(
-                                                                NumberUtils.formatNumber(
-                                                                  ligne['prixUnitaire']?.toDouble() ?? 0,
-                                                                ),
-                                                                style: const TextStyle(fontSize: 11),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          Expanded(
-                                                            flex: 2,
-                                                            child: Container(
-                                                              padding: const EdgeInsets.symmetric(
-                                                                horizontal: 4,
-                                                              ),
-                                                              alignment: Alignment.center,
-                                                              decoration: const BoxDecoration(
-                                                                border: Border(
-                                                                  right: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                  bottom: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              child: Text(
-                                                                NumberUtils.formatNumber(
-                                                                  ligne['montant']?.toDouble() ?? 0,
-                                                                ),
-                                                                style: const TextStyle(fontSize: 11),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                          Expanded(
-                                                            flex: 1,
-                                                            child: Container(
-                                                              alignment: Alignment.center,
-                                                              decoration: const BoxDecoration(
-                                                                border: Border(
-                                                                  bottom: BorderSide(
-                                                                    color: Colors.grey,
-                                                                    width: 1,
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                              child: Text(
-                                                                ligne['depot'] ?? '',
-                                                                style: const TextStyle(fontSize: 11),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                            // Bottom section
-                            Container(
-                              color: const Color(0xFFE6E6FA),
-                              padding: const EdgeInsets.all(8),
-                              child: Row(
-                                children: [
-                                  // Left side - Payment info
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            const Text('Mode de paiement', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(width: 8),
-                                            SizedBox(
-                                              width: 120,
-                                              height: 25,
-                                              child: DropdownButtonFormField<String>(
-                                                alignment: AlignmentGeometry.center,
-                                                initialValue: _selectedModePaiement,
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding: EdgeInsets.symmetric(
-                                                    horizontal: 4,
-                                                    vertical: 2,
-                                                  ),
-                                                ),
-                                                items: _modesPaiement.where((mp) => mp.mp == 'A crédit').map((
-                                                  mp,
-                                                ) {
-                                                  return DropdownMenuItem<String>(
-                                                    alignment: AlignmentGeometry.center,
-                                                    value: mp.mp,
-                                                    child: Text(mp.mp, style: const TextStyle(fontSize: 12)),
-                                                  );
-                                                }).toList(),
-                                                onChanged: (value) {
-                                                  setState(() {
-                                                    _selectedModePaiement = value;
-                                                  });
-                                                },
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            const Text('Echéance (Date)', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(width: 8),
-                                            SizedBox(
-                                              width: 137,
-                                              height: 25,
-                                              child: TextField(
-                                                cursorHeight: 16,
-                                                controller: _echeanceController,
-                                                textAlign: TextAlign.center,
-                                                readOnly: true,
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding: EdgeInsets.symmetric(
-                                                    horizontal: 4,
-                                                    vertical: 2,
-                                                  ),
-                                                  suffixIcon: Icon(Icons.calendar_today, size: 16),
-                                                ),
-                                                onTap: () async {
-                                                  final date = await showDatePicker(
-                                                    context: context,
-                                                    initialDate: DateTime.now(),
-                                                    firstDate: DateTime(2000),
-                                                    lastDate: DateTime(2100),
-                                                  );
-                                                  if (date != null) {
-                                                    _echeanceController.text =
-                                                        app_date.AppDateUtils.formatDate(date);
-                                                  }
-                                                },
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            const Text('Echéance (Jours)', style: TextStyle(fontSize: 12)),
-                                            const SizedBox(width: 8),
-                                            SizedBox(
-                                              width: 135,
-                                              height: 25,
-                                              child: TextField(
-                                                style: const TextStyle(fontSize: 14),
-                                                cursorHeight: 14,
-                                                controller: _echeanceJoursController,
-                                                focusNode: _echeanceJoursFocusNode,
-                                                textAlign: TextAlign.center,
-                                                decoration: const InputDecoration(
-                                                  border: OutlineInputBorder(),
-                                                  contentPadding: EdgeInsets.symmetric(
-                                                    horizontal: 4,
-                                                    vertical: 2,
-                                                  ),
-                                                  hintText: 'Ctrl+J',
-                                                  hintStyle: TextStyle(color: Colors.grey, fontSize: 12),
-                                                  suffixIcon: Icon(Icons.access_time_rounded, size: 16),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-
-                                  const SizedBox(width: 32),
-
-                                  // Right side - Totals
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          const Text('Total TTC', style: TextStyle(fontSize: 12)),
-                                          const SizedBox(width: 16),
-                                          SizedBox(
-                                            width: 100,
-                                            height: 25,
-                                            child: TextField(
-                                              controller: _totalTTCController,
-                                              textAlign: TextAlign.right,
-                                              readOnly: true,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                contentPadding: EdgeInsets.symmetric(
-                                                  horizontal: 4,
-                                                  vertical: 2,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          const Text(
-                                            'Total en FMG',
-                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Container(
-                                            alignment: Alignment.centerRight,
-                                            constraints: const BoxConstraints(minWidth: 100, maxWidth: 150),
-                                            height: 25,
-                                            child: TextField(
-                                              controller: _totalFMGController,
-                                              textAlign: TextAlign.right,
-                                              readOnly: true,
-                                              decoration: const InputDecoration(
-                                                border: OutlineInputBorder(),
-                                                contentPadding: EdgeInsets.symmetric(
-                                                  horizontal: 4,
-                                                  vertical: 2,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            // Action buttons
-                            Container(
-                              width: double.infinity,
-                              decoration: const BoxDecoration(
-                                borderRadius: BorderRadius.only(
-                                  bottomLeft: Radius.circular(16),
-                                  bottomRight: Radius.circular(16),
-                                ),
-                                color: Color(0xFFFFB6C1),
-                              ),
-                              padding: const EdgeInsets.all(8),
-                              child: SingleChildScrollView(
-                                child: Row(
-                                  spacing: 4,
-                                  children: [
-                                    Tooltip(
-                                      message: 'Achat précédent (F1)',
-                                      child: SizedBox(
-                                        width: 30,
-                                        height: 30,
-                                        child: ElevatedButton(
-                                          onPressed: _achatsNumbers.isNotEmpty
-                                              ? () => _naviguerAchat(false)
-                                              : null,
-                                          style: ElevatedButton.styleFrom(
-                                            padding: EdgeInsets.zero,
-                                            minimumSize: const Size(30, 30),
-                                          ),
-                                          child: const Icon(Icons.arrow_back_ios, size: 14),
-                                        ),
-                                      ),
-                                    ),
-                                    Tooltip(
-                                      message: 'Achat suivant (F2)',
-                                      child: SizedBox(
-                                        width: 30,
-                                        height: 30,
-                                        child: ElevatedButton(
-                                          onPressed: _achatsNumbers.isNotEmpty
-                                              ? () => _naviguerAchat(true)
-                                              : null,
-                                          style: ElevatedButton.styleFrom(
-                                            padding: EdgeInsets.zero,
-                                            minimumSize: const Size(30, 30),
-                                          ),
-                                          child: const Icon(Icons.arrow_forward_ios, size: 14),
-                                        ),
-                                      ),
-                                    ),
-                                    Tooltip(
-                                      message: 'Importer lignes d\'achat',
-                                      child: ElevatedButton(
-                                        onPressed: _statutAchatActuel == 'JOURNAL'
-                                            ? null
-                                            : _importerLignesAchat,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.orange,
-                                          foregroundColor: Colors.white,
-                                          minimumSize: const Size(60, 30),
-                                        ),
-                                        child: const Text('Importer lignes', style: TextStyle(fontSize: 12)),
-                                      ),
-                                    ),
-                                    if (_isExistingPurchase) ...[
-                                      Tooltip(
-                                        message: 'Créer nouveau (Ctrl+N)',
-                                        child: ElevatedButton(
-                                          onPressed: _creerNouvelAchat,
-                                          style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                          child: const Text('Créer (Ctrl+N)', style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                      if (_statutAchatActuel == 'BROUILLARD') ...[
-                                        Tooltip(
-                                          message: 'Valider l\'achat (F3)',
-                                          child: ElevatedButton(
-                                            onPressed: _validerAchatBrouillard,
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.green,
-                                              foregroundColor: Colors.white,
-                                              minimumSize: const Size(80, 30),
-                                            ),
-                                            child: const Text(
-                                              'Valider l\'achat (F3)',
-                                              style: TextStyle(fontSize: 12),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                    if (_isExistingPurchase) ...[
-                                      Tooltip(
-                                        message: 'Contre-passer (Ctrl+D)',
-                                        child: ElevatedButton(
-                                          onPressed: _statutAchatActuel == 'CONTRE-PASSÉ'
-                                              ? null
-                                              : _contrePasserAchat,
-                                          style: ElevatedButton.styleFrom(minimumSize: const Size(80, 30)),
-                                          child: const Text('Contre Passer', style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ),
-                                    ],
-                                    Tooltip(
-                                      message: _isExistingPurchase
-                                          ? 'Modifier (Ctrl+S)'
-                                          : 'Enregistrer (Ctrl+S)',
-                                      child: ElevatedButton(
-                                        onPressed:
-                                            _isExistingPurchase &&
-                                                (_statutAchatActuel == 'JOURNAL' ||
-                                                    _statutAchatActuel == 'CONTRE-PASSÉ')
-                                            ? null
-                                            : (_isExistingPurchase ? _modifierAchat : _validerAchat),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: _isExistingPurchase ? Colors.blue : Colors.green,
-                                          foregroundColor: Colors.white,
-                                          minimumSize: const Size(60, 30),
-                                        ),
-                                        child: Text(
-                                          _isExistingPurchase ? 'Modifier(Ctrl+S)' : 'Enregistrer (Ctrl+S)',
-                                          style: const TextStyle(fontSize: 12),
-                                        ),
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    PopupMenuButton<String>(
-                                      style: const ButtonStyle(
-                                        padding: WidgetStateProperty.fromMap({
-                                          WidgetState.hovered: EdgeInsets.all(0),
-                                          WidgetState.focused: EdgeInsets.all(0),
-                                          WidgetState.pressed: EdgeInsets.all(0),
-                                        }),
-                                      ),
-                                      menuPadding: const EdgeInsets.all(2),
-                                      initialValue: _selectedFormat,
-                                      onSelected: (String format) {
-                                        setState(() {
-                                          _selectedFormat = format;
-                                        });
-                                      },
-                                      itemBuilder: (BuildContext context) => [
-                                        const PopupMenuItem(
-                                          value: 'A4',
-                                          child: Text('Format A4', style: TextStyle(fontSize: 12)),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'A5',
-                                          child: Text('Format A5', style: TextStyle(fontSize: 12)),
-                                        ),
-                                        const PopupMenuItem(
-                                          value: 'A6',
-                                          child: Text('Format A6', style: TextStyle(fontSize: 12)),
-                                        ),
-                                      ],
-                                      child: Container(
-                                        constraints: const BoxConstraints(
-                                          minWidth: 60,
-                                          minHeight: 18,
-                                          maxHeight: 30,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-                                        decoration: BoxDecoration(
-                                          color: Colors.brown,
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.format_size, color: Colors.white, size: 16),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              _selectedFormat,
-                                              style: const TextStyle(color: Colors.white, fontSize: 12),
-                                            ),
-                                            const SizedBox(width: 4),
-                                            const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    Tooltip(
-                                      message: 'Aperçu BR',
-                                      child: ElevatedButton(
-                                        onPressed: _lignesAchat.isNotEmpty ? _ouvrirApercuBR : null,
-                                        style: ElevatedButton.styleFrom(minimumSize: const Size(70, 30)),
-                                        child: const Text('Aperçu BR', style: TextStyle(fontSize: 12)),
-                                      ),
-                                    ),
-                                    Tooltip(
-                                      message: 'Imprimer BR (Ctrl+P)',
-                                      child: ElevatedButton(
-                                        onPressed: _lignesAchat.isNotEmpty ? _imprimerBonReception : null,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.purple,
-                                          foregroundColor: Colors.white,
-                                          minimumSize: const Size(70, 30),
-                                        ),
-                                        child: const Row(
-                                          children: [
-                                            Icon(Icons.print, size: 16),
-                                            SizedBox(width: 8),
-                                            Text("Imprimer BR (Ctrl+P)", style: TextStyle(fontSize: 12)),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Tooltip(
-                                      message: 'Fermer (Echap)',
-                                      child: ElevatedButton(
-                                        onPressed: () => Navigator.of(context).pop(),
-                                        style: ElevatedButton.styleFrom(minimumSize: const Size(60, 30)),
-                                        child: const Text('Fermer', style: TextStyle(fontSize: 12)),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
   }
 
   Future<void> _imprimerBonReception() async {
@@ -4724,6 +2801,29 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     return pdf;
   }
 
+  @override
+  void dispose() {
+    _globalFocusTimer?.cancel();
+    _globalShortcutsFocusNode.dispose();
+    _autocompleteController?.dispose();
+    _numAchatsController.dispose();
+    _nFactController.dispose();
+    _dateController.dispose();
+    _fournisseurController.dispose();
+    _modePaiementController.dispose();
+    _echeanceController.dispose();
+    _totalTTCController.dispose();
+    _totalFMGController.dispose();
+    _articleSearchController.dispose();
+    _uniteController.dispose();
+    _depotController.dispose();
+    _quantiteController.dispose();
+    _prixController.dispose();
+    _searchAchatsController.dispose();
+    _echeanceJoursController.dispose();
+    super.dispose();
+  }
+
   pw.Widget _buildTotalsSection(double pdfFontSize, double pdfPadding) {
     return pw.Container(
       decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
@@ -4886,25 +2986,2163 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   @override
-  void dispose() {
-    _dateController.removeListener(_onDateChanged);
-    _echeanceJoursController.removeListener(_onEcheanceJoursChanged);
-    _numAchatsController.dispose();
-    _nFactController.dispose();
-    _dateController.dispose();
-    _fournisseurController.dispose();
-    _modePaiementController.dispose();
-    _echeanceController.dispose();
-    _totalTTCController.dispose();
-    _articleSearchController.dispose();
-    _autocompleteController?.dispose();
-    _uniteController.dispose();
-    _depotController.dispose();
-    _quantiteController.dispose();
-    _prixController.dispose();
-    _totalFMGController.dispose();
-    _searchAchatsController.dispose();
-    _echeanceJoursController.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: Shortcuts(
+        shortcuts: const <ShortcutActivator, Intent>{
+          // Raccourcis globaux avec Ctrl
+          SingleActivator(LogicalKeyboardKey.keyS, control: true): SavePurchaseIntent(),
+          SingleActivator(LogicalKeyboardKey.keyN, control: true): NewPurchaseIntent(),
+          SingleActivator(LogicalKeyboardKey.keyD, control: true): CancelPurchaseIntent(),
+          SingleActivator(LogicalKeyboardKey.keyP, control: true): PrintReceiptIntent(),
+          SingleActivator(LogicalKeyboardKey.keyF, control: true): SearchArticleIntent(),
+          SingleActivator(LogicalKeyboardKey.keyL, control: true): LastJournalIntent(),
+          SingleActivator(LogicalKeyboardKey.keyB, control: true): LastDraftIntent(),
+          SingleActivator(LogicalKeyboardKey.keyX, control: true, shift: true): LastCanceledIntent(),
+
+          // Raccourcis simples
+          SingleActivator(LogicalKeyboardKey.escape): CloseIntent(),
+          SingleActivator(LogicalKeyboardKey.f3): ValidateIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            SavePurchaseIntent: CallbackAction<SavePurchaseIntent>(
+              onInvoke: (intent) {
+                if (_isExistingPurchase && _statutAchatActuel != 'JOURNAL') {
+                  _modifierAchat();
+                } else if (!_isExistingPurchase) {
+                  _validerAchat();
+                }
+                return null;
+              },
+            ),
+            NewPurchaseIntent: CallbackAction<NewPurchaseIntent>(
+              onInvoke: (intent) {
+                _creerNouvelAchat();
+                return null;
+              },
+            ),
+            CancelPurchaseIntent: CallbackAction<CancelPurchaseIntent>(
+              onInvoke: (intent) {
+                if (_isExistingPurchase) {
+                  _contrePasserAchat();
+                }
+                return null;
+              },
+            ),
+            PrintReceiptIntent: CallbackAction<PrintReceiptIntent>(
+              onInvoke: (intent) {
+                if (_lignesAchat.isNotEmpty) {
+                  _imprimerBonReception();
+                }
+                return null;
+              },
+            ),
+            SearchArticleIntent: CallbackAction<SearchArticleIntent>(
+              onInvoke: (intent) {
+                _searchAchatsFocusNode.requestFocus();
+                return null;
+              },
+            ),
+            LastJournalIntent: CallbackAction<LastJournalIntent>(
+              onInvoke: (intent) {
+                final journalAchats = _getJournalAchats();
+                if (journalAchats.isNotEmpty) {
+                  _chargerAchatExistant(journalAchats.first);
+                }
+                return null;
+              },
+            ),
+            LastDraftIntent: CallbackAction<LastDraftIntent>(
+              onInvoke: (intent) {
+                final brouillardAchats = _getBrouillardAchats();
+                if (brouillardAchats.isNotEmpty) {
+                  _chargerAchatExistant(brouillardAchats.first);
+                }
+                return null;
+              },
+            ),
+            LastCanceledIntent: CallbackAction<LastCanceledIntent>(
+              onInvoke: (intent) {
+                final contrePasseAchats = _getContrePasseAchats();
+                if (contrePasseAchats.isNotEmpty) {
+                  _chargerAchatExistant(contrePasseAchats.first);
+                }
+                return null;
+              },
+            ),
+            CloseIntent: CallbackAction<CloseIntent>(
+              onInvoke: (intent) {
+                Navigator.of(context).pop();
+                return null;
+              },
+            ),
+            ValidateIntent: CallbackAction<ValidateIntent>(
+              onInvoke: (intent) {
+                if (_isExistingPurchase && _statutAchatActuel == 'BROUILLARD') {
+                  _validerAchatBrouillard();
+                }
+                return null;
+              },
+            ),
+          },
+          child: FocusScope(
+            autofocus: true,
+            child: Focus(
+              focusNode: _globalShortcutsFocusNode,
+              canRequestFocus: true,
+              descendantsAreFocusable: true,
+              onKeyEvent: (node, event) {
+                return KeyEventResult.ignored;
+              },
+              child: Dialog(
+                constraints: BoxConstraints(
+                  minHeight: MediaQuery.of(context).size.height * 0.8,
+                  minWidth: MediaQuery.of(context).size.width * 0.9,
+                  maxHeight: MediaQuery.of(context).size.height * 0.9,
+                  maxWidth: MediaQuery.of(context).size.width * 0.99,
+                ),
+                backgroundColor: Colors.grey[100],
+                child: ScaffoldMessenger(
+                  key: _scaffoldMessengerKey,
+                  child: Scaffold(
+                    backgroundColor: Colors.transparent,
+                    body: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.all(Radius.circular(16)),
+                        color: Colors.grey[100],
+                      ),
+                      child: Row(
+                        children: [
+                          // Liste des achats à gauche
+                          Container(
+                            width: 250,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border(right: BorderSide(color: Colors.grey.shade300)),
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.list, size: 16),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'Liste des achats',
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+                                  ),
+                                  child: TextField(
+                                    controller: _searchAchatsController,
+                                    focusNode: _searchAchatsFocusNode,
+                                    decoration: const InputDecoration(
+                                      hintText: 'Rechercher... (Ctrl+F)',
+                                      prefixIcon: Icon(Icons.search, size: 16),
+                                      border: OutlineInputBorder(),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    ),
+                                    style: const TextStyle(fontSize: 11),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _searchAchatsText = value.toLowerCase();
+                                      });
+                                    },
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _achatsNumbers.isEmpty
+                                      ? const Center(
+                                          child: Text('Aucun achat', style: TextStyle(fontSize: 11)),
+                                        )
+                                      : Column(
+                                          children: [
+                                            // Section Brouillard
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.orange.shade50,
+                                                border: Border(
+                                                  bottom: BorderSide(color: Colors.grey.shade300),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.edit_note,
+                                                    size: 14,
+                                                    color: Colors.orange.shade700,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    'Brouillard',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.orange.shade700,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 1,
+                                              child: ListView.builder(
+                                                itemCount: _getBrouillardAchats().length,
+                                                itemBuilder: (context, index) {
+                                                  final numAchat = _getBrouillardAchats()[index];
+                                                  return Container(
+                                                    decoration: BoxDecoration(
+                                                      color: _numAchatsController.text == numAchat
+                                                          ? Colors.orange.shade100
+                                                          : null,
+                                                      border: Border(
+                                                        bottom: BorderSide(
+                                                          color: Colors.grey.shade200,
+                                                          width: 0.5,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    child: ListTile(
+                                                      dense: true,
+                                                      contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 0,
+                                                      ),
+                                                      title: Text(
+                                                        'N° $numAchat',
+                                                        style: const TextStyle(fontSize: 11),
+                                                      ),
+                                                      onTap: () => _chargerAchatExistant(numAchat),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                            // Section Journal
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.shade50,
+                                                border: Border(
+                                                  bottom: BorderSide(color: Colors.grey.shade300),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(
+                                                    Icons.check_circle,
+                                                    size: 14,
+                                                    color: Colors.green.shade700,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    'Journal (Ctrl + L)',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.green.shade700,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 1,
+                                              child: ListView.builder(
+                                                itemCount: _getJournalAchats().length,
+                                                itemBuilder: (context, index) {
+                                                  final numAchat = _getJournalAchats()[index];
+                                                  return Container(
+                                                    decoration: BoxDecoration(
+                                                      color: _numAchatsController.text == numAchat
+                                                          ? Colors.green.shade100
+                                                          : null,
+                                                      border: Border(
+                                                        bottom: BorderSide(
+                                                          color: Colors.grey.shade200,
+                                                          width: 0.5,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    child: ListTile(
+                                                      dense: true,
+                                                      contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 0,
+                                                      ),
+                                                      title: Text(
+                                                        'N° $numAchat',
+                                                        style: const TextStyle(fontSize: 11),
+                                                      ),
+                                                      onTap: () => _chargerAchatExistant(numAchat),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                            // Section Contre-passé
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.shade50,
+                                                border: Border(
+                                                  bottom: BorderSide(color: Colors.grey.shade300),
+                                                ),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.block, size: 14, color: Colors.red.shade700),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    'Contre-passé',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.red.shade700,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Expanded(
+                                              flex: 1,
+                                              child: ListView.builder(
+                                                itemCount: _getContrePasseAchats().length,
+                                                itemBuilder: (context, index) {
+                                                  final numAchat = _getContrePasseAchats()[index];
+                                                  return Container(
+                                                    decoration: BoxDecoration(
+                                                      color: _numAchatsController.text == numAchat
+                                                          ? Colors.red.shade100
+                                                          : null,
+                                                      border: Border(
+                                                        bottom: BorderSide(
+                                                          color: Colors.grey.shade200,
+                                                          width: 0.5,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    child: ListTile(
+                                                      dense: true,
+                                                      contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 8,
+                                                        vertical: 0,
+                                                      ),
+                                                      title: Text(
+                                                        'N° $numAchat',
+                                                        style: const TextStyle(fontSize: 11),
+                                                      ),
+                                                      onTap: () => _chargerAchatExistant(numAchat),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Formulaire principal à droite
+                          Expanded(
+                            child: FocusTraversalGroup(
+                              policy: OrderedTraversalPolicy(),
+                              child: Column(
+                                children: [
+                                  // Title bar with close button
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    height: 35,
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(left: 16),
+                                            child: Row(
+                                              children: [
+                                                const Text(
+                                                  'Achat fournisseurs',
+                                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                                ),
+                                                if (_isExistingPurchase && _statutAchatActuel != null) ...[
+                                                  const SizedBox(width: 8),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2,
+                                                    ),
+                                                    decoration: BoxDecoration(
+                                                      color: _statutAchatActuel == 'JOURNAL'
+                                                          ? Colors.green
+                                                          : _statutAchatActuel == 'CONTRE-PASSÉ'
+                                                          ? Colors.red
+                                                          : Colors.orange,
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                    child: Text(
+                                                      _statutAchatActuel == 'JOURNAL'
+                                                          ? 'J'
+                                                          : _statutAchatActuel == 'CONTRE-PASSÉ'
+                                                          ? 'CP'
+                                                          : 'B',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        ExcludeFocus(
+                                          child: IconButton(
+                                            onPressed: () => Navigator.of(context).pop(),
+                                            icon: const Icon(Icons.close, size: 20),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Top section with form fields
+                                  Container(
+                                    color: const Color(0xFFE6E6FA),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                    child: Row(
+                                      children: [
+                                        // Left side with Enregistrement button and Journal dropdown
+                                        ExcludeFocus(
+                                          child: Column(
+                                            children: [
+                                              Container(
+                                                width: 120,
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 1,
+                                                ),
+                                                color: Colors.green,
+                                                child: const Text(
+                                                  'Enregistrement',
+                                                  style: TextStyle(color: Colors.white, fontSize: 12),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              SizedBox(
+                                                width: 120,
+                                                height: 25,
+                                                child: DropdownButtonFormField<String>(
+                                                  initialValue: _selectedStatut,
+                                                  decoration: InputDecoration(
+                                                    border: const OutlineInputBorder(),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 2,
+                                                    ),
+                                                    fillColor: _selectedStatut == 'Journal'
+                                                        ? Colors.green.shade100
+                                                        : Colors.orange.shade100,
+                                                    filled: true,
+                                                  ),
+                                                  items: const [
+                                                    DropdownMenuItem(
+                                                      value: 'Journal',
+                                                      child: Text('Journal', style: TextStyle(fontSize: 12)),
+                                                    ),
+                                                    DropdownMenuItem(
+                                                      value: 'Brouillard',
+                                                      child: Text(
+                                                        'Brouillard',
+                                                        style: TextStyle(fontSize: 12),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                  onChanged: _isExistingPurchase
+                                                      ? null
+                                                      : (value) {
+                                                          setState(() {
+                                                            _selectedStatut = value ?? 'Brouillard';
+                                                          });
+                                                        },
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 32),
+                                        // Form fields
+                                        Expanded(
+                                          child: Column(
+                                            children: [
+                                              // First row: N°Achats, Date et N° Facture
+                                              Row(
+                                                children: [
+                                                  const ExcludeFocus(
+                                                    child: Text('N° Achats', style: TextStyle(fontSize: 12)),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  SizedBox(
+                                                    width: 100,
+                                                    height: 25,
+                                                    child: ExcludeFocus(
+                                                      child: TextField(
+                                                        textAlign: TextAlign.center,
+                                                        controller: _numAchatsController,
+                                                        readOnly: true,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                            horizontal: 4,
+                                                            vertical: 2,
+                                                          ),
+                                                          fillColor: Color(0xFFF5F5F5),
+                                                          filled: true,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const Expanded(child: SizedBox()),
+                                                  const ExcludeFocus(
+                                                    child: Text('Date', style: TextStyle(fontSize: 12)),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  SizedBox(
+                                                    width: 140,
+                                                    height: 25,
+                                                    child: ExcludeFocus(
+                                                      child: TextField(
+                                                        controller: _dateController,
+                                                        readOnly: true,
+                                                        decoration: const InputDecoration(
+                                                          border: OutlineInputBorder(),
+                                                          contentPadding: EdgeInsets.symmetric(
+                                                            horizontal: 4,
+                                                            vertical: 2,
+                                                          ),
+                                                          suffixIcon: Icon(Icons.calendar_today, size: 16),
+                                                        ),
+                                                        onTap: () async {
+                                                          final date = await showDatePicker(
+                                                            context: context,
+                                                            initialDate: DateTime.now(),
+                                                            firstDate: DateTime(2000),
+                                                            lastDate: DateTime(2100),
+                                                          );
+                                                          if (date != null) {
+                                                            _dateController.text =
+                                                                app_date.AppDateUtils.formatDate(date);
+                                                          }
+                                                        },
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  const ExcludeFocus(
+                                                    child: Text(
+                                                      'N° Facture/ BL',
+                                                      style: TextStyle(fontSize: 12),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Flexible(
+                                                    child: SizedBox(
+                                                      width: 150,
+                                                      height: 25,
+                                                      child: Focus(
+                                                        onKeyEvent: (node, event) {
+                                                          if (event is KeyDownEvent &&
+                                                              event.logicalKey == LogicalKeyboardKey.tab) {
+                                                            _fournisseurFocusNode.requestFocus();
+                                                            return KeyEventResult.handled;
+                                                          }
+                                                          return KeyEventResult.ignored;
+                                                        },
+                                                        child: TextField(
+                                                          textAlign: TextAlign.center,
+                                                          controller: _nFactController,
+                                                          focusNode: _nFactFocusNode,
+                                                          enabled: _statutAchatActuel != 'JOURNAL',
+                                                          onSubmitted: (_) =>
+                                                              _fournisseurFocusNode.requestFocus(),
+                                                          decoration: InputDecoration(
+                                                            border: const OutlineInputBorder(),
+                                                            contentPadding: const EdgeInsets.symmetric(
+                                                              horizontal: 4,
+                                                              vertical: 2,
+                                                            ),
+                                                            fillColor: _statutAchatActuel == 'JOURNAL'
+                                                                ? Colors.grey.shade200
+                                                                : null,
+                                                            filled: _statutAchatActuel == 'JOURNAL',
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              // Second row: Label et champ Formulaire
+                                              Row(
+                                                children: [
+                                                  const ExcludeFocus(
+                                                    child: Text(
+                                                      'Fournisseurs',
+                                                      style: TextStyle(fontSize: 12),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: SizedBox(
+                                                      height: 30,
+                                                      child: Row(
+                                                        children: [
+                                                          Expanded(
+                                                            child: Focus(
+                                                              onFocusChange: (hasFocus) {
+                                                                if (!hasFocus &&
+                                                                    _fournisseurController.text.isNotEmpty) {
+                                                                  _verifierEtCreerFournisseur(
+                                                                    _fournisseurController.text,
+                                                                  );
+                                                                }
+                                                              },
+                                                              onKeyEvent: (node, event) {
+                                                                if (event is KeyDownEvent &&
+                                                                    event.logicalKey ==
+                                                                        LogicalKeyboardKey.tab) {
+                                                                  final isShiftPressed =
+                                                                      HardwareKeyboard
+                                                                          .instance
+                                                                          .logicalKeysPressed
+                                                                          .contains(
+                                                                            LogicalKeyboardKey.shiftLeft,
+                                                                          ) ||
+                                                                      HardwareKeyboard
+                                                                          .instance
+                                                                          .logicalKeysPressed
+                                                                          .contains(
+                                                                            LogicalKeyboardKey.shiftRight,
+                                                                          );
+
+                                                                  if (isShiftPressed) {
+                                                                    _nFactFocusNode.requestFocus();
+                                                                  } else {
+                                                                    _articleFocusNode.requestFocus();
+                                                                  }
+                                                                  return KeyEventResult.handled;
+                                                                }
+                                                                return KeyEventResult.ignored;
+                                                              },
+                                                              child: EnhancedAutocomplete<Frn>(
+                                                                controller: _fournisseurController,
+                                                                focusNode: _fournisseurFocusNode,
+                                                                options: _fournisseurs,
+                                                                displayStringForOption: (frn) => frn.rsoc,
+                                                                onSelected: (frn) {
+                                                                  if (_statutAchatActuel != 'JOURNAL') {
+                                                                    setState(() {
+                                                                      _selectedFournisseur = frn.rsoc;
+                                                                    });
+                                                                    _articleFocusNode.requestFocus();
+                                                                  }
+                                                                },
+                                                                onFieldSubmitted: (_) =>
+                                                                    _articleFocusNode.requestFocus(),
+                                                                hintText:
+                                                                    'Rechercher fournisseur... (← → pour naviguer)',
+                                                                decoration: InputDecoration(
+                                                                  border: const OutlineInputBorder(),
+                                                                  contentPadding: const EdgeInsets.symmetric(
+                                                                    horizontal: 4,
+                                                                    vertical: 2,
+                                                                  ),
+                                                                  fillColor: _statutAchatActuel == 'JOURNAL'
+                                                                      ? Colors.grey.shade200
+                                                                      : null,
+                                                                  filled: _statutAchatActuel == 'JOURNAL',
+                                                                ),
+                                                                style: const TextStyle(fontSize: 12),
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Article selection section
+                                  Container(
+                                    color: const Color(0xFFE6E6FA),
+                                    padding: const EdgeInsets.all(8),
+                                    child: Row(
+                                      children: [
+                                        // Désignation Articles column
+                                        Expanded(
+                                          flex: 3,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text(
+                                                'Désignation Articles',
+                                                style: TextStyle(fontSize: 12),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              SizedBox(
+                                                height: 30,
+                                                child: ArticleNavigationAutocomplete(
+                                                  articles: _articles,
+                                                  initialArticle: _lignesAchat.isNotEmpty
+                                                      ? _articles
+                                                            .where(
+                                                              (a) =>
+                                                                  a.designation ==
+                                                                  _lignesAchat.last['designation'],
+                                                            )
+                                                            .firstOrNull
+                                                      : null,
+                                                  selectedArticle:
+                                                      _selectedArticle, // Ajouter la synchronisation
+                                                  onArticleChanged: _onArticleSelected,
+                                                  focusNode: _articleFocusNode,
+                                                  enabled: _statutAchatActuel != 'JOURNAL',
+                                                  hintText: 'Rechercher article... (← → pour naviguer)',
+                                                  decoration: InputDecoration(
+                                                    border: const OutlineInputBorder(),
+                                                    contentPadding: const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                      vertical: 2,
+                                                    ),
+                                                    fillColor: _statutAchatActuel == 'JOURNAL'
+                                                        ? Colors.grey.shade200
+                                                        : null,
+                                                    filled: _statutAchatActuel == 'JOURNAL',
+                                                  ),
+                                                  style: const TextStyle(fontSize: 12),
+                                                  onTabPressed: () => _uniteFocusNode.requestFocus(),
+                                                  onShiftTabPressed: () =>
+                                                      _fournisseurFocusNode.requestFocus(),
+                                                ),
+                                              ),
+                                              // Affichage des unités disponibles et stock
+                                              if (_selectedArticle == null) ...[const SizedBox(height: 19)],
+                                              if (_selectedArticle != null) ...[
+                                                const SizedBox(height: 2),
+                                                if (_selectedDepot != null)
+                                                  FutureBuilder<String>(
+                                                    future: _getStocksToutesUnites(
+                                                      _selectedArticle!,
+                                                      _selectedDepot!,
+                                                    ),
+                                                    builder: (context, snapshot) {
+                                                      if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                                                        return Text(
+                                                          'Stock: ${snapshot.data}',
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            color: Colors.green.shade700,
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                        );
+                                                      }
+                                                      return const SizedBox.shrink();
+                                                    },
+                                                  ),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Unités column
+                                        Expanded(
+                                          flex: 1,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text('Unités', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(height: 4),
+                                              SizedBox(
+                                                height: 30,
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Focus(
+                                                        onFocusChange: (hasFocus) {
+                                                          if (!hasFocus &&
+                                                              _uniteController.text.isNotEmpty &&
+                                                              _selectedArticle != null &&
+                                                              _statutAchatActuel != 'JOURNAL') {
+                                                            _verifierUniteArticle(_uniteController.text);
+                                                          }
+                                                        },
+                                                        onKeyEvent: (node, event) {
+                                                          if (event is KeyDownEvent &&
+                                                              event.logicalKey == LogicalKeyboardKey.tab) {
+                                                            final isShiftPressed =
+                                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftRight);
+
+                                                            if (isShiftPressed) {
+                                                              _articleFocusNode.requestFocus();
+                                                            } else {
+                                                              _quantiteFocusNode.requestFocus();
+                                                            }
+                                                            return KeyEventResult.handled;
+                                                          }
+                                                          return KeyEventResult.ignored;
+                                                        },
+                                                        child: EnhancedAutocomplete<String>(
+                                                          controller: _uniteController,
+                                                          focusNode: _uniteFocusNode,
+                                                          enabled:
+                                                              _selectedArticle != null &&
+                                                              _statutAchatActuel != 'JOURNAL',
+                                                          options: _getUnitsForSelectedArticle()
+                                                              .map((item) => item.value!)
+                                                              .toList(),
+                                                          displayStringForOption: (unite) => unite,
+                                                          onSelected: (unite) {
+                                                            if (_selectedArticle != null &&
+                                                                _statutAchatActuel != 'JOURNAL') {
+                                                              _verifierUniteArticle(unite);
+                                                              _quantiteFocusNode.requestFocus();
+                                                            }
+                                                          },
+                                                          onTabPressed: () =>
+                                                              _quantiteFocusNode.requestFocus(),
+                                                          onShiftTabPressed: () =>
+                                                              _articleFocusNode.requestFocus(),
+                                                          onFieldSubmitted: (_) =>
+                                                              _quantiteFocusNode.requestFocus(),
+                                                          hintText: 'Unité...',
+                                                          decoration: InputDecoration(
+                                                            border: const OutlineInputBorder(),
+                                                            contentPadding: const EdgeInsets.symmetric(
+                                                              horizontal: 4,
+                                                              vertical: 2,
+                                                            ),
+                                                            fillColor:
+                                                                _selectedArticle == null ||
+                                                                    _statutAchatActuel == 'JOURNAL'
+                                                                ? Colors.grey.shade200
+                                                                : null,
+                                                            filled:
+                                                                _selectedArticle == null ||
+                                                                _statutAchatActuel == 'JOURNAL',
+                                                          ),
+                                                          style: const TextStyle(fontSize: 12),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 19),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Quantités column
+                                        Expanded(
+                                          flex: 1,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text('Quantités', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(height: 4),
+                                              SizedBox(
+                                                height: 30,
+                                                child: Focus(
+                                                  onKeyEvent: (node, event) {
+                                                    if (event is KeyDownEvent &&
+                                                        event.logicalKey == LogicalKeyboardKey.tab) {
+                                                      final isShiftPressed =
+                                                          HardwareKeyboard.instance.logicalKeysPressed
+                                                              .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                          HardwareKeyboard.instance.logicalKeysPressed
+                                                              .contains(LogicalKeyboardKey.shiftRight);
+
+                                                      if (isShiftPressed) {
+                                                        _uniteFocusNode.requestFocus();
+                                                      } else {
+                                                        _prixFocusNode.requestFocus();
+                                                      }
+                                                      return KeyEventResult.handled;
+                                                    }
+                                                    return KeyEventResult.ignored;
+                                                  },
+                                                  child: TextField(
+                                                    controller: _quantiteController,
+                                                    focusNode: _quantiteFocusNode,
+                                                    readOnly:
+                                                        _selectedArticle == null ||
+                                                        _statutAchatActuel == 'JOURNAL',
+                                                    onSubmitted: (_) => _prixFocusNode.requestFocus(),
+                                                    decoration: InputDecoration(
+                                                      border: const OutlineInputBorder(),
+                                                      contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 4,
+                                                        vertical: 2,
+                                                      ),
+                                                      fillColor:
+                                                          _selectedArticle == null ||
+                                                              _statutAchatActuel == 'JOURNAL'
+                                                          ? Colors.grey.shade200
+                                                          : null,
+                                                      filled:
+                                                          _selectedArticle == null ||
+                                                          _statutAchatActuel == 'JOURNAL',
+                                                    ),
+                                                    style: const TextStyle(fontSize: 12),
+                                                    onChanged: (value) {
+                                                      setState(() {});
+                                                    },
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 19),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // P.U HT column
+                                        Expanded(
+                                          flex: 1,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text('P.U HT', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(height: 4),
+                                              SizedBox(
+                                                height: 30,
+                                                child: Focus(
+                                                  onKeyEvent: (node, event) {
+                                                    if (event is KeyDownEvent &&
+                                                        event.logicalKey == LogicalKeyboardKey.tab) {
+                                                      final isShiftPressed =
+                                                          HardwareKeyboard.instance.logicalKeysPressed
+                                                              .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                          HardwareKeyboard.instance.logicalKeysPressed
+                                                              .contains(LogicalKeyboardKey.shiftRight);
+
+                                                      if (isShiftPressed) {
+                                                        _quantiteFocusNode.requestFocus();
+                                                      } else {
+                                                        _depotFocusNode.requestFocus();
+                                                      }
+                                                      return KeyEventResult.handled;
+                                                    }
+                                                    return KeyEventResult.ignored;
+                                                  },
+                                                  child: TextField(
+                                                    controller: _prixController,
+                                                    focusNode: _prixFocusNode,
+                                                    readOnly:
+                                                        _selectedArticle == null ||
+                                                        _statutAchatActuel == 'JOURNAL',
+                                                    onSubmitted: (_) => _depotFocusNode.requestFocus(),
+                                                    decoration: InputDecoration(
+                                                      border: const OutlineInputBorder(),
+                                                      contentPadding: const EdgeInsets.symmetric(
+                                                        horizontal: 4,
+                                                        vertical: 2,
+                                                      ),
+                                                      fillColor:
+                                                          _selectedArticle == null ||
+                                                              _statutAchatActuel == 'JOURNAL'
+                                                          ? Colors.grey.shade200
+                                                          : null,
+                                                      filled:
+                                                          _selectedArticle == null ||
+                                                          _statutAchatActuel == 'JOURNAL',
+                                                    ),
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 19),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Dépôts column
+                                        Expanded(
+                                          flex: 1,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              const Text('Dépôts', style: TextStyle(fontSize: 12)),
+                                              const SizedBox(height: 4),
+                                              SizedBox(
+                                                height: 30,
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Focus(
+                                                        onKeyEvent: (node, event) {
+                                                          if (event is KeyDownEvent &&
+                                                              event.logicalKey == LogicalKeyboardKey.tab) {
+                                                            final isShiftPressed =
+                                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftLeft) ||
+                                                                HardwareKeyboard.instance.logicalKeysPressed
+                                                                    .contains(LogicalKeyboardKey.shiftRight);
+
+                                                            if (isShiftPressed) {
+                                                              _prixFocusNode.requestFocus();
+                                                            } else {
+                                                              if (_isArticleFormValid() &&
+                                                                  _statutAchatActuel != 'JOURNAL') {
+                                                                _validerFocusNode.requestFocus();
+                                                              } else {
+                                                                _nFactFocusNode.requestFocus();
+                                                              }
+                                                            }
+                                                            return KeyEventResult.handled;
+                                                          }
+                                                          return KeyEventResult.ignored;
+                                                        },
+                                                        child: EnhancedAutocomplete<String>(
+                                                          controller: _depotController,
+                                                          focusNode: _depotFocusNode,
+                                                          options: _depots,
+                                                          displayStringForOption: (depot) => depot,
+                                                          onSelected: (depot) {
+                                                            if (_statutAchatActuel != 'JOURNAL') {
+                                                              setState(() {
+                                                                _selectedDepot = depot;
+                                                              });
+                                                              if (_isArticleFormValid()) {
+                                                                _validerFocusNode.requestFocus();
+                                                              } else {
+                                                                _nFactFocusNode.requestFocus();
+                                                              }
+                                                            }
+                                                          },
+                                                          onTabPressed: () {
+                                                            if (_isArticleFormValid() &&
+                                                                _statutAchatActuel != 'JOURNAL') {
+                                                              _validerFocusNode.requestFocus();
+                                                            } else {
+                                                              _nFactFocusNode.requestFocus();
+                                                            }
+                                                          },
+                                                          onShiftTabPressed: () =>
+                                                              _prixFocusNode.requestFocus(),
+                                                          onSubmitted: (_) {
+                                                            if (_isArticleFormValid() &&
+                                                                _statutAchatActuel != 'JOURNAL') {
+                                                              _validerFocusNode.requestFocus();
+                                                            } else {
+                                                              _nFactFocusNode.requestFocus();
+                                                            }
+                                                          },
+                                                          hintText: 'Dépôt...',
+                                                          decoration: InputDecoration(
+                                                            border: const OutlineInputBorder(),
+                                                            contentPadding: const EdgeInsets.symmetric(
+                                                              horizontal: 4,
+                                                              vertical: 2,
+                                                            ),
+                                                            fillColor: _statutAchatActuel == 'JOURNAL'
+                                                                ? Colors.grey.shade200
+                                                                : null,
+                                                            filled: _statutAchatActuel == 'JOURNAL',
+                                                          ),
+                                                          style: const TextStyle(fontSize: 12),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(height: 19),
+                                            ],
+                                          ),
+                                        ),
+                                        if (_isArticleFormValid() && _statutAchatActuel != 'JOURNAL') ...[
+                                          const SizedBox(width: 8),
+                                          Column(
+                                            children: [
+                                              const SizedBox(height: 16),
+                                              Row(
+                                                children: [
+                                                  Column(
+                                                    children: [
+                                                      Focus(
+                                                        focusNode: _validerFocusNode,
+                                                        onKeyEvent: (node, event) {
+                                                          if (event is KeyDownEvent) {
+                                                            if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                              final isShiftPressed =
+                                                                  HardwareKeyboard.instance.logicalKeysPressed
+                                                                      .contains(
+                                                                        LogicalKeyboardKey.shiftLeft,
+                                                                      ) ||
+                                                                  HardwareKeyboard.instance.logicalKeysPressed
+                                                                      .contains(
+                                                                        LogicalKeyboardKey.shiftRight,
+                                                                      );
+
+                                                              if (isShiftPressed) {
+                                                                _depotFocusNode.requestFocus();
+                                                              } else {
+                                                                _annulerFocusNode.requestFocus();
+                                                              }
+                                                              return KeyEventResult.handled;
+                                                            } else if (event.logicalKey ==
+                                                                LogicalKeyboardKey.enter) {
+                                                              if (_validerFocusNode.hasFocus) {
+                                                                _validerAjout();
+                                                              }
+                                                              return KeyEventResult.handled;
+                                                            }
+                                                          }
+                                                          return KeyEventResult.ignored;
+                                                        },
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            border: _validerFocusNode.hasFocus
+                                                                ? Border.all(color: Colors.blue, width: 3)
+                                                                : null,
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            boxShadow: _validerFocusNode.hasFocus
+                                                                ? [
+                                                                    BoxShadow(
+                                                                      color: Colors.blue.withValues(
+                                                                        alpha: 0.3,
+                                                                      ),
+                                                                      blurRadius: 4,
+                                                                      spreadRadius: 1,
+                                                                    ),
+                                                                  ]
+                                                                : null,
+                                                          ),
+                                                          child: ElevatedButton(
+                                                            onPressed: _validerAjout,
+                                                            style: ElevatedButton.styleFrom(
+                                                              backgroundColor: _validerFocusNode.hasFocus
+                                                                  ? Colors.green[600]
+                                                                  : Colors.green,
+                                                              foregroundColor: Colors.white,
+                                                              minimumSize: const Size(60, 35),
+                                                              elevation: _validerFocusNode.hasFocus ? 4 : 2,
+                                                            ),
+                                                            child: Text(
+                                                              _validerFocusNode.hasFocus
+                                                                  ? 'Ajouter ↵'
+                                                                  : 'Ajouter',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: _validerFocusNode.hasFocus
+                                                                    ? FontWeight.bold
+                                                                    : FontWeight.normal,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 16),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Column(
+                                                    children: [
+                                                      Focus(
+                                                        focusNode: _annulerFocusNode,
+                                                        onKeyEvent: (node, event) {
+                                                          if (event is KeyDownEvent) {
+                                                            if (event.logicalKey == LogicalKeyboardKey.tab) {
+                                                              final isShiftPressed =
+                                                                  HardwareKeyboard.instance.logicalKeysPressed
+                                                                      .contains(
+                                                                        LogicalKeyboardKey.shiftLeft,
+                                                                      ) ||
+                                                                  HardwareKeyboard.instance.logicalKeysPressed
+                                                                      .contains(
+                                                                        LogicalKeyboardKey.shiftRight,
+                                                                      );
+
+                                                              if (isShiftPressed) {
+                                                                _validerFocusNode.requestFocus();
+                                                              } else {
+                                                                _nFactFocusNode.requestFocus();
+                                                              }
+                                                              return KeyEventResult.handled;
+                                                            } else if (event.logicalKey ==
+                                                                LogicalKeyboardKey.enter) {
+                                                              if (_annulerFocusNode.hasFocus) {
+                                                                _resetArticleForm();
+                                                              }
+                                                              return KeyEventResult.handled;
+                                                            }
+                                                          }
+                                                          return KeyEventResult.ignored;
+                                                        },
+                                                        child: Container(
+                                                          decoration: BoxDecoration(
+                                                            border: _annulerFocusNode.hasFocus
+                                                                ? Border.all(color: Colors.blue, width: 3)
+                                                                : null,
+                                                            borderRadius: BorderRadius.circular(4),
+                                                            boxShadow: _annulerFocusNode.hasFocus
+                                                                ? [
+                                                                    BoxShadow(
+                                                                      color: Colors.blue.withValues(
+                                                                        alpha: 0.3,
+                                                                      ),
+                                                                      blurRadius: 4,
+                                                                      spreadRadius: 1,
+                                                                    ),
+                                                                  ]
+                                                                : null,
+                                                          ),
+                                                          child: ElevatedButton(
+                                                            onPressed: _resetArticleForm,
+                                                            style: ElevatedButton.styleFrom(
+                                                              backgroundColor: _annulerFocusNode.hasFocus
+                                                                  ? Colors.orange[600]
+                                                                  : Colors.orange,
+                                                              foregroundColor: Colors.white,
+                                                              minimumSize: const Size(60, 35),
+                                                              elevation: _annulerFocusNode.hasFocus ? 4 : 2,
+                                                            ),
+                                                            child: Text(
+                                                              _annulerFocusNode.hasFocus
+                                                                  ? 'Annuler ↵'
+                                                                  : 'Annuler',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: _annulerFocusNode.hasFocus
+                                                                    ? FontWeight.bold
+                                                                    : FontWeight.normal,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 16),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Articles table
+                                  Expanded(
+                                    child: Container(
+                                      margin: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey, width: 1),
+                                        color: Colors.white,
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          // Table header
+                                          Container(
+                                            height: 25,
+                                            decoration: BoxDecoration(color: Colors.orange[300]),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 50,
+                                                  alignment: Alignment.center,
+                                                  decoration: const BoxDecoration(
+                                                    border: Border(
+                                                      right: BorderSide(color: Colors.grey, width: 1),
+                                                      bottom: BorderSide(color: Colors.grey, width: 1),
+                                                    ),
+                                                  ),
+                                                  child: const Text(
+                                                    'ACTION',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 3,
+                                                  child: Container(
+                                                    alignment: Alignment.center,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                        right: BorderSide(color: Colors.grey, width: 1),
+                                                        bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      'DESIGNATION',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 1,
+                                                  child: Container(
+                                                    alignment: Alignment.center,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                        right: BorderSide(color: Colors.grey, width: 1),
+                                                        bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      'UNITE',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 1,
+                                                  child: Container(
+                                                    alignment: Alignment.center,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                        right: BorderSide(color: Colors.grey, width: 1),
+                                                        bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      'QUANTITE',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Container(
+                                                    alignment: Alignment.center,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                        right: BorderSide(color: Colors.grey, width: 1),
+                                                        bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      'PRIX UNITAIRE',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 2,
+                                                  child: Container(
+                                                    alignment: Alignment.center,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                        right: BorderSide(color: Colors.grey, width: 1),
+                                                        bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      'MONTANT',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                Expanded(
+                                                  flex: 1,
+                                                  child: Container(
+                                                    alignment: Alignment.center,
+                                                    decoration: const BoxDecoration(
+                                                      border: Border(
+                                                        bottom: BorderSide(color: Colors.grey, width: 1),
+                                                      ),
+                                                    ),
+                                                    child: const Text(
+                                                      'DEPOT',
+                                                      style: TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // Table content
+                                          Expanded(
+                                            child: _lignesAchat.isEmpty
+                                                ? const Center(
+                                                    child: Text(
+                                                      'Aucun article ajouté',
+                                                      style: TextStyle(
+                                                        fontSize: 14,
+                                                        color: Colors.grey,
+                                                        fontStyle: FontStyle.italic,
+                                                      ),
+                                                    ),
+                                                  )
+                                                : ListView.builder(
+                                                    itemCount: _lignesAchat.length,
+                                                    itemExtent: 18,
+                                                    itemBuilder: (context, index) {
+                                                      final ligne = _lignesAchat[index];
+                                                      return MouseRegion(
+                                                        onEnter: (_) {
+                                                          setState(() {
+                                                            _selectedRowIndex = index;
+                                                          });
+                                                        },
+                                                        onExit: (_) {
+                                                          setState(() {
+                                                            _selectedRowIndex = index;
+                                                          });
+                                                        },
+                                                        child: GestureDetector(
+                                                          onTap: () {
+                                                            setState(() {
+                                                              _selectedRowIndex = index;
+                                                            });
+                                                          },
+                                                          onSecondaryTapUp: _statutAchatActuel == 'JOURNAL'
+                                                              ? null
+                                                              : (details) {
+                                                                  showMenu(
+                                                                    context: context,
+                                                                    position: RelativeRect.fromLTRB(
+                                                                      details.globalPosition.dx,
+                                                                      details.globalPosition.dy,
+                                                                      details.globalPosition.dx,
+                                                                      details.globalPosition.dy,
+                                                                    ),
+                                                                    items: [
+                                                                      const PopupMenuItem(
+                                                                        value: 'modifier_ligne',
+                                                                        child: Text(
+                                                                          'Modifier',
+                                                                          style: TextStyle(fontSize: 12),
+                                                                        ),
+                                                                      ),
+                                                                      const PopupMenuItem(
+                                                                        value: 'supprimer_ligne',
+                                                                        child: Text(
+                                                                          'Supprimer',
+                                                                          style: TextStyle(fontSize: 12),
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ).then((value) {
+                                                                    if (value == 'modifier_ligne') {
+                                                                      _chargerLigneArticle(index);
+                                                                    } else if (value == 'supprimer_ligne') {
+                                                                      _supprimerLigne(index);
+                                                                    }
+                                                                  });
+                                                                },
+                                                          child: Container(
+                                                            height: 18,
+                                                            decoration: BoxDecoration(
+                                                              color: _selectedRowIndex == index
+                                                                  ? Colors.blue[300]
+                                                                  : (index % 2 == 0
+                                                                        ? Colors.white
+                                                                        : Colors.grey[50]),
+                                                            ),
+                                                            child: Row(
+                                                              children: [
+                                                                Container(
+                                                                  width: 50,
+                                                                  alignment: Alignment.center,
+                                                                  decoration: const BoxDecoration(
+                                                                    border: Border(
+                                                                      right: BorderSide(
+                                                                        color: Colors.grey,
+                                                                        width: 1,
+                                                                      ),
+                                                                      bottom: BorderSide(
+                                                                        color: Colors.grey,
+                                                                        width: 1,
+                                                                      ),
+                                                                    ),
+                                                                  ),
+                                                                  child: IconButton(
+                                                                    icon: const Icon(Icons.close, size: 12),
+                                                                    onPressed: _statutAchatActuel == 'JOURNAL'
+                                                                        ? null
+                                                                        : () => _supprimerLigne(index),
+                                                                    padding: EdgeInsets.zero,
+                                                                    constraints: const BoxConstraints(),
+                                                                  ),
+                                                                ),
+                                                                Expanded(
+                                                                  flex: 3,
+                                                                  child: Container(
+                                                                    padding: const EdgeInsets.only(left: 4),
+                                                                    alignment: Alignment.centerLeft,
+                                                                    decoration: const BoxDecoration(
+                                                                      border: Border(
+                                                                        right: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                        bottom: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    child: Text(
+                                                                      ligne['designation'] ?? '',
+                                                                      style: const TextStyle(fontSize: 11),
+                                                                      overflow: TextOverflow.ellipsis,
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                Expanded(
+                                                                  flex: 1,
+                                                                  child: Container(
+                                                                    padding: const EdgeInsets.symmetric(
+                                                                      horizontal: 4,
+                                                                    ),
+                                                                    alignment: Alignment.center,
+                                                                    decoration: const BoxDecoration(
+                                                                      border: Border(
+                                                                        right: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                        bottom: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    child: Text(
+                                                                      ligne['unites'] ?? '',
+                                                                      style: const TextStyle(fontSize: 11),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                Expanded(
+                                                                  flex: 1,
+                                                                  child: Container(
+                                                                    padding: const EdgeInsets.symmetric(
+                                                                      horizontal: 4,
+                                                                    ),
+                                                                    alignment: Alignment.center,
+                                                                    decoration: const BoxDecoration(
+                                                                      border: Border(
+                                                                        right: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                        bottom: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    child: Text(
+                                                                      (ligne['quantite'] as double?)
+                                                                              ?.round()
+                                                                              .toString() ??
+                                                                          '0',
+                                                                      style: const TextStyle(fontSize: 11),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                Expanded(
+                                                                  flex: 2,
+                                                                  child: Container(
+                                                                    padding: const EdgeInsets.symmetric(
+                                                                      horizontal: 4,
+                                                                    ),
+                                                                    alignment: Alignment.center,
+                                                                    decoration: const BoxDecoration(
+                                                                      border: Border(
+                                                                        right: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                        bottom: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    child: Text(
+                                                                      NumberUtils.formatNumber(
+                                                                        ligne['prixUnitaire']?.toDouble() ??
+                                                                            0,
+                                                                      ),
+                                                                      style: const TextStyle(fontSize: 11),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                Expanded(
+                                                                  flex: 2,
+                                                                  child: Container(
+                                                                    padding: const EdgeInsets.symmetric(
+                                                                      horizontal: 4,
+                                                                    ),
+                                                                    alignment: Alignment.center,
+                                                                    decoration: const BoxDecoration(
+                                                                      border: Border(
+                                                                        right: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                        bottom: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    child: Text(
+                                                                      NumberUtils.formatNumber(
+                                                                        ligne['montant']?.toDouble() ?? 0,
+                                                                      ),
+                                                                      style: const TextStyle(fontSize: 11),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                                Expanded(
+                                                                  flex: 1,
+                                                                  child: Container(
+                                                                    alignment: Alignment.center,
+                                                                    decoration: const BoxDecoration(
+                                                                      border: Border(
+                                                                        bottom: BorderSide(
+                                                                          color: Colors.grey,
+                                                                          width: 1,
+                                                                        ),
+                                                                      ),
+                                                                    ),
+                                                                    child: Text(
+                                                                      ligne['depot'] ?? '',
+                                                                      style: const TextStyle(fontSize: 11),
+                                                                    ),
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      );
+                                                    },
+                                                  ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  // Bottom section
+                                  Container(
+                                    color: const Color(0xFFE6E6FA),
+                                    padding: const EdgeInsets.all(8),
+                                    child: Row(
+                                      children: [
+                                        // Left side - Payment info
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  const Text(
+                                                    'Mode de paiement',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  SizedBox(
+                                                    width: 120,
+                                                    height: 25,
+                                                    child: DropdownButtonFormField<String>(
+                                                      alignment: AlignmentGeometry.center,
+                                                      initialValue: _selectedModePaiement,
+                                                      decoration: const InputDecoration(
+                                                        border: OutlineInputBorder(),
+                                                        contentPadding: EdgeInsets.symmetric(
+                                                          horizontal: 4,
+                                                          vertical: 2,
+                                                        ),
+                                                      ),
+                                                      items: _modesPaiement
+                                                          .where((mp) => mp.mp == 'A crédit')
+                                                          .map((mp) {
+                                                            return DropdownMenuItem<String>(
+                                                              alignment: AlignmentGeometry.center,
+                                                              value: mp.mp,
+                                                              child: Text(
+                                                                mp.mp,
+                                                                style: const TextStyle(fontSize: 12),
+                                                              ),
+                                                            );
+                                                          })
+                                                          .toList(),
+                                                      onChanged: (value) {
+                                                        setState(() {
+                                                          _selectedModePaiement = value;
+                                                        });
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  const Text(
+                                                    'Echéance (Date)',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  SizedBox(
+                                                    width: 137,
+                                                    height: 25,
+                                                    child: TextField(
+                                                      cursorHeight: 16,
+                                                      controller: _echeanceController,
+                                                      textAlign: TextAlign.center,
+                                                      readOnly: true,
+                                                      decoration: const InputDecoration(
+                                                        border: OutlineInputBorder(),
+                                                        contentPadding: EdgeInsets.symmetric(
+                                                          horizontal: 4,
+                                                          vertical: 2,
+                                                        ),
+                                                        suffixIcon: Icon(Icons.calendar_today, size: 16),
+                                                      ),
+                                                      onTap: () async {
+                                                        final date = await showDatePicker(
+                                                          context: context,
+                                                          initialDate: DateTime.now(),
+                                                          firstDate: DateTime(2000),
+                                                          lastDate: DateTime(2100),
+                                                        );
+                                                        if (date != null) {
+                                                          _echeanceController.text =
+                                                              app_date.AppDateUtils.formatDate(date);
+                                                        }
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  const Text(
+                                                    'Echéance (Jours)',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  SizedBox(
+                                                    width: 135,
+                                                    height: 25,
+                                                    child: TextField(
+                                                      style: const TextStyle(fontSize: 14),
+                                                      cursorHeight: 14,
+                                                      controller: _echeanceJoursController,
+                                                      focusNode: _echeanceJoursFocusNode,
+                                                      textAlign: TextAlign.center,
+                                                      decoration: const InputDecoration(
+                                                        border: OutlineInputBorder(),
+                                                        contentPadding: EdgeInsets.symmetric(
+                                                          horizontal: 4,
+                                                          vertical: 2,
+                                                        ),
+                                                        hintText: 'Ctrl+J',
+                                                        hintStyle: TextStyle(
+                                                          color: Colors.grey,
+                                                          fontSize: 12,
+                                                        ),
+                                                        suffixIcon: Icon(Icons.access_time_rounded, size: 16),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        const SizedBox(width: 32),
+
+                                        // Right side - Totals
+                                        Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                const Text('Total TTC', style: TextStyle(fontSize: 12)),
+                                                const SizedBox(width: 16),
+                                                SizedBox(
+                                                  width: 100,
+                                                  height: 25,
+                                                  child: TextField(
+                                                    controller: _totalTTCController,
+                                                    textAlign: TextAlign.right,
+                                                    readOnly: true,
+                                                    decoration: const InputDecoration(
+                                                      border: OutlineInputBorder(),
+                                                      contentPadding: EdgeInsets.symmetric(
+                                                        horizontal: 4,
+                                                        vertical: 2,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                const Text(
+                                                  'Total en FMG',
+                                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                                ),
+                                                const SizedBox(width: 16),
+                                                Container(
+                                                  alignment: Alignment.centerRight,
+                                                  constraints: const BoxConstraints(
+                                                    minWidth: 100,
+                                                    maxWidth: 150,
+                                                  ),
+                                                  height: 25,
+                                                  child: TextField(
+                                                    controller: _totalFMGController,
+                                                    textAlign: TextAlign.right,
+                                                    readOnly: true,
+                                                    decoration: const InputDecoration(
+                                                      border: OutlineInputBorder(),
+                                                      contentPadding: EdgeInsets.symmetric(
+                                                        horizontal: 4,
+                                                        vertical: 2,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Action buttons
+                                  Container(
+                                    width: double.infinity,
+                                    decoration: const BoxDecoration(
+                                      borderRadius: BorderRadius.only(
+                                        bottomLeft: Radius.circular(16),
+                                        bottomRight: Radius.circular(16),
+                                      ),
+                                      color: Color(0xFFFFB6C1),
+                                    ),
+                                    padding: const EdgeInsets.all(8),
+                                    child: SingleChildScrollView(
+                                      child: Row(
+                                        spacing: 4,
+                                        children: [
+                                          Tooltip(
+                                            message: 'Achat précédent (F1)',
+                                            child: SizedBox(
+                                              width: 30,
+                                              height: 30,
+                                              child: ElevatedButton(
+                                                onPressed: _achatsNumbers.isNotEmpty
+                                                    ? () => _naviguerAchat(false)
+                                                    : null,
+                                                style: ElevatedButton.styleFrom(
+                                                  padding: EdgeInsets.zero,
+                                                  minimumSize: const Size(30, 30),
+                                                ),
+                                                child: const Icon(Icons.arrow_back_ios, size: 14),
+                                              ),
+                                            ),
+                                          ),
+                                          Tooltip(
+                                            message: 'Achat suivant (F2)',
+                                            child: SizedBox(
+                                              width: 30,
+                                              height: 30,
+                                              child: ElevatedButton(
+                                                onPressed: _achatsNumbers.isNotEmpty
+                                                    ? () => _naviguerAchat(true)
+                                                    : null,
+                                                style: ElevatedButton.styleFrom(
+                                                  padding: EdgeInsets.zero,
+                                                  minimumSize: const Size(30, 30),
+                                                ),
+                                                child: const Icon(Icons.arrow_forward_ios, size: 14),
+                                              ),
+                                            ),
+                                          ),
+                                          Tooltip(
+                                            message: 'Importer lignes d\'achat',
+                                            child: ElevatedButton(
+                                              onPressed: _statutAchatActuel == 'JOURNAL'
+                                                  ? null
+                                                  : _importerLignesAchat,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.orange,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(60, 30),
+                                              ),
+                                              child: const Text(
+                                                'Importer lignes',
+                                                style: TextStyle(fontSize: 12),
+                                              ),
+                                            ),
+                                          ),
+                                          if (_isExistingPurchase) ...[
+                                            Tooltip(
+                                              message: 'Créer nouveau (Ctrl+N)',
+                                              child: ElevatedButton(
+                                                onPressed: _creerNouvelAchat,
+                                                style: ElevatedButton.styleFrom(
+                                                  minimumSize: const Size(60, 30),
+                                                ),
+                                                child: const Text(
+                                                  'Créer (Ctrl+N)',
+                                                  style: TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                            ),
+                                            if (_statutAchatActuel == 'BROUILLARD') ...[
+                                              Tooltip(
+                                                message: 'Valider l\'achat (F3)',
+                                                child: ElevatedButton(
+                                                  onPressed: _validerAchatBrouillard,
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: Colors.green,
+                                                    foregroundColor: Colors.white,
+                                                    minimumSize: const Size(80, 30),
+                                                  ),
+                                                  child: const Text(
+                                                    'Valider l\'achat (F3)',
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                          if (_isExistingPurchase) ...[
+                                            Tooltip(
+                                              message: 'Contre-passer (Ctrl+D)',
+                                              child: ElevatedButton(
+                                                onPressed: _statutAchatActuel == 'CONTRE-PASSÉ'
+                                                    ? null
+                                                    : _contrePasserAchat,
+                                                style: ElevatedButton.styleFrom(
+                                                  minimumSize: const Size(80, 30),
+                                                ),
+                                                child: const Text(
+                                                  'Contre Passer',
+                                                  style: TextStyle(fontSize: 12),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                          Tooltip(
+                                            message: _isExistingPurchase
+                                                ? 'Modifier (Ctrl+S)'
+                                                : 'Enregistrer (Ctrl+S)',
+                                            child: ElevatedButton(
+                                              onPressed:
+                                                  _isExistingPurchase &&
+                                                      (_statutAchatActuel == 'JOURNAL' ||
+                                                          _statutAchatActuel == 'CONTRE-PASSÉ')
+                                                  ? null
+                                                  : (_isExistingPurchase ? _modifierAchat : _validerAchat),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: _isExistingPurchase
+                                                    ? Colors.blue
+                                                    : Colors.green,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(60, 30),
+                                              ),
+                                              child: Text(
+                                                _isExistingPurchase
+                                                    ? 'Modifier(Ctrl+S)'
+                                                    : 'Enregistrer (Ctrl+S)',
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          PopupMenuButton<String>(
+                                            style: const ButtonStyle(
+                                              padding: WidgetStateProperty.fromMap({
+                                                WidgetState.hovered: EdgeInsets.all(0),
+                                                WidgetState.focused: EdgeInsets.all(0),
+                                                WidgetState.pressed: EdgeInsets.all(0),
+                                              }),
+                                            ),
+                                            menuPadding: const EdgeInsets.all(2),
+                                            initialValue: _selectedFormat,
+                                            onSelected: (String format) {
+                                              setState(() {
+                                                _selectedFormat = format;
+                                              });
+                                            },
+                                            itemBuilder: (BuildContext context) => [
+                                              const PopupMenuItem(
+                                                value: 'A4',
+                                                child: Text('Format A4', style: TextStyle(fontSize: 12)),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'A5',
+                                                child: Text('Format A5', style: TextStyle(fontSize: 12)),
+                                              ),
+                                              const PopupMenuItem(
+                                                value: 'A6',
+                                                child: Text('Format A6', style: TextStyle(fontSize: 12)),
+                                              ),
+                                            ],
+                                            child: Container(
+                                              constraints: const BoxConstraints(
+                                                minWidth: 60,
+                                                minHeight: 18,
+                                                maxHeight: 30,
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 3,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.brown,
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  const Icon(
+                                                    Icons.format_size,
+                                                    color: Colors.white,
+                                                    size: 16,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    _selectedFormat,
+                                                    style: const TextStyle(color: Colors.white, fontSize: 12),
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  const Icon(
+                                                    Icons.arrow_drop_down,
+                                                    color: Colors.white,
+                                                    size: 16,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          Tooltip(
+                                            message: 'Aperçu BR',
+                                            child: ElevatedButton(
+                                              onPressed: _lignesAchat.isNotEmpty ? _ouvrirApercuBR : null,
+                                              style: ElevatedButton.styleFrom(
+                                                minimumSize: const Size(70, 30),
+                                              ),
+                                              child: const Text('Aperçu BR', style: TextStyle(fontSize: 12)),
+                                            ),
+                                          ),
+                                          Tooltip(
+                                            message: 'Imprimer BR (Ctrl+P)',
+                                            child: ElevatedButton(
+                                              onPressed: _lignesAchat.isNotEmpty
+                                                  ? _imprimerBonReception
+                                                  : null,
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.purple,
+                                                foregroundColor: Colors.white,
+                                                minimumSize: const Size(70, 30),
+                                              ),
+                                              child: const Row(
+                                                children: [
+                                                  Icon(Icons.print, size: 16),
+                                                  SizedBox(width: 8),
+                                                  Text(
+                                                    "Imprimer BR (Ctrl+P)",
+                                                    style: TextStyle(fontSize: 12),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Tooltip(
+                                            message: 'Fermer (Echap)',
+                                            child: ElevatedButton(
+                                              onPressed: () => Navigator.of(context).pop(),
+                                              style: ElevatedButton.styleFrom(
+                                                minimumSize: const Size(60, 30),
+                                              ),
+                                              child: const Text('Fermer', style: TextStyle(fontSize: 12)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -259,7 +259,11 @@ class AchatService {
     required DateTime date,
     required double cmup,
   }) async {
-    final ref = 'A-${DateTime.now().millisecondsSinceEpoch}-${article.designation}';
+    // Générer une référence unique avec délai pour éviter les doublons
+    await Future.delayed(const Duration(milliseconds: 1));
+    final cleanDesignation = article.designation.replaceAll(' ', '');
+    final maxLength = cleanDesignation.length > 10 ? 10 : cleanDesignation.length;
+    final ref = 'A-${DateTime.now().millisecondsSinceEpoch}-${cleanDesignation.substring(0, maxLength)}';
 
     final conversions = StockConverter.convertirQuantiteAchat(
       article: article,
@@ -329,6 +333,8 @@ class AchatService {
   }) async {
     if (montant <= 0) return;
 
+    // Générer une référence unique avec délai
+    await Future.delayed(const Duration(milliseconds: 1));
     final ref = 'A-${DateTime.now().millisecondsSinceEpoch}';
 
     await _databaseService.database
@@ -539,7 +545,9 @@ class AchatService {
         _databaseService.database.fstocks,
       )..where((f) => f.art.equals(designation))).write(FstocksCompanion(qe: Value(nouvelleQe)));
     } else {
-      // Créer nouvelle fiche
+      // Créer nouvelle fiche avec référence unique
+      // Ajouter un délai pour éviter les doublons de timestamp
+      await Future.delayed(const Duration(milliseconds: 1));
       final ref = 'FS-${DateTime.now().millisecondsSinceEpoch}';
       await _databaseService.database
           .into(_databaseService.database.fstocks)
@@ -767,7 +775,11 @@ class AchatService {
     required double prixUnitaire,
     required String? fournisseur,
   }) async {
-    final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}-$designation';
+    // Générer une référence unique avec délai
+    await Future.delayed(const Duration(milliseconds: 1));
+    final cleanDesignation = designation.replaceAll(' ', '');
+    final maxLength = cleanDesignation.length > 10 ? 10 : cleanDesignation.length;
+    final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}-${cleanDesignation.substring(0, maxLength)}';
 
     // Récupérer l'article pour les conversions
     final article = await (_databaseService.database.select(
@@ -825,7 +837,9 @@ class AchatService {
         _databaseService.database.fstocks,
       )..where((f) => f.art.equals(designation))).write(FstocksCompanion(qs: Value(nouvelleQs)));
     } else {
-      // Créer nouvelle fiche avec sortie
+      // Créer nouvelle fiche avec sortie et référence unique
+      // Ajouter un délai pour éviter les doublons de timestamp
+      await Future.delayed(const Duration(milliseconds: 1));
       final ref = 'FS-${DateTime.now().millisecondsSinceEpoch}';
       await _databaseService.database
           .into(_databaseService.database.fstocks)

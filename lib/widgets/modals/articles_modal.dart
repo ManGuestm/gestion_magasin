@@ -8,7 +8,6 @@ import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/stock_management_service.dart';
 import '../../utils/stock_converter.dart';
-import '../common/article_navigation_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
 import 'add_article_modal.dart';
 import 'historique_stock_modal.dart';
@@ -26,6 +25,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   List<Article> _filteredArticles = [];
   List<Depot> _depots = [];
   final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   late final FocusNode _searchFocus;
   late final FocusNode _keyboardFocusNode;
   Article? _selectedArticle;
@@ -40,6 +40,13 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     _keyboardFocusNode = createFocusNode();
     _loadArticles();
     _loadDepots();
+
+    _searchController.addListener(() {
+      setState(() {
+        _searchQuery = _searchController.text;
+      });
+      _applyFilter();
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _searchFocus.requestFocus();
@@ -194,16 +201,9 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey[300]!),
                 ),
-                child: ArticleNavigationAutocomplete(
-                  articles: _articles,
-                  selectedArticle: _selectedArticle,
-                  onArticleChanged: (article) {
-                    if (article != null) {
-                      _selectArticle(article);
-                    }
-                  },
+                child: TextField(
+                  controller: _searchController,
                   focusNode: _searchFocus,
-                  hintText: 'Tapez le nom de l\'article...',
                   style: const TextStyle(fontSize: 13),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -216,9 +216,9 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
             ),
             const SizedBox(width: 12),
             ElevatedButton.icon(
-              onPressed: _showAllArticles,
-              icon: const Icon(Icons.refresh, size: 16),
-              label: const Text('Tout afficher'),
+              onPressed: _clearSearch,
+              icon: const Icon(Icons.clear, size: 16),
+              label: const Text('Effacer'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange[100],
                 foregroundColor: Colors.orange[700],
@@ -907,6 +907,13 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   void _applyFilter() {
     List<Article> filtered = _articles;
 
+    // Appliquer le filtre de recherche
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((article) {
+        return article.designation.toLowerCase().contains(_searchQuery.toLowerCase());
+      }).toList();
+    }
+
     // Appliquer le tri
     if (_sortColumn != null) {
       filtered.sort((a, b) {
@@ -946,8 +953,10 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     _applyFilter();
   }
 
-  void _showAllArticles() {
+  void _clearSearch() {
+    _searchController.clear();
     setState(() {
+      _searchQuery = '';
       _selectedArticle = null;
     });
     _applyFilter();
@@ -1011,6 +1020,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
 
   @override
   void dispose() {
+    _searchController.removeListener(() {});
     _searchController.dispose();
     _searchFocus.dispose();
     _keyboardFocusNode.dispose();
