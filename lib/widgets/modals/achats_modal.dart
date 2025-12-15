@@ -504,23 +504,74 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     ].where((u) => u != null && u.isNotEmpty).toList();
 
     if (!unitesValides.contains(unite)) {
-      // Afficher modal d'erreur
+      // Désactiver temporairement le focus global pour éviter les conflits
+      _globalShortcutsFocusNode.unfocus();
+
+      // Afficher modal d'erreur avec focus garanti et isolation des shortcuts parents
       await showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Unité invalide'),
-          content: Text(
-            'L\'unité "$unite" n\'est pas valide pour l\'article "${_selectedArticle!.designation}".\n\nUnités autorisées: ${unitesValides.join(", ")}',
-          ),
-          actions: [
-            TextButton(
-              autofocus: true,
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          // Créer un FocusNode pour le bouton
+          final buttonFocusNode = FocusNode();
+
+          // Demander le focus après la construction
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            buttonFocusNode.requestFocus();
+          });
+
+          return PopScope(
+            canPop: true,
+            onPopInvokedWithResult: (didPop, result) {
+              // Nettoyer le FocusNode
+              buttonFocusNode.dispose();
+              // Restaurer le focus global après fermeture
+              if (mounted) {
+                _ensureGlobalShortcutsFocus();
+              }
+            },
+            child: AlertDialog(
+              title: const Text(
+                'Unité invalide',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18),
+              ),
+              content: Text(
+                'L\'unité "$unite" n\'est pas valide pour l\'article "${_selectedArticle!.designation}".\n\nUnités autorisées: ${unitesValides.join(", ")}',
+                style: const TextStyle(fontSize: 14),
+              ),
+              actions: [
+                Focus(
+                  focusNode: buttonFocusNode,
+                  onKeyEvent: (node, event) {
+                    // Gérer les touches Enter et Escape directement
+                    if (event is KeyDownEvent) {
+                      if (event.logicalKey == LogicalKeyboardKey.enter ||
+                          event.logicalKey == LogicalKeyboardKey.escape) {
+                        Navigator.of(dialogContext).pop();
+                        return KeyEventResult.handled;
+                      }
+                    }
+                    return KeyEventResult.ignored;
+                  },
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                      elevation: 3,
+                    ),
+                    child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       );
+
+      // Restaurer le focus global après fermeture
+      _ensureGlobalShortcutsFocus();
 
       // Remettre l'unité par défaut et focus sur le champ unité
       setState(() {
