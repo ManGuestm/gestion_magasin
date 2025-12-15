@@ -461,27 +461,123 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       // Pour tous dépôts: permettre la validation même avec stock insuffisant
     }
 
+    // Désactiver temporairement le focus global pour éviter les conflits
+    _globalShortcutsFocusNode.unfocus();
+
     final confirm = mounted
         ? await showDialog<bool>(
             context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Validation vers Journal'),
-              content: Text(
-                'Voulez-vous valider la vente N° ${_numVentesController.text} vers le journal ?\n\n'
-                'Nombre de lignes: ${_lignesVente.length}\n'
-                'Cette action créera les mouvements de stock et mettra à jour les quantités.',
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  autofocus: true,
-                  child: const Text('Enregistrer'),
+            barrierDismissible: false,
+            builder: (dialogContext) {
+              // Créer des FocusNodes pour les boutons
+              final annulerButtonFocusNode = FocusNode();
+              final enregistrerButtonFocusNode = FocusNode();
+
+              return PopScope(
+                canPop: true,
+                onPopInvokedWithResult: (didPop, result) {
+                  // Nettoyer les FocusNodes
+                  annulerButtonFocusNode.dispose();
+                  enregistrerButtonFocusNode.dispose();
+                  // Restaurer le focus global après fermeture
+                  if (mounted) {
+                    _ensureGlobalShortcutsFocus();
+                  }
+                },
+                child: AlertDialog(
+                  title: const Text(
+                    'Confirmation validation brouillard vers journal',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 18),
+                  ),
+                  content: Text(
+                    'Voulez-vous valider la vente N° ${_numVentesController.text} vers le journal ?\n\n'
+                    'Nombre de lignes: ${_lignesVente.length}\n'
+                    'Cette action créera les mouvements de stock et mettra à jour les quantités.',
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  actions: [
+                    StatefulBuilder(
+                      builder: (context, setState) {
+                        // Demander le focus après la construction
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          enregistrerButtonFocusNode.requestFocus();
+                          setState(() {}); // Déclencher rebuild pour afficher la bordure
+                        });
+
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Focus(
+                              focusNode: annulerButtonFocusNode,
+                              onKeyEvent: (node, event) {
+                                // Gérer les touches Enter et Escape directement
+                                if (event is KeyDownEvent) {
+                                  if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                    Navigator.of(dialogContext).pop(false);
+                                    return KeyEventResult.handled;
+                                  } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                    Navigator.of(dialogContext).pop(false);
+                                    return KeyEventResult.handled;
+                                  }
+                                }
+                                return KeyEventResult.ignored;
+                              },
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.of(dialogContext).pop(false),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.grey,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                                  elevation: 3,
+                                  side: annulerButtonFocusNode.hasFocus
+                                      ? const BorderSide(color: Colors.grey, width: 3)
+                                      : null,
+                                ),
+                                child: const Text('Annuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                            Focus(
+                              focusNode: enregistrerButtonFocusNode,
+                              onKeyEvent: (node, event) {
+                                // Gérer les touches Enter et Escape directement
+                                if (event is KeyDownEvent) {
+                                  if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                    Navigator.of(dialogContext).pop(true);
+                                    return KeyEventResult.handled;
+                                  } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                    Navigator.of(dialogContext).pop(false);
+                                    return KeyEventResult.handled;
+                                  }
+                                }
+                                return KeyEventResult.ignored;
+                              },
+                              child: ElevatedButton(
+                                onPressed: () => Navigator.of(dialogContext).pop(true),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                                  elevation: 3,
+                                  side: enregistrerButtonFocusNode.hasFocus
+                                      ? const BorderSide(color: Colors.blue, width: 3)
+                                      : null,
+                                ),
+                                child: const Text('Enregistrer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           )
         : null;
+
+    // Restaurer le focus global après fermeture
+    _ensureGlobalShortcutsFocus();
 
     if (confirm != true) return;
 
@@ -917,11 +1013,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             // Créer un FocusNode pour le bouton
             final buttonFocusNode = FocusNode();
 
-            // Demander le focus après la construction
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              buttonFocusNode.requestFocus();
-            });
-
             return PopScope(
               canPop: true,
               onPopInvokedWithResult: (didPop, result) {
@@ -942,29 +1033,42 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                   style: const TextStyle(fontSize: 14),
                 ),
                 actions: [
-                  Focus(
-                    focusNode: buttonFocusNode,
-                    onKeyEvent: (node, event) {
-                      // Gérer les touches Enter et Escape directement
-                      if (event is KeyDownEvent) {
-                        if (event.logicalKey == LogicalKeyboardKey.enter ||
-                            event.logicalKey == LogicalKeyboardKey.escape) {
-                          Navigator.of(dialogContext).pop();
-                          return KeyEventResult.handled;
-                        }
-                      }
-                      return KeyEventResult.ignored;
+                  StatefulBuilder(
+                    builder: (context, setState) {
+                      // Demander le focus après la construction
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        buttonFocusNode.requestFocus();
+                        setState(() {}); // Déclencher rebuild pour afficher la bordure
+                      });
+
+                      return Focus(
+                        focusNode: buttonFocusNode,
+                        onKeyEvent: (node, event) {
+                          // Gérer les touches Enter et Escape directement
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.escape) {
+                              Navigator.of(dialogContext).pop();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                            elevation: 3,
+                            side: buttonFocusNode.hasFocus
+                                ? const BorderSide(color: Colors.blue, width: 3)
+                                : null,
+                          ),
+                          child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ),
+                      );
                     },
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                        elevation: 3,
-                      ),
-                      child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    ),
                   ),
                 ],
               ),
@@ -1697,49 +1801,204 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     if (quantite > _stockDisponible) {
       // Pour les vendeurs, empêcher complètement la vente avec stock insuffisant
       if (_isVendeur()) {
+        // Désactiver temporairement le focus global pour éviter les conflits
+        _globalShortcutsFocusNode.unfocus();
+
         await showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Stock insuffisant'),
-            content: Text(
-              'Impossible de vendre ${quantite.toStringAsFixed(0)} ${_selectedUnite ?? ''} de "${_selectedArticle!.designation}".\n\n'
-              'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} ${_selectedUnite ?? ''}.\n\n'
-              'Les vendeurs ne peuvent pas vendre avec un stock insuffisant.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                autofocus: true,
-                child: const Text('OK'),
+          barrierDismissible: false,
+          builder: (dialogContext) {
+            // Créer un FocusNode pour le bouton
+            final buttonFocusNode = FocusNode();
+
+            return PopScope(
+              canPop: true,
+              onPopInvokedWithResult: (didPop, result) {
+                // Nettoyer le FocusNode
+                buttonFocusNode.dispose();
+                // Restaurer le focus global après fermeture
+                if (mounted) {
+                  _ensureGlobalShortcutsFocus();
+                }
+              },
+              child: AlertDialog(
+                title: const Text(
+                  'Stock insuffisant - Vendeur',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18),
+                ),
+                content: Text(
+                  'Impossible de vendre ${quantite.toStringAsFixed(0)} ${_selectedUnite ?? ''} de "${_selectedArticle!.designation}".\n\n'
+                  'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} ${_selectedUnite ?? ''}.\n\n'
+                  'Les vendeurs ne peuvent pas vendre avec un stock insuffisant.',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                actions: [
+                  StatefulBuilder(
+                    builder: (context, setState) {
+                      // Demander le focus après la construction
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        buttonFocusNode.requestFocus();
+                        setState(() {}); // Déclencher rebuild pour afficher la bordure
+                      });
+
+                      return Focus(
+                        focusNode: buttonFocusNode,
+                        onKeyEvent: (node, event) {
+                          // Gérer les touches Enter et Escape directement
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.escape) {
+                              Navigator.of(dialogContext).pop();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                            elevation: 3,
+                            side: buttonFocusNode.hasFocus
+                                ? const BorderSide(color: Colors.blue, width: 3)
+                                : null,
+                          ),
+                          child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
+
+        // Restaurer le focus global après fermeture
+        _ensureGlobalShortcutsFocus();
         // Remettre la quantité à la valeur du stock disponible
         _quantiteController.text = _stockDisponible > 0 ? _stockDisponible.toStringAsFixed(0) : '';
         return;
       }
 
+      // Désactiver temporairement le focus global pour éviter les conflits
+      _globalShortcutsFocusNode.unfocus();
+
       // Pour les autres utilisateurs, permettre avec confirmation
       final confirm = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Stock insuffisant'),
-          content: Text(
-            'Attention: Vous allez vendre ${quantite.toStringAsFixed(0)} ${_selectedUnite ?? ''} de "${_selectedArticle!.designation}" '
-            'mais le stock disponible est de ${_stockDisponible.toStringAsFixed(0)} ${_selectedUnite ?? ''}.\n\n'
-            'Voulez-vous continuer ?',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              autofocus: true,
-              child: const Text('Continuer'),
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          // Créer des FocusNodes pour les boutons
+          final annulerButtonFocusNode = FocusNode();
+          final continuerButtonFocusNode = FocusNode();
+
+          return PopScope(
+            canPop: true,
+            onPopInvokedWithResult: (didPop, result) {
+              // Nettoyer les FocusNodes
+              annulerButtonFocusNode.dispose();
+              continuerButtonFocusNode.dispose();
+              // Restaurer le focus global après fermeture
+              if (mounted) {
+                _ensureGlobalShortcutsFocus();
+              }
+            },
+            child: AlertDialog(
+              title: const Text(
+                'Stock insuffisant - Confirmation',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 18),
+              ),
+              content: Text(
+                'Attention: Vous allez vendre ${quantite.toStringAsFixed(0)} ${_selectedUnite ?? ''} de "${_selectedArticle!.designation}" '
+                'mais le stock disponible est de ${_stockDisponible.toStringAsFixed(0)} ${_selectedUnite ?? ''}.\n\n'
+                'Voulez-vous continuer ?',
+                style: const TextStyle(fontSize: 14),
+              ),
+              actions: [
+                StatefulBuilder(
+                  builder: (context, setState) {
+                    // Demander le focus après la construction
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      continuerButtonFocusNode.requestFocus();
+                      setState(() {}); // Déclencher rebuild pour afficher la bordure
+                    });
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Focus(
+                          focusNode: annulerButtonFocusNode,
+                          onKeyEvent: (node, event) {
+                            // Gérer les touches Enter et Escape directement
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                              elevation: 3,
+                              side: annulerButtonFocusNode.hasFocus
+                                  ? const BorderSide(color: Colors.grey, width: 3)
+                                  : null,
+                            ),
+                            child: const Text('Annuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Focus(
+                          focusNode: continuerButtonFocusNode,
+                          onKeyEvent: (node, event) {
+                            // Gérer les touches Enter et Escape directement
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                Navigator.of(dialogContext).pop(true);
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                              elevation: 3,
+                              side: continuerButtonFocusNode.hasFocus
+                                  ? const BorderSide(color: Colors.blue, width: 3)
+                                  : null,
+                            ),
+                            child: const Text('Continuer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       );
+
+      // Restaurer le focus global après fermeture
+      _ensureGlobalShortcutsFocus();
 
       if (confirm != true) {
         // Remettre la quantité à la valeur du stock disponible
@@ -1956,25 +2215,84 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     if (quantite > _stockDisponible) {
       // Pour les vendeurs, empêcher complètement la vente avec stock insuffisant
       if (_isVendeur() && mounted) {
+        // Désactiver temporairement le focus global pour éviter les conflits
+        _globalShortcutsFocusNode.unfocus();
+
         await showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Vente impossible'),
-            content: Text(
-              'Stock insuffisant pour "${_selectedArticle!.designation}".\n\n'
-              'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\n'
-              'Quantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\n'
-              'Les vendeurs ne peuvent pas vendre avec un stock insuffisant.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                autofocus: true,
-                child: const Text('OK'),
+          barrierDismissible: false,
+          builder: (dialogContext) {
+            // Créer un FocusNode pour le bouton
+            final buttonFocusNode = FocusNode();
+
+            return PopScope(
+              canPop: true,
+              onPopInvokedWithResult: (didPop, result) {
+                // Nettoyer le FocusNode
+                buttonFocusNode.dispose();
+                // Restaurer le focus global après fermeture
+                if (mounted) {
+                  _ensureGlobalShortcutsFocus();
+                }
+              },
+              child: AlertDialog(
+                title: const Text(
+                  'Vente impossible',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18),
+                ),
+                content: Text(
+                  'Stock insuffisant pour "${_selectedArticle!.designation}".\n\n'
+                  'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\n'
+                  'Quantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\n'
+                  'Les vendeurs ne peuvent pas vendre avec un stock insuffisant.',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                actions: [
+                  StatefulBuilder(
+                    builder: (context, setState) {
+                      // Demander le focus après la construction
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        buttonFocusNode.requestFocus();
+                        setState(() {}); // Déclencher rebuild pour afficher la bordure
+                      });
+
+                      return Focus(
+                        focusNode: buttonFocusNode,
+                        onKeyEvent: (node, event) {
+                          // Gérer les touches Enter et Escape directement
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.enter ||
+                                event.logicalKey == LogicalKeyboardKey.escape) {
+                              Navigator.of(dialogContext).pop();
+                              return KeyEventResult.handled;
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(dialogContext).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                            elevation: 3,
+                            side: buttonFocusNode.hasFocus
+                                ? const BorderSide(color: Colors.blue, width: 3)
+                                : null,
+                          ),
+                          child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
+
+        // Restaurer le focus global après fermeture
+        _ensureGlobalShortcutsFocus();
         return;
       }
 
@@ -2344,24 +2662,120 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
 
     if (mounted) {
+      // Désactiver temporairement le focus global pour éviter les conflits
+      _globalShortcutsFocusNode.unfocus();
+
       // Afficher le modal de confirmation
       final confirmer = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Confirmer la validation'),
-          content: Text(
-            'Êtes-vous sûr de vouloir valider cette vente?\n\nN° Vente: ${_numVentesController.text}\nClient: ${_selectedClient ?? "Aucun"}\nTotal TTC: ${_totalTTCController.text}',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-            TextButton(
-              autofocus: true,
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Enregistrer'),
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          // Créer des FocusNodes pour les boutons
+          final annulerButtonFocusNode = FocusNode();
+          final enregistrerButtonFocusNode = FocusNode();
+
+          return PopScope(
+            canPop: true,
+            onPopInvokedWithResult: (didPop, result) {
+              // Nettoyer les FocusNodes
+              annulerButtonFocusNode.dispose();
+              enregistrerButtonFocusNode.dispose();
+              // Restaurer le focus global après fermeture
+              if (mounted) {
+                _ensureGlobalShortcutsFocus();
+              }
+            },
+            child: AlertDialog(
+              title: const Text(
+                'Confirmation validation vente',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 18),
+              ),
+              content: Text(
+                'Êtes-vous sûr de vouloir valider cette vente?\n\nN° Vente: ${_numVentesController.text}\nClient: ${_selectedClient ?? "Aucun"}\nTotal TTC: ${_totalTTCController.text}',
+                style: const TextStyle(fontSize: 14),
+              ),
+              actions: [
+                StatefulBuilder(
+                  builder: (context, setState) {
+                    // Demander le focus après la construction
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      enregistrerButtonFocusNode.requestFocus();
+                      setState(() {}); // Déclencher rebuild pour afficher la bordure
+                    });
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Focus(
+                          focusNode: annulerButtonFocusNode,
+                          onKeyEvent: (node, event) {
+                            // Gérer les touches Enter et Escape directement
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                              elevation: 3,
+                              side: annulerButtonFocusNode.hasFocus
+                                  ? const BorderSide(color: Colors.grey, width: 3)
+                                  : null,
+                            ),
+                            child: const Text('Annuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Focus(
+                          focusNode: enregistrerButtonFocusNode,
+                          onKeyEvent: (node, event) {
+                            // Gérer les touches Enter et Escape directement
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                Navigator.of(dialogContext).pop(true);
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                              elevation: 3,
+                              side: enregistrerButtonFocusNode.hasFocus
+                                  ? const BorderSide(color: Colors.blue, width: 3)
+                                  : null,
+                            ),
+                            child: const Text('Enregistrer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       );
+
+      // Restaurer le focus global après fermeture
+      _ensureGlobalShortcutsFocus();
 
       if (confirmer != true) return;
     }
@@ -3560,22 +3974,120 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     final clientExiste = _clients.any((client) => client.rsoc.toLowerCase() == nomClient.toLowerCase());
 
     if (!clientExiste) {
-      // Afficher le modal de confirmation
+      // Désactiver temporairement le focus global pour éviter les conflits
+      _globalShortcutsFocusNode.unfocus();
+
+      // Afficher le modal de confirmation avec focus garanti et isolation des shortcuts parents
       final confirmer = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Client inconnu!!'),
-          content: Text('Le client "$nomClient" n\'existe pas.\n\nVoulez-vous le créer?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Non')),
-            TextButton(
-              autofocus: true,
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Oui'),
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          // Créer des FocusNodes pour les boutons
+          final nonButtonFocusNode = FocusNode();
+          final ouiButtonFocusNode = FocusNode();
+
+          return PopScope(
+            canPop: true,
+            onPopInvokedWithResult: (didPop, result) {
+              // Nettoyer les FocusNodes
+              nonButtonFocusNode.dispose();
+              ouiButtonFocusNode.dispose();
+              // Restaurer le focus global après fermeture
+              if (mounted) {
+                _ensureGlobalShortcutsFocus();
+              }
+            },
+            child: AlertDialog(
+              title: const Text(
+                'Client inconnu!!',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18),
+              ),
+              content: Text(
+                'Le client "$nomClient" n\'existe pas.\n\nVoulez-vous le créer?',
+                style: const TextStyle(fontSize: 14),
+              ),
+              actions: [
+                StatefulBuilder(
+                  builder: (context, setState) {
+                    // Demander le focus après la construction
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      ouiButtonFocusNode.requestFocus();
+                      setState(() {}); // Déclencher rebuild pour afficher la bordure
+                    });
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Focus(
+                          focusNode: nonButtonFocusNode,
+                          onKeyEvent: (node, event) {
+                            // Gérer les touches Enter et Escape directement
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                              elevation: 3,
+                              side: nonButtonFocusNode.hasFocus
+                                  ? const BorderSide(color: Colors.grey, width: 3)
+                                  : null,
+                            ),
+                            child: const Text('Non', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        Focus(
+                          focusNode: ouiButtonFocusNode,
+                          onKeyEvent: (node, event) {
+                            // Gérer les touches Enter et Escape directement
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                Navigator.of(dialogContext).pop(true);
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                              elevation: 3,
+                              side: ouiButtonFocusNode.hasFocus
+                                  ? const BorderSide(color: Colors.blue, width: 3)
+                                  : null,
+                            ),
+                            child: const Text('Oui', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       );
+
+      // Restaurer le focus global après fermeture
+      _ensureGlobalShortcutsFocus();
 
       if (confirmer == true) {
         // Créer directement le client avec le nom saisi

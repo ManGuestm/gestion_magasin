@@ -120,7 +120,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     return _achatsNumbers.where((numAchat) {
       final statut = _achatsStatuts[numAchat] ?? 'BROUILLARD';
       final matchesSearch = _searchAchatsText.isEmpty || numAchat.toLowerCase().contains(_searchAchatsText);
-      return statut == 'CONTRE-PASSÉ' && matchesSearch;
+      return statut == 'CONTRE-PASSÃ‰' && matchesSearch;
     }).toList();
   }
 
@@ -149,7 +149,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     _searchAchatsFocusNode = createFocusNode();
     _echeanceJoursFocusNode = createFocusNode();
 
-    // Listeners pour les champs d'échéance
+    // Listeners pour les champs d'Ã©chÃ©ance
     _dateController.addListener(_onDateChanged);
     _echeanceJoursController.addListener(_onEcheanceJoursChanged);
 
@@ -239,23 +239,23 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   void _initializeForm() async {
-    // Toujours créer un nouveau formulaire par défaut
+    // Toujours crÃ©er un nouveau formulaire par dÃ©faut
     final now = DateTime.now();
     _dateController.text = app_date.AppDateUtils.formatDate(now);
 
-    // Échéance par défaut : 7 jours après la date de facturation
+    // Ã‰chÃ©ance par dÃ©faut : 7 jours aprÃ¨s la date de facturation
     final echeanceDefaut = now.add(const Duration(days: 7));
     _echeanceController.text = app_date.AppDateUtils.formatDate(echeanceDefaut);
     _echeanceJoursController.text = '7';
 
-    // Générer le prochain numéro d'achat
+    // GÃ©nÃ©rer le prochain numÃ©ro d'achat
     final nextNum = await _getNextNumAchats();
     _numAchatsController.text = nextNum;
 
-    // Mode de paiement par défaut "A crédit"
-    _selectedModePaiement = 'A crédit';
+    // Mode de paiement par dÃ©faut "A crÃ©dit"
+    _selectedModePaiement = 'A crÃ©dit';
 
-    // Dépôt par défaut = dernier utilisé
+    // DÃ©pÃ´t par dÃ©faut = dernier utilisÃ©
     final lastDepot = await _getLastUsedDepot();
     _selectedDepot = lastDepot;
     _depotController.text = lastDepot;
@@ -263,14 +263,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     _totalTTCController.text = '0';
     _totalFMGController.text = '0';
 
-    // Focus automatique sur N° Facture/BL
+    // Focus automatique sur NÂ° Facture/BL
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nFactFocusNode.requestFocus();
       _ensureGlobalShortcutsFocus();
     });
   }
 
-  // Méthode pour s'assurer que les raccourcis globaux restent actifs
+  // MÃ©thode pour s'assurer que les raccourcis globaux restent actifs
   void _ensureGlobalShortcutsFocus() {
     if (!_globalShortcutsFocusNode.hasFocus) {
       final currentFocus = FocusScope.of(context).focusedChild;
@@ -299,19 +299,19 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       final achats = await _databaseService.database.select(_databaseService.database.achats).get();
 
       setState(() {
-        // Inclure tous les achats (y compris contre-passés)
+        // Inclure tous les achats (y compris contre-passÃ©s)
         _achatsNumbers = achats
             .where((a) => (a.numachats ?? '').isNotEmpty)
             .map((a) => a.numachats!)
             .toList();
-        _achatsNumbers.sort((a, b) => b.compareTo(a)); // Tri décroissant
+        _achatsNumbers.sort((a, b) => b.compareTo(a)); // Tri dÃ©croissant
 
         // Charger les statuts
         _achatsStatuts.clear();
         for (var achat in achats) {
           if (achat.numachats != null) {
             if (achat.contre == '1') {
-              _achatsStatuts[achat.numachats!] = 'CONTRE-PASSÉ';
+              _achatsStatuts[achat.numachats!] = 'CONTRE-PASSÃ‰';
             } else {
               _achatsStatuts[achat.numachats!] = achat.verification ?? 'BROUILLARD';
             }
@@ -334,14 +334,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<String> _getNextNumAchats() async {
     try {
-      // Récupérer tous les achats et trouver le plus grand numachats
+      // RÃ©cupÃ©rer tous les achats et trouver le plus grand numachats
       final achats = await _databaseService.database.select(_databaseService.database.achats).get();
 
       if (achats.isEmpty) {
         return '2607';
       }
 
-      // Trouver le plus grand numéro d'achat
+      // Trouver le plus grand numÃ©ro d'achat
       int maxNum = 2606;
       for (var achat in achats) {
         if (achat.numachats != null) {
@@ -354,7 +354,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       return (maxNum + 1).toString();
     } catch (e) {
-      // En cas d'erreur, commencer à 2607
+      // En cas d'erreur, commencer Ã  2607
       return '2607';
     }
   }
@@ -380,8 +380,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         _societe = societe;
       });
 
-      // Vérifier si "A crédit" existe
-      if (!modesPaiement.any((mp) => mp.mp == 'A crédit')) {
+      // VÃ©rifier si "A crÃ©dit" existe
+      if (!modesPaiement.any((mp) => mp.mp == 'A crÃ©dit')) {
         if (mounted) {
           _scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
@@ -416,7 +416,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   Future<void> _verifierEtCreerFournisseur(String nomFournisseur) async {
     if (nomFournisseur.trim().isEmpty) return;
 
-    // Vérifier si le fournisseur existe
+    // VÃ©rifier si le fournisseur existe
     final fournisseurExiste = _fournisseurs.any(
       (frn) => frn.rsoc.toLowerCase() == nomFournisseur.toLowerCase(),
     );
@@ -428,7 +428,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             context: context,
             builder: (context) => AlertDialog(
               title: const Text('Fournisseur inconnu!!'),
-              content: Text('Le fournisseur "$nomFournisseur" n\'existe pas.\n\nVoulez-vous le créer?'),
+              content: Text('Le fournisseur "$nomFournisseur" n\'existe pas.\n\nVoulez-vous le crÃ©er?'),
               actions: [
                 TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Non')),
                 TextButton(
@@ -442,7 +442,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           true;
 
       if (confirmer == true) {
-        // Ouvrir le modal d'ajout de fournisseur avec le nom pré-rempli
+        // Ouvrir le modal d'ajout de fournisseur avec le nom prÃ©-rempli
         if (mounted) {
           await showDialog(
             context: context,
@@ -453,7 +453,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         // Recharger la liste des fournisseurs
         await _loadData();
 
-        // Chercher le fournisseur créé et le sélectionner
+        // Chercher le fournisseur crÃ©Ã© et le sÃ©lectionner
         final nouveauFournisseur = _fournisseurs
             .where((frn) => frn.rsoc.toLowerCase().contains(nomFournisseur.toLowerCase()))
             .firstOrNull;
@@ -464,7 +464,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           });
         }
       } else {
-        // Réinitialiser le champ fournisseur
+        // RÃ©initialiser le champ fournisseur
         setState(() {
           _selectedFournisseur = null;
         });
@@ -477,16 +477,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     setState(() {
       _selectedArticle = article;
-      // Unité u1 par défaut
+      // UnitÃ© u1 par dÃ©faut
       _selectedUnite = article.u1;
-      // Dépôt de l'article par défaut
+      // DÃ©pÃ´t de l'article par dÃ©faut
       _selectedDepot = article.dep ?? 'MAG';
 
       // Remplir automatiquement les champs
       // _uniteController.text = article.u1 ?? '';
       _depotController.text = article.dep ?? 'MAG';
 
-      // Ne vider la quantité que si on n'est pas en mode modification
+      // Ne vider la quantitÃ© que si on n'est pas en mode modification
       if (!_isModifyingArticle) {
         _quantiteController.text = '';
       }
@@ -496,7 +496,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   Future<void> _verifierUniteArticle(String unite) async {
     if (_selectedArticle == null) return;
 
-    // Vérifier si l'unité est valide pour cet article
+    // VÃ©rifier si l'unitÃ© est valide pour cet article
     final unitesValides = [
       _selectedArticle!.u1,
       _selectedArticle!.u2,
@@ -504,7 +504,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     ].where((u) => u != null && u.isNotEmpty).toList();
 
     if (!unitesValides.contains(unite)) {
-      // Désactiver temporairement le focus global pour éviter les conflits
+      // DÃ©sactiver temporairement le focus global pour Ã©viter les conflits
       _globalShortcutsFocusNode.unfocus();
 
       // Afficher modal d'erreur avec focus garanti et isolation des shortcuts parents
@@ -512,7 +512,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         context: context,
         barrierDismissible: false,
         builder: (dialogContext) {
-          // Créer un FocusNode pour le bouton
+          // CrÃ©er un FocusNode pour le bouton
           final buttonFocusNode = FocusNode();
 
           return PopScope(
@@ -520,33 +520,33 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             onPopInvokedWithResult: (didPop, result) {
               // Nettoyer le FocusNode
               buttonFocusNode.dispose();
-              // Restaurer le focus global après fermeture
+              // Restaurer le focus global aprÃ¨s fermeture
               if (mounted) {
                 _ensureGlobalShortcutsFocus();
               }
             },
             child: AlertDialog(
               title: const Text(
-                'Unité invalide',
+                'UnitÃ© invalide',
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18),
               ),
               content: Text(
-                'L\'unité "$unite" n\'est pas valide pour l\'article "${_selectedArticle!.designation}".\n\nUnités autorisées: ${unitesValides.join(", ")}',
+                'L\'unitÃ© "$unite" n\'est pas valide pour l\'article "${_selectedArticle!.designation}".\n\nUnitÃ©s autorisÃ©es: ${unitesValides.join(", ")}',
                 style: const TextStyle(fontSize: 14),
               ),
               actions: [
                 StatefulBuilder(
                   builder: (context, setState) {
-                    // Demander le focus après la construction
+                    // Demander le focus aprÃ¨s la construction
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       buttonFocusNode.requestFocus();
-                      setState(() {}); // Déclencher rebuild pour afficher la bordure
+                      setState(() {}); // DÃ©clencher rebuild pour afficher la bordure
                     });
 
                     return Focus(
                       focusNode: buttonFocusNode,
                       onKeyEvent: (node, event) {
-                        // Gérer les touches Enter et Escape directement
+                        // GÃ©rer les touches Enter et Escape directement
                         if (event is KeyDownEvent) {
                           if (event.logicalKey == LogicalKeyboardKey.enter ||
                               event.logicalKey == LogicalKeyboardKey.escape) {
@@ -578,15 +578,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         },
       );
 
-      // Restaurer le focus global après fermeture
+      // Restaurer le focus global aprÃ¨s fermeture
       _ensureGlobalShortcutsFocus();
 
-      // Remettre l'unité par défaut et focus sur le champ unité
+      // Remettre l'unitÃ© par dÃ©faut et focus sur le champ unitÃ©
       setState(() {
         _uniteController.text = '';
       });
 
-      // Focus sur le champ unité après fermeture du modal
+      // Focus sur le champ unitÃ© aprÃ¨s fermeture du modal
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _uniteFocusNode.requestFocus();
       });
@@ -597,30 +597,30 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   void _onUniteChanged(String? unite) {
-    // Vérification des prérequis : article sélectionné et unité valide
+    // VÃ©rification des prÃ©requis : article sÃ©lectionnÃ© et unitÃ© valide
     if (_selectedArticle == null || unite == null) return;
 
     setState(() {
-      // Mise à jour de l'unité sélectionnée
+      // Mise Ã  jour de l'unitÃ© sÃ©lectionnÃ©e
       _selectedUnite = unite;
       _uniteController.text = unite;
 
-      // Calculer le prix selon CMUP avec conversion d'unité
+      // Calculer le prix selon CMUP avec conversion d'unitÃ©
       if ((_selectedArticle!.cmup ?? 0.0) == 0.0) {
         _prixController.text = '0';
       } else {
-        // Convertir le CMUP selon l'unité sélectionnée
-        // Le CMUP est stocké en unité de base (u3)
+        // Convertir le CMUP selon l'unitÃ© sÃ©lectionnÃ©e
+        // Le CMUP est stockÃ© en unitÃ© de base (u3)
         double prixConverti = StockConverter.convertirPrixSelonUnite(
           article: _selectedArticle!,
-          uniteSource: _selectedArticle!.u3 ?? 'Dét',
+          uniteSource: _selectedArticle!.u3 ?? 'DÃ©t',
           uniteCible: unite,
           prixSource: _selectedArticle!.cmup!,
         );
         _prixController.text = NumberUtils.formatNumber(prixConverti);
       }
 
-      // Réinitialisation de la quantité pour forcer une nouvelle saisie
+      // RÃ©initialisation de la quantitÃ© pour forcer une nouvelle saisie
       _quantiteController.text = '';
     });
   }
@@ -682,9 +682,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     String depot = _selectedDepot ?? 'MAG';
     String unite = _selectedUnite ?? 'Pce';
 
-    debugPrint('Ajout ligne: $designation, Qté: $quantite, Prix: $prix, Unité: $unite, Dépôt: $depot');
+    debugPrint('Ajout ligne: $designation, QtÃ©: $quantite, Prix: $prix, UnitÃ©: $unite, DÃ©pÃ´t: $depot');
 
-    // Chercher si l'article existe déjà avec la MÊME unité, le même dépôt ET le même prix
+    // Chercher si l'article existe dÃ©jÃ  avec la MÃŠME unitÃ©, le mÃªme dÃ©pÃ´t ET le mÃªme prix
     int existingIndex = _lignesAchat.indexWhere(
       (ligne) =>
           ligne['designation'] == designation &&
@@ -695,7 +695,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     setState(() {
       if (existingIndex != -1) {
-        // Cumuler les quantités si même article, même unité, même dépôt ET même prix
+        // Cumuler les quantitÃ©s si mÃªme article, mÃªme unitÃ©, mÃªme dÃ©pÃ´t ET mÃªme prix
         double existingQuantite = _lignesAchat[existingIndex]['quantite'] ?? 0.0;
         double newQuantite = existingQuantite + quantite;
         double newMontant = newQuantite * prix;
@@ -703,7 +703,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         _lignesAchat[existingIndex]['quantite'] = newQuantite;
         _lignesAchat[existingIndex]['montant'] = newMontant;
       } else {
-        // Ajouter nouvelle ligne si prix différent ou autres critères différents
+        // Ajouter nouvelle ligne si prix diffÃ©rent ou autres critÃ¨res diffÃ©rents
         _lignesAchat.add({
           'designation': designation,
           'unites': unite,
@@ -764,7 +764,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     }
     _ajouterLigne();
     await _resetArticleForm();
-    debugPrint('Nombre total de lignes après ajout: ${_lignesAchat.length}');
+    debugPrint('Nombre total de lignes aprÃ¨s ajout: ${_lignesAchat.length}');
   }
 
   Future<void> _resetArticleForm() async {
@@ -782,7 +782,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       _prixController.clear();
     });
 
-    // Focus automatique sur Désignation Articles après ajout d'une ligne
+    // Focus automatique sur DÃ©signation Articles aprÃ¨s ajout d'une ligne
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _articleFocusNode.requestFocus();
@@ -809,7 +809,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       _prixController.text = NumberUtils.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0);
     });
 
-    // Focus sur le champ désignation après chargement
+    // Focus sur le champ dÃ©signation aprÃ¨s chargement
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _articleFocusNode.requestFocus();
     });
@@ -817,10 +817,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<void> _chargerAchatExistant(String numAchats) async {
     debugPrint('=== CHARGEMENT ACHAT EXISTANT ===');
-    debugPrint('Numéro achat à charger: $numAchats');
+    debugPrint('NumÃ©ro achat Ã  charger: $numAchats');
 
     if (numAchats.isEmpty) {
-      debugPrint('Numéro achat vide, réinitialisation');
+      debugPrint('NumÃ©ro achat vide, rÃ©initialisation');
       setState(() {
         _isExistingPurchase = false;
       });
@@ -835,18 +835,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       setState(() {
         _isExistingPurchase = achat != null;
-        // IMPORTANT: Mettre à jour le numéro d'achat AVANT tout autre traitement
+        // IMPORTANT: Mettre Ã  jour le numÃ©ro d'achat AVANT tout autre traitement
         _numAchatsController.text = numAchats;
       });
 
-      debugPrint('Achat trouvé: ${achat != null}');
+      debugPrint('Achat trouvÃ©: ${achat != null}');
       if (achat != null) {
         debugPrint('Statut achat: ${achat.verification}');
-        debugPrint('Contre-passé: ${achat.contre}');
+        debugPrint('Contre-passÃ©: ${achat.contre}');
       }
 
       if (achat != null) {
-        // Charger les détails de l'achat
+        // Charger les dÃ©tails de l'achat
         final details = await (_databaseService.database.select(
           _databaseService.database.detachats,
         )..where((d) => d.numachats.equals(numAchats))).get();
@@ -858,18 +858,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             _dateController.text = app_date.AppDateUtils.formatDate(achat.daty!);
           }
           _selectedFournisseur = achat.frns;
-          _fournisseurController.text = achat.frns ?? ''; // Mettre à jour le contrôleur
+          _fournisseurController.text = achat.frns ?? ''; // Mettre Ã  jour le contrÃ´leur
           _selectedModePaiement = achat.modepai;
           if (achat.echeance != null) {
             _echeanceController.text = app_date.AppDateUtils.formatDate(achat.echeance!);
 
-            // Calculer les jours d'échéance
+            // Calculer les jours d'Ã©chÃ©ance
             if (achat.daty != null) {
               final joursEcheance = achat.echeance!.difference(achat.daty!).inDays;
               _echeanceJoursController.text = joursEcheance.toString();
             }
           } else {
-            // Valeurs par défaut si pas d'échéance
+            // Valeurs par dÃ©faut si pas d'Ã©chÃ©ance
             _echeanceJoursController.text = '7';
             if (achat.daty != null) {
               final echeanceDefaut = achat.daty!.add(const Duration(days: 7));
@@ -879,17 +879,17 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           _statutAchatActuel = achat.verification ?? 'BROUILLARD';
           _selectedStatut = _statutAchatActuel == 'JOURNAL' ? 'Journal' : 'Brouillard';
           debugPrint('Statut achat actuel: $_statutAchatActuel');
-          debugPrint('Statut sélectionné: $_selectedStatut');
+          debugPrint('Statut sÃ©lectionnÃ©: $_selectedStatut');
 
-          // Vérifier si l'achat est contre-passé
+          // VÃ©rifier si l'achat est contre-passÃ©
           final isContrePasse = achat.contre == '1';
           if (isContrePasse) {
-            _statutAchatActuel = 'CONTRE-PASSÉ';
+            _statutAchatActuel = 'CONTRE-PASSÃ‰';
           }
 
           // Remplir les lignes d'achat
           _lignesAchat.clear();
-          debugPrint('Chargement de ${details.length} lignes de détail');
+          debugPrint('Chargement de ${details.length} lignes de dÃ©tail');
           for (var detail in details) {
             _lignesAchat.add({
               'designation': detail.designation ?? '',
@@ -903,18 +903,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         });
 
         _calculerTotaux();
-        debugPrint('Totaux recalculés');
+        debugPrint('Totaux recalculÃ©s');
 
-        // Mettre à jour l'index de navigation
+        // Mettre Ã  jour l'index de navigation
         currentAchatIndex = _achatsNumbers.indexOf(numAchats);
         debugPrint('Index de navigation: $currentAchatIndex');
 
-        // Donner le focus au champ Désignation Articles après le chargement
+        // Donner le focus au champ DÃ©signation Articles aprÃ¨s le chargement
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _articleFocusNode.requestFocus();
         });
       } else {
-        debugPrint('Achat non trouvé dans la base de données');
+        debugPrint('Achat non trouvÃ© dans la base de donnÃ©es');
         if (mounted) {
           _scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
@@ -924,7 +924,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: Text('Achat N° $numAchats non trouvé'),
+              content: Text('Achat NÂ° $numAchats non trouvÃ©'),
             ),
           );
         }
@@ -952,17 +952,17 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   Future<void> _modifierAchat() async {
-    debugPrint('=== DÉBUT MODIFICATION ACHAT ===');
-    debugPrint('Numéro achat: ${_numAchatsController.text}');
-    debugPrint('Fournisseur sélectionné: $_selectedFournisseur');
-    debugPrint('N° Facture: ${_nFactController.text}');
+    debugPrint('=== DÃ‰BUT MODIFICATION ACHAT ===');
+    debugPrint('NumÃ©ro achat: ${_numAchatsController.text}');
+    debugPrint('Fournisseur sÃ©lectionnÃ©: $_selectedFournisseur');
+    debugPrint('NÂ° Facture: ${_nFactController.text}');
     debugPrint('Nombre de lignes: ${_lignesAchat.length}');
     debugPrint('Mode achat existant: $_isExistingPurchase');
-    debugPrint('Statut sélectionné: $_selectedStatut');
+    debugPrint('Statut sÃ©lectionnÃ©: $_selectedStatut');
     debugPrint('Statut achat actuel: $_statutAchatActuel');
 
     if (_selectedFournisseur == null || _nFactController.text.isEmpty || _lignesAchat.isEmpty) {
-      debugPrint('ERREUR: Données manquantes pour la modification');
+      debugPrint('ERREUR: DonnÃ©es manquantes pour la modification');
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
@@ -972,16 +972,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             left: MediaQuery.of(context).size.width * 0.75,
           ),
           content: const Text(
-            'Veuillez sélectionner un fournisseur, saisir le N° Facture/BL et ajouter des articles',
+            'Veuillez sÃ©lectionner un fournisseur, saisir le NÂ° Facture/BL et ajouter des articles',
           ),
         ),
       );
       return;
     }
 
-    // Vérifier que nous sommes bien en mode modification d'un achat existant
+    // VÃ©rifier que nous sommes bien en mode modification d'un achat existant
     if (!_isExistingPurchase || _numAchatsController.text.isEmpty) {
-      debugPrint('ERREUR: Pas en mode modification ou numéro achat vide');
+      debugPrint('ERREUR: Pas en mode modification ou numÃ©ro achat vide');
       if (mounted) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
@@ -991,7 +991,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const Text('Aucun achat sélectionné pour modification'),
+            content: const Text('Aucun achat sÃ©lectionnÃ© pour modification'),
           ),
         );
       }
@@ -1004,7 +1004,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       builder: (context) => AlertDialog(
         title: const Text('Confirmation'),
         content: Text(
-          'Voulez-vous vraiment modifier l\'achat N° ${_numAchatsController.text} ?\n\nCette action mettra à jour les stocks et les CMUP.',
+          'Voulez-vous vraiment modifier l\'achat NÂ° ${_numAchatsController.text} ?\n\nCette action mettra Ã  jour les stocks et les CMUP.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
@@ -1016,7 +1016,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (confirm != true) return;
 
     try {
-      debugPrint('Début de la transaction de modification');
+      debugPrint('DÃ©but de la transaction de modification');
       await _databaseService.database.transaction(() async {
         List<String> dateParts = _dateController.text.split('-');
         DateTime dateForDB = DateTime(
@@ -1025,11 +1025,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           int.parse(dateParts[0]),
         );
 
-        // Récupérer les anciennes lignes pour annuler leur impact sur les stocks
+        // RÃ©cupÃ©rer les anciennes lignes pour annuler leur impact sur les stocks
         final anciennesLignes = await (_databaseService.database.select(
           _databaseService.database.detachats,
         )..where((d) => d.numachats.equals(_numAchatsController.text))).get();
-        debugPrint('Anciennes lignes trouvées: ${anciennesLignes.length}');
+        debugPrint('Anciennes lignes trouvÃ©es: ${anciennesLignes.length}');
 
         // Recharger les articles pour avoir les stocks actuels
         _articles = await _databaseService.database.getActiveArticles();
@@ -1038,10 +1038,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         for (var ancienneLigne in anciennesLignes) {
           Article? article = _articles.firstWhere(
             (a) => a.designation == ancienneLigne.designation,
-            orElse: () => throw Exception('Article ${ancienneLigne.designation} non trouvé'),
+            orElse: () => throw Exception('Article ${ancienneLigne.designation} non trouvÃ©'),
           );
 
-          // Convertir l'ancienne quantité en unités optimales pour annulation
+          // Convertir l'ancienne quantitÃ© en unitÃ©s optimales pour annulation
           final conversionAnnulation = StockConverter.convertirQuantiteAchat(
             article: article,
             uniteAchat: ancienneLigne.unites ?? article.u3!,
@@ -1066,7 +1066,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             ),
           );
 
-          // Annuler les stocks par dépôt avec conversion automatique
+          // Annuler les stocks par dÃ©pÃ´t avec conversion automatique
           final existingDepart =
               await (_databaseService.database.select(_databaseService.database.depart)..where(
                     (d) =>
@@ -1096,11 +1096,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 );
           }
 
-          // Recalculer le CMUP après annulation
+          // Recalculer le CMUP aprÃ¨s annulation
           await _recalculerCMUPApresAnnulation(article, ancienneLigne.q ?? 0, ancienneLigne.pu ?? 0);
         }
 
-        // Supprimer les anciennes entrées de stock
+        // Supprimer les anciennes entrÃ©es de stock
         await (_databaseService.database.delete(
           _databaseService.database.stocks,
         )..where((s) => s.numachats.equals(_numAchatsController.text))).go();
@@ -1110,7 +1110,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           _databaseService.database.detachats,
         )..where((d) => d.numachats.equals(_numAchatsController.text))).go();
 
-        // Calculer la date d'échéance
+        // Calculer la date d'Ã©chÃ©ance
         DateTime? dateEcheance;
         if (_echeanceController.text.isNotEmpty) {
           List<String> echeanceParts = _echeanceController.text.split('-');
@@ -1121,9 +1121,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           );
         }
 
-        // Mettre à jour l'achat principal (GARDER LE MÊME NUMÉRO)
+        // Mettre Ã  jour l'achat principal (GARDER LE MÃŠME NUMÃ‰RO)
         debugPrint(
-          'Mise à jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}',
+          'Mise Ã  jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}',
         );
         await (_databaseService.database.update(
           _databaseService.database.achats,
@@ -1139,17 +1139,17 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           ),
         );
 
-        // Recharger les articles pour avoir les stocks mis à jour après annulation
+        // Recharger les articles pour avoir les stocks mis Ã  jour aprÃ¨s annulation
         _articles = await _databaseService.database.getActiveArticles();
 
-        // Insérer les nouvelles lignes avec le MÊME numéro d'achat
+        // InsÃ©rer les nouvelles lignes avec le MÃŠME numÃ©ro d'achat
         debugPrint('Insertion de ${_lignesAchat.length} nouvelles lignes');
         for (var ligne in _lignesAchat) {
           await _databaseService.database
               .into(_databaseService.database.detachats)
               .insert(
                 DetachatsCompanion.insert(
-                  numachats: Value(_numAchatsController.text), // MÊME NUMÉRO
+                  numachats: Value(_numAchatsController.text), // MÃŠME NUMÃ‰RO
                   designation: Value(ligne['designation']),
                   unites: Value(ligne['unites']),
                   depots: Value(ligne['depot']),
@@ -1159,13 +1159,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 ),
               );
 
-          // Mettre à jour le stock et le CMUP dans la table Articles
+          // Mettre Ã  jour le stock et le CMUP dans la table Articles
           Article? article = _articles.firstWhere(
             (a) => a.designation == ligne['designation'],
-            orElse: () => throw Exception('Article ${ligne['designation']} non trouvé'),
+            orElse: () => throw Exception('Article ${ligne['designation']} non trouvÃ©'),
           );
 
-          // Calculer et mettre à jour le CMUP avec le calculateur amélioré
+          // Calculer et mettre Ã  jour le CMUP avec le calculateur amÃ©liorÃ©
           double nouveauCMUP = await CMUPCalculator.calculerEtMettreAJourCMUP(
             designation: ligne['designation'],
             uniteAchat: ligne['unites'],
@@ -1174,8 +1174,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             article: article,
           );
 
-          // Créer nouvelle entrée de stock avec le MÊME numéro d'achat
-          // Générer une référence unique avec un délai pour éviter les doublons
+          // CrÃ©er nouvelle entrÃ©e de stock avec le MÃŠME numÃ©ro d'achat
+          // GÃ©nÃ©rer une rÃ©fÃ©rence unique avec un dÃ©lai pour Ã©viter les doublons
           await Future.delayed(const Duration(milliseconds: 1));
           final cleanDesignation = ligne['designation'].replaceAll(' ', '');
           final maxLength = cleanDesignation.length > 10 ? 10 : cleanDesignation.length;
@@ -1187,8 +1187,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 StocksCompanion.insert(
                   ref: stockRef,
                   daty: Value(dateForDB),
-                  lib: Value('Achat ${_numAchatsController.text} (Modifié)'),
-                  numachats: Value(_numAchatsController.text), // MÊME NUMÉRO
+                  lib: Value('Achat ${_numAchatsController.text} (ModifiÃ©)'),
+                  numachats: Value(_numAchatsController.text), // MÃŠME NUMÃ‰RO
                   nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
                   refart: Value(ligne['designation']),
                   qe: Value(ligne['quantite']),
@@ -1203,7 +1203,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 ),
               );
 
-          // Convertir l'achat en unités optimales
+          // Convertir l'achat en unitÃ©s optimales
           final conversionAchat = StockConverter.convertirQuantiteAchat(
             article: article,
             uniteAchat: ligne['unites'],
@@ -1218,7 +1218,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             quantiteU3: (article.stocksu3 ?? 0) + conversionAchat['u3']!,
           );
 
-          // Mettre à jour les stocks avec conversion automatique
+          // Mettre Ã  jour les stocks avec conversion automatique
           await (_databaseService.database.update(
             _databaseService.database.articles,
           )..where((a) => a.designation.equals(article.designation))).write(
@@ -1229,7 +1229,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             ),
           );
 
-          // Mettre à jour les stocks par dépôt avec conversion automatique
+          // Mettre Ã  jour les stocks par dÃ©pÃ´t avec conversion automatique
           final existingDepart =
               await (_databaseService.database.select(_databaseService.database.depart)..where(
                     (d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot']),
@@ -1237,7 +1237,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   .getSingleOrNull();
 
           if (existingDepart != null) {
-            // Calculer les nouveaux stocks du dépôt avec conversion automatique
+            // Calculer les nouveaux stocks du dÃ©pÃ´t avec conversion automatique
             final stocksDepotActuels = StockConverter.convertirStockOptimal(
               article: article,
               quantiteU1: (existingDepart.stocksu1 ?? 0) + conversionAchat['u1']!,
@@ -1255,7 +1255,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   ),
                 );
           } else {
-            // Créer nouvelle entrée avec conversion automatique
+            // CrÃ©er nouvelle entrÃ©e avec conversion automatique
             final stocksDepotInitiaux = StockConverter.convertirStockOptimal(
               article: article,
               quantiteU1: conversionAchat['u1']!,
@@ -1278,25 +1278,25 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         }
       });
 
-      debugPrint('Transaction de modification terminée avec succès');
+      debugPrint('Transaction de modification terminÃ©e avec succÃ¨s');
 
       // Recharger la liste des achats
       await _loadAchatsNumbers();
-      debugPrint('Liste des achats rechargée');
+      debugPrint('Liste des achats rechargÃ©e');
 
-      // Recharger les données pour mettre à jour l'interface
+      // Recharger les donnÃ©es pour mettre Ã  jour l'interface
       await _loadData();
 
-      // Recalculer les totaux avec les nouvelles données
+      // Recalculer les totaux avec les nouvelles donnÃ©es
       _calculerTotaux();
 
-      // IMPORTANT: Synchroniser le statut après modification
+      // IMPORTANT: Synchroniser le statut aprÃ¨s modification
       final statutFinal = _selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD';
       setState(() {
         _statutAchatActuel = statutFinal;
         _achatsStatuts[_numAchatsController.text] = statutFinal;
       });
-      debugPrint('Statut synchronisé après modification: $statutFinal');
+      debugPrint('Statut synchronisÃ© aprÃ¨s modification: $statutFinal');
 
       if (mounted) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -1307,12 +1307,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const Text('Achat modifié avec succès'),
+            content: const Text('Achat modifiÃ© avec succÃ¨s'),
           ),
         );
       }
-      debugPrint('=== FIN MODIFICATION ACHAT RÉUSSIE ===');
-      debugPrint('Statut final après modification: $_statutAchatActuel');
+      debugPrint('=== FIN MODIFICATION ACHAT RÃ‰USSIE ===');
+      debugPrint('Statut final aprÃ¨s modification: $_statutAchatActuel');
     } catch (e) {
       debugPrint('ERREUR lors de la modification: $e');
       debugPrint('Stack trace: ${StackTrace.current}');
@@ -1336,13 +1336,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (!_isExistingPurchase) {
       if (mounted) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('Aucun achat sélectionné à contre-passer')),
+          const SnackBar(content: Text('Aucun achat sÃ©lectionnÃ© Ã  contre-passer')),
         );
       }
       return;
     }
 
-    // Vérifier si l'achat est déjà contre-passé
+    // VÃ©rifier si l'achat est dÃ©jÃ  contre-passÃ©
     final achatActuel = await (_databaseService.database.select(
       _databaseService.database.achats,
     )..where((a) => a.numachats.equals(_numAchatsController.text))).getSingleOrNull();
@@ -1357,24 +1357,24 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const Text('Cet achat est déjà contre-passé'),
+            content: const Text('Cet achat est dÃ©jÃ  contre-passÃ©'),
           ),
         );
       }
       return;
     }
 
-    // Vérifier si l'achat est journalisé
+    // VÃ©rifier si l'achat est journalisÃ©
     final isJournalise = achatActuel?.verification == 'JOURNAL';
 
-    // Confirmation avec message adapté
+    // Confirmation avec message adaptÃ©
     if (!mounted) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirmation'),
         content: Text(
-          'Voulez-vous vraiment contre-passer l\'achat N° ${_numAchatsController.text} ?\n\n${isJournalise ? "Cet achat journalisé sera marqué comme contre-passé et exclu des listes." : "Cet achat brouillard sera SUPPRIMÉ DÉFINITIVEMENT."}',
+          'Voulez-vous vraiment contre-passer l\'achat NÂ° ${_numAchatsController.text} ?\n\n${isJournalise ? "Cet achat journalisÃ© sera marquÃ© comme contre-passÃ© et exclu des listes." : "Cet achat brouillard sera SUPPRIMÃ‰ DÃ‰FINITIVEMENT."}',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
@@ -1396,18 +1396,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         await _achatService.contrePasserAchatBrouillard(_numAchatsController.text);
       }
 
-      // Recharger toutes les données pour mettre à jour l'interface
+      // Recharger toutes les donnÃ©es pour mettre Ã  jour l'interface
       await _loadAchatsNumbers();
       await _loadData();
 
-      // Mettre à jour l'interface pour refléter le statut contre-passé
-      // Créer un nouvel achat après contre-passement
+      // Mettre Ã  jour l'interface pour reflÃ©ter le statut contre-passÃ©
+      // CrÃ©er un nouvel achat aprÃ¨s contre-passement
       if (mounted) {
         await _creerNouvelAchat();
       }
 
       if (mounted) {
-        final message = isJournalise ? 'Achat contre-passé avec succès' : 'Achat supprimé définitivement';
+        final message = isJournalise ? 'Achat contre-passÃ© avec succÃ¨s' : 'Achat supprimÃ© dÃ©finitivement';
         _scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
@@ -1430,20 +1430,20 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   Future<void> _validerAchatBrouillard() async {
-    debugPrint('=== DÉBUT VALIDATION ACHAT BROUILLARD ===');
+    debugPrint('=== DÃ‰BUT VALIDATION ACHAT BROUILLARD ===');
     debugPrint('Achat existant: $_isExistingPurchase');
     debugPrint('Statut achat actuel: $_statutAchatActuel');
-    debugPrint('Numéro achat: ${_numAchatsController.text}');
+    debugPrint('NumÃ©ro achat: ${_numAchatsController.text}');
 
-    // Vérifier le statut réel dans la base de données
+    // VÃ©rifier le statut rÃ©el dans la base de donnÃ©es
     final achatActuel = await (_databaseService.database.select(
       _databaseService.database.achats,
     )..where((a) => a.numachats.equals(_numAchatsController.text))).getSingleOrNull();
 
     final statutReel = achatActuel?.verification ?? 'BROUILLARD';
-    debugPrint('Statut réel en base: $statutReel');
+    debugPrint('Statut rÃ©el en base: $statutReel');
 
-    // Synchroniser le statut si nécessaire
+    // Synchroniser le statut si nÃ©cessaire
     if (_statutAchatActuel != statutReel) {
       debugPrint('Synchronisation du statut: $_statutAchatActuel -> $statutReel');
       setState(() {
@@ -1464,7 +1464,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const Text('Aucun achat en brouillard sélectionné'),
+            content: const Text('Aucun achat en brouillard sÃ©lectionnÃ©'),
           ),
         );
       }
@@ -1477,7 +1477,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             builder: (context) => AlertDialog(
               title: const Text('Validation'),
               content: Text(
-                'Enregistrer l\'achat N° ${_numAchatsController.text} vers le journal ?\n\nCette action créera les mouvements de stock.',
+                'Enregistrer l\'achat NÂ° ${_numAchatsController.text} vers le journal ?\n\nCette action crÃ©era les mouvements de stock.',
               ),
               actions: [
                 TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
@@ -1496,16 +1496,16 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     try {
       debugPrint('Appel du service de validation brouillard');
       await _achatService.validerAchatBrouillard(_numAchatsController.text);
-      debugPrint('Service de validation brouillard terminé avec succès');
+      debugPrint('Service de validation brouillard terminÃ© avec succÃ¨s');
 
       setState(() {
         _statutAchatActuel = 'JOURNAL';
         _achatsStatuts[_numAchatsController.text] = 'JOURNAL';
       });
-      debugPrint('État mis à jour: statut = JOURNAL');
+      debugPrint('Ã‰tat mis Ã  jour: statut = JOURNAL');
 
       await _loadData();
-      debugPrint('Données rechargées');
+      debugPrint('DonnÃ©es rechargÃ©es');
 
       if (mounted) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -1516,12 +1516,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const Text('Achat validé avec succès'),
+            content: const Text('Achat validÃ© avec succÃ¨s'),
             backgroundColor: Colors.green,
           ),
         );
       }
-      debugPrint('=== FIN VALIDATION ACHAT BROUILLARD RÉUSSIE ===');
+      debugPrint('=== FIN VALIDATION ACHAT BROUILLARD RÃ‰USSIE ===');
     } catch (e) {
       debugPrint('ERREUR lors de la validation brouillard: $e');
       debugPrint('Stack trace: ${StackTrace.current}');
@@ -1547,7 +1547,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     double quantiteAnnulee,
     double prixAnnule,
   ) async {
-    // Calculer le stock total en unité de base (u3) avec conversion automatique
+    // Calculer le stock total en unitÃ© de base (u3) avec conversion automatique
     double stockActuelU3 = StockConverter.calculerStockTotalU3(
       article: article,
       stockU1: article.stocksu1 ?? 0,
@@ -1557,10 +1557,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     double cmupActuel = article.cmup ?? 0.0;
 
-    // Convertir la quantité annulée en u3 pour le calcul
+    // Convertir la quantitÃ© annulÃ©e en u3 pour le calcul
     double quantiteAnnuleeU3 = quantiteAnnulee;
     if (article.tu3u2 != null && article.tu2u1 != null) {
-      // Supposer que le prix est en u3, ajuster si nécessaire
+      // Supposer que le prix est en u3, ajuster si nÃ©cessaire
       quantiteAnnuleeU3 = quantiteAnnulee;
     }
 
@@ -1569,7 +1569,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     double nouvelleValeur = valeurTotaleAvant - valeurARetirer;
     double nouveauCMUP = stockActuelU3 > 0 ? nouvelleValeur / stockActuelU3 : 0.0;
 
-    // S'assurer que le CMUP ne devient pas négatif
+    // S'assurer que le CMUP ne devient pas nÃ©gatif
     nouveauCMUP = nouveauCMUP >= 0 ? nouveauCMUP : 0.0;
 
     await (_databaseService.database.update(_databaseService.database.articles)
@@ -1637,7 +1637,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: const Text('Aucun article à afficher'),
+          content: const Text('Aucun article Ã  afficher'),
         ),
       );
       return;
@@ -1690,7 +1690,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   Future<void> _importerDepuisBaseActuelle() async {
-    // Récupérer tous les achats avec leurs détails
+    // RÃ©cupÃ©rer tous les achats avec leurs dÃ©tails
     final achatsAvecDetails = <Map<String, dynamic>>[];
 
     for (final numAchat in _achatsNumbers) {
@@ -1716,18 +1716,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: const Text('Aucun achat avec des lignes trouvé'),
+          content: const Text('Aucun achat avec des lignes trouvÃ©'),
         ),
       );
       return;
     }
 
-    // Afficher la liste des achats pour sélection
+    // Afficher la liste des achats pour sÃ©lection
     final selectedAchat = mounted
         ? await showDialog<String>(
             context: context,
             builder: (context) => AlertDialog(
-              title: const Text('Sélectionner un achat'),
+              title: const Text('SÃ©lectionner un achat'),
               content: SizedBox(
                 width: 300,
                 height: 400,
@@ -1736,7 +1736,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   itemBuilder: (context, index) {
                     final achat = achatsAvecDetails[index];
                     return ListTile(
-                      title: Text('N° ${achat['numAchat']}'),
+                      title: Text('NÂ° ${achat['numAchat']}'),
                       subtitle: Text('${achat['nbLignes']} lignes - ${achat['statut']}'),
                       onTap: () => Navigator.of(context).pop(achat['numAchat']),
                     );
@@ -1770,13 +1770,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const Text('Aucune ligne trouvée pour cet achat'),
+            content: const Text('Aucune ligne trouvÃ©e pour cet achat'),
           ),
         );
         return;
       }
 
-      // Vérifier si des articles existent encore
+      // VÃ©rifier si des articles existent encore
       final lignesValides = <Map<String, dynamic>>[];
       for (final detail in details) {
         final articleExiste = _articles.any((a) => a.designation == detail.designation);
@@ -1814,7 +1814,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               builder: (context) => AlertDialog(
                 title: const Text('Confirmation'),
                 content: Text(
-                  'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.',
+                  'Importer ${lignesValides.length} lignes de l\'achat NÂ° $numAchatSource ?\n\nCela remplacera les lignes actuelles.',
                 ),
                 actions: [
                   TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
@@ -1840,7 +1840,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: Text('${lignesValides.length} lignes importées avec succès'),
+              content: Text('${lignesValides.length} lignes importÃ©es avec succÃ¨s'),
             ),
           );
         }
@@ -1864,11 +1864,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<void> _importerDepuisBaseExterne() async {
     try {
-      // Sélectionner le fichier de base de données
+      // SÃ©lectionner le fichier de base de donnÃ©es
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['db', 'sqlite', 'sqlite3'],
-        dialogTitle: 'Sélectionner une base de données',
+        dialogTitle: 'SÃ©lectionner une base de donnÃ©es',
       );
 
       if (result == null || result.files.isEmpty) return;
@@ -1896,8 +1896,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       // Ouvrir la base externe
       final externalDbService = DatabaseService.fromPath(filePath);
       await externalDbService.initialize();
-      debugPrint('Base externe initialisée avec succès');
-      // Vérifier les tables disponibles dans la base externe
+      debugPrint('Base externe initialisÃ©e avec succÃ¨s');
+      // VÃ©rifier les tables disponibles dans la base externe
       try {
         final tablesResult = await externalDbService.database
             .customSelect("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -1905,11 +1905,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         final tableNames = tablesResult.map((row) => row.read<String>('name')).toList();
         debugPrint('Tables disponibles dans la base externe: $tableNames');
 
-        // Vérifier spécifiquement les tables achats et detachats
+        // VÃ©rifier spÃ©cifiquement les tables achats et detachats
         final hasAchats = tableNames.contains('achats');
         final hasDetachats = tableNames.contains('detachats');
-        debugPrint('Table achats présente: $hasAchats');
-        debugPrint('Table detachats présente: $hasDetachats');
+        debugPrint('Table achats prÃ©sente: $hasAchats');
+        debugPrint('Table detachats prÃ©sente: $hasDetachats');
 
         if (!hasAchats) {
           if (mounted) {
@@ -1947,18 +1947,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           return;
         }
       } catch (e) {
-        debugPrint('Erreur lors de la vérification des tables: $e');
+        debugPrint('Erreur lors de la vÃ©rification des tables: $e');
       }
 
-      // Récupérer les achats de la base externe
+      // RÃ©cupÃ©rer les achats de la base externe
       final achatsExternes = await externalDbService.database.select(externalDbService.database.achats).get();
-      debugPrint('Nombre d\'achats trouvés dans la base externe: ${achatsExternes.length}');
+      debugPrint('Nombre d\'achats trouvÃ©s dans la base externe: ${achatsExternes.length}');
 
-      // Vérifier aussi la table detachats pour s'assurer qu'il y a des détails
+      // VÃ©rifier aussi la table detachats pour s'assurer qu'il y a des dÃ©tails
       final detailsExternes = await externalDbService.database
           .select(externalDbService.database.detachats)
           .get();
-      debugPrint('Nombre de détails d\'achats trouvés: ${detailsExternes.length}');
+      debugPrint('Nombre de dÃ©tails d\'achats trouvÃ©s: ${detailsExternes.length}');
 
       // Afficher quelques exemples d'achats pour debug
       if (achatsExternes.isNotEmpty) {
@@ -1969,22 +1969,22 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       if (detailsExternes.isNotEmpty) {
         debugPrint(
-          'Premier détail: numachats=${detailsExternes.first.numachats}, designation=${detailsExternes.first.designation}',
+          'Premier dÃ©tail: numachats=${detailsExternes.first.numachats}, designation=${detailsExternes.first.designation}',
         );
       }
 
-      // Si aucun achat dans la table principale mais des détails existent, récupérer les numéros uniques
+      // Si aucun achat dans la table principale mais des dÃ©tails existent, rÃ©cupÃ©rer les numÃ©ros uniques
       List<String> numerosAchatsDisponibles = [];
       if (achatsExternes.isEmpty && detailsExternes.isNotEmpty) {
-        debugPrint('Table achats vide, récupération des numéros depuis detachats...');
-        // Récupérer les numéros d'achats uniques depuis detachats
+        debugPrint('Table achats vide, rÃ©cupÃ©ration des numÃ©ros depuis detachats...');
+        // RÃ©cupÃ©rer les numÃ©ros d'achats uniques depuis detachats
         final numerosUniques = detailsExternes
             .map((d) => d.numachats)
             .where((numero) => numero != null && numero.isNotEmpty)
             .toSet()
             .toList();
         numerosAchatsDisponibles = numerosUniques.cast<String>();
-        debugPrint('Numéros d\'achats trouvés dans detachats: ${numerosAchatsDisponibles.length}');
+        debugPrint('NumÃ©ros d\'achats trouvÃ©s dans detachats: ${numerosAchatsDisponibles.length}');
       } else if (achatsExternes.isNotEmpty) {
         numerosAchatsDisponibles = achatsExternes
             .map((a) => a.numachats)
@@ -2003,7 +2003,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: const Text('Aucun achat trouvé dans la base externe'),
+              content: const Text('Aucun achat trouvÃ© dans la base externe'),
             ),
           );
         }
@@ -2011,12 +2011,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         return;
       }
 
-      // Afficher la liste des achats pour sélection
+      // Afficher la liste des achats pour sÃ©lection
       final selectedAchat = mounted
           ? await showDialog<String>(
               context: context,
               builder: (context) => AlertDialog(
-                title: const Text('Sélectionner un achat'),
+                title: const Text('SÃ©lectionner un achat'),
                 content: SizedBox(
                   width: 300,
                   height: 400,
@@ -2024,7 +2024,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                     itemCount: numerosAchatsDisponibles.length,
                     itemBuilder: (context, index) {
                       final numeroAchat = numerosAchatsDisponibles[index];
-                      // Chercher les détails pour ce numéro d'achat
+                      // Chercher les dÃ©tails pour ce numÃ©ro d'achat
                       final detailsPourAchat = detailsExternes
                           .where((d) => d.numachats == numeroAchat)
                           .toList();
@@ -2036,11 +2036,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                           .firstOrNull;
 
                       return ListTile(
-                        title: Text('N° $numeroAchat'),
+                        title: Text('NÂ° $numeroAchat'),
                         subtitle: Text(
                           achatPrincipal != null
                               ? '${achatPrincipal.frns ?? ""} - ${achatPrincipal.nfact ?? ""} - $nbLignes ligne(s)'
-                              : 'Détails uniquement - $nbLignes ligne(s) disponible(s)',
+                              : 'DÃ©tails uniquement - $nbLignes ligne(s) disponible(s)',
                         ),
                         onTap: () => Navigator.of(context).pop(numeroAchat),
                       );
@@ -2055,15 +2055,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           : null;
 
       if (selectedAchat != null) {
-        debugPrint('Achat sélectionné pour importation: $selectedAchat');
+        debugPrint('Achat sÃ©lectionnÃ© pour importation: $selectedAchat');
         await _copierLignesAchatExterne(externalDbService, selectedAchat);
       } else {
-        debugPrint('Aucun achat sélectionné pour importation');
+        debugPrint('Aucun achat sÃ©lectionnÃ© pour importation');
       }
 
       // Fermer la base externe
       await externalDbService.database.close();
-      debugPrint('Base externe fermée');
+      debugPrint('Base externe fermÃ©e');
     } catch (e) {
       debugPrint('ERREUR lors de l\'importation depuis base externe: $e');
       debugPrint('Stack trace: ${StackTrace.current}');
@@ -2085,23 +2085,23 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<void> _copierLignesAchatExterne(DatabaseService externalDb, String numAchatSource) async {
     try {
-      debugPrint('=== DÉBUT COPIE LIGNES ACHAT EXTERNE ===');
-      debugPrint('Numéro achat source: $numAchatSource');
+      debugPrint('=== DÃ‰BUT COPIE LIGNES ACHAT EXTERNE ===');
+      debugPrint('NumÃ©ro achat source: $numAchatSource');
 
       final details = await (externalDb.database.select(
         externalDb.database.detachats,
       )..where((d) => d.numachats.equals(numAchatSource))).get();
 
-      debugPrint('Nombre de détails trouvés pour l\'achat $numAchatSource: ${details.length}');
+      debugPrint('Nombre de dÃ©tails trouvÃ©s pour l\'achat $numAchatSource: ${details.length}');
 
       if (details.isNotEmpty) {
         debugPrint(
-          'Premier détail: designation=${details.first.designation}, q=${details.first.q}, pu=${details.first.pu}',
+          'Premier dÃ©tail: designation=${details.first.designation}, q=${details.first.q}, pu=${details.first.pu}',
         );
       }
 
       if (details.isEmpty) {
-        debugPrint('ERREUR: Aucune ligne trouvée pour l\'achat $numAchatSource');
+        debugPrint('ERREUR: Aucune ligne trouvÃ©e pour l\'achat $numAchatSource');
         if (mounted) {
           _scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
@@ -2111,18 +2111,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: const Text('Aucune ligne trouvée pour cet achat'),
+              content: const Text('Aucune ligne trouvÃ©e pour cet achat'),
             ),
           );
         }
         return;
       }
 
-      // Vérifier si des articles existent dans la base actuelle
+      // VÃ©rifier si des articles existent dans la base actuelle
       final lignesValides = <Map<String, dynamic>>[];
       final articlesNonTrouves = <String>[];
 
-      debugPrint('Vérification des articles dans la base actuelle...');
+      debugPrint('VÃ©rification des articles dans la base actuelle...');
       debugPrint('Nombre d\'articles dans la base actuelle: ${_articles.length}');
 
       for (final detail in details) {
@@ -2146,7 +2146,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       }
 
       debugPrint('Lignes valides: ${lignesValides.length}');
-      debugPrint('Articles non trouvés: $articlesNonTrouves');
+      debugPrint('Articles non trouvÃ©s: $articlesNonTrouves');
 
       if (lignesValides.isEmpty) {
         debugPrint('ERREUR: Aucun article de cet achat n\'existe dans la base actuelle');
@@ -2175,7 +2175,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               builder: (context) => AlertDialog(
                 title: const Text('Confirmation'),
                 content: Text(
-                  'Importer ${lignesValides.length} lignes de l\'achat N° $numAchatSource ?\n\nCela remplacera les lignes actuelles.',
+                  'Importer ${lignesValides.length} lignes de l\'achat NÂ° $numAchatSource ?\n\nCela remplacera les lignes actuelles.',
                 ),
                 actions: [
                   TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
@@ -2186,13 +2186,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           : null;
 
       if (confirm == true) {
-        debugPrint('Confirmation reçue, importation des lignes...');
+        debugPrint('Confirmation reÃ§ue, importation des lignes...');
         setState(() {
           _lignesAchat.clear();
           _lignesAchat.addAll(lignesValides);
         });
         _calculerTotaux();
-        debugPrint('Lignes importées et totaux recalculés');
+        debugPrint('Lignes importÃ©es et totaux recalculÃ©s');
 
         if (mounted) {
           _scaffoldMessengerKey.currentState?.showSnackBar(
@@ -2203,12 +2203,12 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: Text('${lignesValides.length} lignes importées avec succès'),
+              content: Text('${lignesValides.length} lignes importÃ©es avec succÃ¨s'),
             ),
           );
         }
       } else {
-        debugPrint('Importation annulée par l\'utilisateur');
+        debugPrint('Importation annulÃ©e par l\'utilisateur');
       }
       debugPrint('=== FIN COPIE LIGNES ACHAT EXTERNE ===');
     } catch (e) {
@@ -2231,7 +2231,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   }
 
   Future<void> _creerNouvelAchat() async {
-    debugPrint('=== DÉBUT CRÉATION NOUVEL ACHAT ===');
+    debugPrint('=== DÃ‰BUT CRÃ‰ATION NOUVEL ACHAT ===');
     setState(() {
       _isExistingPurchase = false;
       _selectedRowIndex = null;
@@ -2241,49 +2241,49 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       _selectedStatut = 'Brouillard';
       _statutAchatActuel = null;
     });
-    debugPrint('Variables d\'état réinitialisées');
+    debugPrint('Variables d\'Ã©tat rÃ©initialisÃ©es');
 
-    // Réinitialiser tous les contrôleurs
+    // RÃ©initialiser tous les contrÃ´leurs
     _nFactController.clear();
     _fournisseurController.clear();
     _totalTTCController.text = '0';
     _totalFMGController.text = '0';
-    debugPrint('Contrôleurs réinitialisés');
+    debugPrint('ContrÃ´leurs rÃ©initialisÃ©s');
 
-    // Mode de paiement par défaut "A crédit"
-    _selectedModePaiement = 'A crédit';
+    // Mode de paiement par dÃ©faut "A crÃ©dit"
+    _selectedModePaiement = 'A crÃ©dit';
 
-    // Échéance par défaut = date actuelle
+    // Ã‰chÃ©ance par dÃ©faut = date actuelle
     final now = DateTime.now();
     _echeanceController.text = app_date.AppDateUtils.formatDate(now);
 
     _resetArticleForm();
 
-    // Générer un nouveau numéro d'achat SEULEMENT pour un nouvel achat
+    // GÃ©nÃ©rer un nouveau numÃ©ro d'achat SEULEMENT pour un nouvel achat
     final nextNum = await _getNextNumAchats();
     _numAchatsController.text = nextNum;
-    debugPrint('Nouveau numéro d\'achat généré: $nextNum');
+    debugPrint('Nouveau numÃ©ro d\'achat gÃ©nÃ©rÃ©: $nextNum');
 
     // Remettre la date d'aujourd'hui
     _dateController.text = app_date.AppDateUtils.formatDate(now);
 
-    // Focus automatique sur N° Facture/BL
+    // Focus automatique sur NÂ° Facture/BL
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _nFactFocusNode.requestFocus();
     });
-    debugPrint('=== FIN CRÉATION NOUVEL ACHAT ===');
+    debugPrint('=== FIN CRÃ‰ATION NOUVEL ACHAT ===');
   }
 
   Future<void> _validerAchat() async {
-    debugPrint('=== DÉBUT VALIDATION ACHAT ===');
-    debugPrint('Fournisseur sélectionné: $_selectedFournisseur');
-    debugPrint('N° Facture: ${_nFactController.text}');
+    debugPrint('=== DÃ‰BUT VALIDATION ACHAT ===');
+    debugPrint('Fournisseur sÃ©lectionnÃ©: $_selectedFournisseur');
+    debugPrint('NÂ° Facture: ${_nFactController.text}');
     debugPrint('Nombre de lignes: ${_lignesAchat.length}');
-    debugPrint('Statut sélectionné: $_selectedStatut');
+    debugPrint('Statut sÃ©lectionnÃ©: $_selectedStatut');
     debugPrint('Mode achat existant: $_isExistingPurchase');
 
     if (_selectedFournisseur == null || _nFactController.text.isEmpty || _lignesAchat.isEmpty) {
-      debugPrint('ERREUR: Données manquantes pour la validation');
+      debugPrint('ERREUR: DonnÃ©es manquantes pour la validation');
       _scaffoldMessengerKey.currentState?.showSnackBar(
         SnackBar(
           behavior: SnackBarBehavior.floating,
@@ -2293,7 +2293,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             left: MediaQuery.of(context).size.width * 0.75,
           ),
           content: const Text(
-            'Veuillez sélectionner un fournisseur, saisir le N° Facture/BL et ajouter des articles',
+            'Veuillez sÃ©lectionner un fournisseur, saisir le NÂ° Facture/BL et ajouter des articles',
           ),
         ),
       );
@@ -2301,15 +2301,15 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     }
 
     try {
-      debugPrint('Vérification de l\'existence du numéro d\'achat: ${_numAchatsController.text}');
-      // Vérifier si le numéro d'achat existe déjà
+      debugPrint('VÃ©rification de l\'existence du numÃ©ro d\'achat: ${_numAchatsController.text}');
+      // VÃ©rifier si le numÃ©ro d'achat existe dÃ©jÃ
       final existingAchat = await (_databaseService.database.select(
         _databaseService.database.achats,
       )..where((a) => a.numachats.equals(_numAchatsController.text))).getSingleOrNull();
-      debugPrint('Achat existant trouvé: ${existingAchat != null}');
+      debugPrint('Achat existant trouvÃ©: ${existingAchat != null}');
 
       if (existingAchat != null) {
-        debugPrint('ERREUR: Numéro d\'achat déjà existant');
+        debugPrint('ERREUR: NumÃ©ro d\'achat dÃ©jÃ  existant');
         if (mounted) {
           _scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
@@ -2319,7 +2319,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: Text('Le N° Achats ${_numAchatsController.text} existe déjà'),
+              content: Text('Le NÂ° Achats ${_numAchatsController.text} existe dÃ©jÃ '),
             ),
           );
         }
@@ -2334,7 +2334,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         int.parse(dateParts[0]),
       );
 
-      // Calculer la date d'échéance
+      // Calculer la date d'Ã©chÃ©ance
       DateTime? echeanceForDB;
       if (_echeanceController.text.isNotEmpty) {
         List<String> echeanceParts = _echeanceController.text.split('-');
@@ -2347,7 +2347,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       double totalTTC = double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0.0;
 
-      // Préparer les données de l'achat
+      // PrÃ©parer les donnÃ©es de l'achat
       final lignesAchatData = _lignesAchat
           .map(
             (ligne) => {
@@ -2374,7 +2374,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           totalTTC: totalTTC,
           lignesAchat: lignesAchatData,
         );
-        debugPrint('Service traiterAchatJournal terminé');
+        debugPrint('Service traiterAchatJournal terminÃ©');
       } else {
         debugPrint('Appel du service traiterAchatBrouillard');
         await _achatService.traiterAchatBrouillard(
@@ -2387,18 +2387,18 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           totalTTC: totalTTC,
           lignesAchat: lignesAchatData,
         );
-        debugPrint('Service traiterAchatBrouillard terminé');
+        debugPrint('Service traiterAchatBrouillard terminÃ©');
       }
 
       // Recharger la liste des achats
       debugPrint('Rechargement de la liste des achats');
       await _loadAchatsNumbers();
-      debugPrint('Liste des achats rechargée');
+      debugPrint('Liste des achats rechargÃ©e');
 
       if (mounted) {
         final message = _selectedStatut == 'Journal'
-            ? 'Achat enregistré et validé avec succès'
-            : 'Achat enregistré en brouillard';
+            ? 'Achat enregistrÃ© et validÃ© avec succÃ¨s'
+            : 'Achat enregistrÃ© en brouillard';
         _scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
@@ -2411,14 +2411,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           ),
         );
         if (_selectedStatut == 'Journal') {
-          debugPrint('Fermeture du modal après enregistrement journal');
+          debugPrint('Fermeture du modal aprÃ¨s enregistrement journal');
           Navigator.of(context).pop();
         } else {
-          debugPrint('Création d\'un nouvel achat après enregistrement brouillard');
+          debugPrint('CrÃ©ation d\'un nouvel achat aprÃ¨s enregistrement brouillard');
           await _creerNouvelAchat();
         }
       }
-      debugPrint('=== FIN VALIDATION ACHAT RÉUSSIE ===');
+      debugPrint('=== FIN VALIDATION ACHAT RÃ‰USSIE ===');
     } catch (e) {
       debugPrint('ERREUR lors de l\'enregistrement: $e');
       debugPrint('Stack trace: ${StackTrace.current}');
@@ -2460,7 +2460,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: const Text('Aucun article à imprimer'),
+          content: const Text('Aucun article Ã  imprimer'),
         ),
       );
       return;
@@ -2501,7 +2501,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const Text('Bon de réception envoyé à l\'imprimante par défaut'),
+            content: const Text('Bon de rÃ©ception envoyÃ© Ã  l\'imprimante par dÃ©faut'),
           ),
         );
       }
@@ -2533,7 +2533,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     final int maxLinesPerPage = _selectedFormat == 'A6' ? 25 : (_selectedFormat == 'A5' ? 30 : 35);
     final int articlePages = (_lignesAchat.length / maxLinesPerPage).ceil().clamp(1, double.infinity).toInt();
 
-    // Calculer l'espace disponible sur la dernière page en lignes équivalentes
+    // Calculer l'espace disponible sur la derniÃ¨re page en lignes Ã©quivalentes
     final int lastPageLines = _lignesAchat.isEmpty
         ? 0
         : (_lignesAchat.length % maxLinesPerPage == 0
@@ -2541,7 +2541,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               : _lignesAchat.length % maxLinesPerPage);
     final int emptyLinesOnLastPage = maxLinesPerPage - lastPageLines;
 
-    // Estimation de l'espace nécessaire en nombre de lignes équivalentes
+    // Estimation de l'espace nÃ©cessaire en nombre de lignes Ã©quivalentes
     final int totalsEquivalentLines = _selectedFormat == 'A6' ? 8 : (_selectedFormat == 'A5' ? 7 : 6);
     final int signaturesEquivalentLines = _selectedFormat == 'A6' ? 5 : (_selectedFormat == 'A5' ? 4 : 4);
 
@@ -2550,9 +2550,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     int totalPages = articlePages;
     if (!canFitTotalsOnLastPage) {
-      totalPages += 1; // Page séparée pour totaux et signatures
+      totalPages += 1; // Page sÃ©parÃ©e pour totaux et signatures
     } else if (!canFitBothOnLastPage) {
-      totalPages += 1; // Page séparée pour signatures seulement
+      totalPages += 1; // Page sÃ©parÃ©e pour signatures seulement
     }
 
     // Pages avec articles
@@ -2585,7 +2585,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                           ),
                         ),
                         child: pw.Text(
-                          'BON DE RÉCEPTION',
+                          'BON DE RÃ‰CEPTION',
                           style: pw.TextStyle(
                             fontWeight: pw.FontWeight.bold,
                             fontSize: pdfHeaderFontSize + 2,
@@ -2609,14 +2609,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               crossAxisAlignment: pw.CrossAxisAlignment.start,
                               children: [
                                 pw.Text(
-                                  'SOCIÉTÉ:',
+                                  'SOCIÃ‰TÃ‰:',
                                   style: pw.TextStyle(
                                     fontWeight: pw.FontWeight.bold,
                                     fontSize: pdfFontSize - 1,
                                   ),
                                 ),
                                 pw.Text(
-                                  _societe?.rsoc ?? 'SOCIÉTÉ',
+                                  _societe?.rsoc ?? 'SOCIÃ‰TÃ‰',
                                   style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                                 ),
                                 if (_societe?.activites != null)
@@ -2634,9 +2634,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                             child: pw.Column(
                               crossAxisAlignment: pw.CrossAxisAlignment.start,
                               children: [
-                                _buildPdfInfoRow('N° DOCUMENT:', _numAchatsController.text, pdfFontSize),
+                                _buildPdfInfoRow('NÂ° DOCUMENT:', _numAchatsController.text, pdfFontSize),
                                 _buildPdfInfoRow('DATE:', _dateController.text, pdfFontSize),
-                                _buildPdfInfoRow('N° FACTURE/BL:', _nFactController.text, pdfFontSize),
+                                _buildPdfInfoRow('NÂ° FACTURE/BL:', _nFactController.text, pdfFontSize),
                                 _buildPdfInfoRow('FOURNISSEUR:', _selectedFournisseur ?? "", pdfFontSize),
                                 if (totalPages > 1)
                                   _buildPdfInfoRow('PAGE:', '${pageIndex + 1}/$totalPages', pdfFontSize),
@@ -2674,10 +2674,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               children: [
                                 pw.TableRow(
                                   children: [
-                                    _buildPdfTableCell('N°', pdfFontSize, isHeader: true),
-                                    _buildPdfTableCell('DÉSIGNATION', pdfFontSize, isHeader: true),
-                                    _buildPdfTableCell('DÉP', pdfFontSize, isHeader: true),
-                                    _buildPdfTableCell('QTÉ', pdfFontSize, isHeader: true),
+                                    _buildPdfTableCell('NÂ°', pdfFontSize, isHeader: true),
+                                    _buildPdfTableCell('DÃ‰SIGNATION', pdfFontSize, isHeader: true),
+                                    _buildPdfTableCell('DÃ‰P', pdfFontSize, isHeader: true),
+                                    _buildPdfTableCell('QTÃ‰', pdfFontSize, isHeader: true),
                                     _buildPdfTableCell('U', pdfFontSize, isHeader: true),
                                     _buildPdfTableCell('PU HT', pdfFontSize, isHeader: true),
                                     _buildPdfTableCell('MONTANT', pdfFontSize, isHeader: true),
@@ -2734,13 +2734,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                       ),
                     ),
 
-                    // Ajouter totaux sur la dernière page d'articles si possible
+                    // Ajouter totaux sur la derniÃ¨re page d'articles si possible
                     if (isLastArticlePage && canFitTotalsOnLastPage) ...[
                       pw.SizedBox(height: pdfPadding * 2),
                       _buildTotalsSection(pdfFontSize, pdfPadding),
                     ],
 
-                    // Ajouter signatures sur la dernière page si possible
+                    // Ajouter signatures sur la derniÃ¨re page si possible
                     if (isLastArticlePage && canFitBothOnLastPage) ...[
                       pw.SizedBox(height: pdfPadding * 2),
                       _buildSignaturesSection(pdfFontSize, pdfPadding),
@@ -2754,7 +2754,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       );
     }
 
-    // Page séparée pour totaux et/ou signatures si nécessaire
+    // Page sÃ©parÃ©e pour totaux et/ou signatures si nÃ©cessaire
     if (!canFitTotalsOnLastPage || (!canFitBothOnLastPage && canFitTotalsOnLastPage)) {
       pdf.addPage(
         pw.Page(
@@ -2779,7 +2779,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                           ),
                         ),
                         child: pw.Text(
-                          'BON DE RÉCEPTION',
+                          'BON DE RÃ‰CEPTION',
                           style: pw.TextStyle(
                             fontWeight: pw.FontWeight.bold,
                             fontSize: pdfHeaderFontSize + 2,
@@ -2803,14 +2803,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               crossAxisAlignment: pw.CrossAxisAlignment.start,
                               children: [
                                 pw.Text(
-                                  'SOCIÉTÉ:',
+                                  'SOCIÃ‰TÃ‰:',
                                   style: pw.TextStyle(
                                     fontWeight: pw.FontWeight.bold,
                                     fontSize: pdfFontSize - 1,
                                   ),
                                 ),
                                 pw.Text(
-                                  _societe?.rsoc ?? 'SOCIÉTÉ',
+                                  _societe?.rsoc ?? 'SOCIÃ‰TÃ‰',
                                   style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                                 ),
                                 if (_societe?.activites != null)
@@ -2828,9 +2828,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                             child: pw.Column(
                               crossAxisAlignment: pw.CrossAxisAlignment.start,
                               children: [
-                                _buildPdfInfoRow('N° DOCUMENT:', _numAchatsController.text, pdfFontSize),
+                                _buildPdfInfoRow('NÂ° DOCUMENT:', _numAchatsController.text, pdfFontSize),
                                 _buildPdfInfoRow('DATE:', _dateController.text, pdfFontSize),
-                                _buildPdfInfoRow('N° FACTURE:', _nFactController.text, pdfFontSize),
+                                _buildPdfInfoRow('NÂ° FACTURE:', _nFactController.text, pdfFontSize),
                                 _buildPdfInfoRow('FOURNISSEUR:', _selectedFournisseur ?? "", pdfFontSize),
                                 _buildPdfInfoRow('PAGE:', '$totalPages/$totalPages', pdfFontSize),
                               ],
@@ -2842,7 +2842,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
                     pw.SizedBox(height: pdfPadding * 2),
 
-                    // Totaux si pas déjà sur la dernière page d'articles
+                    // Totaux si pas dÃ©jÃ  sur la derniÃ¨re page d'articles
                     if (!canFitTotalsOnLastPage) _buildTotalsSection(pdfFontSize, pdfPadding),
 
                     pw.SizedBox(height: pdfPadding * 2),
@@ -2920,7 +2920,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 0.5)),
             alignment: pw.Alignment.center,
             child: pw.Text(
-              'Arrêté à la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
+              'ArrÃªtÃ© Ã  la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
             ),
           ),
@@ -2968,7 +2968,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             child: pw.Column(
               children: [
                 pw.Text(
-                  'RÉCEPTIONNAIRE',
+                  'RÃ‰CEPTIONNAIRE',
                   style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                 ),
                 pw.SizedBox(height: pdfPadding * 2),
@@ -3136,7 +3136,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               onInvoke: (intent) {
                 final currentFocus = FocusScope.of(context).focusedChild;
                 if (currentFocus != null) {
-                  // Vider le champ actuellement focalisé
+                  // Vider le champ actuellement focalisÃ©
                   if (currentFocus == _nFactFocusNode) {
                     _nFactController.clear();
                   } else if (currentFocus == _fournisseurFocusNode) {
@@ -3205,7 +3205,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                       ),
                       child: Row(
                         children: [
-                          // Liste des achats à gauche
+                          // Liste des achats Ã  gauche
                           Container(
                             width: 250,
                             decoration: BoxDecoration(
@@ -3313,7 +3313,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                         vertical: 0,
                                                       ),
                                                       title: Text(
-                                                        'N° $numAchat',
+                                                        'NÂ° $numAchat',
                                                         style: const TextStyle(fontSize: 11),
                                                       ),
                                                       onTap: () => _chargerAchatExistant(numAchat),
@@ -3375,7 +3375,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                         vertical: 0,
                                                       ),
                                                       title: Text(
-                                                        'N° $numAchat',
+                                                        'NÂ° $numAchat',
                                                         style: const TextStyle(fontSize: 11),
                                                       ),
                                                       onTap: () => _chargerAchatExistant(numAchat),
@@ -3384,7 +3384,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                 },
                                               ),
                                             ),
-                                            // Section Contre-passé
+                                            // Section Contre-passÃ©
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                               decoration: BoxDecoration(
@@ -3398,7 +3398,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   Icon(Icons.block, size: 14, color: Colors.red.shade700),
                                                   const SizedBox(width: 4),
                                                   Text(
-                                                    'Contre-passé',
+                                                    'Contre-passÃ©',
                                                     style: TextStyle(
                                                       fontSize: 11,
                                                       fontWeight: FontWeight.bold,
@@ -3433,7 +3433,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                         vertical: 0,
                                                       ),
                                                       title: Text(
-                                                        'N° $numAchat',
+                                                        'NÂ° $numAchat',
                                                         style: const TextStyle(fontSize: 11),
                                                       ),
                                                       onTap: () => _chargerAchatExistant(numAchat),
@@ -3448,7 +3448,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               ],
                             ),
                           ),
-                          // Formulaire principal à droite
+                          // Formulaire principal Ã  droite
                           Expanded(
                             child: FocusTraversalGroup(
                               policy: OrderedTraversalPolicy(),
@@ -3479,7 +3479,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     decoration: BoxDecoration(
                                                       color: _statutAchatActuel == 'JOURNAL'
                                                           ? Colors.green
-                                                          : _statutAchatActuel == 'CONTRE-PASSÉ'
+                                                          : _statutAchatActuel == 'CONTRE-PASSÃ‰'
                                                           ? Colors.red
                                                           : Colors.orange,
                                                       borderRadius: BorderRadius.circular(8),
@@ -3487,7 +3487,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     child: Text(
                                                       _statutAchatActuel == 'JOURNAL'
                                                           ? 'J'
-                                                          : _statutAchatActuel == 'CONTRE-PASSÉ'
+                                                          : _statutAchatActuel == 'CONTRE-PASSÃ‰'
                                                           ? 'CP'
                                                           : 'B',
                                                       style: const TextStyle(
@@ -3582,11 +3582,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         Expanded(
                                           child: Column(
                                             children: [
-                                              // First row: N°Achats, Date et N° Facture
+                                              // First row: NÂ°Achats, Date et NÂ° Facture
                                               Row(
                                                 children: [
                                                   const ExcludeFocus(
-                                                    child: Text('N° Achats', style: TextStyle(fontSize: 12)),
+                                                    child: Text('NÂ° Achats', style: TextStyle(fontSize: 12)),
                                                   ),
                                                   const SizedBox(width: 4),
                                                   SizedBox(
@@ -3647,7 +3647,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   const SizedBox(width: 8),
                                                   const ExcludeFocus(
                                                     child: Text(
-                                                      'N° Facture/ BL',
+                                                      'NÂ° Facture/ BL',
                                                       style: TextStyle(fontSize: 12),
                                                     ),
                                                   ),
@@ -3758,7 +3758,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                                 onFieldSubmitted: (_) =>
                                                                     _articleFocusNode.requestFocus(),
                                                                 hintText:
-                                                                    'Rechercher fournisseur... (← → pour naviguer)',
+                                                                    'Rechercher fournisseur... (â† â†’ pour naviguer)',
                                                                 decoration: InputDecoration(
                                                                   border: const OutlineInputBorder(),
                                                                   contentPadding: const EdgeInsets.symmetric(
@@ -3793,14 +3793,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                     padding: const EdgeInsets.all(8),
                                     child: Row(
                                       children: [
-                                        // Désignation Articles column
+                                        // DÃ©signation Articles column
                                         Expanded(
                                           flex: 3,
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               const Text(
-                                                'Désignation Articles',
+                                                'DÃ©signation Articles',
                                                 style: TextStyle(fontSize: 12),
                                               ),
                                               const SizedBox(height: 4),
@@ -3822,7 +3822,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   onArticleChanged: _onArticleSelected,
                                                   focusNode: _articleFocusNode,
                                                   enabled: _statutAchatActuel != 'JOURNAL',
-                                                  hintText: 'Rechercher article... (← → pour naviguer)',
+                                                  hintText: 'Rechercher article... (â† â†’ pour naviguer)',
                                                   decoration: InputDecoration(
                                                     border: const OutlineInputBorder(),
                                                     contentPadding: const EdgeInsets.symmetric(
@@ -3840,7 +3840,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                       _fournisseurFocusNode.requestFocus(),
                                                 ),
                                               ),
-                                              // Affichage des unités disponibles et stock
+                                              // Affichage des unitÃ©s disponibles et stock
                                               if (_selectedArticle == null) ...[const SizedBox(height: 19)],
                                               if (_selectedArticle != null) ...[
                                                 const SizedBox(height: 2),
@@ -3869,13 +3869,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        // Unités column
+                                        // UnitÃ©s column
                                         Expanded(
                                           flex: 1,
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              const Text('Unités', style: TextStyle(fontSize: 12)),
+                                              const Text('UnitÃ©s', style: TextStyle(fontSize: 12)),
                                               const SizedBox(height: 4),
                                               SizedBox(
                                                 height: 30,
@@ -3932,7 +3932,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                               _articleFocusNode.requestFocus(),
                                                           onFieldSubmitted: (_) =>
                                                               _quantiteFocusNode.requestFocus(),
-                                                          hintText: 'Unité...',
+                                                          hintText: 'UnitÃ©...',
                                                           decoration: InputDecoration(
                                                             border: const OutlineInputBorder(),
                                                             contentPadding: const EdgeInsets.symmetric(
@@ -3960,13 +3960,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        // Quantités column
+                                        // QuantitÃ©s column
                                         Expanded(
                                           flex: 1,
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              const Text('Quantités', style: TextStyle(fontSize: 12)),
+                                              const Text('QuantitÃ©s', style: TextStyle(fontSize: 12)),
                                               const SizedBox(height: 4),
                                               SizedBox(
                                                 height: 30,
@@ -4085,13 +4085,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           ),
                                         ),
                                         const SizedBox(width: 8),
-                                        // Dépôts column
+                                        // DÃ©pÃ´ts column
                                         Expanded(
                                           flex: 1,
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              const Text('Dépôts', style: TextStyle(fontSize: 12)),
+                                              const Text('DÃ©pÃ´ts', style: TextStyle(fontSize: 12)),
                                               const SizedBox(height: 4),
                                               SizedBox(
                                                 height: 30,
@@ -4157,7 +4157,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                               _nFactFocusNode.requestFocus();
                                                             }
                                                           },
-                                                          hintText: 'Dépôt...',
+                                                          hintText: 'DÃ©pÃ´t...',
                                                           decoration: InputDecoration(
                                                             border: const OutlineInputBorder(),
                                                             contentPadding: const EdgeInsets.symmetric(
@@ -4253,7 +4253,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                             ),
                                                             child: Text(
                                                               _validerFocusNode.hasFocus
-                                                                  ? 'Ajouter ↵'
+                                                                  ? 'Ajouter â†µ'
                                                                   : 'Ajouter',
                                                               style: TextStyle(
                                                                 fontSize: 12,
@@ -4333,7 +4333,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                             ),
                                                             child: Text(
                                                               _annulerFocusNode.hasFocus
-                                                                  ? 'Annuler ↵'
+                                                                  ? 'Annuler â†µ'
                                                                   : 'Annuler',
                                                               style: TextStyle(
                                                                 fontSize: 12,
@@ -4511,7 +4511,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             child: _lignesAchat.isEmpty
                                                 ? const Center(
                                                     child: Text(
-                                                      'Aucun article ajouté',
+                                                      'Aucun article ajoutÃ©',
                                                       style: TextStyle(
                                                         fontSize: 14,
                                                         color: Colors.grey,
@@ -4806,7 +4806,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                         ),
                                                       ),
                                                       items: _modesPaiement
-                                                          .where((mp) => mp.mp == 'A crédit')
+                                                          .where((mp) => mp.mp == 'A crÃ©dit')
                                                           .map((mp) {
                                                             return DropdownMenuItem<String>(
                                                               alignment: AlignmentGeometry.center,
@@ -4831,7 +4831,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               Row(
                                                 children: [
                                                   const Text(
-                                                    'Echéance (Date)',
+                                                    'EchÃ©ance (Date)',
                                                     style: TextStyle(fontSize: 12),
                                                   ),
                                                   const SizedBox(width: 8),
@@ -4871,7 +4871,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               Row(
                                                 children: [
                                                   const Text(
-                                                    'Echéance (Jours)',
+                                                    'EchÃ©ance (Jours)',
                                                     style: TextStyle(fontSize: 12),
                                                   ),
                                                   const SizedBox(width: 8),
@@ -4985,7 +4985,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                         spacing: 4,
                                         children: [
                                           Tooltip(
-                                            message: 'Achat précédent (F1)',
+                                            message: 'Achat prÃ©cÃ©dent (F1)',
                                             child: SizedBox(
                                               width: 30,
                                               height: 30,
@@ -5037,14 +5037,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                           ),
                                           if (_isExistingPurchase) ...[
                                             Tooltip(
-                                              message: 'Créer nouveau (Ctrl+N)',
+                                              message: 'CrÃ©er nouveau (Ctrl+N)',
                                               child: ElevatedButton(
                                                 onPressed: _creerNouvelAchat,
                                                 style: ElevatedButton.styleFrom(
                                                   minimumSize: const Size(60, 30),
                                                 ),
                                                 child: const Text(
-                                                  'Créer (Ctrl+N)',
+                                                  'CrÃ©er (Ctrl+N)',
                                                   style: TextStyle(fontSize: 12),
                                                 ),
                                               ),
@@ -5071,7 +5071,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             Tooltip(
                                               message: 'Contre-passer (Ctrl+D)',
                                               child: ElevatedButton(
-                                                onPressed: _statutAchatActuel == 'CONTRE-PASSÉ'
+                                                onPressed: _statutAchatActuel == 'CONTRE-PASSÃ‰'
                                                     ? null
                                                     : _contrePasserAchat,
                                                 style: ElevatedButton.styleFrom(
@@ -5092,7 +5092,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               onPressed:
                                                   _isExistingPurchase &&
                                                       (_statutAchatActuel == 'JOURNAL' ||
-                                                          _statutAchatActuel == 'CONTRE-PASSÉ')
+                                                          _statutAchatActuel == 'CONTRE-PASSÃ‰')
                                                   ? null
                                                   : (_isExistingPurchase ? _modifierAchat : _validerAchat),
                                               style: ElevatedButton.styleFrom(
@@ -5178,13 +5178,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             ),
                                           ),
                                           Tooltip(
-                                            message: 'Aperçu BR',
+                                            message: 'AperÃ§u BR',
                                             child: ElevatedButton(
                                               onPressed: _lignesAchat.isNotEmpty ? _ouvrirApercuBR : null,
                                               style: ElevatedButton.styleFrom(
                                                 minimumSize: const Size(70, 30),
                                               ),
-                                              child: const Text('Aperçu BR', style: TextStyle(fontSize: 12)),
+                                              child: const Text('AperÃ§u BR', style: TextStyle(fontSize: 12)),
                                             ),
                                           ),
                                           Tooltip(
