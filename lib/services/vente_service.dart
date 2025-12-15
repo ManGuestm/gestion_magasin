@@ -527,7 +527,11 @@ class VenteService {
         _databaseService.database.ventes,
       )..where((v) => v.numventes.equals(numVentes))).getSingleOrNull();
 
-      final vendeurOriginal = venteBrouillard?.commerc ?? '';
+      if (venteBrouillard == null) {
+        throw Exception('Vente brouillard N° $numVentes non trouvée');
+      }
+
+      final vendeurOriginal = venteBrouillard.commerc ?? '';
 
       // Créer le champ commercial combiné : Vendeur + Validateur
       String commercialCombine;
@@ -558,17 +562,27 @@ class VenteService {
         _databaseService.database.detventes,
       )..where((d) => d.numventes.equals(numVentes))).get();
 
-      // 3. Traiter chaque ligne pour créer les mouvements de stock
-      for (final detail in details) {
-        if (detail.designation != null &&
-            detail.depots != null &&
-            detail.unites != null &&
-            detail.q != null) {
-          final article = await (_databaseService.database.select(
-            _databaseService.database.articles,
-          )..where((a) => a.designation.equals(detail.designation!))).getSingleOrNull();
+      if (details.isEmpty) {
+        throw Exception('Aucune ligne de vente trouvée pour N° $numVentes');
+      }
 
-          if (article != null) {
+      // 3. Traiter chaque ligne pour créer les mouvements de stock
+      int ligneTraitee = 0;
+      for (final detail in details) {
+        try {
+          if (detail.designation != null &&
+              detail.depots != null &&
+              detail.unites != null &&
+              detail.q != null) {
+            final article = await (_databaseService.database.select(
+              _databaseService.database.articles,
+            )..where((a) => a.designation.equals(detail.designation!))).getSingleOrNull();
+
+            if (article == null) {
+              throw Exception('Article ${detail.designation} non trouvé');
+            }
+
+            // Traiter la ligne de manière séquentielle pour éviter les conflits
             await _reduireStockDepot(
               article: article,
               depot: detail.depots!,
@@ -587,15 +601,28 @@ class VenteService {
               date: detail.daty ?? DateTime.now(),
             );
 
-            await _ajusterStockGlobalArticle(article: article, unite: detail.unites!, quantite: detail.q!);
+            await _ajusterStockGlobalArticle(
+              article: article, 
+              unite: detail.unites!, 
+              quantite: detail.q!,
+            );
 
             await _mettreAJourFicheStock(
               designation: detail.designation!,
               unite: detail.unites!,
               quantite: detail.q!,
             );
+            
+            ligneTraitee++;
           }
+        } catch (e) {
+          throw Exception('Erreur lors du traitement de la ligne ${ligneTraitee + 1} (${detail.designation}): $e');
         }
+      }
+
+      // Vérifier que toutes les lignes ont été traitées
+      if (ligneTraitee != details.length) {
+        throw Exception('Toutes les lignes n\'ont pas été traitées correctement ($ligneTraitee/${details.length})');
       }
 
       // 4. Ajuster compte client si crédit
@@ -611,7 +638,12 @@ class VenteService {
 
       // 5. Mouvement caisse si espèces
       if (modePaiement == 'Espèces') {
-        await _mouvementCaisse(numVentes: numVentes, montant: totalTTC, client: client, date: DateTime.now());
+        await _mouvementCaisse(
+          numVentes: numVentes, 
+          montant: totalTTC, 
+          client: client, 
+          date: DateTime.now(),
+        );
       }
     });
   }

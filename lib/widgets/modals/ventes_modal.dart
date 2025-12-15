@@ -25,6 +25,7 @@ import '../../widgets/common/mode_paiement_dropdown.dart';
 import '../common/tab_navigation_widget.dart';
 import 'bon_livraison_preview.dart';
 import 'facture_preview.dart';
+import 'ventes_intents.dart';
 
 class VentesModal extends StatefulWidget {
   final bool tousDepots;
@@ -414,6 +415,25 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   Future<void> _validerBrouillardVersJournal() async {
     if (!_isExistingPurchase || _numVentesController.text.isEmpty) return;
 
+    // Vérifier qu'il y a au moins une ligne de vente
+    if (_lignesVente.isEmpty) {
+      if (mounted) {
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height * 0.8,
+              right: 20,
+              left: MediaQuery.of(context).size.width * 0.75,
+            ),
+            content: const SelectableText('Impossible de valider: aucune ligne de vente'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     // Vérifier s'il y a des articles avec stock insuffisant selon le type de dépôt
     bool hasStockInsuffisant = await _verifierStockPourValidation();
 
@@ -448,6 +468,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
               title: const Text('Validation vers Journal'),
               content: Text(
                 'Voulez-vous valider la vente N° ${_numVentesController.text} vers le journal ?\n\n'
+                'Nombre de lignes: ${_lignesVente.length}\n'
                 'Cette action créera les mouvements de stock et mettra à jour les quantités.',
               ),
               actions: [
@@ -468,6 +489,23 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       // Sauvegarder d'abord les modifications actuelles
       await _sauvegarderModificationsBrouillard();
 
+      // Afficher un indicateur de progression
+      if (mounted) {
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height * 0.8,
+              right: 20,
+              left: MediaQuery.of(context).size.width * 0.75,
+            ),
+            content: const SelectableText('Validation en cours...'),
+            backgroundColor: Colors.blue,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+
       await _venteService.validerVenteBrouillardVersJournal(
         numVentes: _numVentesController.text,
         nFacture: _nFactureController.text,
@@ -486,9 +524,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const SelectableText('Vente validée vers le journal avec succès'),
+            content: SelectableText(
+              'Vente N° ${_numVentesController.text} validée vers le journal avec succès\n'
+              '${_lignesVente.length} ligne(s) traitée(s)',
+            ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
           ),
         );
 
@@ -519,6 +561,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             behavior: SnackBarBehavior.floating,
             content: SelectableText('Erreur lors de la validation: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
           ),
         );
       }
@@ -1816,6 +1859,44 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     String unite = _selectedUnite ?? (_selectedArticle!.u1 ?? '');
     String depot = _selectedDepot ?? _defaultDepot;
 
+    // Validation: empêcher les quantités négatives ou nulles
+    if (quantite <= 0) {
+      if (mounted) {
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height * 0.8,
+              right: 20,
+              left: MediaQuery.of(context).size.width * 0.75,
+            ),
+            content: const SelectableText('La quantité doit être supérieure à zéro'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Validation: empêcher les prix négatifs ou nuls
+    if (prix <= 0) {
+      if (mounted) {
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height * 0.8,
+              right: 20,
+              left: MediaQuery.of(context).size.width * 0.75,
+            ),
+            content: const SelectableText('Le prix unitaire doit être supérieur à zéro'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     // Vérifier les prix avant de continuer
     final prixAchat = await _getPrixAchatPourUnite(_selectedArticle!, unite);
     final prixValide = await _verifierPrixVente(prix, prixAchat, unite);
@@ -1941,6 +2022,14 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
 
     _resetArticleForm();
+
+    // S'assurer que le focus revient bien sur le champ désignation
+    // avec un délai suffisant pour garantir que le reset est complet
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) {
+        _designationFocusNode.requestFocus();
+      }
+    });
   }
 
   Future<void> _chargerLigneArticle(int index) async {
@@ -2096,10 +2185,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     });
 
     // Retourner le focus au champ désignation pour une nouvelle saisie
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _designationFocusNode.requestFocus();
-      // Maintenir les raccourcis globaux actifs
-      _ensureGlobalShortcutsFocus();
+    // Utiliser un délai plus court mais suffisant pour le reset du formulaire
+    Future.delayed(const Duration(milliseconds: 50), () {
+      if (mounted) {
+        _designationFocusNode.requestFocus();
+        // Maintenir les raccourcis globaux actifs
+        _ensureGlobalShortcutsFocus();
+      }
     });
   }
 
@@ -4726,10 +4818,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                         controller: _quantiteController,
                                                         focusNode: _quantiteFocusNode,
                                                         inputFormatters: [
-                                                          FilteringTextInputFormatter.allow(
-                                                            RegExp(r'^\d*\.?\d*'),
-                                                          ),
+                                                          // N'accepter que les chiffres (pas de point ni de virgule)
+                                                          FilteringTextInputFormatter.digitsOnly,
                                                         ],
+                                                        keyboardType: const TextInputType.numberWithOptions(
+                                                          decimal: false,
+                                                          signed: false,
+                                                        ),
                                                         decoration: InputDecoration(
                                                           border: OutlineInputBorder(
                                                             borderSide: BorderSide(
@@ -4849,6 +4944,14 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                       child: TextField(
                                                         controller: _prixController,
                                                         focusNode: _prixFocusNode,
+                                                        inputFormatters: [
+                                                          // N'accepter que les chiffres (pas de point ni de virgule)
+                                                          FilteringTextInputFormatter.digitsOnly,
+                                                        ],
+                                                        keyboardType: const TextInputType.numberWithOptions(
+                                                          decimal: false,
+                                                          signed: false,
+                                                        ),
                                                         decoration: InputDecoration(
                                                           border: const OutlineInputBorder(),
                                                           contentPadding: const EdgeInsets.symmetric(
@@ -6398,45 +6501,4 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       ),
     );
   }
-}
-
-// Définir les classes Intent
-class SaveIntent extends Intent {
-  const SaveIntent();
-}
-
-class NewSaleIntent extends Intent {
-  const NewSaleIntent();
-}
-
-class CancelSaleIntent extends Intent {
-  const CancelSaleIntent();
-}
-
-class CloseIntent extends Intent {
-  const CloseIntent();
-}
-
-class ValidateIntent extends Intent {
-  const ValidateIntent();
-}
-
-class PrintInvoiceIntent extends Intent {
-  const PrintInvoiceIntent();
-}
-
-class PrintBLIntent extends Intent {
-  const PrintBLIntent();
-}
-
-class SearchArticleIntent extends Intent {
-  const SearchArticleIntent();
-}
-
-class LastJournalIntent extends Intent {
-  const LastJournalIntent();
-}
-
-class LastCanceledIntent extends Intent {
-  const LastCanceledIntent();
 }

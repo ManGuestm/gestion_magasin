@@ -1,6 +1,6 @@
-import 'package:flutter/widgets.dart';
+// Définir les classes Intent
+import 'package:flutter/material.dart';
 
-// Intents pour les raccourcis clavier du modal ventes
 class SaveIntent extends Intent {
   const SaveIntent();
 }
@@ -11,6 +11,14 @@ class NewSaleIntent extends Intent {
 
 class CancelSaleIntent extends Intent {
   const CancelSaleIntent();
+}
+
+class CloseIntent extends Intent {
+  const CloseIntent();
+}
+
+class ValidateIntent extends Intent {
+  const ValidateIntent();
 }
 
 class PrintInvoiceIntent extends Intent {
@@ -31,12 +39,4 @@ class LastJournalIntent extends Intent {
 
 class LastCanceledIntent extends Intent {
   const LastCanceledIntent();
-}
-
-class CloseIntent extends Intent {
-  const CloseIntent();
-}
-
-class ValidateIntent extends Intent {
-  const ValidateIntent();
 }

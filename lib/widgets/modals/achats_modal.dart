@@ -615,7 +615,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   void _ajouterLigne() {
     if (_selectedArticle == null) return;
 
-    double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
+    int quantite = int.tryParse(_quantiteController.text) ?? 0;
     double prix = NumberUtils.parseFormattedNumber(_prixController.text);
     double montant = quantite * prix;
 
@@ -683,8 +683,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   bool _isArticleFormValid() {
     return _selectedArticle != null &&
         _quantiteController.text.isNotEmpty &&
-        double.tryParse(_quantiteController.text) != null &&
-        double.tryParse(_quantiteController.text)! > 0;
+        int.tryParse(_quantiteController.text) != null &&
+        int.tryParse(_quantiteController.text)! > 0;
   }
 
   void _validerAjout() async {
@@ -704,11 +704,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       }
     }
     _ajouterLigne();
-    _resetArticleForm();
+    await _resetArticleForm();
     debugPrint('Nombre total de lignes après ajout: ${_lignesAchat.length}');
   }
 
-  void _resetArticleForm() async {
+  Future<void> _resetArticleForm() async {
     final lastDepot = await _getLastUsedDepot();
 
     setState(() {
@@ -723,10 +723,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       _prixController.clear();
     });
 
-    // Focus automatique sur Désignation Articles
+    // Focus automatique sur Désignation Articles après ajout d'une ligne
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _articleFocusNode.requestFocus();
-      _ensureGlobalShortcutsFocus();
+      if (mounted) {
+        _articleFocusNode.requestFocus();
+      }
     });
   }
 
@@ -3002,7 +3003,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           SingleActivator(LogicalKeyboardKey.keyX, control: true, shift: true): LastCanceledIntent(),
 
           // Raccourcis simples
-          SingleActivator(LogicalKeyboardKey.escape): CloseIntent(),
+          SingleActivator(LogicalKeyboardKey.escape): ClearFieldIntent(),
           SingleActivator(LogicalKeyboardKey.f3): ValidateIntent(),
         },
         child: Actions(
@@ -3072,9 +3073,39 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 return null;
               },
             ),
-            CloseIntent: CallbackAction<CloseIntent>(
+            ClearFieldIntent: CallbackAction<ClearFieldIntent>(
               onInvoke: (intent) {
-                Navigator.of(context).pop();
+                final currentFocus = FocusScope.of(context).focusedChild;
+                if (currentFocus != null) {
+                  // Vider le champ actuellement focalisé
+                  if (currentFocus == _nFactFocusNode) {
+                    _nFactController.clear();
+                  } else if (currentFocus == _fournisseurFocusNode) {
+                    _fournisseurController.clear();
+                    setState(() {
+                      _selectedFournisseur = null;
+                    });
+                  } else if (currentFocus == _articleFocusNode) {
+                    setState(() {
+                      _selectedArticle = null;
+                    });
+                  } else if (currentFocus == _uniteFocusNode) {
+                    _uniteController.clear();
+                  } else if (currentFocus == _quantiteFocusNode) {
+                    _quantiteController.clear();
+                  } else if (currentFocus == _prixFocusNode) {
+                    _prixController.clear();
+                  } else if (currentFocus == _depotFocusNode) {
+                    _depotController.clear();
+                  } else if (currentFocus == _searchAchatsFocusNode) {
+                    _searchAchatsController.clear();
+                    setState(() {
+                      _searchAchatsText = '';
+                    });
+                  } else if (currentFocus == _echeanceJoursFocusNode) {
+                    _echeanceJoursController.clear();
+                  }
+                }
                 return null;
               },
             ),
@@ -3906,6 +3937,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                         _selectedArticle == null ||
                                                         _statutAchatActuel == 'JOURNAL',
                                                     onSubmitted: (_) => _prixFocusNode.requestFocus(),
+                                                    keyboardType: TextInputType.number,
+                                                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                                                     decoration: InputDecoration(
                                                       border: const OutlineInputBorder(),
                                                       contentPadding: const EdgeInsets.symmetric(
@@ -4088,6 +4121,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             ],
                                           ),
                                         ),
+
+                                        //Bouton valider et  Annuler
                                         if (_isArticleFormValid() && _statutAchatActuel != 'JOURNAL') ...[
                                           const SizedBox(width: 8),
                                           Column(
@@ -4095,6 +4130,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                               const SizedBox(height: 16),
                                               Row(
                                                 children: [
+                                                  //Bouton Ajouter lignes
                                                   Column(
                                                     children: [
                                                       Focus(
@@ -4174,6 +4210,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     ],
                                                   ),
                                                   const SizedBox(width: 4),
+                                                  // Bouton annuler
                                                   Column(
                                                     children: [
                                                       Focus(

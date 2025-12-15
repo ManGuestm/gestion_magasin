@@ -37,6 +37,10 @@ class CloseIntent extends Intent {
   const CloseIntent();
 }
 
+class ClearFieldIntent extends Intent {
+  const ClearFieldIntent();
+}
+
 class ValidateIntent extends Intent {
   const ValidateIntent();
 }
