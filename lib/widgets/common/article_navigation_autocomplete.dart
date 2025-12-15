@@ -276,6 +276,17 @@ class _ArticleNavigationAutocompleteState extends State<ArticleNavigationAutocom
               widget.onTabPressed?.call();
             }
             return KeyEventResult.handled;
+          } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+            _controller.clear();
+            _userInput = '';
+            _currentIndex = -1;
+            _isNavigationMode = false;
+            setState(() {
+              _showSuggestion = false;
+              _filteredOptions = widget.articles;
+            });
+            widget.onArticleChanged(null);
+            return KeyEventResult.handled;
           } else if (event.logicalKey == LogicalKeyboardKey.backspace) {
             if (_controller.text.isEmpty) {
               _controller.clear();

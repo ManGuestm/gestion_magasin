@@ -515,11 +515,6 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           // Créer un FocusNode pour le bouton
           final buttonFocusNode = FocusNode();
 
-          // Demander le focus après la construction
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            buttonFocusNode.requestFocus();
-          });
-
           return PopScope(
             canPop: true,
             onPopInvokedWithResult: (didPop, result) {
@@ -540,29 +535,42 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 style: const TextStyle(fontSize: 14),
               ),
               actions: [
-                Focus(
-                  focusNode: buttonFocusNode,
-                  onKeyEvent: (node, event) {
-                    // Gérer les touches Enter et Escape directement
-                    if (event is KeyDownEvent) {
-                      if (event.logicalKey == LogicalKeyboardKey.enter ||
-                          event.logicalKey == LogicalKeyboardKey.escape) {
-                        Navigator.of(dialogContext).pop();
-                        return KeyEventResult.handled;
-                      }
-                    }
-                    return KeyEventResult.ignored;
+                StatefulBuilder(
+                  builder: (context, setState) {
+                    // Demander le focus après la construction
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      buttonFocusNode.requestFocus();
+                      setState(() {}); // Déclencher rebuild pour afficher la bordure
+                    });
+
+                    return Focus(
+                      focusNode: buttonFocusNode,
+                      onKeyEvent: (node, event) {
+                        // Gérer les touches Enter et Escape directement
+                        if (event is KeyDownEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.enter ||
+                              event.logicalKey == LogicalKeyboardKey.escape) {
+                            Navigator.of(dialogContext).pop();
+                            return KeyEventResult.handled;
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                          elevation: 3,
+                          side: buttonFocusNode.hasFocus
+                              ? const BorderSide(color: Colors.blue, width: 3)
+                              : null,
+                        ),
+                        child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    );
                   },
-                  child: ElevatedButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                      elevation: 3,
-                    ),
-                    child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
                 ),
               ],
             ),
@@ -666,7 +674,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   void _ajouterLigne() {
     if (_selectedArticle == null) return;
 
-    int quantite = int.tryParse(_quantiteController.text) ?? 0;
+    double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
     double prix = NumberUtils.parseFormattedNumber(_prixController.text);
     double montant = quantite * prix;
 
