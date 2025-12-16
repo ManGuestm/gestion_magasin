@@ -397,7 +397,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showSubmenu(String menu) {
+  void _showSubmenu(String menu) async {
     if (_selectedMenu == menu) {
       _closeMenu();
       return;
@@ -406,10 +406,21 @@ class _HomeScreenState extends State<HomeScreen> {
     _removeAllOverlays();
     setState(() => _selectedMenu = menu);
 
+    // Pour le menu Fichier, vérifier le mode réseau pour afficher conditionnellement "Clients connectés"
+    List<String> menuItems = MenuData.subMenus[menu] ?? [];
+    if (menu == MenuData.fichier) {
+      final config = await NetworkConfigService.loadConfig();
+      final mode = config['mode'] as NetworkMode;
+      if (mode != NetworkMode.server) {
+        menuItems = menuItems.where((item) => item != 'Clients connectés').toList();
+      }
+    }
+
     _overlayEntry = MenuService.createSubmenuOverlay(
       menu,
       MenuService.getMenuPosition(menu),
       _handleSubmenuTap,
+      customItems: menu == MenuData.fichier ? menuItems : null,
       onItemHover: _handleSubmenuHover,
       onMouseExit: () {
         // Delay removal to allow moving to nested menu
@@ -421,7 +432,7 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       },
     );
-    Overlay.of(context).insert(_overlayEntry!);
+    if (mounted) Overlay.of(context).insert(_overlayEntry!);
   }
 
   void _handleSubmenuTap(String item) {
@@ -448,6 +459,17 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context)
           .push(MaterialPageRoute(builder: (context) => const GestionUtilisateursScreen()))
           .then((_) => _resumeUpdates());
+    } else if (item == 'Clients connectés') {
+      // Vérifier si on est en mode serveur
+      NetworkConfigService.loadConfig().then((config) {
+        final mode = config['mode'] as NetworkMode;
+        if (mode != NetworkMode.server) {
+          _showAccessDeniedDialog('Cette fonctionnalité n\'est disponible qu\'en mode serveur');
+          return;
+        }
+        _showModal(item);
+      });
+      return;
     } else if (item == 'Profil') {
       _pauseUpdates();
       Navigator.of(

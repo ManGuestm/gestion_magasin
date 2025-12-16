@@ -1,0 +1,25 @@
+Les modaux suivants ont été mis à jour avec le style du modal "Unités invalides":
+
+1. ✅ Modal "Confirmation modification achat" - Mis à jour
+2. ✅ Modal "Confirmation validation brouillard" - Mis à jour  
+3. ❌ Modal "Fournisseur inconnu" - Non trouvé dans le fichier
+4. ❌ Modal "Confirmation contre-passement" - Non trouvé dans le fichier
+5. ❌ Modal "Sélectionner un achat" pour importation - Non trouvé dans le fichier
+6. ❌ Modal "Confirmation importation" - Multiples occurrences trouvées
+
+Modaux mis à jour avec succès:
+- Confirmation modification achat: Utilise maintenant PopScope, FocusNodes, StatefulBuilder, et le style ElevatedButton avec bordures de focus
+- Confirmation validation brouillard: Utilise maintenant PopScope, FocusNodes, StatefulBuilder, et le style ElevatedButton avec bordures de focus
+
+Les autres modaux n'ont pas pu être trouvés ou mis à jour en raison de:
+- Texte exact non trouvé dans le fichier
+- Multiples occurrences identiques rendant la modification ambiguë
+
+Tous les modaux mis à jour incluent:
+- Désactivation temporaire du focus global
+- PopScope avec gestion de la fermeture
+- FocusNodes dédiés pour chaque bouton
+- StatefulBuilder pour la gestion du focus visuel
+- ElevatedButton avec style cohérent
+- Gestion des touches clavier (Enter, Escape, Tab)
+- Restauration du focus global après fermeture

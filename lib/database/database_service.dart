@@ -46,23 +46,21 @@ class DatabaseService {
 
   Future<void> initialize() async {
     try {
+      // Configurer Drift pour éviter les warnings
+      driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+
       // Vérifier le mode réseau
       final config = await _getNetworkConfig();
       final mode = config['mode'];
       
       if (mode == 'client') {
         _isNetworkMode = true;
-        _isInitialized = true;
-        return;
       }
 
-      // Configurer Drift pour éviter les warnings
-      driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
-
-      // N'initialiser que si la base n'est pas déjà définie (cas externe)
+      // Initialiser la base de données même en mode client pour l'authentification locale
       if (_database == null) {
         _database = AppDatabase();
-        // Créer l'utilisateur administrateur par défaut uniquement pour la base principale
+        // Créer l'utilisateur administrateur par défaut
         await _database?.createDefaultAdmin();
       }
 

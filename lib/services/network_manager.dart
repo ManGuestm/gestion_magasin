@@ -16,20 +16,29 @@ class NetworkManager {
       // Charger la configuration réseau
       final config = await NetworkConfigService.loadConfig();
       final mode = config['mode'] as NetworkMode;
+      
+      debugPrint('Initialisation réseau en mode: ${mode.name}');
 
       // Initialiser le réseau selon le mode
       if (mode == NetworkMode.server) {
         // Mode serveur : initialiser la base locale puis démarrer le serveur
         await DatabaseService().initialize();
-        await NetworkConfigService.initializeNetwork();
+        final serverStarted = await NetworkConfigService.initializeNetwork();
+        if (!serverStarted) {
+          throw Exception('Impossible de démarrer le serveur');
+        }
       } else {
-        // Mode client : se connecter au serveur
+        // Mode client : initialiser la base locale d'abord
         DatabaseService().setNetworkMode(true);
-        await NetworkConfigService.initializeNetwork();
         await DatabaseService().initialize();
+        final connected = await NetworkConfigService.initializeNetwork();
+        if (!connected) {
+          throw Exception('Impossible de se connecter au serveur ${config['serverIp']}:${config['port']}');
+        }
       }
 
       _isInitialized = true;
+      debugPrint('Initialisation réseau réussie');
       return true;
     } catch (e) {
       debugPrint('Erreur initialisation réseau: $e');

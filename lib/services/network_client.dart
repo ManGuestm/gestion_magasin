@@ -19,18 +19,25 @@ class NetworkClient {
   Future<bool> connect(String serverIp, int port) async {
     try {
       _serverUrl = 'http://$serverIp:$port';
+      debugPrint('Tentative de connexion à $_serverUrl');
 
-      // Test connexion HTTP
+      // Test connexion HTTP avec timeout
       final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+      
       final request = await client.get(serverIp, port, '/api/health');
       final response = await request.close();
 
       if (response.statusCode != 200) {
-        throw Exception('Serveur non accessible');
+        client.close();
+        throw Exception('Serveur non accessible (HTTP ${response.statusCode})');
       }
 
+      debugPrint('Test HTTP réussi, connexion WebSocket...');
+      
       // Connexion WebSocket pour temps réel
-      _socket = await WebSocket.connect('ws://$serverIp:$port/ws');
+      _socket = await WebSocket.connect('ws://$serverIp:$port/ws')
+          .timeout(const Duration(seconds: 10));
       _isConnected = true;
 
       _socket!.listen(

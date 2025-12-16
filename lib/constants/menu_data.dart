@@ -14,6 +14,7 @@ class MenuData {
     fichier: [
       'Profil',
       'Gestion des utilisateurs',
+      'Clients connectés',
       'Sauvegarder et Restaurer',
     ],
     parametres: [
@@ -23,6 +24,7 @@ class MenuData {
       'Clients',
       'Fournisseurs',
       'Plan de comptes',
+      'Importation des données',
       'Réinitialiser les données',
     ],
     commerces: [
@@ -104,6 +106,12 @@ class MenuData {
       'Sauvegarder la base de données',
       'Restaurer la base de données',
     ],
+    'Importation des données': [
+      'Importer Articles',
+      'Importer Fournisseurs',
+      'Importer Clients',
+      'Importer Moyens de paiement',
+    ],
     aide: [
       'À propos',
       'Aides et documentations',
@@ -150,6 +158,7 @@ class MenuData {
     'Etat tarifaire': true,
     'Echéanciers': true,
     'Sauvegarder et Restaurer': true,
+    'Importation des données': true,
   };
 }
 

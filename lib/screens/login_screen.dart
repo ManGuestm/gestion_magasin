@@ -55,10 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Nom d'utilisateur incorrect - focus sur username
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Nom d\'utilisateur incorrect'),
-              backgroundColor: Colors.red,
-            ),
+            const SnackBar(content: Text('Nom d\'utilisateur incorrect'), backgroundColor: Colors.red),
           );
           _usernameFocus.requestFocus();
         }
@@ -68,27 +65,25 @@ class _LoginScreenState extends State<LoginScreen> {
       final success = await AuthService().login(username, password);
 
       if (success && mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const HomeScreen()));
       } else if (mounted) {
         // Mot de passe incorrect - focus sur password
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Mot de passe incorrect'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Mot de passe incorrect'), backgroundColor: Colors.red));
         _passwordFocus.requestFocus();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Erreur de connexion'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        String errorMessage = 'Erreur de connexion';
+        if (e.toString().contains('SqliteException') || e.toString().contains('database')) {
+          errorMessage = 'Erreur de base de données. Vérifiez la connexion au serveur.';
+        } else if (e.toString().contains('Connection') || e.toString().contains('network')) {
+          errorMessage = 'Impossible de se connecter au serveur. Vérifiez la configuration réseau.';
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) {
@@ -105,11 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Colors.grey[300]!,
-              Colors.grey[200]!,
-              Colors.grey[50]!,
-            ],
+            colors: [Colors.grey[300]!, Colors.grey[200]!, Colors.grey[50]!],
           ),
         ),
         child: Center(
@@ -166,11 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       ),
                                       borderRadius: BorderRadius.circular(20),
                                     ),
-                                    child: const Icon(
-                                      Icons.store,
-                                      size: 50,
-                                      color: Colors.white,
-                                    ),
+                                    child: const Icon(Icons.store, size: 50, color: Colors.white),
                                   );
                                 },
                               ),
@@ -225,9 +212,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           prefixIcon: Container(
                             margin: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.indigo[600]!, Colors.blue[500]!],
-                              ),
+                              gradient: LinearGradient(colors: [Colors.indigo[600]!, Colors.blue[500]!]),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(Icons.person, color: Colors.white, size: 20),
@@ -281,9 +266,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           prefixIcon: Container(
                             margin: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.indigo[600]!, Colors.blue[500]!],
-                              ),
+                              gradient: LinearGradient(colors: [Colors.indigo[600]!, Colors.blue[500]!]),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(Icons.lock, color: Colors.white, size: 20),
@@ -327,9 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: double.infinity,
                       height: 56,
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.indigo[700]!, Colors.blue[600]!],
-                        ),
+                        gradient: LinearGradient(colors: [Colors.indigo[700]!, Colors.blue[600]!]),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
@@ -344,9 +325,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: _isLoading
                             ? const SizedBox(
@@ -486,25 +465,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 48,
                       child: OutlinedButton.icon(
                         onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => const NetworkConfigScreen(),
-                            ),
-                          );
+                          Navigator.of(
+                            context,
+                          ).push(MaterialPageRoute(builder: (context) => const NetworkConfigScreen()));
                         },
                         icon: Icon(Icons.settings, color: Colors.indigo[600]),
                         label: Text(
                           'Configuration réseau',
-                          style: TextStyle(
-                            color: Colors.indigo[600],
-                            fontWeight: FontWeight.w600,
-                          ),
+                          style: TextStyle(color: Colors.indigo[600], fontWeight: FontWeight.w600),
                         ),
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: Colors.indigo[600]!, width: 1.5),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
                     ),

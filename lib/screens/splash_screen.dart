@@ -24,8 +24,13 @@ class _SplashScreenState extends State<SplashScreen> {
     final stopwatch = Stopwatch()..start();
     
     try {
-      // Phase 1: Initialisation critique
-      await DatabaseService().initialize();
+      // Phase 1: Initialisation critique (déjà fait par NetworkManager)
+      // Vérifier si la base est déjà initialisée, sinon l'initialiser
+      try {
+        DatabaseService().database;
+      } catch (e) {
+        await DatabaseService().initialize();
+      }
       
       // Initialiser le service d'authentification
       await AuthService().initialize();

@@ -11,6 +11,7 @@ import '../widgets/modals/balance_comptes_fournisseurs_modal.dart';
 import '../widgets/modals/banques_modal.dart';
 import '../widgets/modals/bilan_compte_resultat_modal.dart';
 import '../widgets/modals/cheques_modal.dart';
+import '../widgets/modals/clients_connectes_modal.dart';
 import '../widgets/modals/clients_modal.dart';
 // Imports statiques pour tous les modals
 import '../widgets/modals/company_info_modal.dart';
@@ -70,6 +71,7 @@ import '../widgets/modals/users_management_modal.dart';
 import '../widgets/modals/variation_stocks_modal.dart';
 import '../widgets/modals/ventes_modal.dart';
 import '../widgets/modals/virements_internes_modal.dart';
+import '../widgets/modals/importation_donnees_modal.dart';
 
 class ModalLoader {
   static final Map<String, Widget Function()> _factories = _createFactories();
@@ -83,6 +85,7 @@ class ModalLoader {
       'Articles': () => const ArticlesModal(),
 
       'Clients': () => const ClientsModal(),
+      'Clients connectés': () => const ClientsConnectesModal(),
       'Fournisseurs': () => const FournisseursModal(),
       'Gestion fournisseurs': () => const FournisseursModal(),
       'Banques': () => const BanquesModal(),
@@ -150,6 +153,10 @@ class ModalLoader {
       'À propos': () => const AProposModal(),
       'Sauvegarder la base de données': () => const SauvegarderModal(),
       'Restaurer la base de données': () => const RestaurerModal(),
+      'Importer Articles': () => const ImportationDonneesModal(type: 'Articles'),
+      'Importer Fournisseurs': () => const ImportationDonneesModal(type: 'Fournisseurs'),
+      'Importer Clients': () => const ImportationDonneesModal(type: 'Clients'),
+      'Importer Moyens de paiement': () => const ImportationDonneesModal(type: 'Moyens de paiement'),
     };
   }
 

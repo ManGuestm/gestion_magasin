@@ -1,11 +1,10 @@
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
 
 import '../database/database.dart';
 import '../database/database_service.dart';
 import '../services/auth_service.dart';
+import '../services/security_service.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -42,9 +41,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   String _crypterMotDePasse(String motDePasse) {
-    var bytes = utf8.encode(motDePasse);
-    var digest = sha256.convert(bytes);
-    return digest.toString();
+    return SecurityService.hashPassword(motDePasse);
   }
 
   Future<void> _sauvegarderProfil() async {
@@ -58,8 +55,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       // Vérifier l'ancien mot de passe si un nouveau est fourni
       if (_nouveauMotDePasseController.text.isNotEmpty) {
-        final ancienMotDePasseCrypte = _crypterMotDePasse(_ancienMotDePasseController.text);
-        if (ancienMotDePasseCrypte != currentUser.motDePasse) {
+        if (!SecurityService.verifyPassword(_ancienMotDePasseController.text, currentUser.motDePasse)) {
           throw Exception('Ancien mot de passe incorrect');
         }
       }

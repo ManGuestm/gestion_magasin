@@ -1,12 +1,10 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 
 import '../database/database.dart';
 import '../database/database_service.dart';
 import '../services/auth_service.dart';
+import '../services/security_service.dart';
 
 class GestionUtilisateursScreen extends StatefulWidget {
   const GestionUtilisateursScreen({super.key});
@@ -45,9 +43,7 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
   }
 
   String _crypterMotDePasse(String motDePasse) {
-    var bytes = utf8.encode(motDePasse);
-    var digest = sha256.convert(bytes);
-    return digest.toString();
+    return SecurityService.hashPassword(motDePasse);
   }
 
   void _ajouterUtilisateur() {

@@ -11,12 +11,35 @@ class NetworkServer {
   HttpServer? _server;
   final DatabaseService _databaseService = DatabaseService();
   final Set<WebSocket> _clients = {};
+  final Map<WebSocket, Map<String, dynamic>> _clientsInfo = {};
   bool _isRunning = false;
 
   static NetworkServer get instance => _instance ??= NetworkServer._();
   NetworkServer._();
 
   bool get isRunning => _isRunning;
+  int get connectedClientsCount => _clients.length;
+  
+  List<Map<String, dynamic>> getConnectedClientsInfo() {
+    final clientsInfo = <Map<String, dynamic>>[];
+    int index = 1;
+    
+    for (final client in _clients) {
+      final info = _clientsInfo[client];
+      if (info != null) {
+        clientsInfo.add({
+          'id': index,
+          'nom': info['nom'] ?? 'Client $index',
+          'ip': info['ip'] ?? 'Inconnu',
+          'connexion': info['connexion'] ?? DateTime.now(),
+          'statut': 'Connecté',
+        });
+        index++;
+      }
+    }
+    
+    return clientsInfo;
+  }
 
   Future<bool> start({int port = 8080}) async {
     try {
@@ -42,6 +65,7 @@ class NetworkServer {
     _server = null;
     _isRunning = false;
     _clients.clear();
+    _clientsInfo.clear();
     debugPrint('Serveur arrêté');
   }
 
@@ -101,8 +125,16 @@ class NetworkServer {
 
   Future<void> _handleWebSocket(HttpRequest request) async {
     final socket = await WebSocketTransformer.upgrade(request);
+    final clientIp = request.connectionInfo?.remoteAddress.address ?? 'Inconnu';
+    
     _clients.add(socket);
-    debugPrint('Client WebSocket connecté (${_clients.length} clients)');
+    _clientsInfo[socket] = {
+      'ip': clientIp,
+      'connexion': DateTime.now(),
+      'nom': 'Client ${_clients.length}',
+    };
+    
+    debugPrint('Client WebSocket connecté depuis $clientIp (${_clients.length} clients)');
 
     socket.listen(
       (message) async {
@@ -116,10 +148,12 @@ class NetworkServer {
       },
       onDone: () {
         _clients.remove(socket);
+        _clientsInfo.remove(socket);
         debugPrint('Client WebSocket déconnecté (${_clients.length} clients)');
       },
       onError: (error) {
         _clients.remove(socket);
+        _clientsInfo.remove(socket);
         debugPrint('Erreur WebSocket: $error');
       },
     );

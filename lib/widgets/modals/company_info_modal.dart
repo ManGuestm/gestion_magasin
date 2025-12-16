@@ -18,6 +18,7 @@ class CompanyInfoModal extends StatefulWidget {
 class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationMixin {
   SocData? _socData;
   final Map<String, TextEditingController> _controllers = {};
+  final Map<String, FocusNode> _focusNodes = {};
 
   @override
   void initState() {
@@ -81,20 +82,14 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationM
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.blue[50],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
         border: Border(bottom: BorderSide(color: Colors.blue[100]!)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            decoration: BoxDecoration(color: Colors.blue, borderRadius: BorderRadius.circular(8)),
             child: const Icon(Icons.business, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 12),
@@ -333,10 +328,7 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationM
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: Text(
-              isNewCompany ? 'Annuler' : 'Fermer',
-              style: TextStyle(color: Colors.grey[600]),
-            ),
+            child: Text(isNewCompany ? 'Annuler' : 'Fermer', style: TextStyle(color: Colors.grey[600])),
           ),
           const SizedBox(width: 12),
           ElevatedButton(
@@ -391,6 +383,7 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationM
             ),
             child: TextFormField(
               controller: _controllers[key],
+              focusNode: _focusNodes[key],
               style: const TextStyle(fontSize: 13),
               decoration: const InputDecoration(
                 border: InputBorder.none,
@@ -430,6 +423,7 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationM
             ),
             child: TextFormField(
               controller: _controllers[key],
+              focusNode: _focusNodes[key],
               maxLines: 3,
               style: const TextStyle(fontSize: 13),
               decoration: const InputDecoration(
@@ -455,21 +449,46 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationM
   }
 
   void _initControllers() {
-    _controllers['rsoc'] = TextEditingController(text: _socData?.rsoc ?? '');
-    _controllers['activites'] = TextEditingController(text: _socData?.activites ?? '');
-    _controllers['adr'] = TextEditingController(text: _socData?.adr ?? '');
-    _controllers['tel'] = TextEditingController(text: _socData?.tel ?? '');
-    _controllers['email'] = TextEditingController(text: _socData?.email ?? '');
-    _controllers['site'] = TextEditingController(text: _socData?.site ?? '');
-    _controllers['capital'] = TextEditingController(text: _socData?.capital?.toString() ?? '');
-    _controllers['rcs'] = TextEditingController(text: _socData?.rcs ?? '');
-    _controllers['nif'] = TextEditingController(text: _socData?.nif ?? '');
-    _controllers['stat'] = TextEditingController(text: _socData?.stat ?? '');
-    _controllers['cif'] = TextEditingController(text: _socData?.cif ?? '');
-    _controllers['port'] = TextEditingController(text: _socData?.port ?? '');
-    _controllers['tva'] = TextEditingController(text: _socData?.tva?.toString() ?? '');
-    _controllers['val'] = TextEditingController(text: _socData?.val ?? '');
-    _controllers['t'] = TextEditingController(text: _socData?.t?.toString() ?? '');
+    final fields = [
+      'rsoc',
+      'activites',
+      'adr',
+      'tel',
+      'email',
+      'site',
+      'capital',
+      'rcs',
+      'nif',
+      'stat',
+      'cif',
+      'port',
+      'tva',
+      'val',
+      't',
+    ];
+
+    for (String field in fields) {
+      _controllers[field] ??= TextEditingController();
+      _focusNodes[field] ??= FocusNode();
+    }
+
+    if (_socData != null) {
+      _controllers['rsoc']!.text = _socData!.rsoc ?? '';
+      _controllers['activites']!.text = _socData!.activites ?? '';
+      _controllers['adr']!.text = _socData!.adr ?? '';
+      _controllers['tel']!.text = _socData!.tel ?? '';
+      _controllers['email']!.text = _socData!.email ?? '';
+      _controllers['site']!.text = _socData!.site ?? '';
+      _controllers['capital']!.text = _socData!.capital?.toString() ?? '';
+      _controllers['rcs']!.text = _socData!.rcs ?? '';
+      _controllers['nif']!.text = _socData!.nif ?? '';
+      _controllers['stat']!.text = _socData!.stat ?? '';
+      _controllers['cif']!.text = _socData!.cif ?? '';
+      _controllers['port']!.text = _socData!.port ?? '';
+      _controllers['tva']!.text = _socData!.tva?.toString() ?? '';
+      _controllers['val']!.text = _socData!.val ?? '';
+      _controllers['t']!.text = _socData!.t?.toString() ?? '';
+    }
   }
 
   Future<void> _selectLogo() async {
@@ -511,38 +530,97 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationM
 
   Future<void> _saveSocData() async {
     try {
-      final companion = SocCompanion(
-        ref: const drift.Value('SOC001'),
-        rsoc: drift.Value(_controllers['rsoc']?.text),
-        activites: drift.Value(_controllers['activites']?.text),
-        adr: drift.Value(_controllers['adr']?.text),
-        logo: drift.Value(_socData?.logo),
-        capital: drift.Value(double.tryParse(_controllers['capital']?.text ?? '')),
-        rcs: drift.Value(_controllers['rcs']?.text),
-        nif: drift.Value(_controllers['nif']?.text),
-        stat: drift.Value(_controllers['stat']?.text),
-        tel: drift.Value(_controllers['tel']?.text),
-        port: drift.Value(_controllers['port']?.text),
-        email: drift.Value(_controllers['email']?.text),
-        site: drift.Value(_controllers['site']?.text),
-        fax: const drift.Value(null),
-        telex: const drift.Value(null),
-        tva: drift.Value(double.tryParse(_controllers['tva']?.text ?? '')),
-        t: drift.Value(double.tryParse(_controllers['t']?.text ?? '')),
-        val: drift.Value(_controllers['val']?.text),
-        cif: drift.Value(_controllers['cif']?.text),
-      );
-
-      final existingSoc = await DatabaseService().database.getSocByRef('SOC001');
-      if (existingSoc == null) {
-        await DatabaseService().database.insertSoc(companion);
-      } else {
-        await DatabaseService().database.updateSoc(companion);
+      // Fonction helper pour créer des Value avec gestion null explicite
+      drift.Value<String?> createStringValue(String? text) {
+        final trimmed = text?.trim();
+        return trimmed == null || trimmed.isEmpty
+            ? drift.Value(null) // Important: Value(null) pour les champs nullable
+            : drift.Value(trimmed);
       }
 
+      drift.Value<double?> createDoubleValue(String? text) {
+        if (text == null || text.trim().isEmpty) {
+          return drift.Value(null); // Value(null) pour les champs nullable
+        }
+        final value = double.tryParse(text.trim());
+        return drift.Value(value); // Value(null) si conversion échoue
+      }
+
+      // Création du companion avec gestion correcte des null
+      final companion = SocCompanion(
+        ref: const drift.Value('SOC001'),
+        rsoc: createStringValue(_controllers['rsoc']?.text),
+        activites: createStringValue(_controllers['activites']?.text),
+        adr: createStringValue(_controllers['adr']?.text),
+        logo: drift.Value(_socData?.logo), // Peut être null
+        capital: createDoubleValue(_controllers['capital']?.text),
+        rcs: createStringValue(_controllers['rcs']?.text),
+        nif: createStringValue(_controllers['nif']?.text),
+        stat: createStringValue(_controllers['stat']?.text),
+        tel: createStringValue(_controllers['tel']?.text),
+        port: createStringValue(_controllers['port']?.text),
+        email: createStringValue(_controllers['email']?.text),
+        site: createStringValue(_controllers['site']?.text),
+        fax: const drift.Value(null), // Explicitement null
+        telex: const drift.Value(null), // Explicitement null
+        tva: createDoubleValue(_controllers['tva']?.text),
+        t: createDoubleValue(_controllers['t']?.text),
+        val: createStringValue(_controllers['val']?.text),
+        cif: createStringValue(_controllers['cif']?.text),
+      );
+
+      // Debug: Afficher les valeurs
+      debugPrint('Valeurs à sauvegarder:');
+      debugPrint('RSOC: ${_controllers['rsoc']?.text}');
+      debugPrint('Activités: ${_controllers['activites']?.text}');
+      debugPrint('Adresse: ${_controllers['adr']?.text}');
+      debugPrint('Capital: ${_controllers['capital']?.text}');
+
+      final db = DatabaseService().database;
+      final existingSoc = await db.getSocByRef('SOC001');
+
+      if (existingSoc == null) {
+        // Insertion
+        final id = await db.insertSoc(companion);
+        debugPrint('Insertion réussie, ID: $id');
+      } else {
+        // Mise à jour - utilisez la méthode update directement
+        await db.updateSoc(companion);
+        debugPrint('Mise à jour réussie');
+      }
+
+      // Recharger pour vérifier
+      final updated = await db.getSocByRef('SOC001');
+      debugPrint('Après sauvegarde - RSOC: ${updated?.rsoc}');
+      debugPrint('Après sauvegarde - Adresse: ${updated?.adr}');
+
       await _loadSocData();
-    } catch (e) {
+
+      // Notification de succès
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              existingSoc == null ? 'Société créée avec succès' : 'Société mise à jour avec succès',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
       debugPrint('Erreur lors de la sauvegarde: $e');
+      debugPrint('Stack trace: $stackTrace');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de sauvegarde: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -550,6 +628,9 @@ class _CompanyInfoModalState extends State<CompanyInfoModal> with TabNavigationM
   void dispose() {
     for (var controller in _controllers.values) {
       controller.dispose();
+    }
+    for (var focusNode in _focusNodes.values) {
+      focusNode.dispose();
     }
     super.dispose();
   }

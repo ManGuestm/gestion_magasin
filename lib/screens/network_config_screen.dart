@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../services/network_config_service.dart';
@@ -12,7 +13,8 @@ class NetworkConfigScreen extends StatefulWidget {
 class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
   NetworkMode _selectedMode = NetworkMode.server;
   final _serverIpController = TextEditingController();
-  final _portController = TextEditingController(text: '3306');
+  final _portController = TextEditingController(text: '8080');
+  bool _isTestingConnection = false;
 
   @override
   void initState() {
@@ -34,6 +36,61 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
       _serverIpController.text = config['serverIp'];
       _portController.text = config['port'];
     });
+  }
+
+  Future<void> _testConnection() async {
+    if (_selectedMode != NetworkMode.client) return;
+    
+    final serverIp = _serverIpController.text.trim();
+    final port = int.tryParse(_portController.text.trim()) ?? 8080;
+    
+    if (serverIp.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez saisir l\'adresse IP du serveur'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+    
+    setState(() => _isTestingConnection = true);
+    
+    try {
+      // Test de connexion HTTP simple
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+      
+      final request = await client.get(serverIp, port, '/api/health');
+      final response = await request.close();
+      client.close();
+      
+      if (response.statusCode == 200) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Connexion réussie au serveur !'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        throw Exception('Serveur non accessible (HTTP ${response.statusCode})');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de connexion: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isTestingConnection = false);
+      }
+    }
   }
 
   Future<void> _saveConfiguration() async {
@@ -250,6 +307,22 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                       prefixIcon: const Icon(Icons.settings_ethernet),
                     ),
                     keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: _isTestingConnection ? null : _testConnection,
+                    icon: _isTestingConnection 
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.wifi_find),
+                    label: Text(_isTestingConnection ? 'Test en cours...' : 'Tester la connexion'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green[600],
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ],
 

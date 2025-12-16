@@ -18,6 +18,8 @@ class AuthService {
   Future<bool> login(String username, String password) async {
     try {
       final db = DatabaseService().database;
+      
+      // En mode réseau, utiliser la base de données locale qui est synchronisée
       final users = await db.getAllUsers();
 
       for (final user in users) {
@@ -57,7 +59,7 @@ class AuthService {
         module: 'Authentification',
         details: 'Erreur lors de la connexion: $e',
       );
-      return false;
+      rethrow;
     }
   }
 

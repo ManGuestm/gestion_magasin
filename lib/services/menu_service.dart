@@ -7,10 +7,11 @@ class MenuService {
     String menuTitle,
     double leftPosition,
     Function(String) onItemTap, {
+    List<String>? customItems,
     Function(String, double)? onItemHover,
     VoidCallback? onMouseExit,
   }) {
-    final allItems = MenuData.subMenus[menuTitle] ?? [];
+    final allItems = customItems ?? MenuData.subMenus[menuTitle] ?? [];
     final items = _filterMenuItemsByRole(allItems);
     
     return OverlayEntry(
@@ -128,7 +129,20 @@ class MenuService {
     final authService = AuthService();
     final userRole = authService.currentUserRole;
 
-    // Si l'utilisateur est vendeur, filtrer les éléments restreints
+    // Éléments réservés aux administrateurs
+    const adminOnlyItems = [
+      'Sauvegarder et Restaurer',
+      'Importation des données',
+      'Réinitialiser les données',
+      'Mise à jour des valeurs de stocks',
+    ];
+
+    // Si l'utilisateur n'est pas administrateur, filtrer les éléments réservés
+    if (userRole != 'Administrateur') {
+      items = items.where((item) => !adminOnlyItems.contains(item)).toList();
+    }
+
+    // Si l'utilisateur est vendeur, filtrer les éléments restreints supplémentaires
     if (userRole == 'Vendeur') {
       const restrictedItems = [
         'Ventes (Tous dépôts)',
@@ -143,7 +157,7 @@ class MenuService {
         'Liste des achats',
         'Retours achats',
       ];
-      return items.where((item) => !restrictedItems.contains(item)).toList();
+      items = items.where((item) => !restrictedItems.contains(item)).toList();
     }
 
     return items;
