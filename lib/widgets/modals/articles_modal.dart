@@ -789,10 +789,15 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     });
   }
 
-  void _showHistoriqueStock() {
+  void _showHistoriqueStock() async {
+    final stockArticle = await _getAllStocksText(_selectedArticle!);
+    if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => HistoriqueStockModal(refArticle: _selectedArticle!.designation),
+      builder: (context) => HistoriqueStockModal(
+        refArticle: _selectedArticle!.designation,
+        stockDisponible: stockArticle,
+      ),
     );
   }
 

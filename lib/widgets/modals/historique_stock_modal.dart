@@ -6,11 +6,9 @@ import '../common/tab_navigation_widget.dart';
 
 class HistoriqueStockModal extends StatefulWidget {
   final String refArticle;
+  final String stockDisponible;
 
-  const HistoriqueStockModal({
-    super.key,
-    required this.refArticle,
-  });
+  const HistoriqueStockModal({super.key, required this.refArticle, required this.stockDisponible});
 
   @override
   State<HistoriqueStockModal> createState() => _HistoriqueStockModalState();
@@ -72,31 +70,34 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: true,
-      onKeyEvent: (node, event) => handleTabNavigation(event),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.9,
-          height: 700,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              _buildModernHeader(),
-              _buildStatsBar(),
-              Expanded(child: _buildModernContent()),
-            ],
+    return PopScope(
+      canPop: false,
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) => handleTabNavigation(event),
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.9,
+            height: 700,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildModernHeader(),
+                _buildStatsBar(),
+                Expanded(child: _buildModernContent()),
+              ],
+            ),
           ),
         ),
       ),
@@ -112,10 +113,7 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
       ),
       child: Row(
         children: [
@@ -125,11 +123,7 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
               color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
-              Icons.history,
-              color: Colors.white,
-              size: 24,
-            ),
+            child: const Icon(Icons.history, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -138,18 +132,11 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
               children: [
                 const Text(
                   'Historique des Mouvements de Stock',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 Text(
                   'Article: ${widget.refArticle}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.9),
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.9)),
                 ),
               ],
             ),
@@ -176,11 +163,14 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
         ? _mouvements
         : _mouvements.where((m) => m['depots']?.toString() == _selectedDepot).toList();
 
-    final totalEntrees =
-        filteredMovements.fold<double>(0, (sum, m) => sum + ((m['entree'] as num?)?.toDouble() ?? 0));
-    final totalSorties =
-        filteredMovements.fold<double>(0, (sum, m) => sum + ((m['sortie'] as num?)?.toDouble() ?? 0));
-    final soldeNet = totalEntrees - totalSorties;
+    final totalEntrees = filteredMovements.fold<double>(
+      0,
+      (sum, m) => sum + ((m['entree'] as num?)?.toDouble() ?? 0),
+    );
+    final totalSorties = filteredMovements.fold<double>(
+      0,
+      (sum, m) => sum + ((m['sortie'] as num?)?.toDouble() ?? 0),
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -188,19 +178,44 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
         color: Colors.grey[50],
         border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
       ),
-      child: Wrap(
-        spacing: 24,
-        runSpacing: 12,
+      child: Column(
         children: [
-          _buildStatItem(
-              'Total Mouvements', filteredMovements.length.toString(), Icons.swap_horiz, Colors.blue),
-          _buildStatItem(
-              'Total Entrées', AppFunctions.formatNumber(totalEntrees), Icons.arrow_downward, Colors.green),
-          _buildStatItem(
-              'Total Sorties', AppFunctions.formatNumber(totalSorties), Icons.arrow_upward, Colors.red),
-          _buildStatItem('Solde Net', AppFunctions.formatNumber(soldeNet), Icons.balance,
-              soldeNet >= 0 ? Colors.green : Colors.red),
-          _buildDepotFilter(),
+          GridView.count(
+            crossAxisCount: 4,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            childAspectRatio: 3,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 12,
+            children: [
+              _buildStatItem(
+                'Total Mouvements',
+                filteredMovements.length.toString(),
+                Icons.swap_horiz,
+                Colors.blue,
+              ),
+              _buildStatItem(
+                'Total Entrées',
+                AppFunctions.formatNumber(totalEntrees),
+                Icons.arrow_downward,
+                Colors.green,
+              ),
+              _buildStatItem(
+                'Total Sorties',
+                AppFunctions.formatNumber(totalSorties),
+                Icons.arrow_upward,
+                Colors.red,
+              ),
+              _buildStatItem(
+                'Stock Disponible tous dépôts',
+                widget.stockDisponible,
+                Icons.balance,
+                Colors.blue,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Align(alignment: Alignment.centerLeft, child: _buildDepotFilter()),
         ],
       ),
     );
@@ -217,10 +232,12 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
           isDense: true,
           underline: const SizedBox(),
           items: _depots
-              .map((depot) => DropdownMenuItem(
-                    value: depot,
-                    child: Text(depot, style: const TextStyle(fontSize: 12)),
-                  ))
+              .map(
+                (depot) => DropdownMenuItem(
+                  value: depot,
+                  child: Text(depot, style: const TextStyle(fontSize: 12)),
+                ),
+              )
               .toList(),
           onChanged: (value) {
             setState(() {
@@ -235,39 +252,49 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
   }
 
   Widget _buildStatItem(String label, String value, IconData icon, Color color) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(6),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [color.withValues(alpha: 0.1), color.withValues(alpha: 0.2)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 20, color: color),
           ),
-          child: Icon(icon, size: 16, color: color),
-        ),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(fontSize: 11, color: Colors.grey[600], fontWeight: FontWeight.w500),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 
@@ -286,7 +313,6 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
           _buildHeaderCell('Dépôt', flex: 2),
           _buildHeaderCell('Entrée', flex: 2),
           _buildHeaderCell('Sortie', flex: 2),
-          _buildHeaderCell('P.U.', flex: 2),
           _buildHeaderCell('Client/Fournisseur', flex: 3),
         ],
       ),
@@ -304,11 +330,7 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
         ),
         child: Text(
           text,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.black87,
-          ),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
       ),
     );
@@ -337,29 +359,18 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'Aucun mouvement de stock trouvé',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
             Text(
               _selectedDepot == 'Tous'
                   ? 'Les mouvements de stock apparaîtront ici'
                   : 'Aucun mouvement pour le dépôt $_selectedDepot',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
             ),
           ],
         ),
@@ -373,11 +384,7 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[300]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -446,18 +453,12 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
   Widget _buildModernRow(Map<String, dynamic> mouvement, int index) {
     final entree = (mouvement['entree'] as num?)?.toDouble() ?? 0;
     final sortie = (mouvement['sortie'] as num?)?.toDouble() ?? 0;
-    final pus = (mouvement['pus'] as num?)?.toDouble() ?? 0;
 
     return Container(
-      decoration: BoxDecoration(
-        color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-      ),
+      decoration: BoxDecoration(color: index % 2 == 0 ? Colors.white : Colors.grey[50]),
       child: Row(
         children: [
-          _buildDataCell(
-            _formatDate(mouvement['daty']),
-            flex: 2,
-          ),
+          _buildDataCell(_formatDate(mouvement['daty']), flex: 2),
           _buildDataCell(
             _getSourceLabel(mouvement['source']?.toString() ?? ''),
             flex: 2,
@@ -485,15 +486,7 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
             color: Colors.red[700],
             isBold: sortie > 0,
           ),
-          _buildDataCell(
-            pus > 0 ? '${AppFunctions.formatNumber(pus)} Ar' : '',
-            flex: 2,
-            alignment: Alignment.centerRight,
-          ),
-          _buildDataCell(
-            mouvement['clt']?.toString() ?? mouvement['frns']?.toString() ?? '',
-            flex: 3,
-          ),
+          _buildDataCell(mouvement['clt']?.toString() ?? mouvement['frns']?.toString() ?? '', flex: 3),
         ],
       ),
     );
@@ -525,11 +518,7 @@ class _HistoriqueStockModalState extends State<HistoriqueStockModal> with TabNav
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 child: Text(
                   text,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: color ?? Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color ?? Colors.black87),
                   textAlign: TextAlign.center,
                 ),
               )
