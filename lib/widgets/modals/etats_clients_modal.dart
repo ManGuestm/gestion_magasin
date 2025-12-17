@@ -11,7 +11,7 @@ class EtatsClientsModal extends StatelessWidget {
     return BaseModal(
       title: 'États Clients',
       width: 600,
-      height: 400,
+      height: MediaQuery.of(context).size.height * 0.5,
       content: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -89,21 +89,9 @@ class EtatsClientsModal extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    Text(
-                      description,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                      ),
-                    ),
+                    Text(description, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
                   ],
                 ),
               ),
