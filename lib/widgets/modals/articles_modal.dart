@@ -7,6 +7,7 @@ import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/stock_management_service.dart';
+import '../../services/stock_sync_service.dart';
 import '../../utils/stock_converter.dart';
 import '../common/tab_navigation_widget.dart';
 import 'add_article_modal.dart';
@@ -153,6 +154,8 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
         _buildHeaderButton(Icons.add, 'Nouveau', () => _showAddArticleModal()),
         const SizedBox(width: 8),
         _buildHeaderButton(Icons.refresh, 'Actualiser', _loadArticles),
+        const SizedBox(width: 8),
+        _buildHeaderButton(Icons.sync, 'Sync Stocks', _synchroniserStocks),
         const SizedBox(width: 8),
         IconButton(
           onPressed: () => Navigator.of(context).pop(),
@@ -1014,6 +1017,41 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
         if (_selectedArticle != null) {
           _deleteArticle(_selectedArticle!);
         }
+      }
+    }
+  }
+
+  Future<void> _synchroniserStocks() async {
+    try {
+      setState(() => _isLoading = true);
+
+      final stockSyncService = StockSyncService();
+      await stockSyncService.synchroniserTousLesStocks();
+
+      await _loadArticles();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Synchronisation des stocks terminée'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de synchronisation: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }

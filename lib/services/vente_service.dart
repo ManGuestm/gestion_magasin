@@ -601,11 +601,18 @@ class VenteService {
               date: detail.daty ?? DateTime.now(),
             );
 
-            await _ajusterStockGlobalArticle(
-              article: article, 
-              unite: detail.unites!, 
-              quantite: detail.q!,
-            );
+            // Recharger l'article pour avoir les stocks à jour
+            final articleActuel = await (_databaseService.database.select(
+              _databaseService.database.articles,
+            )..where((a) => a.designation.equals(detail.designation!))).getSingleOrNull();
+            
+            if (articleActuel != null) {
+              await _ajusterStockGlobalArticle(
+                article: articleActuel, 
+                unite: detail.unites!, 
+                quantite: detail.q!,
+              );
+            }
 
             await _mettreAJourFicheStock(
               designation: detail.designation!,
@@ -624,6 +631,9 @@ class VenteService {
       if (ligneTraitee != details.length) {
         throw Exception('Toutes les lignes n\'ont pas été traitées correctement ($ligneTraitee/${details.length})');
       }
+      
+      // Synchroniser les stocks globaux après traitement
+      await _synchroniserStocksGlobaux(details);
 
       // 4. Ajuster compte client si crédit
       if (modePaiement == 'A crédit' && client != null && client.isNotEmpty) {
@@ -910,6 +920,52 @@ class VenteService {
             verification: const Value('JOURNAL'),
           ),
         );
+  }
+
+  /// Synchronise les stocks globaux dans la table articles
+  Future<void> _synchroniserStocksGlobaux(List<Detvente> details) async {
+    // Récupérer tous les articles concernés
+    final articlesTraites = <String>{};
+    for (final detail in details) {
+      if (detail.designation != null) {
+        articlesTraites.add(detail.designation!);
+      }
+    }
+    
+    // Recalculer le stock global pour chaque article
+    for (final designation in articlesTraites) {
+      await _recalculerStockGlobalArticle(designation);
+    }
+  }
+  
+  /// Recalcule le stock global d'un article à partir des stocks par dépôt
+  Future<void> _recalculerStockGlobalArticle(String designation) async {
+    // Récupérer tous les stocks par dépôt pour cet article
+    final stocksDepots = await (_databaseService.database.select(
+      _databaseService.database.depart,
+    )..where((d) => d.designation.equals(designation))).get();
+    
+    // Calculer les totaux
+    double totalU1 = 0;
+    double totalU2 = 0;
+    double totalU3 = 0;
+    
+    for (final stock in stocksDepots) {
+      totalU1 += stock.stocksu1 ?? 0;
+      totalU2 += stock.stocksu2 ?? 0;
+      totalU3 += stock.stocksu3 ?? 0;
+    }
+    
+    // Mettre à jour l'article avec les totaux calculés
+    await (_databaseService.database.update(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(designation))).write(
+      ArticlesCompanion(
+        stocksu1: Value(totalU1),
+        stocksu2: Value(totalU2),
+        stocksu3: Value(totalU3),
+      ),
+    );
   }
 
   /// Contre-passe une vente brouillard (suppression définitive)

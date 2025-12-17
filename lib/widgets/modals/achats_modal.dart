@@ -354,7 +354,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       return (maxNum + 1).toString();
     } catch (e) {
-      // En cas d'erreur, commencer Ã  2607
+      // En cas d'erreur, commencer à  2607
       return '2607';
     }
   }
@@ -598,7 +598,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (_selectedArticle == null || unite == null) return;
 
     setState(() {
-      // Mise Ã  jour de l'unité sélectionnée
+      // Mise à  jour de l'unité sélectionnée
       _selectedUnite = unite;
       _uniteController.text = unite;
 
@@ -814,7 +814,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
   Future<void> _chargerAchatExistant(String numAchats) async {
     debugPrint('=== CHARGEMENT ACHAT EXISTANT ===');
-    debugPrint('Numéro achat Ã  charger: $numAchats');
+    debugPrint('Numéro achat à  charger: $numAchats');
 
     if (numAchats.isEmpty) {
       debugPrint('Numéro achat vide, réinitialisation');
@@ -832,7 +832,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       setState(() {
         _isExistingPurchase = achat != null;
-        // IMPORTANT: Mettre Ã  jour le numéro d'achat AVANT tout autre traitement
+        // IMPORTANT: Mettre à  jour le numéro d'achat AVANT tout autre traitement
         _numAchatsController.text = numAchats;
       });
 
@@ -855,7 +855,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             _dateController.text = app_date.AppDateUtils.formatDate(achat.daty!);
           }
           _selectedFournisseur = achat.frns;
-          _fournisseurController.text = achat.frns ?? ''; // Mettre Ã  jour le contrôleur
+          _fournisseurController.text = achat.frns ?? ''; // Mettre à  jour le contrôleur
           _selectedModePaiement = achat.modepai;
           if (achat.echeance != null) {
             _echeanceController.text = app_date.AppDateUtils.formatDate(achat.echeance!);
@@ -902,7 +902,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         _calculerTotaux();
         debugPrint('Totaux recalculés');
 
-        // Mettre Ã  jour l'index de navigation
+        // Mettre à  jour l'index de navigation
         currentAchatIndex = _achatsNumbers.indexOf(numAchats);
         debugPrint('Index de navigation: $currentAchatIndex');
 
@@ -1024,7 +1024,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 18),
             ),
             content: Text(
-              'Voulez-vous vraiment modifier l\'achat N° ${_numAchatsController.text} ?\n\nCette action mettra Ã  jour les stocks et les CMUP.',
+              'Voulez-vous vraiment modifier l\'achat N° ${_numAchatsController.text} ?\n\nCette action mettra à  jour les stocks et les CMUP.',
               style: const TextStyle(fontSize: 14),
             ),
             actions: [
@@ -1231,9 +1231,9 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           );
         }
 
-        // Mettre Ã  jour l'achat principal (GARDER LE MÃŠME NUMéRO)
+        // Mettre à  jour l'achat principal (GARDER LE MÃŠME NUMéRO)
         debugPrint(
-          'Mise Ã  jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}',
+          'Mise à  jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}',
         );
         await (_databaseService.database.update(
           _databaseService.database.achats,
@@ -1249,7 +1249,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           ),
         );
 
-        // Recharger les articles pour avoir les stocks mis Ã  jour après annulation
+        // Recharger les articles pour avoir les stocks mis à  jour après annulation
         _articles = await _databaseService.database.getActiveArticles();
 
         // Insérer les nouvelles lignes avec le MÃŠME numéro d'achat
@@ -1269,13 +1269,13 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 ),
               );
 
-          // Mettre Ã  jour le stock et le CMUP dans la table Articles
+          // Mettre à  jour le stock et le CMUP dans la table Articles
           Article? article = _articles.firstWhere(
             (a) => a.designation == ligne['designation'],
             orElse: () => throw Exception('Article ${ligne['designation']} non trouvé'),
           );
 
-          // Calculer et mettre Ã  jour le CMUP avec le calculateur amélioré
+          // Calculer et mettre à  jour le CMUP avec le calculateur amélioré
           double nouveauCMUP = await CMUPCalculator.calculerEtMettreAJourCMUP(
             designation: ligne['designation'],
             uniteAchat: ligne['unites'],
@@ -1328,7 +1328,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             quantiteU3: (article.stocksu3 ?? 0) + conversionAchat['u3']!,
           );
 
-          // Mettre Ã  jour les stocks avec conversion automatique
+          // Mettre à  jour les stocks avec conversion automatique
           await (_databaseService.database.update(
             _databaseService.database.articles,
           )..where((a) => a.designation.equals(article.designation))).write(
@@ -1339,7 +1339,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             ),
           );
 
-          // Mettre Ã  jour les stocks par dépôt avec conversion automatique
+          // Mettre à  jour les stocks par dépôt avec conversion automatique
           final existingDepart =
               await (_databaseService.database.select(_databaseService.database.depart)..where(
                     (d) => d.designation.equals(article.designation) & d.depots.equals(ligne['depot']),
@@ -1394,7 +1394,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       await _loadAchatsNumbers();
       debugPrint('Liste des achats rechargée');
 
-      // Recharger les données pour mettre Ã  jour l'interface
+      // Recharger les données pour mettre à  jour l'interface
       await _loadData();
 
       // Recalculer les totaux avec les nouvelles données
@@ -1446,7 +1446,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     if (!_isExistingPurchase) {
       if (mounted) {
         _scaffoldMessengerKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('Aucun achat sélectionné Ã  contre-passer')),
+          const SnackBar(content: Text('Aucun achat sélectionné à  contre-passer')),
         );
       }
       return;
@@ -1506,11 +1506,11 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         await _achatService.contrePasserAchatBrouillard(_numAchatsController.text);
       }
 
-      // Recharger toutes les données pour mettre Ã  jour l'interface
+      // Recharger toutes les données pour mettre à  jour l'interface
       await _loadAchatsNumbers();
       await _loadData();
 
-      // Mettre Ã  jour l'interface pour refléter le statut contre-passé
+      // Mettre à  jour l'interface pour refléter le statut contre-passé
       // Créer un nouvel achat après contre-passement
       if (mounted) {
         await _creerNouvelAchat();
@@ -1720,7 +1720,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         _statutAchatActuel = 'JOURNAL';
         _achatsStatuts[_numAchatsController.text] = 'JOURNAL';
       });
-      debugPrint('état mis Ã  jour: statut = JOURNAL');
+      debugPrint('état mis à  jour: statut = JOURNAL');
 
       await _loadData();
       debugPrint('Données rechargées');
@@ -1855,7 +1855,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: const Text('Aucun article Ã  afficher'),
+          content: const Text('Aucun article à  afficher'),
         ),
       );
       return;
@@ -2678,7 +2678,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             right: 20,
             left: MediaQuery.of(context).size.width * 0.75,
           ),
-          content: const Text('Aucun article Ã  imprimer'),
+          content: const Text('Aucun article à  imprimer'),
         ),
       );
       return;
@@ -2719,7 +2719,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const Text('Bon de réception envoyé Ã  l\'imprimante par défaut'),
+            content: const Text('Bon de réception envoyé à  l\'imprimante par défaut'),
           ),
         );
       }
@@ -3138,7 +3138,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 0.5)),
             alignment: pw.Alignment.center,
             child: pw.Text(
-              'ArrÃªté Ã  la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
+              'ArrÃªté à  la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
             ),
           ),
@@ -3423,7 +3423,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                       ),
                       child: Row(
                         children: [
-                          // Liste des achats Ã  gauche
+                          // Liste des achats à  gauche
                           Container(
                             width: 250,
                             decoration: BoxDecoration(
@@ -3666,7 +3666,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               ],
                             ),
                           ),
-                          // Formulaire principal Ã  droite
+                          // Formulaire principal à  droite
                           Expanded(
                             child: FocusTraversalGroup(
                               policy: OrderedTraversalPolicy(),

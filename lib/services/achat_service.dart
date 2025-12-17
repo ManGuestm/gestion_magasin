@@ -433,6 +433,9 @@ class AchatService {
           );
         }
       }
+      
+      // Synchroniser les stocks globaux après traitement
+      await _synchroniserStocksGlobauxAchat(details);
 
       // Ajuster compte fournisseur si crédit
       if (achat.modepai == 'A crédit' && achat.frns != null && achat.frns!.isNotEmpty) {
@@ -562,6 +565,52 @@ class AchatService {
             ),
           );
     }
+  }
+
+  /// Synchronise les stocks globaux dans la table articles après achat
+  Future<void> _synchroniserStocksGlobauxAchat(List<Detachat> details) async {
+    // Récupérer tous les articles concernés
+    final articlesTraites = <String>{};
+    for (final detail in details) {
+      if (detail.designation != null) {
+        articlesTraites.add(detail.designation!);
+      }
+    }
+    
+    // Recalculer le stock global pour chaque article
+    for (final designation in articlesTraites) {
+      await _recalculerStockGlobalArticleAchat(designation);
+    }
+  }
+  
+  /// Recalcule le stock global d'un article à partir des stocks par dépôt
+  Future<void> _recalculerStockGlobalArticleAchat(String designation) async {
+    // Récupérer tous les stocks par dépôt pour cet article
+    final stocksDepots = await (_databaseService.database.select(
+      _databaseService.database.depart,
+    )..where((d) => d.designation.equals(designation))).get();
+    
+    // Calculer les totaux
+    double totalU1 = 0;
+    double totalU2 = 0;
+    double totalU3 = 0;
+    
+    for (final stock in stocksDepots) {
+      totalU1 += stock.stocksu1 ?? 0;
+      totalU2 += stock.stocksu2 ?? 0;
+      totalU3 += stock.stocksu3 ?? 0;
+    }
+    
+    // Mettre à jour l'article avec les totaux calculés
+    await (_databaseService.database.update(
+      _databaseService.database.articles,
+    )..where((a) => a.designation.equals(designation))).write(
+      ArticlesCompanion(
+        stocksu1: Value(totalU1),
+        stocksu2: Value(totalU2),
+        stocksu3: Value(totalU3),
+      ),
+    );
   }
 
   /// Contre-passe un achat brouillard (suppression définitive)
