@@ -1,12 +1,17 @@
+import 'dart:convert';
+
+import 'package:drift/drift.dart' hide Column;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../constants/app_functions.dart';
 import '../../database/database.dart';
+import '../../database/database_service.dart';
 import '../../screens/echeances_fournisseurs_preview_screen.dart';
 import '../common/tab_navigation_widget.dart';
 
@@ -133,26 +138,29 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: true,
-      onKeyEvent: (node, event) => handleTabNavigation(event),
-      child: Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height: 700,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
+    return PopScope(
+      canPop: false,
+      child: Focus(
+        autofocus: true,
+        onKeyEvent: (node, event) => handleTabNavigation(event),
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            width: MediaQuery.of(context).size.width * 0.8,
+            height: MediaQuery.of(context).size.height * 0.9,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(children: [_buildHeader(), _buildFilters(), _buildTable(), _buildFooter()]),
           ),
-          child: Column(children: [_buildHeader(), _buildFilters(), _buildTable(), _buildFooter()]),
         ),
       ),
     );
@@ -330,6 +338,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
           _selectedIndex = index;
         });
       },
+      onSecondaryTapDown: (details) => _showContextMenu(context, details.globalPosition, achat),
       child: Container(
         height: 48,
         decoration: BoxDecoration(
@@ -363,7 +372,30 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
             Expanded(flex: 2, child: _buildCell(_formatDate(achat.daty))),
             Expanded(
               flex: 2,
-              child: _buildCell(_formatDate(achat.echeance), color: isOverdue ? Colors.red[700] : null),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildCell(_formatDate(achat.echeance), color: isOverdue ? Colors.red[700] : null),
+                  ),
+                  FutureBuilder<bool>(
+                    future: _hasHistory(achat.numachats ?? ''),
+                    builder: (context, snapshot) {
+                      final hasHistory = snapshot.data ?? false;
+                      return IconButton(
+                        onPressed: hasHistory ? () => _showHistoryDialog(achat) : null,
+                        icon: Icon(
+                          Icons.history,
+                          size: 16,
+                          color: hasHistory ? Colors.blue[600] : Colors.grey[400],
+                        ),
+                        tooltip: hasHistory ? 'Voir historique' : 'Aucun historique',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
             Expanded(flex: 2, child: _buildStatusCell(isOverdue)),
           ],
@@ -823,7 +855,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
                 context: context,
                 initialDate: DateTime.now(),
                 firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
+                lastDate: DateTime(2100),
                 locale: const Locale('fr', 'FR'),
               );
               if (date != null) {
@@ -1013,10 +1045,186 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
     }
   }
 
+  void _showContextMenu(BuildContext context, Offset position, Achat achat) {
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
+      items: [
+        PopupMenuItem(
+          value: 'modify_date',
+          child: Row(
+            children: [
+              Icon(Icons.edit_calendar, size: 16, color: Colors.blue[600]),
+              const SizedBox(width: 8),
+              const Text('Modifier échéance'),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (value == 'modify_date') {
+        _showModifyDateDialog(achat);
+      }
+    });
+  }
+
+  void _showModifyDateDialog(Achat achat) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: 400,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.edit_calendar, color: Colors.blue[600]),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Modifier Date d\'Échéance',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text('Fournisseur: ${achat.frns ?? ""}'),
+              Text('N° Facture: ${achat.nfact ?? ""}'),
+              Text('Échéance actuelle: ${_formatDate(achat.echeance)}'),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () async {
+                  final navigator = Navigator.of(context);
+                  final newDate = await showDatePicker(
+                    context: context,
+                    initialDate: achat.echeance ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
+                  );
+                  if (newDate != null) {
+                    await _updateEcheance(achat, newDate);
+                    if (mounted) {
+                      navigator.pop();
+                    }
+                  }
+                },
+                child: const Text('Sélectionner nouvelle date'),
+              ),
+              const SizedBox(height: 10),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateEcheance(Achat achat, DateTime newDate) async {
+    try {
+      await _saveEcheanceHistory(achat, newDate);
+
+      final db = DatabaseService().database;
+      await (db.update(db.achats)..where((a) => a.numachats.equals(achat.numachats ?? ''))).write(
+        AchatsCompanion(echeance: Value(newDate)),
+      );
+
+      await _loadAchats();
+      _showMessage('Date d\'échéance modifiée avec succès', Colors.green[600]!);
+    } catch (e) {
+      _showMessage('Erreur lors de la modification: $e', Colors.red[600]!);
+    }
+  }
+
+  Future<void> _saveEcheanceHistory(Achat achat, DateTime newDate) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'echeance_history_${achat.numachats}';
+
+    List<String> history = prefs.getStringList(key) ?? [];
+
+    final historyEntry = {
+      'oldDate': achat.echeance?.toIso8601String(),
+      'newDate': newDate.toIso8601String(),
+      'modifiedAt': DateTime.now().toIso8601String(),
+    };
+
+    history.add(jsonEncode(historyEntry));
+
+    if (history.length > 10) {
+      history = history.sublist(history.length - 10);
+    }
+
+    await prefs.setStringList(key, history);
+  }
+
+  Future<bool> _hasHistory(String numAchats) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'echeance_history_$numAchats';
+    final history = prefs.getStringList(key) ?? [];
+    return history.isNotEmpty;
+  }
+
+  void _showHistoryDialog(Achat achat) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = 'echeance_history_${achat.numachats}';
+    final history = prefs.getStringList(key) ?? [];
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: 500,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.history, color: Colors.blue[600]),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Historique des Échéances',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text('Fournisseur: ${achat.frns ?? ""}'),
+              Text('N° Facture: ${achat.nfact ?? ""}'),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 300,
+                child: ListView.builder(
+                  itemCount: history.length,
+                  itemBuilder: (context, index) {
+                    final entry = jsonDecode(history[index]);
+                    final oldDate = entry['oldDate'] != null ? DateTime.parse(entry['oldDate']) : null;
+                    final newDate = DateTime.parse(entry['newDate']);
+                    final modifiedAt = DateTime.parse(entry['modifiedAt']);
+
+                    return Card(
+                      child: ListTile(
+                        leading: Icon(Icons.edit_calendar, color: Colors.blue[600]),
+                        title: Text('${_formatDate(oldDate)} → ${_formatDate(newDate)}'),
+                        subtitle: Text('Modifié le ${DateFormat('dd/MM/yyyy HH:mm').format(modifiedAt)}'),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showMessage(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: SelectableText(message),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

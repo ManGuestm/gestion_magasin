@@ -11,20 +11,15 @@ class MenuData {
   static const String aide = '?';
 
   static const Map<String, List<String>> subMenus = {
-    fichier: [
-      'Profil',
-      'Gestion des utilisateurs',
-      'Clients connectés',
-      'Sauvegarder et Restaurer',
-    ],
+    fichier: ['Profil', 'Gestion des utilisateurs', 'Clients connectés', 'Sauvegarder et Restaurer'],
     parametres: [
       'Informations sur la société',
       'Dépôts',
       'Articles',
       'Clients',
       'Fournisseurs',
-      'Plan de comptes',
-      'Importation des données',
+      // 'Plan de comptes',
+      // 'Importation des données',
       'Réinitialiser les données',
     ],
     commerces: [
@@ -46,12 +41,7 @@ class MenuData {
       'Niveau des stocks (Articles à commandées)',
       'Réactualisation de la base de données',
     ],
-    tresoreries: [
-      'Encaissements',
-      'Décaissements',
-      'Comptes fournisseurs',
-      'Moyen de paiement',
-    ],
+    tresoreries: ['Encaissements', 'Décaissements', 'Comptes fournisseurs', 'Moyen de paiement'],
     etats: [
       'Journal de caisse',
       'Etats Fournisseurs',
@@ -81,41 +71,19 @@ class MenuData {
       'Fiche d\'énumération Clients',
     ],
     'Statistiques de ventes': ['C.A Par Articles', 'C.A Par Clients', 'Suivi de différence de Prix de vente'],
-    'Statistiques d\'achats': [
-      'C.A Par Articles',
-    ],
-    'Marges': [
-      'Par Articles',
-      'Par Clients',
-      'Par Clients Détaillés',
-    ],
-    'Retour de Marchandises': [
-      'Sur Ventes',
-      'Retours achats',
-    ],
-    'Etat tarifaire': [
-      'Sans valeur d\'achats',
-      'Avec valeur d\'achats',
-      'Importer vers Ms Excel',
-    ],
-    'Echéanciers': [
-      'Par BL',
-      'Par règlement',
-    ],
-    'Sauvegarder et Restaurer': [
-      'Sauvegarder la base de données',
-      'Restaurer la base de données',
-    ],
+    'Statistiques d\'achats': ['C.A Par Articles'],
+    'Marges': ['Par Articles', 'Par Clients', 'Par Clients Détaillés'],
+    'Retour de Marchandises': ['Sur Ventes', 'Retours achats'],
+    'Etat tarifaire': ['Sans valeur d\'achats', 'Avec valeur d\'achats', 'Importer vers Ms Excel'],
+    'Echéanciers': ['Par BL', 'Par règlement'],
+    'Sauvegarder et Restaurer': ['Sauvegarder la base de données', 'Restaurer la base de données'],
     'Importation des données': [
       'Importer Articles',
       'Importer Fournisseurs',
       'Importer Clients',
       'Importer Moyens de paiement',
     ],
-    aide: [
-      'À propos',
-      'Aides et documentations',
-    ],
+    aide: ['À propos', 'Aides et documentations'],
   };
 
   static const List<IconButtonData> iconButtons = [
