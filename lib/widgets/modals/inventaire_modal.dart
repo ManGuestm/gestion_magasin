@@ -770,20 +770,19 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
   Widget _buildInventaireListItem(Article article) {
     // Obtenir les stocks spécifiques au dépôt sélectionné pour l'inventaire
-    final depotStock = stock.firstWhere(
-      (s) => s.designation == article.designation && s.depots == _selectedDepotInventaire,
-      orElse: () => DepartData(
-        designation: article.designation,
-        depots: _selectedDepotInventaire,
-        stocksu1: 0,
-        stocksu2: 0,
-        stocksu3: 0,
-      ),
-    );
+    DepartData? depotStock;
+    try {
+      depotStock = stock.firstWhere(
+        (s) => s.designation == article.designation && s.depots == _selectedDepotInventaire,
+      );
+    } catch (e) {
+      depotStock = null;
+    }
 
-    final stockU1 = depotStock.stocksu1 ?? 0;
-    final stockU2 = depotStock.stocksu2 ?? 0;
-    final stockU3 = depotStock.stocksu3 ?? 0;
+    // Si pas de répartition par dépôt, utiliser les stocks globaux de l'article
+    final stockU1 = depotStock?.stocksu1?.toDouble() ?? article.stocksu1?.toDouble() ?? 0.0;
+    final stockU2 = depotStock?.stocksu2?.toDouble() ?? article.stocksu2?.toDouble() ?? 0.0;
+    final stockU3 = depotStock?.stocksu3?.toDouble() ?? article.stocksu3?.toDouble() ?? 0.0;
 
     // Vérifier quelles unités sont disponibles
     final hasU1 = article.u1 != null && article.u1!.isNotEmpty;
@@ -823,9 +822,24 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Expanded(child: Text('$stockU1 ${article.u1 ?? ""}', style: const TextStyle(fontSize: 10))),
-            Expanded(child: Text('$stockU2 ${article.u2 ?? ""}', style: const TextStyle(fontSize: 10))),
-            Expanded(child: Text('$stockU3 ${article.u3 ?? ""}', style: const TextStyle(fontSize: 10))),
+            Expanded(
+              child: Text(
+                '${stockU1.toStringAsFixed(1)} ${article.u1 ?? ""}',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                '${stockU2.toStringAsFixed(1)} ${article.u2 ?? ""}',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                '${stockU3.toStringAsFixed(1)} ${article.u3 ?? ""}',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ),
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 48),
@@ -955,9 +969,20 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   }
 
   DataRow buildInventaireRow(Article article) {
-    final stockU1 = article.stocksu1 ?? 0;
-    final stockU2 = article.stocksu2 ?? 0;
-    final stockU3 = article.stocksu3 ?? 0;
+    // Obtenir les stocks spécifiques au dépôt sélectionné
+    DepartData? depotStock;
+    try {
+      depotStock = stock.firstWhere(
+        (s) => s.designation == article.designation && s.depots == _selectedDepotInventaire,
+      );
+    } catch (e) {
+      depotStock = null;
+    }
+
+    // Si pas de répartition par dépôt, utiliser les stocks globaux de l'article
+    final stockU1 = depotStock?.stocksu1?.toDouble() ?? article.stocksu1?.toDouble() ?? 0.0;
+    final stockU2 = depotStock?.stocksu2?.toDouble() ?? article.stocksu2?.toDouble() ?? 0.0;
+    final stockU3 = depotStock?.stocksu3?.toDouble() ?? article.stocksu3?.toDouble() ?? 0.0;
 
     final key = '${article.designation}_$_selectedDepotInventaire';
     final physiqueU1 = _inventairePhysique[key]?['u1'] ?? 0;
@@ -971,9 +996,15 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     return DataRow(
       cells: [
         DataCell(Text(article.designation, style: const TextStyle(fontSize: 11))),
-        DataCell(Text('$stockU1 ${article.u1 ?? ""}', style: const TextStyle(fontSize: 11))),
-        DataCell(Text('$stockU2 ${article.u2 ?? ""}', style: const TextStyle(fontSize: 11))),
-        DataCell(Text('$stockU3 ${article.u3 ?? ""}', style: const TextStyle(fontSize: 11))),
+        DataCell(
+          Text('${stockU1.toStringAsFixed(1)} ${article.u1 ?? ""}', style: const TextStyle(fontSize: 11)),
+        ),
+        DataCell(
+          Text('${stockU2.toStringAsFixed(1)} ${article.u2 ?? ""}', style: const TextStyle(fontSize: 11)),
+        ),
+        DataCell(
+          Text('${stockU3.toStringAsFixed(1)} ${article.u3 ?? ""}', style: const TextStyle(fontSize: 11)),
+        ),
         DataCell(
           SizedBox(
             width: 60,

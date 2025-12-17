@@ -533,10 +533,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       ? const BorderSide(color: Colors.grey, width: 3)
                                       : null,
                                 ),
-                                child: const Text(
-                                  'Annuler',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
+                                child: const Text('Annuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                               ),
                             ),
                             Focus(
@@ -565,10 +562,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       ? const BorderSide(color: Colors.blue, width: 3)
                                       : null,
                                 ),
-                                child: const Text(
-                                  'Enregistrer',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                ),
+                                child: const Text('Enregistrer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                               ),
                             ),
                           ],
@@ -1071,10 +1065,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                 ? const BorderSide(color: Colors.blue, width: 3)
                                 : null,
                           ),
-                          child: const Text(
-                            'OK',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                          child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
                       );
                     },
@@ -1178,39 +1169,29 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
   }
 
-  // Remplacer la méthode _verifierStockEtBasculer dans ventes_modal.dart
-
   Future<void> _verifierStockEtBasculer(Article article) async {
     try {
       String depot = _selectedDepot ?? 'MAG';
 
-      // Récupérer le stock du dépôt
+      // Utiliser exactement la même logique que le modal articles
       final stockDepart = await (_databaseService.database.select(
         _databaseService.database.depart,
       )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
-      // CORRECTION: Vérifier d'abord si l'article a des stocks définis
-      double stockU1 = stockDepart?.stocksu1 ?? 0.0;
-      double stockU2 = stockDepart?.stocksu2 ?? 0.0;
-      double stockU3 = stockDepart?.stocksu3 ?? 0.0;
-
-      // Calculer le stock total en unité de base
+      // Calculer le stock total disponible en unité de base DIRECTEMENT
       double stockTotalU3 = StockConverter.calculerStockTotalU3(
         article: article,
-        stockU1: stockU1,
-        stockU2: stockU2,
-        stockU3: stockU3,
+        stockU1: stockDepart?.stocksu1 ?? 0.0,
+        stockU2: stockDepart?.stocksu2 ?? 0.0,
+        stockU3: stockDepart?.stocksu3 ?? 0.0,
       );
 
-      // CORRECTION: Ne calculer le stock pour l'unité sélectionnée que si on a un stock total > 0
-      double stockPourUniteSelectionnee = 0.0;
-      if (stockTotalU3 > 0) {
-        stockPourUniteSelectionnee = _calculerStockPourUnite(
-          article,
-          _selectedUnite ?? article.u1!,
-          stockTotalU3,
-        );
-      }
+      // Calculer le stock disponible pour l'unité sélectionnée
+      double stockPourUniteSelectionnee = _calculerStockPourUnite(
+        article,
+        _selectedUnite ?? article.u1!,
+        stockTotalU3,
+      );
 
       setState(() {
         _stockDisponible = stockPourUniteSelectionnee;
@@ -1234,7 +1215,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         }
       }
     } catch (e) {
-      debugPrint('Erreur _verifierStockEtBasculer: $e');
       setState(() {
         _stockDisponible = 0.0;
         _stockInsuffisant = true;
@@ -1247,36 +1227,27 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       String depot = _selectedDepot ?? 'MAG';
       String unite = _selectedUnite ?? (article.u1 ?? '');
 
-      // Récupérer le stock du dépôt
+      // Utiliser exactement la même logique que le modal articles
       final stockDepart = await (_databaseService.database.select(
         _databaseService.database.depart,
       )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
-      // CORRECTION: Vérifier si l'article a des stocks définis
-      double stockU1 = stockDepart?.stocksu1 ?? 0.0;
-      double stockU2 = stockDepart?.stocksu2 ?? 0.0;
-      double stockU3 = stockDepart?.stocksu3 ?? 0.0;
-
-      // Calculer le stock total en unité de base
+      // Calculer le stock total disponible en unité de base DIRECTEMENT
       double stockTotalU3 = StockConverter.calculerStockTotalU3(
         article: article,
-        stockU1: stockU1,
-        stockU2: stockU2,
-        stockU3: stockU3,
+        stockU1: stockDepart?.stocksu1 ?? 0.0,
+        stockU2: stockDepart?.stocksu2 ?? 0.0,
+        stockU3: stockDepart?.stocksu3 ?? 0.0,
       );
 
-      // CORRECTION: Ne calculer le stock pour l'unité sélectionnée que si on a un stock total > 0
-      double stockPourUniteSelectionnee = 0.0;
-      if (stockTotalU3 > 0) {
-        stockPourUniteSelectionnee = _calculerStockPourUnite(article, unite, stockTotalU3);
-      }
+      // Calculer le stock disponible pour l'unité sélectionnée
+      double stockPourUniteSelectionnee = _calculerStockPourUnite(article, unite, stockTotalU3);
 
       setState(() {
         _stockDisponible = stockPourUniteSelectionnee;
         _stockInsuffisant = stockTotalU3 <= 0;
       });
     } catch (e) {
-      debugPrint('Erreur _verifierStock: $e');
       setState(() {
         _stockDisponible = 0.0;
         _stockInsuffisant = true;
@@ -1303,30 +1274,14 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
   // Calcule le stock disponible pour une unité donnée
   double _calculerStockPourUnite(Article article, String unite, double stockTotalU3) {
-    // CORRECTION: Si le stock total est 0, retourner 0 directement
     if (stockTotalU3 <= 0) return 0.0;
 
-    // Pour les articles avec 3 unités (u1, u2, u3)
-    if (article.u3?.isNotEmpty == true && article.tu3u2 != null && article.tu2u1 != null) {
-      if (unite == article.u3) {
-        return stockTotalU3;
-      } else if (unite == article.u2 && article.tu3u2! > 0) {
-        return stockTotalU3 / article.tu3u2!;
-      } else if (unite == article.u1 && article.tu2u1! > 0 && article.tu3u2! > 0) {
-        return stockTotalU3 / (article.tu2u1! * article.tu3u2!);
-      }
-    }
-    // Pour les articles avec 2 unités (u1, u2)
-    else if (article.u2?.isNotEmpty == true && article.tu2u1 != null) {
-      if (unite == article.u2) {
-        return stockTotalU3;
-      } else if (unite == article.u1 && article.tu2u1! > 0) {
-        return stockTotalU3 / article.tu2u1!;
-      }
-    }
-    // Pour les articles avec 1 seule unité (u1)
-    else if (unite == article.u1) {
+    if (unite == article.u3) {
       return stockTotalU3;
+    } else if (unite == article.u2 && article.tu3u2 != null) {
+      return stockTotalU3 / article.tu3u2!;
+    } else if (unite == article.u1 && article.tu2u1 != null && article.tu3u2 != null) {
+      return stockTotalU3 / (article.tu2u1! * article.tu3u2!);
     }
 
     return 0.0;
@@ -1339,34 +1294,20 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         _databaseService.database.depart,
       )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
 
-      // CORRECTION: Si pas de stock dans le dépôt, retourner une chaîne vide
-      if (stockDepart == null) {
-        return 'Stock: 0';
-      }
-
-      double stockU1 = stockDepart.stocksu1 ?? 0.0;
-      double stockU2 = stockDepart.stocksu2 ?? 0.0;
-      double stockU3 = stockDepart.stocksu3 ?? 0.0;
-
-      // Calculer le stock total en unité de base
+      // Calculer le stock total en unité de base (U3)
       double stockTotalU3 = StockConverter.calculerStockTotalU3(
         article: article,
-        stockU1: stockU1,
-        stockU2: stockU2,
-        stockU3: stockU3,
+        stockU1: stockDepart?.stocksu1 ?? 0.0,
+        stockU2: stockDepart?.stocksu2 ?? 0.0,
+        stockU3: stockDepart?.stocksu3 ?? 0.0,
       );
-
-      // CORRECTION: Si le stock total est 0, retourner directement
-      if (stockTotalU3 <= 0) {
-        return 'Stock: 0';
-      }
 
       // Convertir le stock total vers les unités optimales
       final stocksOptimaux = StockConverter.convertirStockOptimal(
         article: article,
-        quantiteU1: stockU1,
-        quantiteU2: stockU2,
-        quantiteU3: stockU3,
+        quantiteU1: 0.0,
+        quantiteU2: 0.0,
+        quantiteU3: stockTotalU3,
       );
 
       return StockConverter.formaterAffichageStock(
@@ -1376,8 +1317,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         stockU3: stocksOptimaux['u3']!,
       );
     } catch (e) {
-      debugPrint('Erreur _getStocksToutesUnites: $e');
-      return 'Erreur stock';
+      return '';
     }
   }
 
@@ -1925,10 +1865,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                 ? const BorderSide(color: Colors.blue, width: 3)
                                 : null,
                           ),
-                          child: const Text(
-                            'OK',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                          child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
                       );
                     },
@@ -2018,10 +1955,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.grey, width: 3)
                                   : null,
                             ),
-                            child: const Text(
-                              'Annuler',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                            child: const Text('Annuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                         Focus(
@@ -2050,10 +1984,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.blue, width: 3)
                                   : null,
                             ),
-                            child: const Text(
-                              'Continuer',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                            child: const Text('Continuer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
@@ -2349,10 +2280,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                 ? const BorderSide(color: Colors.blue, width: 3)
                                 : null,
                           ),
-                          child: const Text(
-                            'OK',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                          child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         ),
                       );
                     },
@@ -2804,10 +2732,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.grey, width: 3)
                                   : null,
                             ),
-                            child: const Text(
-                              'Annuler',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                            child: const Text('Annuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                         Focus(
@@ -2836,10 +2761,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.blue, width: 3)
                                   : null,
                             ),
-                            child: const Text(
-                              'Enregistrer',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                            child: const Text('Enregistrer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
@@ -4122,10 +4044,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.grey, width: 3)
                                   : null,
                             ),
-                            child: const Text(
-                              'Non',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                            child: const Text('Non', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                         Focus(
@@ -4154,10 +4073,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.blue, width: 3)
                                   : null,
                             ),
-                            child: const Text(
-                              'Oui',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
+                            child: const Text('Oui', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           ),
                         ),
                       ],
