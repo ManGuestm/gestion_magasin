@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+
 import '../../../constants/app_functions.dart';
 import '../../../database/database.dart';
+import '../../../utils/stock_converter.dart';
 
 class StockTab extends StatelessWidget {
   final bool isLoading;
@@ -67,13 +69,36 @@ class StockTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Expanded(child: _buildStatCard('Valeur Totale', '${AppFunctions.formatNumber(stats['valeurTotale'] ?? 0)} Ar', Icons.monetization_on, Colors.green)),
+          Expanded(
+            child: _buildStatCard(
+              'Valeur Totale',
+              '${AppFunctions.formatNumber(stats['valeurTotale'] ?? 0)} Ar',
+              Icons.monetization_on,
+              Colors.green,
+            ),
+          ),
           const SizedBox(width: 8),
-          Expanded(child: _buildStatCard('Articles en Stock', '${stats['articlesEnStock'] ?? 0}', Icons.check_circle, Colors.blue)),
+          Expanded(
+            child: _buildStatCard(
+              'Articles en Stock',
+              '${stats['articlesEnStock'] ?? 0}',
+              Icons.check_circle,
+              Colors.blue,
+            ),
+          ),
           const SizedBox(width: 8),
-          Expanded(child: _buildStatCard('Ruptures', '${stats['articlesRupture'] ?? 0}', Icons.warning, Colors.red)),
+          Expanded(
+            child: _buildStatCard('Ruptures', '${stats['articlesRupture'] ?? 0}', Icons.warning, Colors.red),
+          ),
           const SizedBox(width: 8),
-          Expanded(child: _buildStatCard('Alertes', '${stats['articlesAlerte'] ?? 0}', Icons.notification_important, Colors.orange)),
+          Expanded(
+            child: _buildStatCard(
+              'Alertes',
+              '${stats['articlesAlerte'] ?? 0}',
+              Icons.notification_important,
+              Colors.orange,
+            ),
+          ),
         ],
       ),
     );
@@ -91,9 +116,17 @@ class StockTab extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(height: 8),
-          Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color), textAlign: TextAlign.center),
+          Text(
+            value,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -124,7 +157,11 @@ class StockTab extends StatelessWidget {
           Expanded(
             child: DropdownButtonFormField<String>(
               initialValue: selectedDepot,
-              decoration: const InputDecoration(labelText: 'Dépôt', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+              decoration: const InputDecoration(
+                labelText: 'Dépôt',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
               items: depots.map((depot) => DropdownMenuItem(value: depot, child: Text(depot))).toList(),
               onChanged: (value) => onDepotChanged(value!),
             ),
@@ -133,7 +170,11 @@ class StockTab extends StatelessWidget {
           Expanded(
             child: DropdownButtonFormField<String>(
               initialValue: selectedCategorie,
-              decoration: const InputDecoration(labelText: 'Catégorie', border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+              decoration: const InputDecoration(
+                labelText: 'Catégorie',
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
               items: categories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))).toList(),
               onChanged: (value) => onCategorieChanged(value!),
             ),
@@ -152,7 +193,9 @@ class StockTab extends StatelessWidget {
 
   Widget _buildStockList() {
     if (isLoading) return const Center(child: CircularProgressIndicator());
-    if (filteredArticles.isEmpty) return const Center(child: Text('Aucun article trouvé', style: TextStyle(fontSize: 16)));
+    if (filteredArticles.isEmpty) {
+      return const Center(child: Text('Aucun article trouvé', style: TextStyle(fontSize: 16)));
+    }
 
     return Column(
       children: [
@@ -181,31 +224,53 @@ class StockTab extends StatelessWidget {
   Widget _buildStockHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(color: Colors.grey[100], border: Border(bottom: BorderSide(color: Colors.grey[300]!))),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
       child: const Row(
         children: [
-          Expanded(flex: 3, child: Text('Désignation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          Expanded(flex: 2, child: Text('Catégorie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          Expanded(child: Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          Expanded(child: Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          Expanded(child: Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          Expanded(child: Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          Expanded(child: Text('Valeur', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          Expanded(child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+          Expanded(
+            flex: 3,
+            child: Text('Désignation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text('Catégorie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text('Stocks Disponibles', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            child: Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            child: Text('Valeur', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          Expanded(
+            child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildStockListItem(Article article, int itemIndex) {
-    final depotStock = selectedDepot != 'Tous'
-        ? stock.firstWhere((s) => s.designation == article.designation && s.depots == selectedDepot,
-            orElse: () => DepartData(designation: article.designation, depots: selectedDepot, stocksu1: 0, stocksu2: 0, stocksu3: 0))
-        : null;
+    DepartData? depotStock;
+    try {
+      depotStock = selectedDepot != 'Tous'
+          ? stock.firstWhere((s) => s.designation == article.designation && s.depots == selectedDepot)
+          : null;
+    } catch (e) {
+      depotStock = null;
+    }
 
-    final stockU1 = depotStock?.stocksu1 ?? article.stocksu1 ?? 0;
-    final stockU2 = depotStock?.stocksu2 ?? article.stocksu2 ?? 0;
-    final stockU3 = depotStock?.stocksu3 ?? article.stocksu3 ?? 0;
+    final stockU1 = depotStock?.stocksu1?.toDouble() ?? article.stocksu1?.toDouble() ?? 0.0;
+    final stockU2 = depotStock?.stocksu2?.toDouble() ?? article.stocksu2?.toDouble() ?? 0.0;
+    final stockU3 = depotStock?.stocksu3?.toDouble() ?? article.stocksu3?.toDouble() ?? 0.0;
+
+    final stockDisplay = _formatStockDisplay(article, stockU1, stockU2, stockU3);
     final stockTotal = stockU1 + stockU2 + stockU3;
     final cmup = article.cmup ?? 0;
     final valeur = stockTotal * cmup;
@@ -235,13 +300,27 @@ class StockTab extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Expanded(flex: 3, child: Text(article.designation, style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
-            Expanded(flex: 2, child: Text(article.categorie ?? '', style: const TextStyle(fontSize: 11), overflow: TextOverflow.ellipsis)),
-            Expanded(child: Text('$stockU1', style: const TextStyle(fontSize: 11))),
-            Expanded(child: Text('$stockU2', style: const TextStyle(fontSize: 11))),
-            Expanded(child: Text('$stockU3', style: const TextStyle(fontSize: 11))),
+            Expanded(
+              flex: 3,
+              child: Text(
+                article.designation,
+                style: const TextStyle(fontSize: 12),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                article.categorie ?? '',
+                style: const TextStyle(fontSize: 11),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(flex: 3, child: Text(stockDisplay, style: const TextStyle(fontSize: 11))),
             Expanded(child: Text(AppFunctions.formatNumber(cmup), style: const TextStyle(fontSize: 11))),
-            Expanded(child: Text('${AppFunctions.formatNumber(valeur)} Ar', style: const TextStyle(fontSize: 11))),
+            Expanded(
+              child: Text('${AppFunctions.formatNumber(valeur)} Ar', style: const TextStyle(fontSize: 11)),
+            ),
             Expanded(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -250,7 +329,11 @@ class StockTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: statusColor, width: 0.5),
                 ),
-                child: Text(status, style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                child: Text(
+                  status,
+                  style: TextStyle(color: statusColor, fontSize: 9, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           ],
@@ -265,15 +348,52 @@ class StockTab extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(color: Colors.grey[100], border: Border(top: BorderSide(color: Colors.grey[300]!))),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+      ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          IconButton(onPressed: currentPage > 0 ? () => onPageChanged(currentPage - 1) : null, icon: const Icon(Icons.chevron_left)),
-          Text('Page ${currentPage + 1} sur $totalPages (${filteredArticles.length} articles)', style: const TextStyle(fontSize: 12)),
-          IconButton(onPressed: currentPage < totalPages - 1 ? () => onPageChanged(currentPage + 1) : null, icon: const Icon(Icons.chevron_right)),
+          IconButton(
+            onPressed: currentPage > 0 ? () => onPageChanged(currentPage - 1) : null,
+            icon: const Icon(Icons.chevron_left),
+          ),
+          Text(
+            'Page ${currentPage + 1} sur $totalPages (${filteredArticles.length} articles)',
+            style: const TextStyle(fontSize: 12),
+          ),
+          IconButton(
+            onPressed: currentPage < totalPages - 1 ? () => onPageChanged(currentPage + 1) : null,
+            icon: const Icon(Icons.chevron_right),
+          ),
         ],
       ),
+    );
+  }
+
+  String _formatStockDisplay(Article article, double stockU1, double stockU2, double stockU3) {
+    // Calculer le stock total en unité de base (U3) DIRECTEMENT
+    double stockTotalU3 = StockConverter.calculerStockTotalU3(
+      article: article,
+      stockU1: stockU1,
+      stockU2: stockU2,
+      stockU3: stockU3,
+    );
+
+    // Convertir le stock total vers les unités optimales
+    final stocksOptimaux = StockConverter.convertirStockOptimal(
+      article: article,
+      quantiteU1: 0.0,
+      quantiteU2: 0.0,
+      quantiteU3: stockTotalU3,
+    );
+
+    return StockConverter.formaterAffichageStock(
+      article: article,
+      stockU1: stocksOptimaux['u1']!,
+      stockU2: stocksOptimaux['u2']!,
+      stockU3: stocksOptimaux['u3']!,
     );
   }
 }

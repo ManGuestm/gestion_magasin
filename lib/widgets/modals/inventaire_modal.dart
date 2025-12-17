@@ -277,12 +277,18 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       final batch = articles.skip(i).take(batchSize);
 
       for (final article in batch) {
-        final stockTotal = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+        // Utiliser la conversion d'unités pour le calcul des statistiques
+        final stockTotalU3 = StockConverter.calculerStockTotalU3(
+          article: article,
+          stockU1: article.stocksu1?.toDouble() ?? 0.0,
+          stockU2: article.stocksu2?.toDouble() ?? 0.0,
+          stockU3: article.stocksu3?.toDouble() ?? 0.0,
+        );
         final cmup = article.cmup ?? 0;
 
-        valeurTotale += stockTotal * cmup;
+        valeurTotale += stockTotalU3 * cmup;
 
-        if (stockTotal > 0) {
+        if (stockTotalU3 > 0) {
           articlesEnStock++;
         } else {
           articlesRupture++;
@@ -497,17 +503,39 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   }
 
   DataRow buildArticleRow(Article article) {
-    final stockTotal = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
+    // Obtenir les stocks spécifiques au dépôt sélectionné
+    DepartData? depotStock;
+    try {
+      depotStock = stock.firstWhere(
+        (s) => s.designation == article.designation && s.depots == _selectedDepot,
+      );
+    } catch (e) {
+      depotStock = null;
+    }
+
+    // Si pas de répartition par dépôt, utiliser les stocks globaux de l'article
+    final stockU1 = depotStock?.stocksu1?.toDouble() ?? article.stocksu1?.toDouble() ?? 0.0;
+    final stockU2 = depotStock?.stocksu2?.toDouble() ?? article.stocksu2?.toDouble() ?? 0.0;
+    final stockU3 = depotStock?.stocksu3?.toDouble() ?? article.stocksu3?.toDouble() ?? 0.0;
+
+    // Conversion en unité de base (U3) pour le calcul du stock total
+    final stockTotalU3 = StockConverter.calculerStockTotalU3(
+      article: article,
+      stockU1: stockU1,
+      stockU2: stockU2,
+      stockU3: stockU3,
+    );
+
     final cmup = article.cmup ?? 0;
-    final valeur = stockTotal * cmup;
+    final valeur = stockTotalU3 * cmup;
 
     Color statusColor = Colors.green;
     String status = 'En stock';
 
-    if (stockTotal <= 0) {
+    if (stockTotalU3 <= 0) {
       statusColor = Colors.red;
       status = 'Rupture';
-    } else if (article.usec != null && stockTotal <= article.usec!) {
+    } else if (article.usec != null && stockTotalU3 <= article.usec!) {
       statusColor = Colors.orange;
       status = 'Alerte';
     }
@@ -516,9 +544,11 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       cells: [
         DataCell(Text(article.designation, style: const TextStyle(fontSize: 12))),
         DataCell(Text(article.categorie ?? '', style: const TextStyle(fontSize: 12))),
-        DataCell(Text('${article.stocksu1 ?? 0}', style: const TextStyle(fontSize: 12))),
-        DataCell(Text('${article.stocksu2 ?? 0}', style: const TextStyle(fontSize: 12))),
-        DataCell(Text('${article.stocksu3 ?? 0}', style: const TextStyle(fontSize: 12))),
+        DataCell(
+          Text(_formatStockDisplay(article, stockU1, stockU2, stockU3), style: const TextStyle(fontSize: 12)),
+        ),
+        DataCell(Text('', style: const TextStyle(fontSize: 12))), // Colonne vide
+        DataCell(Text('', style: const TextStyle(fontSize: 12))), // Colonne vide
         DataCell(Text(AppFunctions.formatNumber(cmup), style: const TextStyle(fontSize: 12))),
         DataCell(Text('${AppFunctions.formatNumber(valeur)} Ar', style: const TextStyle(fontSize: 12))),
         DataCell(
@@ -727,17 +757,16 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       child: const Row(
         children: [
           Expanded(
+            flex: 3,
+            child: Text('Désignation', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+          ),
+          Expanded(
             flex: 2,
-            child: Text('Article', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+            child: Text('Catégorie', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
           ),
           Expanded(
-            child: Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-          ),
-          Expanded(
-            child: Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-          ),
-          Expanded(
-            child: Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+            flex: 3,
+            child: Text('Stocks Disponibles', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
           ),
           Expanded(
             child: Text(
@@ -794,9 +823,37 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     final physiqueU2 = _inventairePhysique[key]?['u2'] ?? 0;
     final physiqueU3 = _inventairePhysique[key]?['u3'] ?? 0;
 
-    final ecartU1 = physiqueU1 - stockU1;
-    final ecartU2 = physiqueU2 - stockU2;
-    final ecartU3 = physiqueU3 - stockU3;
+    // Calculer les écarts en utilisant la conversion d'unité
+    final stockTotalU3Theorique = StockConverter.calculerStockTotalU3(
+      article: article,
+      stockU1: stockU1,
+      stockU2: stockU2,
+      stockU3: stockU3,
+    );
+
+    final stockTotalU3Physique = StockConverter.calculerStockTotalU3(
+      article: article,
+      stockU1: physiqueU1,
+      stockU2: physiqueU2,
+      stockU3: physiqueU3,
+    );
+
+    final ecartTotalU3 = stockTotalU3Physique - stockTotalU3Theorique;
+
+    // Convertir l'écart vers l'unité optimale pour l'affichage
+    final ecartOptimal = StockConverter.convertirStockOptimal(
+      article: article,
+      quantiteU1: 0.0,
+      quantiteU2: 0.0,
+      quantiteU3: ecartTotalU3.abs(),
+    );
+
+    final ecartFormate = StockConverter.formaterAffichageStock(
+      article: article,
+      stockU1: ecartOptimal['u1']!,
+      stockU2: ecartOptimal['u2']!,
+      stockU3: ecartOptimal['u3']!,
+    );
 
     final startIndex = _inventairePage * _itemsPerPage;
     final itemIndex = _filteredArticles.indexOf(article) - startIndex;
@@ -815,7 +872,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         child: Row(
           children: [
             Expanded(
-              flex: 2,
+              flex: 3,
               child: Text(
                 article.designation,
                 style: const TextStyle(fontSize: 10),
@@ -823,20 +880,17 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
               ),
             ),
             Expanded(
+              flex: 2,
               child: Text(
-                '${stockU1.toStringAsFixed(1)} ${article.u1 ?? ""}',
+                article.categorie ?? '',
                 style: const TextStyle(fontSize: 10),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             Expanded(
+              flex: 3,
               child: Text(
-                '${stockU2.toStringAsFixed(1)} ${article.u2 ?? ""}',
-                style: const TextStyle(fontSize: 10),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                '${stockU3.toStringAsFixed(1)} ${article.u3 ?? ""}',
+                _formatStockDisplay(article, stockU1, stockU2, stockU3),
                 style: const TextStyle(fontSize: 10),
               ),
             ),
@@ -928,38 +982,13 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
               ),
             ),
             Expanded(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (hasU1)
-                    Text(
-                      '${article.u1}: ${ecartU1.toStringAsFixed(1)} / ',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: ecartU1 == 0 ? Colors.green : (ecartU1 > 0 ? Colors.blue : Colors.red),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  if (hasU2)
-                    Text(
-                      '${article.u2}: ${ecartU2.toStringAsFixed(1)} / ',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: ecartU2 == 0 ? Colors.green : (ecartU2 > 0 ? Colors.blue : Colors.red),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  if (hasU3)
-                    Text(
-                      '${article.u3}: ${ecartU3.toStringAsFixed(1)}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: ecartU3 == 0 ? Colors.green : (ecartU3 > 0 ? Colors.blue : Colors.red),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                ],
+              child: Text(
+                ecartTotalU3 == 0 ? 'Aucun écart' : '${ecartTotalU3 > 0 ? '+' : ''}$ecartFormate',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: ecartTotalU3 == 0 ? Colors.green : (ecartTotalU3 > 0 ? Colors.blue : Colors.red),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -2359,5 +2388,30 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         _showError('Erreur export PDF: $e');
       }
     }
+  }
+
+  String _formatStockDisplay(Article article, double stockU1, double stockU2, double stockU3) {
+    // Calculer le stock total en unité de base (U3) DIRECTEMENT
+    double stockTotalU3 = StockConverter.calculerStockTotalU3(
+      article: article,
+      stockU1: stockU1,
+      stockU2: stockU2,
+      stockU3: stockU3,
+    );
+
+    // Convertir le stock total vers les unités optimales
+    final stocksOptimaux = StockConverter.convertirStockOptimal(
+      article: article,
+      quantiteU1: 0.0,
+      quantiteU2: 0.0,
+      quantiteU3: stockTotalU3,
+    );
+
+    return StockConverter.formaterAffichageStock(
+      article: article,
+      stockU1: stocksOptimaux['u1']!,
+      stockU2: stocksOptimaux['u2']!,
+      stockU3: stocksOptimaux['u3']!,
+    );
   }
 }
