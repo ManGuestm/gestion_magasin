@@ -372,4 +372,47 @@ class DatabaseService {
     await closeDatabase();
     await initialize();
   }
+
+  // Méthodes supplémentaires pour compatibilité complète
+  Future<CltData?> getClientByRsoc(String rsoc) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getClientByRsoc(rsoc);
+    }
+    return await database.getClientByRsoc(rsoc);
+  }
+
+  Future<Frn?> getFournisseurByRsoc(String rsoc) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getFournisseurByRsoc(rsoc);
+    }
+    return await database.getFournisseurByRsoc(rsoc);
+  }
+
+  Future<Depot?> getDepotByName(String name) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getDepotByName(name);
+    }
+    return await database.getDepotByName(name);
+  }
+
+  Future<User?> getUserByUsername(String username) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getUserByUsername(username);
+    }
+    return await database.getUserByUsername(username);
+  }
+
+  Future<User?> getUserById(String id) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getUserById(id);
+    }
+    return await database.getUserById(id);
+  }
+
+  Future<List<User>> getAllUsers() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getAllUsers();
+    }
+    return await database.getAllUsers();
+  }
 }

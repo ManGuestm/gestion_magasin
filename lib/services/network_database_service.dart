@@ -363,4 +363,97 @@ class NetworkDatabaseService {
   Future<void> close() async {
     // Rien à fermer en mode réseau
   }
+
+  // Méthodes manquantes pour compatibilité complète avec database.dart
+  Future<CltData?> getClientByRsoc(String rsoc) async {
+    final result = await customSelect('SELECT * FROM clt WHERE rsoc = ?', [Variable(rsoc)]);
+    return result.isEmpty ? null : _mapCltData(result.first);
+  }
+
+  Future<Frn?> getFournisseurByRsoc(String rsoc) async {
+    final result = await customSelect('SELECT * FROM frns WHERE rsoc = ?', [Variable(rsoc)]);
+    return result.isEmpty ? null : _mapFrn(result.first);
+  }
+
+  Future<Depot?> getDepotByName(String name) async {
+    final result = await customSelect('SELECT * FROM depots WHERE depots = ?', [Variable(name)]);
+    return result.isEmpty ? null : Depot(depots: result.first['depots']);
+  }
+
+  Future<User?> getUserByUsername(String username) async {
+    final result = await customSelect('SELECT * FROM users WHERE username = ?', [Variable(username)]);
+    return result.isEmpty ? null : _mapUser(result.first);
+  }
+
+  Future<User?> getUserById(String id) async {
+    final result = await customSelect('SELECT * FROM users WHERE id = ?', [Variable(id)]);
+    return result.isEmpty ? null : _mapUser(result.first);
+  }
+
+  Future<List<User>> getAllUsers() async {
+    final result = await customSelect('SELECT * FROM users ORDER BY nom');
+    return result.map((row) => _mapUser(row)).toList();
+  }
+
+  // Méthodes de mapping pour éviter la duplication de code
+  CltData _mapCltData(Map<String, dynamic> row) {
+    return CltData(
+      rsoc: row['rsoc'],
+      adr: row['adr'],
+      tel: row['tel'],
+      email: row['email'],
+      nif: row['nif'],
+      stat: row['stat'],
+      rcs: row['rcs'],
+      soldes: row['soldes'],
+      categorie: row['categorie'],
+      capital: row['capital'],
+      port: row['port'],
+      site: row['site'],
+      fax: row['fax'],
+      telex: row['telex'],
+      datedernop: row['datedernop'] != null ? DateTime.tryParse(row['datedernop']) : null,
+      delai: row['delai'],
+      soldesa: row['soldesa'],
+      action: row['action'],
+      commercial: row['commercial'],
+      plafon: row['plafon'],
+      taux: row['taux'],
+      plafonbl: row['plafonbl'],
+    );
+  }
+
+  Frn _mapFrn(Map<String, dynamic> row) {
+    return Frn(
+      rsoc: row['rsoc'],
+      adr: row['adr'],
+      capital: row['capital'],
+      rcs: row['rcs'],
+      nif: row['nif'],
+      stat: row['stat'],
+      tel: row['tel'],
+      port: row['port'],
+      email: row['email'],
+      site: row['site'],
+      fax: row['fax'],
+      telex: row['telex'],
+      soldes: row['soldes'],
+      datedernop: row['datedernop'] != null ? DateTime.tryParse(row['datedernop']) : null,
+      delai: row['delai'],
+      soldesa: row['soldesa'],
+      action: row['action'],
+    );
+  }
+
+  User _mapUser(Map<String, dynamic> row) {
+    return User(
+      id: row['id'],
+      nom: row['nom'],
+      username: row['username'],
+      motDePasse: row['motDePasse'],
+      role: row['role'],
+      actif: row['actif'] == 1,
+      dateCreation: DateTime.parse(row['dateCreation']),
+    );
+  }
 }
