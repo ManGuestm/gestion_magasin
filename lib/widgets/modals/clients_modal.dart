@@ -1,4 +1,4 @@
-import 'package:drift/drift.dart' hide Column;
+import 'package:drift/drift.dart' hide Column, Table;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -117,13 +117,8 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue[600]!, Colors.blue[700]!],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
+        gradient: LinearGradient(colors: [Colors.blue[600]!, Colors.blue[700]!]),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
       ),
       child: Row(
         children: [
@@ -144,10 +139,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
                   'Gestion des Clients',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
-                Text(
-                  'Gérer et consulter vos clients',
-                  style: TextStyle(fontSize: 12, color: Colors.white70),
-                ),
+                Text('Gérer et consulter vos clients', style: TextStyle(fontSize: 12, color: Colors.white70)),
               ],
             ),
           ),
@@ -199,10 +191,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
         children: [
           Icon(Icons.search, color: Colors.blue[600], size: 20),
           const SizedBox(width: 8),
-          const Text(
-            'Rechercher:',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          ),
+          const Text('Rechercher:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
           const SizedBox(width: 16),
           Container(
             width: 300,
@@ -277,13 +266,8 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue[50]!, Colors.blue[100]!],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
+        gradient: LinearGradient(colors: [Colors.blue[50]!, Colors.blue[100]!]),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
         border: Border(bottom: BorderSide(color: Colors.blue[200]!)),
       ),
       child: Row(
@@ -346,12 +330,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
         ),
         child: Row(
           children: [
-            _buildDataCell(
-              client.rsoc,
-              flex: 4,
-              isSelected: isSelected,
-              alignment: Alignment.centerLeft,
-            ),
+            _buildDataCell(client.rsoc, flex: 4, isSelected: isSelected, alignment: Alignment.centerLeft),
             _buildDataCell(
               _formatMontant(client.soldes ?? 0),
               flex: 2,
@@ -378,9 +357,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
         decoration: BoxDecoration(
           color: isActive ? Colors.green[100] : Colors.red[100],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive ? Colors.green[300]! : Colors.red[300]!,
-          ),
+          border: Border.all(color: isActive ? Colors.green[300]! : Colors.red[300]!),
         ),
         child: Text(
           isActive ? 'Actif' : 'Inactif',
@@ -565,10 +542,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
         children: [
           Icon(Icons.filter_list, color: Colors.blue[600], size: 20),
           const SizedBox(width: 8),
-          const Text(
-            'Filtrer par catégorie:',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-          ),
+          const Text('Filtrer par catégorie:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
           const SizedBox(width: 16),
           Container(
             width: 200,
@@ -588,14 +562,10 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
               style: const TextStyle(fontSize: 13, color: Colors.black87),
               hint: const Text('Toutes les catégories', style: TextStyle(fontSize: 13)),
               items: [
-                const DropdownMenuItem<String>(
-                  value: null,
-                  child: Text('Toutes les catégories'),
+                const DropdownMenuItem<String>(value: null, child: Text('Toutes les catégories')),
+                ...ClientCategory.values.map(
+                  (category) => DropdownMenuItem(value: category.label, child: Text(category.label)),
                 ),
-                ...ClientCategory.values.map((category) => DropdownMenuItem(
-                      value: category.label,
-                      child: Text(category.label),
-                    )),
               ],
               onChanged: (value) {
                 setState(() {
@@ -698,12 +668,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     final isActive = _selectedClient?.action == 'A';
     showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx + 1,
-        position.dy + 1,
-      ),
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
       items: [
         const PopupMenuItem(
           value: 'create',
@@ -720,10 +685,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
         if (_selectedClient != null)
           PopupMenuItem(
             value: 'toggle_status',
-            child: Text(
-              isActive ? 'Désactiver' : 'Activer',
-              style: const TextStyle(fontSize: 12),
-            ),
+            child: Text(isActive ? 'Désactiver' : 'Activer', style: const TextStyle(fontSize: 12)),
           ),
       ],
     ).then((value) {
@@ -759,10 +721,8 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
   void _showAddClientModal({CltData? client}) {
     showDialog(
       context: context,
-      builder: (context) => AddClientModal(
-        client: client,
-        tousDepots: AuthService().currentUser?.role != 'Vendeur',
-      ),
+      builder: (context) =>
+          AddClientModal(client: client, tousDepots: AuthService().currentUser?.role != 'Vendeur'),
     ).then((_) => _loadClients());
   }
 
@@ -802,24 +762,21 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
 
   Future<void> _loadHistoriqueClient(String rsocClient) async {
     try {
-      final historique = await DatabaseService().database.customSelect(
-        'SELECT * FROM compteclt WHERE clt = ? ORDER BY daty DESC LIMIT 50',
-        variables: [Variable(rsocClient)],
-      ).get();
+      final historique = await DatabaseService().database
+          .customSelect(
+            'SELECT * FROM compteclt WHERE clt = ? ORDER BY daty DESC LIMIT 50',
+            variables: [Variable(rsocClient)],
+          )
+          .get();
 
       setState(() {
         _historiqueClient = historique
             .map((row) {
               try {
                 DateTime? daty;
-                final datyStr = row.readNullable<String>('daty');
-                if (datyStr != null) {
-                  try {
-                    daty = DateTime.parse(datyStr);
-                  } catch (e) {
-                    debugPrint('Erreur parsing date: $datyStr - $e');
-                    daty = null;
-                  }
+                final datyValue = row.readNullable<int>('daty');
+                if (datyValue != null) {
+                  daty = DateTime.fromMillisecondsSinceEpoch(datyValue * 1000);
                 }
 
                 return ComptecltData(
@@ -865,9 +822,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
             Container(
               height: 40,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green[600]!, Colors.green[700]!],
-                ),
+                gradient: LinearGradient(colors: [Colors.green[600]!, Colors.green[700]!]),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
@@ -883,11 +838,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
                   const Expanded(
                     child: Text(
                       'HISTORIQUE DES MOUVEMENTS',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ),
                   if (_selectedClient != null)
@@ -913,9 +864,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
             Container(
               height: 20,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.grey[200]!, Colors.grey[300]!],
-                ),
+                gradient: LinearGradient(colors: [Colors.grey[200]!, Colors.grey[300]!]),
                 border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
               ),
               child: const Row(
@@ -923,43 +872,28 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
                   Expanded(
                     flex: 2,
                     child: Center(
-                      child: Text(
-                        'DATE',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('DATE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   Expanded(
                     flex: 3,
                     child: Center(
-                      child: Text(
-                        'LIBELLÉ',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('LIBELLÉ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        'DÉBIT',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('DÉBIT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        'CRÉDIT',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('CRÉDIT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        'SOLDE',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('SOLDE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -968,82 +902,83 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
             Expanded(
               child: _historiqueClient.isEmpty
                   ? const Center(
-                      child: Text(
-                        'Aucun mouvement',
-                        style: TextStyle(fontSize: 10, color: Colors.grey),
-                      ),
+                      child: Text('Aucun mouvement', style: TextStyle(fontSize: 10, color: Colors.grey)),
                     )
                   : ListView.builder(
                       itemCount: _historiqueClient.length,
                       itemExtent: 18,
                       itemBuilder: (context, index) {
                         final mouvement = _historiqueClient[index];
-                        return Container(
-                          height: 18,
-                          decoration: BoxDecoration(
-                            color: index % 2 == 0 ? Colors.white : Colors.grey[50],
-                            border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    mouvement.daty?.toString().substring(0, 10) ?? '',
-                                    style: const TextStyle(fontSize: 9),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 3,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    mouvement.lib ?? '',
-                                    style: const TextStyle(fontSize: 9),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    (mouvement.entres ?? 0) > 0 ? _formatMontant(mouvement.entres!) : '',
-                                    style: const TextStyle(fontSize: 9),
-                                    textAlign: TextAlign.right,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    (mouvement.sorties ?? 0) > 0 ? _formatMontant(mouvement.sorties!) : '',
-                                    style: const TextStyle(fontSize: 9),
-                                    textAlign: TextAlign.right,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    _formatMontant(mouvement.solde ?? 0),
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      fontWeight: FontWeight.w500,
-                                      color:
-                                          (mouvement.solde ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+                        return GestureDetector(
+                          onTap: () => _showMouvementDetails(mouvement),
+                          child: Container(
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: index % 2 == 0 ? Colors.white : Colors.grey[50],
+                              border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text(
+                                      _formatDate(mouvement.daty),
+                                      style: const TextStyle(fontSize: 9),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    textAlign: TextAlign.right,
                                   ),
                                 ),
-                              ),
-                            ],
+                                Expanded(
+                                  flex: 3,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text(
+                                      mouvement.lib ?? '',
+                                      style: const TextStyle(fontSize: 9),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text(
+                                      (mouvement.entres ?? 0) > 0 ? _formatMontant(mouvement.entres!) : '',
+                                      style: const TextStyle(fontSize: 9),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text(
+                                      (mouvement.sorties ?? 0) > 0 ? _formatMontant(mouvement.sorties!) : '',
+                                      style: const TextStyle(fontSize: 9),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                    child: Text(
+                                      _formatMontant(mouvement.solde ?? 0),
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w500,
+                                        color: (mouvement.solde ?? 0) >= 0
+                                            ? Colors.green[700]
+                                            : Colors.red[700],
+                                      ),
+                                      textAlign: TextAlign.right,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         );
                       },
@@ -1057,6 +992,354 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
 
   String _formatMontant(double montant) {
     return _numberFormat.format(montant.round());
+  }
+
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'N/A';
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
+
+  void _showMouvementDetails(ComptecltData mouvement) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: 600,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.receipt_long, color: Colors.blue[600]),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Détails du Mouvement',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailRow('Date:', _formatDate(mouvement.daty)),
+                      _buildDetailRow('Libellé:', mouvement.lib ?? 'N/A'),
+                      // _buildDetailRow('Référence:', mouvement.ref),
+                      if (mouvement.numventes != null) _buildDetailRow('N° Vente:', mouvement.numventes!),
+                      if (mouvement.nfact != null) _buildDetailRow('N° Facture:', mouvement.nfact!),
+                      if (mouvement.refart != null) _buildDetailRow('Réf. Article:', mouvement.refart!),
+                      if (mouvement.qs != null && mouvement.qs! > 0)
+                        _buildDetailRow('Quantité:', mouvement.qs!.toString()),
+                      if (mouvement.pus != null && mouvement.pus! > 0)
+                        _buildDetailRow('Prix Unitaire:', _formatMontant(mouvement.pus!)),
+                      const Divider(),
+                      if (mouvement.entres != null && mouvement.entres! > 0)
+                        _buildDetailRow('Débit:', _formatMontant(mouvement.entres!), color: Colors.red[700]),
+                      if (mouvement.sorties != null && mouvement.sorties! > 0)
+                        _buildDetailRow(
+                          'Crédit:',
+                          _formatMontant(mouvement.sorties!),
+                          color: Colors.green[700],
+                        ),
+                      _buildDetailRow(
+                        'Solde:',
+                        _formatMontant(mouvement.solde ?? 0),
+                        color: (mouvement.solde ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+                        isBold: true,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (mouvement.numventes != null) _buildFacturesVente(mouvement.numventes!),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  if (mouvement.numventes != null)
+                    ElevatedButton.icon(
+                      onPressed: () => _afficherFactureProfessionnelle(mouvement.numventes!),
+                      icon: const Icon(Icons.print, size: 16),
+                      label: const Text('Voir Facture'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[100],
+                        foregroundColor: Colors.green[700],
+                        elevation: 0,
+                      ),
+                    ),
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFacturesVente(String numVente) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _loadFacturesVente(numVente),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Factures de la vente',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.green[700]),
+                ),
+                const SizedBox(height: 8),
+                ...snapshot.data!.map(
+                  (facture) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        Icon(Icons.description, size: 16, color: Colors.green[600]),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${facture['refart']} - Qté: ${facture['qs']} - PU: ${_formatMontant(facture['pus'])}',
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadFacturesVente(String numVente) async {
+    try {
+      final factures = await DatabaseService().database
+          .customSelect(
+            'SELECT refart, qs, pus FROM ventes WHERE numventes = ?',
+            variables: [Variable(numVente)],
+          )
+          .get();
+
+      return factures
+          .map(
+            (row) => {
+              'refart': row.readNullable<String>('refart') ?? '',
+              'qs': row.readNullable<double>('qs') ?? 0,
+              'pus': row.readNullable<double>('pus') ?? 0,
+            },
+          )
+          .toList();
+    } catch (e) {
+      debugPrint('Erreur chargement factures vente: $e');
+      return [];
+    }
+  }
+
+  Future<void> _afficherFactureProfessionnelle(String numVente) async {
+    try {
+      final vente = await DatabaseService().database
+          .customSelect('SELECT * FROM ventes WHERE numventes = ?', variables: [Variable(numVente)])
+          .getSingleOrNull();
+
+      if (vente == null) return;
+
+      final details = await DatabaseService().database
+          .customSelect('SELECT * FROM detventes WHERE numventes = ?', variables: [Variable(numVente)])
+          .get();
+
+      final societe = await DatabaseService().database
+          .customSelect('SELECT * FROM soc LIMIT 1')
+          .getSingleOrNull();
+
+      if (mounted) {
+        showDialog(context: context, builder: (context) => _buildFacturePreview(vente, details, societe));
+      }
+    } catch (e) {
+      debugPrint('Erreur génération facture: $e');
+    }
+  }
+
+  Widget _buildFacturePreview(QueryRow vente, List<QueryRow> details, QueryRow? societe) {
+    return Dialog(
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.38,
+        height: MediaQuery.of(context).size.height * 0.9,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.black),
+                color: Colors.grey[50],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    societe?.readNullable<String>('rsoc') ?? 'SOCIÉTÉ',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  Text(societe?.readNullable<String>('adresse') ?? ''),
+                  Text('Tél: ${societe?.readNullable<String>('tel') ?? ''}'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text('FACTURE', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('N° Facture: ${vente.readNullable<String>('nfact') ?? ''}'),
+                    Text('N° Vente: ${vente.readNullable<String>('numventes') ?? ''}'),
+                    Text('Client: ${vente.readNullable<String>('clt') ?? ''}'),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Date: ${_formatDate(vente.readNullable<int>('daty') != null ? DateTime.fromMillisecondsSinceEpoch(vente.read<int>('daty') * 1000) : null)}',
+                    ),
+                    Text('Heure: ${vente.readNullable<String>('heure') ?? ''}'),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Table(
+                  border: TableBorder.all(color: Colors.black),
+                  children: [
+                    const TableRow(
+                      decoration: BoxDecoration(color: Colors.grey),
+                      children: [
+                        Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Text('DÉSIGNATION', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Text('UNITÉ', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Text('QTÉ', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Text('P.U.', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Text('MONTANT', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                    ...details.map(
+                      (detail) => TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(detail.readNullable<String>('designation') ?? ''),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(detail.readNullable<String>('unites') ?? ''),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text('${detail.readNullable<double>('q') ?? 0}'),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(_formatMontant(detail.readNullable<double>('pu') ?? 0)),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(
+                              _formatMontant(
+                                (detail.readNullable<double>('q') ?? 0) *
+                                    (detail.readNullable<double>('pu') ?? 0),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Total TTC: ${_formatMontant(vente.readNullable<double>('totalttc') ?? 0)}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  if ((vente.readNullable<double>('avance') ?? 0) > 0)
+                    Text('Avance: ${_formatMontant(vente.readNullable<double>('avance') ?? 0)}'),
+                  if ((vente.readNullable<double>('avance') ?? 0) > 0)
+                    Text(
+                      'Reste à payer: ${_formatMontant((vente.readNullable<double>('totalttc') ?? 0) - (vente.readNullable<double>('avance') ?? 0))}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String value, {Color? color, bool isBold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: color ?? Colors.black87,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _handleKeyboardShortcut(KeyEvent event) {

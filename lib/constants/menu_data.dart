@@ -19,7 +19,7 @@ class MenuData {
       'Clients',
       'Fournisseurs',
       // 'Plan de comptes',
-      // 'Importation des données',
+      'Importation des données',
       'Réinitialiser les données',
     ],
     commerces: [
