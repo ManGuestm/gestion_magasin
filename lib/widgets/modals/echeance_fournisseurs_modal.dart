@@ -886,9 +886,13 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
         onLayout: _generatePdf,
         usePrinterSettings: true,
       );
-      _showMessage('Impression lancée vers ${defaultPrinter.name}', Colors.green[600]!);
+      if (mounted) {
+        _showMessage('Impression lancée vers ${defaultPrinter.name}', Colors.green[600]!);
+      }
     } catch (e) {
-      _showMessage('Erreur lors de l\'impression: $e', Colors.red[600]!);
+      if (mounted) {
+        _showMessage('Erreur lors de l\'impression: $e', Colors.red[600]!);
+      }
     }
   }
 
@@ -898,17 +902,19 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => EchancesFournisseursPreviewScreen(
-          achats: _filteredAchats,
-          selectedFournisseur: _selectedFournisseur,
-          selectedStatut: _selectedStatut,
-          dateDebut: _dateEcheanceDebut,
-          dateFin: _dateEcheanceFin,
+    if (mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => EchancesFournisseursPreviewScreen(
+            achats: _filteredAchats,
+            selectedFournisseur: _selectedFournisseur,
+            selectedStatut: _selectedStatut,
+            dateDebut: _dateEcheanceDebut,
+            dateFin: _dateEcheanceFin,
+          ),
         ),
-      ),
-    );
+      );
+    }
   }
 
   Future<Uint8List> _generatePdf(PdfPageFormat format) async {
@@ -1130,9 +1136,13 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
       );
 
       await _loadAchats();
-      _showMessage('Date d\'échéance modifiée avec succès', Colors.green[600]!);
+      if (mounted) {
+        _showMessage('Date d\'échéance modifiée avec succès', Colors.green[600]!);
+      }
     } catch (e) {
-      _showMessage('Erreur lors de la modification: $e', Colors.red[600]!);
+      if (mounted) {
+        _showMessage('Erreur lors de la modification: $e', Colors.red[600]!);
+      }
     }
   }
 
@@ -1169,6 +1179,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
     final key = 'echeance_history_${achat.numachats}';
     final history = prefs.getStringList(key) ?? [];
 
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -1222,6 +1233,7 @@ class _EchanceFournisseursModalState extends State<EchanceFournisseursModal> wit
   }
 
   void _showMessage(String message, Color color) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: SelectableText(message),
