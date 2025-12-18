@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/network_client.dart';
 import '../services/network_database_service.dart';
 import 'database.dart';
 
@@ -32,6 +33,9 @@ class DatabaseService {
     if (!_isInitialized) {
       throw StateError('Database not initialized. Call initialize() first.');
     }
+    if (_isNetworkMode) {
+      throw StateError('Database access not allowed in network client mode. Use network methods instead.');
+    }
     if (_database == null) {
       throw StateError('Database is null after initialization');
     }
@@ -56,8 +60,21 @@ class DatabaseService {
 
       if (mode == 'client') {
         _isNetworkMode = true;
+
+        // Vérifier que le client réseau est connecté
+        if (!NetworkClient.instance.isConnected) {
+          throw Exception('Client réseau non connecté. Vérifiez la configuration réseau.');
+        }
+
         _networkDb = NetworkDatabaseService();
-        // En mode client, pas de base locale
+
+        // Tester la connexion avec une requête simple
+        try {
+          await _networkDb!.customSelect('SELECT 1');
+        } catch (e) {
+          throw Exception('Impossible de communiquer avec le serveur: $e');
+        }
+
         _isInitialized = true;
         return;
       }
@@ -252,6 +269,81 @@ class DatabaseService {
       return await _networkDb!.getTotalVentes();
     }
     return await database.getTotalVentes();
+  }
+
+  // Méthodes supplémentaires pour le mode réseau
+  Future<List<Article>> getActiveArticles() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getActiveArticles();
+    }
+    return await database.getActiveArticles();
+  }
+
+  Future<List<CltData>> getActiveClients() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getActiveClients();
+    }
+    return await database.getActiveClients();
+  }
+
+  Future<List<Frn>> getActiveFournisseurs() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getActiveFournisseurs();
+    }
+    return await database.getActiveFournisseurs();
+  }
+
+  Future<Article?> getArticleByDesignation(String designation) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getArticleByDesignation(designation);
+    }
+    return await database.getArticleByDesignation(designation);
+  }
+
+  Future<bool> userExists(String username) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.userExists(username);
+    }
+    return await database.userExists(username);
+  }
+
+  Future<User?> getUserByCredentials(String username, String password) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getUserByCredentials(username, password);
+    }
+    return await database.getUserByCredentials(username, password);
+  }
+
+  Future<double> getVentesToday() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getVentesToday();
+    }
+    return await database.getVentesToday();
+  }
+
+  // Méthodes de requête personnalisées pour le mode réseau
+  Future<List<Map<String, dynamic>>> customSelect(String sql, [List<dynamic>? params]) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.customSelect(sql, params?.map((p) => Variable(p)).toList());
+    }
+    final result = await database
+        .customSelect(sql, variables: params?.map((p) => Variable(p)).toList() ?? [])
+        .get();
+    return result.map((row) => row.data).toList();
+  }
+
+  Future<void> customStatement(String sql, [List<dynamic>? params]) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.customStatement(sql, params?.map((p) => Variable(p)).toList());
+    }
+    return await database.customStatement(sql, params?.map((p) => Variable(p)).toList() ?? []);
+  }
+
+  Future<void> transaction(Future<void> Function() action) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.transaction(action);
+    }
+    return await database.transaction(action);
   }
 
   // Invalider le cache lors des modifications

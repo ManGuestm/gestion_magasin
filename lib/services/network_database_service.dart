@@ -35,13 +35,22 @@ class NetworkDatabaseService {
             u1: row['u1'],
             u2: row['u2'],
             u3: row['u3'],
+            tu2u1: row['tu2u1'],
+            tu3u2: row['tu3u2'],
             pvu1: row['pvu1'],
             pvu2: row['pvu2'],
             pvu3: row['pvu3'],
             stocksu1: row['stocksu1'],
             stocksu2: row['stocksu2'],
             stocksu3: row['stocksu3'],
+            sec: row['sec'],
+            usec: row['usec'],
+            cmup: row['cmup'],
+            dep: row['dep'],
+            action: row['action'],
             categorie: row['categorie'],
+            classification: row['classification'],
+            emb: row['emb'],
           ),
         )
         .toList();
@@ -57,13 +66,22 @@ class NetworkDatabaseService {
             u1: row['u1'],
             u2: row['u2'],
             u3: row['u3'],
+            tu2u1: row['tu2u1'],
+            tu3u2: row['tu3u2'],
             pvu1: row['pvu1'],
             pvu2: row['pvu2'],
             pvu3: row['pvu3'],
             stocksu1: row['stocksu1'],
             stocksu2: row['stocksu2'],
             stocksu3: row['stocksu3'],
+            sec: row['sec'],
+            usec: row['usec'],
+            cmup: row['cmup'],
+            dep: row['dep'],
+            action: row['action'],
             categorie: row['categorie'],
+            classification: row['classification'],
+            emb: row['emb'],
           ),
         )
         .toList();
@@ -82,6 +100,20 @@ class NetworkDatabaseService {
             stat: row['stat'],
             rcs: row['rcs'],
             soldes: row['soldes'],
+            categorie: row['categorie'],
+            capital: row['capital'],
+            port: row['port'],
+            site: row['site'],
+            fax: row['fax'],
+            telex: row['telex'],
+            datedernop: row['datedernop'] != null ? DateTime.tryParse(row['datedernop']) : null,
+            delai: row['delai'],
+            soldesa: row['soldesa'],
+            action: row['action'],
+            commercial: row['commercial'],
+            plafon: row['plafon'],
+            taux: row['taux'],
+            plafonbl: row['plafonbl'],
           ),
         )
         .toList();
@@ -100,6 +132,20 @@ class NetworkDatabaseService {
             stat: row['stat'],
             rcs: row['rcs'],
             soldes: row['soldes'],
+            categorie: row['categorie'],
+            capital: row['capital'],
+            port: row['port'],
+            site: row['site'],
+            fax: row['fax'],
+            telex: row['telex'],
+            datedernop: row['datedernop'] != null ? DateTime.tryParse(row['datedernop']) : null,
+            delai: row['delai'],
+            soldesa: row['soldesa'],
+            action: row['action'],
+            commercial: row['commercial'],
+            plafon: row['plafon'],
+            taux: row['taux'],
+            plafonbl: row['plafonbl'],
           ),
         )
         .toList();
@@ -117,12 +163,21 @@ class NetworkDatabaseService {
           (row) => Frn(
             rsoc: row['rsoc'],
             adr: row['adr'],
-            tel: row['tel'],
-            email: row['email'],
+            capital: row['capital'],
+            rcs: row['rcs'],
             nif: row['nif'],
             stat: row['stat'],
-            rcs: row['rcs'],
+            tel: row['tel'],
+            port: row['port'],
+            email: row['email'],
+            site: row['site'],
+            fax: row['fax'],
+            telex: row['telex'],
             soldes: row['soldes'],
+            datedernop: row['datedernop'] != null ? DateTime.tryParse(row['datedernop']) : null,
+            delai: row['delai'],
+            soldesa: row['soldesa'],
+            action: row['action'],
           ),
         )
         .toList();
@@ -135,12 +190,21 @@ class NetworkDatabaseService {
           (row) => Frn(
             rsoc: row['rsoc'],
             adr: row['adr'],
-            tel: row['tel'],
-            email: row['email'],
+            capital: row['capital'],
+            rcs: row['rcs'],
             nif: row['nif'],
             stat: row['stat'],
-            rcs: row['rcs'],
+            tel: row['tel'],
+            port: row['port'],
+            email: row['email'],
+            site: row['site'],
+            fax: row['fax'],
+            telex: row['telex'],
             soldes: row['soldes'],
+            datedernop: row['datedernop'] != null ? DateTime.tryParse(row['datedernop']) : null,
+            delai: row['delai'],
+            soldesa: row['soldesa'],
+            action: row['action'],
           ),
         )
         .toList();
@@ -155,14 +219,20 @@ class NetworkDatabaseService {
             rsoc: row['rsoc'],
             activites: row['activites'],
             adr: row['adr'],
+            logo: row['logo'],
+            capital: row['capital'],
+            rcs: row['rcs'],
+            nif: row['nif'],
+            stat: row['stat'],
             tel: row['tel'],
             port: row['port'],
             email: row['email'],
             site: row['site'],
-            logo: row['logo'],
-            rcs: row['rcs'],
-            nif: row['nif'],
-            stat: row['stat'],
+            fax: row['fax'],
+            telex: row['telex'],
+            tva: row['tva'],
+            t: row['t'],
+            val: row['val'],
             cif: row['cif'],
           ),
         )
@@ -181,13 +251,22 @@ class NetworkDatabaseService {
       u1: row['u1'],
       u2: row['u2'],
       u3: row['u3'],
+      tu2u1: row['tu2u1'],
+      tu3u2: row['tu3u2'],
       pvu1: row['pvu1'],
       pvu2: row['pvu2'],
       pvu3: row['pvu3'],
       stocksu1: row['stocksu1'],
       stocksu2: row['stocksu2'],
       stocksu3: row['stocksu3'],
+      sec: row['sec'],
+      usec: row['usec'],
+      cmup: row['cmup'],
+      dep: row['dep'],
+      action: row['action'],
       categorie: row['categorie'],
+      classification: row['classification'],
+      emb: row['emb'],
     );
   }
 
@@ -253,5 +332,35 @@ class NetworkDatabaseService {
   Future<List<String>> getAllModesPaiement() async {
     final result = await customSelect('SELECT mp FROM mp ORDER BY mp');
     return result.map((row) => row['mp'] as String).toList();
+  }
+
+  // Méthodes supplémentaires pour compatibilité complète
+  Future<void> createDefaultAdmin() async {
+    // Vérifier si l'admin existe déjà
+    final adminExists = await userExists('admin');
+    if (adminExists) return;
+
+    // Créer l'utilisateur admin par défaut
+    await customStatement(
+      'INSERT INTO users (id, nom, username, motDePasse, role, actif, dateCreation) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        Variable('admin-001'),
+        Variable('Administrateur'),
+        Variable('admin'),
+        Variable('hashed_admin123'),
+        Variable('Administrateur'),
+        Variable(1),
+        Variable(DateTime.now().toIso8601String()),
+      ],
+    );
+  }
+
+  Future<String> getDatabasePath() async {
+    // En mode réseau, retourner un chemin virtuel
+    return 'network://server/database';
+  }
+
+  Future<void> close() async {
+    // Rien à fermer en mode réseau
   }
 }

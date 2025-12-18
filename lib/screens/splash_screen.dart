@@ -47,12 +47,8 @@ class _SplashScreenState extends State<SplashScreen> {
       }
       
       // Phase 1: Initialisation critique
-      // Vérifier si la base est déjà initialisée, sinon l'initialiser
-      try {
-        DatabaseService().database;
-      } catch (e) {
-        await DatabaseService().initialize();
-      }
+      // Initialiser le service de base de données
+      await DatabaseService().initialize();
       
       // Initialiser le service d'authentification
       await AuthService().initialize();
@@ -86,10 +82,35 @@ class _SplashScreenState extends State<SplashScreen> {
       debugPrint('Erreur d\'initialisation après ${stopwatch.elapsedMilliseconds}ms: $e');
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur d\'initialisation: $e'),
-            backgroundColor: Colors.red,
+        // Afficher un message d'erreur spécifique
+        String errorMessage = 'Erreur d\'initialisation: $e';
+        
+        if (e.toString().contains('Client réseau non connecté')) {
+          errorMessage = 'Impossible de se connecter au serveur.\nVérifiez la configuration réseau.';
+        } else if (e.toString().contains('Database is null')) {
+          errorMessage = 'Erreur de base de données.\nRedémarrez l\'application.';
+        }
+        
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Erreur d\'initialisation'),
+            content: Text(errorMessage),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (context) => const NetworkConfigScreen()),
+                  );
+                },
+                child: const Text('Configuration'),
+              ),
+              TextButton(
+                onPressed: () => _initializeApp(),
+                child: const Text('Réessayer'),
+              ),
+            ],
           ),
         );
       }
