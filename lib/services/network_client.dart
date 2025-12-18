@@ -16,6 +16,21 @@ class NetworkClient {
 
   bool get isConnected => _isConnected;
 
+  Future<bool> testConnection(String serverIp, int port) async {
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 3);
+      
+      final request = await client.get(serverIp, port, '/api/health');
+      final response = await request.close();
+      
+      client.close();
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<bool> connect(String serverIp, int port) async {
     try {
       _serverUrl = 'http://$serverIp:$port';
@@ -201,6 +216,36 @@ class NetworkClient {
       } catch (e) {
         debugPrint('Erreur listener: $e');
       }
+    }
+  }
+
+  Future<Map<String, dynamic>?> authenticate(String username, String password) async {
+    if (!_isConnected) throw Exception('Non connecté au serveur');
+
+    try {
+      final client = HttpClient();
+      final request = await client.postUrl(Uri.parse('$_serverUrl/api/query'));
+      request.headers.contentType = ContentType.json;
+
+      final body = jsonEncode({
+        'type': 'auth',
+        'username': username,
+        'password': password,
+      });
+
+      request.write(body);
+      final response = await request.close();
+      final responseBody = await utf8.decoder.bind(response).join();
+      final data = jsonDecode(responseBody);
+
+      client.close();
+
+      if (data['success'] == true && data['data'].isNotEmpty) {
+        return data['data'][0];
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Erreur authentification réseau: $e');
     }
   }
 

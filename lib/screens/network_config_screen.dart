@@ -1,7 +1,10 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/network_config_service.dart';
+import '../services/network_diagnostic_service.dart';
 
 class NetworkConfigScreen extends StatefulWidget {
   const NetworkConfigScreen({super.key});
@@ -40,10 +43,10 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
 
   Future<void> _testConnection() async {
     if (_selectedMode != NetworkMode.client) return;
-    
+
     final serverIp = _serverIpController.text.trim();
     final port = int.tryParse(_portController.text.trim()) ?? 8080;
-    
+
     if (serverIp.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -53,25 +56,22 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
       );
       return;
     }
-    
+
     setState(() => _isTestingConnection = true);
-    
+
     try {
       // Test de connexion HTTP simple
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
-      
+
       final request = await client.get(serverIp, port, '/api/health');
       final response = await request.close();
       client.close();
-      
+
       if (response.statusCode == 200) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Connexion réussie au serveur !'),
-              backgroundColor: Colors.green,
-            ),
+            const SnackBar(content: Text('Connexion réussie au serveur !'), backgroundColor: Colors.green),
           );
         }
       } else {
@@ -79,17 +79,48 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur de connexion: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur de connexion: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) {
         setState(() => _isTestingConnection = false);
       }
+    }
+  }
+
+  Future<void> _showDiagnostic() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [CircularProgressIndicator(), SizedBox(width: 16), Text('Diagnostic en cours...')],
+        ),
+      ),
+    );
+
+    final results = await NetworkDiagnosticService.runDiagnostic();
+    final report = NetworkDiagnosticService.formatDiagnosticReport(results);
+
+    if (mounted) {
+      Navigator.of(context).pop(); // Fermer le dialog de chargement
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Rapport de diagnostic'),
+          content: SizedBox(
+            width: 500,
+            height: 400,
+            child: SingleChildScrollView(
+              child: SelectableText(report, style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+            ),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer'))],
+        ),
+      );
     }
   }
 
@@ -101,24 +132,37 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
         port: _selectedMode == NetworkMode.client ? _portController.text : null,
       );
 
+      // Vérifier si c'est le premier démarrage
+      final prefs = await SharedPreferences.getInstance();
+      final wasFirstRun = !prefs.containsKey('app_configured');
+
+      if (wasFirstRun) {
+        // Marquer l'application comme configurée
+        await prefs.setBool('app_configured', true);
+      }
+
       if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Configuration sauvegardée. Redémarrez l\'application pour appliquer les changements.'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 4),
-          ),
-        );
+        if (wasFirstRun) {
+          // Rediriger vers SplashScreen pour initialiser avec la nouvelle config
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        } else {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Configuration sauvegardée. Redémarrez l\'application pour appliquer les changements.',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -154,11 +198,7 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
               children: [
                 Text(
                   'Mode de fonctionnement',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey[800],
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800]),
                 ),
                 const SizedBox(height: 20),
 
@@ -207,8 +247,10 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('Serveur', style: TextStyle(fontWeight: FontWeight.w500)),
-                              Text('Cet ordinateur hébergera la base de données',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              Text(
+                                'Cet ordinateur hébergera la base de données',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
                             ],
                           ),
                         ),
@@ -263,8 +305,10 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('Client', style: TextStyle(fontWeight: FontWeight.w500)),
-                              Text('Cet ordinateur se connectera au serveur',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              Text(
+                                'Cet ordinateur se connectera au serveur',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
                             ],
                           ),
                         ),
@@ -278,11 +322,7 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                   const SizedBox(height: 24),
                   Text(
                     'Configuration du serveur',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[800],
-                    ),
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800]),
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
@@ -290,9 +330,7 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                     decoration: InputDecoration(
                       labelText: 'Adresse IP du serveur',
                       hintText: '192.168.1.100',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       prefixIcon: const Icon(Icons.computer),
                     ),
                   ),
@@ -301,28 +339,40 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                     controller: _portController,
                     decoration: InputDecoration(
                       labelText: 'Port',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       prefixIcon: const Icon(Icons.settings_ethernet),
                     ),
                     keyboardType: TextInputType.number,
                   ),
                   const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: _isTestingConnection ? null : _testConnection,
-                    icon: _isTestingConnection 
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.wifi_find),
-                    label: Text(_isTestingConnection ? 'Test en cours...' : 'Tester la connexion'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green[600],
-                      foregroundColor: Colors.white,
-                    ),
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: _isTestingConnection ? null : _testConnection,
+                        icon: _isTestingConnection
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.wifi_find),
+                        label: Text(_isTestingConnection ? 'Test en cours...' : 'Tester'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green[600],
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        onPressed: _showDiagnostic,
+                        icon: const Icon(Icons.bug_report),
+                        label: const Text('Diagnostic'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange[600],
+                          foregroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
 
@@ -332,10 +382,7 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Annuler'),
-                    ),
+                    // TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
                     const SizedBox(width: 16),
                     ElevatedButton(
                       onPressed: _saveConfiguration,

@@ -896,9 +896,11 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             ),
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                margin: const EdgeInsets.symmetric(horizontal: 12),
                 height: 30,
                 child: TextField(
+                  textAlign: TextAlign.center,
                   enabled: hasU1,
                   controller: _getController(
                     '${article.designation}_${_selectedDepotInventaire}_u1',
@@ -909,7 +911,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                     fillColor: hasU1 ? null : Colors.grey[200],
                     filled: !hasU1,
                   ),
-                  style: const TextStyle(fontSize: 10),
+                  style: const TextStyle(fontSize: 12),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
                   onChanged: hasU1
@@ -925,9 +927,11 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             ),
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                margin: const EdgeInsets.symmetric(horizontal: 12),
                 height: 30,
                 child: TextField(
+                  textAlign: TextAlign.center,
                   enabled: hasU2,
                   controller: _getController(
                     '${article.designation}_${_selectedDepotInventaire}_u2',
@@ -938,7 +942,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                     fillColor: hasU2 ? null : Colors.grey[200],
                     filled: !hasU2,
                   ),
-                  style: const TextStyle(fontSize: 10),
+                  style: const TextStyle(fontSize: 12),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
                   onChanged: hasU2
@@ -954,9 +958,11 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             ),
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                margin: const EdgeInsets.symmetric(horizontal: 12),
                 height: 30,
                 child: TextField(
+                  textAlign: TextAlign.center,
                   enabled: hasU3,
                   controller: _getController(
                     '${article.designation}_${_selectedDepotInventaire}_u3',
@@ -967,7 +973,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                     fillColor: hasU3 ? null : Colors.grey[200],
                     filled: !hasU3,
                   ),
-                  style: const TextStyle(fontSize: 10),
+                  style: const TextStyle(fontSize: 12),
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
                   onChanged: hasU3
@@ -1522,7 +1528,8 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
             ),
             Expanded(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                margin: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
                   color: typeColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),

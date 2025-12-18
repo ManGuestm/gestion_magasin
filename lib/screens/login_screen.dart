@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_service.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
-import 'network_config_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,13 +20,40 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordFocus = FocusNode();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool isClientMode = false;
 
   @override
   void initState() {
     super.initState();
+    _checkNetworkMode();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _usernameFocus.requestFocus();
     });
+  }
+
+  Future<void> _checkNetworkMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final mode = prefs.getString('network_mode') ?? 'server';
+    setState(() {
+      isClientMode = mode == 'client';
+    });
+  }
+
+  Future<void> _resetNetworkConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('network_mode');
+    await prefs.remove('server_ip');
+    await prefs.remove('server_port');
+    await prefs.remove('app_configured');
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Configuration réseau effacée. Redémarrez l\'application.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   @override
@@ -44,25 +71,28 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final db = DatabaseService().database;
       final username = _usernameController.text.trim();
       final password = _passwordController.text;
 
-      // Vérifier d'abord si l'utilisateur existe
-      final userExists = await db.userExists(username);
+      // Authentification via DatabaseService (réseau ou local)
+      final user = await DatabaseService().authenticateUser(username, password);
 
-      if (!userExists) {
-        // Nom d'utilisateur incorrect - focus sur username
+      if (user == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Nom d\'utilisateur incorrect'), backgroundColor: Colors.red),
+            const SnackBar(
+              content: Text('Nom d\'utilisateur ou mot de passe incorrect'),
+              backgroundColor: Colors.red,
+            ),
           );
           _usernameFocus.requestFocus();
         }
         return;
       }
 
-      final success = await AuthService().login(username, password);
+      // Connexion réussie
+      await AuthService().setCurrentUser(user);
+      final success = true;
 
       if (success && mounted) {
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const HomeScreen()));
@@ -459,23 +489,42 @@ class _LoginScreenState extends State<LoginScreen> {
                     // ),
                     // const SizedBox(height: 20),
 
-                    // Bouton Configuration réseau
+                    // Boutons Configuration réseau
+                    // if (!_isClientMode)
+                    //   SizedBox(
+                    //     width: double.infinity,
+                    //     height: 48,
+                    //     child: OutlinedButton.icon(
+                    //       onPressed: () {
+                    //         Navigator.of(
+                    //           context,
+                    //         ).push(MaterialPageRoute(builder: (context) => const NetworkConfigScreen()));
+                    //       },
+                    //       icon: Icon(Icons.settings, color: Colors.indigo[600]),
+                    //       label: Text(
+                    //         'Configuration réseau',
+                    //         style: TextStyle(color: Colors.indigo[600], fontWeight: FontWeight.w600),
+                    //       ),
+                    //       style: OutlinedButton.styleFrom(
+                    //         side: BorderSide(color: Colors.indigo[600]!, width: 1.5),
+                    //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    //       ),
+                    //     ),
+                    //   ),
+                    const SizedBox(height: 8),
+                    // Bouton Reset Configuration
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.of(
-                            context,
-                          ).push(MaterialPageRoute(builder: (context) => const NetworkConfigScreen()));
-                        },
-                        icon: Icon(Icons.settings, color: Colors.indigo[600]),
+                        onPressed: _resetNetworkConfig,
+                        icon: Icon(Icons.refresh, color: Colors.red[600]),
                         label: Text(
-                          'Configuration réseau',
-                          style: TextStyle(color: Colors.indigo[600], fontWeight: FontWeight.w600),
+                          'Effacer configuration',
+                          style: TextStyle(color: Colors.red[600], fontWeight: FontWeight.w600),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.indigo[600]!, width: 1.5),
+                          side: BorderSide(color: Colors.red[600]!, width: 1.5),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),

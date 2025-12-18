@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_service.dart';
 import '../services/auth_service.dart';
 import '../services/modal_loader.dart';
+import '../services/network_manager.dart';
 import 'login_screen.dart';
 import 'home_screen.dart';
+import 'network_config_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -24,7 +27,26 @@ class _SplashScreenState extends State<SplashScreen> {
     final stopwatch = Stopwatch()..start();
     
     try {
-      // Phase 1: Initialisation critique (déjà fait par NetworkManager)
+      // Vérifier si c'est le premier démarrage
+      final prefs = await SharedPreferences.getInstance();
+      final isFirstRun = !prefs.containsKey('network_mode');
+      
+      if (isFirstRun) {
+        // Premier démarrage : aller directement à la configuration réseau
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const NetworkConfigScreen()),
+          );
+        }
+        return;
+      }
+      
+      // Initialiser le réseau si déjà configuré
+      if (!NetworkManager.instance.isInitialized) {
+        await NetworkManager.instance.initialize();
+      }
+      
+      // Phase 1: Initialisation critique
       // Vérifier si la base est déjà initialisée, sinon l'initialiser
       try {
         DatabaseService().database;

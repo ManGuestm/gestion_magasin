@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/splash_screen.dart';
 import 'services/audit_service.dart';
@@ -28,8 +29,16 @@ Future<void> _initializeApp() async {
     DeviceOrientation.portraitUp,
   ]);
 
-  // Initialiser le gestionnaire réseau
-  await NetworkManager.instance.initialize();
+  // Vérifier si c'est le premier démarrage
+  final prefs = await SharedPreferences.getInstance();
+  final isFirstRun = !prefs.containsKey('network_mode');
+
+  if (!isFirstRun) {
+    // Initialiser le gestionnaire réseau seulement si déjà configuré
+    await NetworkManager.instance.initialize();
+  } else {
+    debugPrint('Premier démarrage - Configuration réseau requise');
+  }
 
   // Initialiser le service d'audit
   await AuditService().initialize();

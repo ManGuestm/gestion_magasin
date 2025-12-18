@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/network_database_service.dart';
 import 'database.dart';
 
 class DatabaseService {
@@ -19,6 +20,7 @@ class DatabaseService {
   }
 
   AppDatabase? _database;
+  NetworkDatabaseService? _networkDb;
   bool _isInitialized = false;
 
   // Cache pour les données fréquemment accédées
@@ -43,7 +45,6 @@ class DatabaseService {
     _isNetworkMode = enabled;
   }
 
-
   Future<void> initialize() async {
     try {
       // Configurer Drift pour éviter les warnings
@@ -52,12 +53,16 @@ class DatabaseService {
       // Vérifier le mode réseau
       final config = await _getNetworkConfig();
       final mode = config['mode'];
-      
+
       if (mode == 'client') {
         _isNetworkMode = true;
+        _networkDb = NetworkDatabaseService();
+        // En mode client, pas de base locale
+        _isInitialized = true;
+        return;
       }
 
-      // Initialiser la base de données même en mode client pour l'authentification locale
+      // Initialiser la base de données locale seulement en mode serveur
       if (_database == null) {
         _database = AppDatabase();
         // Créer l'utilisateur administrateur par défaut
@@ -130,6 +135,7 @@ class DatabaseService {
     if (cached != null) return cached;
 
     final result = await database.getAllArticles();
+    result.sort((a, b) => a.designation.compareTo(b.designation));
     _setCache(key, result);
     return result;
   }
@@ -166,11 +172,86 @@ class DatabaseService {
 
   // Méthodes directes sans cache
   Future<List<Article>> getAllArticles() async {
-    return await database.getAllArticles();
+    if (_isNetworkMode && _networkDb != null) {
+      final articles = await _networkDb!.getAllArticles();
+      articles.sort((a, b) => a.designation.compareTo(b.designation));
+      return articles;
+    }
+    final articles = await database.getAllArticles();
+    articles.sort((a, b) => a.designation.compareTo(b.designation));
+    return articles;
   }
 
   Future<List<Frn>> getAllFournisseurs() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getAllFournisseurs();
+    }
     return await database.getAllFournisseurs();
+  }
+
+  Future<List<CltData>> getAllClients() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getAllClients();
+    }
+    return await database.getAllClients();
+  }
+
+  Future<List<Depot>> getAllDepots() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getAllDepots();
+    }
+    return await database.getAllDepots();
+  }
+
+  Future<List<SocData>> getAllSoc() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getAllSoc();
+    }
+    return await database.getAllSoc();
+  }
+
+  // Authentification via réseau ou local
+  Future<User?> authenticateUser(String username, String password) async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getUserByCredentials(username, password);
+    }
+    return await database.getUserByCredentials(username, password);
+  }
+
+  Future<List<String>> getAllModesPaiement() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getAllModesPaiement();
+    }
+    final result = await database.customSelect('SELECT mp FROM mp ORDER BY mp').get();
+    return result.map((row) => row.read<String>('mp')).toList();
+  }
+
+  Future<int> getTotalClients() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getTotalClients();
+    }
+    return await database.getTotalClients();
+  }
+
+  Future<int> getTotalArticles() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getTotalArticles();
+    }
+    return await database.getTotalArticles();
+  }
+
+  Future<double> getTotalStockValue() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getTotalStockValue();
+    }
+    return await database.getTotalStockValue();
+  }
+
+  Future<double> getTotalVentes() async {
+    if (_isNetworkMode && _networkDb != null) {
+      return await _networkDb!.getTotalVentes();
+    }
+    return await database.getTotalVentes();
   }
 
   // Invalider le cache lors des modifications
@@ -190,6 +271,7 @@ class DatabaseService {
   Future<void> closeDatabase() async {
     await _database?.close();
     _database = null;
+    _networkDb = null;
     _isInitialized = false;
     _clearCache();
   }

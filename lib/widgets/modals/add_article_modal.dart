@@ -17,6 +17,7 @@ class AddArticleModal extends StatefulWidget {
 class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMixin {
   final _formKey = GlobalKey<FormState>();
   final Map<String, TextEditingController> _controllers = {};
+  final FocusNode _designationFocusNode = FocusNode();
   List<Depot> _depots = [];
   String? _selectedDepot;
   String? _selectedUniteSection;
@@ -27,6 +28,14 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
     super.initState();
     _loadDepots();
     _initControllers();
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _designationFocusNode.requestFocus();
+      _controllers['designation']!.selection = TextSelection(
+        baseOffset: 0,
+        extentOffset: _controllers['designation']!.text.length,
+      );
+    });
   }
 
   @override
@@ -200,6 +209,7 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
   Widget _buildDesignationField() {
     return buildFormField(
       controller: _controllers['designation']!,
+      focusNode: _designationFocusNode,
       label: 'Désignation *',
       autofocus: true,
       validator: (value) => value?.isEmpty == true ? 'Requis' : null,
@@ -525,6 +535,7 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
 
   @override
   void dispose() {
+    _designationFocusNode.dispose();
     for (var controller in _controllers.values) {
       controller.dispose();
     }

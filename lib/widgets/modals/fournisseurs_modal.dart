@@ -103,13 +103,8 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue[600]!, Colors.blue[700]!],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
+        gradient: LinearGradient(colors: [Colors.blue[600]!, Colors.blue[700]!]),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
       ),
       child: Row(
         children: [
@@ -187,10 +182,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
           children: [
             Icon(Icons.search, color: Colors.blue[600], size: 20),
             const SizedBox(width: 8),
-            const Text(
-              'Rechercher:',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
+            const Text('Rechercher:', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
             const SizedBox(width: 16),
             Expanded(
               child: Container(
@@ -243,21 +235,21 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _filteredFournisseurs.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'Aucun fournisseur trouvé',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: _filteredFournisseurs.length,
-                          itemExtent: 32,
-                          itemBuilder: (context, index) {
-                            final fournisseur = _filteredFournisseurs[index];
-                            final isSelected = _selectedFournisseur?.rsoc == fournisseur.rsoc;
-                            return _buildFournisseurRow(fournisseur, isSelected, index);
-                          },
-                        ),
+                  ? const Center(
+                      child: Text(
+                        'Aucun fournisseur trouvé',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _filteredFournisseurs.length,
+                      itemExtent: 32,
+                      itemBuilder: (context, index) {
+                        final fournisseur = _filteredFournisseurs[index];
+                        final isSelected = _selectedFournisseur?.rsoc == fournisseur.rsoc;
+                        return _buildFournisseurRow(fournisseur, isSelected, index);
+                      },
+                    ),
             ),
           ],
         ),
@@ -269,13 +261,8 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
     return Container(
       height: 40,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue[50]!, Colors.blue[100]!],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
+        gradient: LinearGradient(colors: [Colors.blue[50]!, Colors.blue[100]!]),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
         border: Border(bottom: BorderSide(color: Colors.blue[200]!)),
       ),
       child: Row(
@@ -370,9 +357,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
         decoration: BoxDecoration(
           color: isActive ? Colors.green[100] : Colors.red[100],
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isActive ? Colors.green[300]! : Colors.red[300]!,
-          ),
+          border: Border.all(color: isActive ? Colors.green[300]! : Colors.red[300]!),
         ),
         child: Text(
           isActive ? 'Actif' : 'Inactif',
@@ -504,76 +489,17 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
     setState(() => _isLoading = true);
 
     try {
-      // Chargement direct avec requête SQL pour éviter les problèmes de conversion
-      final result = await DatabaseService()
-          .database
-          .customSelect(
-            'SELECT rsoc, adr, capital, rcs, nif, stat, tel, port, email, site, fax, telex, soldes, datedernop, delai, soldesa, action FROM frns',
-          )
-          .get();
-
-      final fournisseurs = result
-          .map((row) => Frn(
-                rsoc: row.read<String>('rsoc'),
-                adr: row.read<String?>('adr'),
-                capital: _safeReadDouble(row, 'capital'),
-                rcs: row.read<String?>('rcs'),
-                nif: row.read<String?>('nif'),
-                stat: row.read<String?>('stat'),
-                tel: row.read<String?>('tel'),
-                port: row.read<String?>('port'),
-                email: row.read<String?>('email'),
-                site: row.read<String?>('site'),
-                fax: row.read<String?>('fax'),
-                telex: row.read<String?>('telex'),
-                soldes: _safeReadDouble(row, 'soldes'),
-                datedernop: row.read<DateTime?>('datedernop'),
-                delai: row.read<int?>('delai'),
-                soldesa: _safeReadDouble(row, 'soldesa'),
-                action: row.read<String?>('action'),
-              ))
-          .toList();
-
-      debugPrint('Nombre de fournisseurs trouvés: ${fournisseurs.length}');
-
+      final fournisseurs = await DatabaseService().getAllFournisseurs();
       setState(() {
         _fournisseurs = fournisseurs;
         _isLoading = false;
       });
       _applySort();
-
-      debugPrint('Fournisseurs chargés: ${_filteredFournisseurs.length}');
     } catch (e) {
       debugPrint('Erreur lors du chargement des fournisseurs: $e');
       setState(() {
         _isLoading = false;
       });
-    }
-  }
-
-  double? _safeReadDouble(QueryRow row, String column) {
-    try {
-      // Essayer d'abord comme double
-      try {
-        return row.readNullable<double>(column);
-      } catch (_) {}
-
-      // Puis comme int
-      try {
-        final intValue = row.readNullable<int>(column);
-        return intValue?.toDouble();
-      } catch (_) {}
-
-      // Enfin comme string
-      try {
-        final stringValue = row.readNullable<String>(column);
-        if (stringValue == null || stringValue.isEmpty) return 0.0;
-        return double.tryParse(stringValue) ?? 0.0;
-      } catch (_) {}
-
-      return 0.0;
-    } catch (e) {
-      return 0.0;
     }
   }
 
@@ -613,8 +539,9 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
   }
 
   void _applySort() {
-    List<Frn> toSort =
-        _filteredFournisseurs.isEmpty ? _fournisseurs.take(_pageSize).toList() : _filteredFournisseurs;
+    List<Frn> toSort = _filteredFournisseurs.isEmpty
+        ? _fournisseurs.take(_pageSize).toList()
+        : _filteredFournisseurs;
 
     if (_sortColumn != null) {
       toSort.sort((a, b) {
@@ -688,12 +615,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
     final isActive = _selectedFournisseur?.action == 'A';
     showMenu(
       context: context,
-      position: RelativeRect.fromLTRB(
-        position.dx,
-        position.dy,
-        position.dx + 1,
-        position.dy + 1,
-      ),
+      position: RelativeRect.fromLTRB(position.dx, position.dy, position.dx + 1, position.dy + 1),
       items: [
         const PopupMenuItem(
           value: 'create',
@@ -710,10 +632,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
         if (_selectedFournisseur != null)
           PopupMenuItem(
             value: 'toggle_status',
-            child: Text(
-              isActive ? 'Désactiver' : 'Activer',
-              style: const TextStyle(fontSize: 12),
-            ),
+            child: Text(isActive ? 'Désactiver' : 'Activer', style: const TextStyle(fontSize: 12)),
           ),
       ],
     ).then((value) {
@@ -784,8 +703,9 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
 
         final filteredIndex = _filteredFournisseurs.indexWhere((f) => f.rsoc == fournisseur.rsoc);
         if (filteredIndex != -1) {
-          _filteredFournisseurs[filteredIndex] =
-              _filteredFournisseurs[filteredIndex].copyWith(action: Value(newStatus));
+          _filteredFournisseurs[filteredIndex] = _filteredFournisseurs[filteredIndex].copyWith(
+            action: Value(newStatus),
+          );
         }
 
         // Mettre à jour la sélection
@@ -801,28 +721,32 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
   }
 
   Future<void> _loadHistoriqueFournisseur(String rsocFournisseur) async {
-    final historique = await DatabaseService().database.customSelect(
-      'SELECT * FROM comptefrns WHERE frns = ? ORDER BY daty DESC LIMIT 50',
-      variables: [Variable(rsocFournisseur)],
-    ).get();
+    final historique = await DatabaseService().database
+        .customSelect(
+          'SELECT * FROM comptefrns WHERE frns = ? ORDER BY daty DESC LIMIT 50',
+          variables: [Variable(rsocFournisseur)],
+        )
+        .get();
 
     setState(() {
       _historiqueFournisseur = historique
-          .map((row) => Comptefrn(
-                ref: row.read<String>('ref'),
-                daty: row.read<DateTime?>('daty'),
-                lib: row.read<String?>('lib'),
-                numachats: row.read<String?>('numachats'),
-                nfact: row.read<String?>('nfact'),
-                refart: row.read<String?>('refart'),
-                qe: row.read<double?>('qe'),
-                pu: row.read<double?>('pu'),
-                entres: row.read<double?>('entres'),
-                sortie: row.read<double?>('sortie'),
-                solde: row.read<double?>('solde'),
-                frns: row.read<String?>('frns'),
-                verification: row.read<String?>('verification'),
-              ))
+          .map(
+            (row) => Comptefrn(
+              ref: row.read<String>('ref'),
+              daty: row.read<DateTime?>('daty'),
+              lib: row.read<String?>('lib'),
+              numachats: row.read<String?>('numachats'),
+              nfact: row.read<String?>('nfact'),
+              refart: row.read<String?>('refart'),
+              qe: row.read<double?>('qe'),
+              pu: row.read<double?>('pu'),
+              entres: row.read<double?>('entres'),
+              sortie: row.read<double?>('sortie'),
+              solde: row.read<double?>('solde'),
+              frns: row.read<String?>('frns'),
+              verification: row.read<String?>('verification'),
+            ),
+          )
           .toList();
     });
   }
@@ -838,9 +762,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
             Container(
               height: 40,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green[600]!, Colors.green[700]!],
-                ),
+                gradient: LinearGradient(colors: [Colors.green[600]!, Colors.green[700]!]),
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(12),
                   topRight: Radius.circular(12),
@@ -856,11 +778,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
                   const Expanded(
                     child: Text(
                       'HISTORIQUE DES MOUVEMENTS',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ),
                   if (_selectedFournisseur != null)
@@ -886,9 +804,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
             Container(
               height: 20,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.grey[200]!, Colors.grey[300]!],
-                ),
+                gradient: LinearGradient(colors: [Colors.grey[200]!, Colors.grey[300]!]),
                 border: Border(bottom: BorderSide(color: Colors.grey[400]!)),
               ),
               child: const Row(
@@ -896,43 +812,28 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
                   Expanded(
                     flex: 2,
                     child: Center(
-                      child: Text(
-                        'DATE',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('DATE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   Expanded(
                     flex: 3,
                     child: Center(
-                      child: Text(
-                        'LIBELLÉ',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('LIBELLÉ', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        'DÉBIT',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('DÉBIT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        'CRÉDIT',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('CRÉDIT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   Expanded(
                     child: Center(
-                      child: Text(
-                        'SOLDE',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+                      child: Text('SOLDE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -941,10 +842,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
             Expanded(
               child: _historiqueFournisseur.isEmpty
                   ? const Center(
-                      child: Text(
-                        'Aucun mouvement',
-                        style: TextStyle(fontSize: 10, color: Colors.grey),
-                      ),
+                      child: Text('Aucun mouvement', style: TextStyle(fontSize: 10, color: Colors.grey)),
                     )
                   : ListView.builder(
                       itemCount: _historiqueFournisseur.length,
@@ -1011,8 +909,9 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w500,
-                                        color:
-                                            (mouvement.solde ?? 0) >= 0 ? Colors.green[700] : Colors.red[700],
+                                        color: (mouvement.solde ?? 0) >= 0
+                                            ? Colors.green[700]
+                                            : Colors.red[700],
                                       ),
                                       textAlign: TextAlign.right,
                                     ),
@@ -1096,22 +995,26 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
     setState(() => _isLoadingArticles = true);
     try {
       debugPrint('Loading articles for numachats: ${widget.mouvement.numachats}');
-      final result = await DatabaseService().database.customSelect(
-        'SELECT * FROM achats WHERE numachats = ?',
-        variables: [Variable(widget.mouvement.numachats!)],
-      ).get();
+      final result = await DatabaseService().database
+          .customSelect(
+            'SELECT * FROM achats WHERE numachats = ?',
+            variables: [Variable(widget.mouvement.numachats!)],
+          )
+          .get();
 
       debugPrint('Found ${result.length} articles');
 
       setState(() {
         _articles = result
-            .map((row) => {
-                  'refart': row.read<String?>('refart') ?? '',
-                  'design': row.read<String?>('design') ?? '',
-                  'qte': row.read<double?>('qte') ?? 0.0,
-                  'pu': row.read<double?>('pu') ?? 0.0,
-                  'montant': row.read<double?>('montant') ?? 0.0,
-                })
+            .map(
+              (row) => {
+                'refart': row.read<String?>('refart') ?? '',
+                'design': row.read<String?>('design') ?? '',
+                'qte': row.read<double?>('qte') ?? 0.0,
+                'pu': row.read<double?>('pu') ?? 0.0,
+                'montant': row.read<double?>('montant') ?? 0.0,
+              },
+            )
             .toList();
         _isLoadingArticles = false;
       });
@@ -1128,9 +1031,7 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
     return Dialog(
       child: Container(
         width: 600,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.8,
-        ),
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1142,16 +1043,10 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
                 const SizedBox(width: 12),
                 const Text(
                   'DÉTAILS DU MOUVEMENT',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
+                IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
               ],
             ),
             const Divider(),
@@ -1191,10 +1086,7 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
                                 (widget.mouvement.sortie ?? 0) > 0
                                     ? _formatMontant(widget.mouvement.sortie!)
                                     : '0',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.red[700],
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red[700]),
                               ),
                             ],
                           ),
@@ -1207,10 +1099,7 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
                                 (widget.mouvement.entres ?? 0) > 0
                                     ? _formatMontant(widget.mouvement.entres!)
                                     : '0',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green[700],
-                                ),
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green[700]),
                               ),
                             ],
                           ),
@@ -1242,10 +1131,7 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
                       const SizedBox(height: 20),
                       const Text(
                         'ARTICLES ACHETÉS',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
                       _buildArticlesSection(),
@@ -1258,10 +1144,7 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Fermer'),
-                ),
+                ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
               ],
             ),
           ],
@@ -1272,24 +1155,19 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
 
   Widget _buildArticlesSection() {
     debugPrint(
-        'Building articles section. Loading: $_isLoadingArticles, Articles count: ${_articles.length}');
+      'Building articles section. Loading: $_isLoadingArticles, Articles count: ${_articles.length}',
+    );
 
     if (_isLoadingArticles) {
       return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(20),
-          child: CircularProgressIndicator(),
-        ),
+        child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()),
       );
     }
 
     if (_articles.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(8),
-        ),
+        decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
         child: Text(
           'Aucun article trouvé pour l\'achat ${widget.mouvement.numachats}',
           style: const TextStyle(color: Colors.grey),
@@ -1316,23 +1194,34 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
             child: const Row(
               children: [
                 Expanded(
-                    flex: 2,
-                    child: Text('RÉFÉRENCE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  flex: 2,
+                  child: Text('RÉFÉRENCE', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
                 Expanded(
-                    flex: 3,
-                    child: Text('DÉSIGNATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  flex: 3,
+                  child: Text('DÉSIGNATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
                 Expanded(
-                    child: Text('QTÉ',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        textAlign: TextAlign.center)),
+                  child: Text(
+                    'QTÉ',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
                 Expanded(
-                    child: Text('P.U.',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        textAlign: TextAlign.right)),
+                  child: Text(
+                    'P.U.',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
                 Expanded(
-                    child: Text('MONTANT',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                        textAlign: TextAlign.right)),
+                  child: Text(
+                    'MONTANT',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
               ],
             ),
           ),
@@ -1400,16 +1289,10 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
         children: [
           SizedBox(
             width: 120,
-            child: Text(
-              '$label:',
-              style: const TextStyle(fontWeight: FontWeight.w500),
-            ),
+            child: Text('$label:', style: const TextStyle(fontWeight: FontWeight.w500)),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(color: Colors.black87),
-            ),
+            child: Text(value, style: const TextStyle(color: Colors.black87)),
           ),
         ],
       ),

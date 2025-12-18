@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_service.dart';
 import 'network_config_service.dart';
@@ -13,10 +14,16 @@ class NetworkManager {
 
   Future<bool> initialize() async {
     try {
-      // Charger la configuration réseau
+      // Vérifier si c'est le premier démarrage
       final config = await NetworkConfigService.loadConfig();
-      final mode = config['mode'] as NetworkMode;
+      final isFirstRun = await _isFirstRun();
       
+      if (isFirstRun) {
+        debugPrint('Premier démarrage - Configuration réseau requise');
+        return false; // Forcer la configuration
+      }
+      
+      final mode = config['mode'] as NetworkMode;
       debugPrint('Initialisation réseau en mode: ${mode.name}');
 
       // Initialiser le réseau selon le mode
@@ -28,13 +35,14 @@ class NetworkManager {
           throw Exception('Impossible de démarrer le serveur');
         }
       } else {
-        // Mode client : initialiser la base locale d'abord
-        DatabaseService().setNetworkMode(true);
-        await DatabaseService().initialize();
+        // Mode client : se connecter au serveur d'abord
         final connected = await NetworkConfigService.initializeNetwork();
         if (!connected) {
           throw Exception('Impossible de se connecter au serveur ${config['serverIp']}:${config['port']}');
         }
+        // Puis initialiser la base en mode réseau
+        DatabaseService().setNetworkMode(true);
+        await DatabaseService().initialize();
       }
 
       _isInitialized = true;
@@ -50,5 +58,10 @@ class NetworkManager {
   Future<void> shutdown() async {
     await NetworkConfigService.stopNetwork();
     _isInitialized = false;
+  }
+
+  Future<bool> _isFirstRun() async {
+    final prefs = await SharedPreferences.getInstance();
+    return !prefs.containsKey('network_mode');
   }
 }

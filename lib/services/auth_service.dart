@@ -82,6 +82,18 @@ class AuthService {
     _currentUser = user;
   }
 
+  /// Définit l'utilisateur actuel (pour authentification réseau)
+  Future<void> setCurrentUser(User user) async {
+    _currentUser = user;
+    await AuditService().log(
+      userId: user.id,
+      userName: user.nom,
+      action: AuditAction.login,
+      module: 'Authentification',
+      details: 'Connexion réussie (réseau)',
+    );
+  }
+
   /// Vérifie si l'utilisateur a le rôle requis
   bool hasRole(String requiredRole) {
     if (_currentUser == null) return false;

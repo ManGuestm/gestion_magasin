@@ -309,7 +309,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       result.sort((a, b) {
         final numA = int.tryParse(a['numventes'] ?? '0') ?? 0;
         final numB = int.tryParse(b['numventes'] ?? '0') ?? 0;
-        return numA.compareTo(numB);
+        return numB.compareTo(numA);
       });
 
       // Mettre à jour le cache
@@ -533,7 +533,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       ? const BorderSide(color: Colors.grey, width: 3)
                                       : null,
                                 ),
-                                child: const Text('Annuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                child: const Text(
+                                  'Annuler',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ),
                             Focus(
@@ -562,7 +565,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                       ? const BorderSide(color: Colors.blue, width: 3)
                                       : null,
                                 ),
-                                child: const Text('Enregistrer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                child: const Text(
+                                  'Enregistrer',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ),
                           ],
@@ -749,8 +755,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   List<CltData> _filterClientsByRole(List<CltData> allClients) {
-    // Pour tous les autres cas, retourner tous les clients
-    return allClients;
+    if (widget.tousDepots) {
+      // Tous dépôts: seuls les clients avec catégorie "Tous dépôts"
+      return allClients.where((client) => client.categorie == ClientCategory.tousDepots.label).toList();
+    } else {
+      // MAG: seuls les clients avec catégorie "Magasin"
+      return allClients.where((client) => client.categorie == ClientCategory.magasin.label).toList();
+    }
   }
 
   bool _isVendeur() {
@@ -1065,7 +1076,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                 ? const BorderSide(color: Colors.blue, width: 3)
                                 : null,
                           ),
-                          child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'OK',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       );
                     },
@@ -1865,7 +1879,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                 ? const BorderSide(color: Colors.blue, width: 3)
                                 : null,
                           ),
-                          child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'OK',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       );
                     },
@@ -1955,7 +1972,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.grey, width: 3)
                                   : null,
                             ),
-                            child: const Text('Annuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            child: const Text(
+                              'Annuler',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                         Focus(
@@ -1984,7 +2004,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.blue, width: 3)
                                   : null,
                             ),
-                            child: const Text('Continuer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            child: const Text(
+                              'Continuer',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                       ],
@@ -2009,6 +2032,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       // Forcer le mode brouillard
       setState(() {
         _statutVente = StatutVente.brouillard;
+      });
+
+      // Après confirmation "Continuer", mettre le focus sur le champ P.U HT
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _prixFocusNode.requestFocus();
+        }
       });
     }
 
@@ -2280,7 +2310,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                 ? const BorderSide(color: Colors.blue, width: 3)
                                 : null,
                           ),
-                          child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            'OK',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       );
                     },
@@ -2732,7 +2765,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.grey, width: 3)
                                   : null,
                             ),
-                            child: const Text('Annuler', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            child: const Text(
+                              'Annuler',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                         Focus(
@@ -2761,7 +2797,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.blue, width: 3)
                                   : null,
                             ),
-                            child: const Text('Enregistrer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            child: const Text(
+                              'Enregistrer',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                       ],
@@ -4044,7 +4083,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.grey, width: 3)
                                   : null,
                             ),
-                            child: const Text('Non', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            child: const Text(
+                              'Non',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                         Focus(
@@ -4073,7 +4115,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                   ? const BorderSide(color: Colors.blue, width: 3)
                                   : null,
                             ),
-                            child: const Text('Oui', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                            child: const Text(
+                              'Oui',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                       ],
@@ -6551,100 +6596,118 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                             ),
 
                                             //Popup menu format papier d'impression
-                                            PopupMenuButton<String>(
-                                              style: const ButtonStyle(
-                                                padding: WidgetStateProperty.fromMap({
-                                                  WidgetState.hovered: EdgeInsets.all(0),
-                                                  WidgetState.focused: EdgeInsets.all(0),
-                                                  WidgetState.pressed: EdgeInsets.all(0),
-                                                }),
-                                              ),
-                                              menuPadding: const EdgeInsets.all(2),
-                                              initialValue: _selectedFormat,
-                                              itemBuilder: (BuildContext context) => [
-                                                const PopupMenuItem(
-                                                  value: 'A4',
-                                                  child: Text('Format A4', style: TextStyle(fontSize: 12)),
-                                                ),
-                                                const PopupMenuItem(
-                                                  value: 'A5',
-                                                  child: Text('Format A5', style: TextStyle(fontSize: 12)),
-                                                ),
-                                                const PopupMenuItem(
-                                                  value: 'A6',
-                                                  child: Text('Format A6', style: TextStyle(fontSize: 12)),
-                                                ),
-                                              ],
-                                              onSelected: (value) {
-                                                if (value == 'facture') {
-                                                  _apercuFacture();
-                                                } else if (value == 'bl') {
-                                                  _apercuBL();
-                                                } else {
-                                                  setState(() {
-                                                    _selectedFormat = value;
-                                                  });
-                                                }
-                                              },
-                                              child: Container(
-                                                constraints: const BoxConstraints(
-                                                  minWidth: 60,
-                                                  minHeight: 18,
-                                                  maxHeight: 30,
-                                                ),
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 3,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.orange,
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  mainAxisAlignment: MainAxisAlignment.center,
-                                                  children: [
-                                                    const Icon(Icons.print, color: Colors.white, size: 16),
-                                                    const SizedBox(width: 4),
-                                                    Text(
-                                                      _selectedFormat,
-                                                      style: const TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 12,
+                                            _isVendeur()
+                                                ? const SizedBox.shrink()
+                                                : PopupMenuButton<String>(
+                                                    style: const ButtonStyle(
+                                                      padding: WidgetStateProperty.fromMap({
+                                                        WidgetState.hovered: EdgeInsets.all(0),
+                                                        WidgetState.focused: EdgeInsets.all(0),
+                                                        WidgetState.pressed: EdgeInsets.all(0),
+                                                      }),
+                                                    ),
+                                                    menuPadding: const EdgeInsets.all(2),
+                                                    initialValue: _selectedFormat,
+                                                    itemBuilder: (BuildContext context) => [
+                                                      const PopupMenuItem(
+                                                        value: 'A4',
+                                                        child: Text(
+                                                          'Format A4',
+                                                          style: TextStyle(fontSize: 12),
+                                                        ),
+                                                      ),
+                                                      const PopupMenuItem(
+                                                        value: 'A5',
+                                                        child: Text(
+                                                          'Format A5',
+                                                          style: TextStyle(fontSize: 12),
+                                                        ),
+                                                      ),
+                                                      const PopupMenuItem(
+                                                        value: 'A6',
+                                                        child: Text(
+                                                          'Format A6',
+                                                          style: TextStyle(fontSize: 12),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                    onSelected: (value) {
+                                                      if (value == 'facture') {
+                                                        _apercuFacture();
+                                                      } else if (value == 'bl') {
+                                                        _apercuBL();
+                                                      } else {
+                                                        setState(() {
+                                                          _selectedFormat = value;
+                                                        });
+                                                      }
+                                                    },
+                                                    child: Container(
+                                                      constraints: const BoxConstraints(
+                                                        minWidth: 60,
+                                                        minHeight: 18,
+                                                        maxHeight: 30,
+                                                      ),
+                                                      padding: const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 3,
+                                                      ),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.orange,
+                                                        borderRadius: BorderRadius.circular(12),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          const Icon(
+                                                            Icons.print,
+                                                            color: Colors.white,
+                                                            size: 16,
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          Text(
+                                                            _selectedFormat,
+                                                            style: const TextStyle(
+                                                              color: Colors.white,
+                                                              fontSize: 12,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 4),
+                                                          const Icon(
+                                                            Icons.arrow_drop_down,
+                                                            color: Colors.white,
+                                                            size: 16,
+                                                          ),
+                                                        ],
                                                       ),
                                                     ),
-                                                    const SizedBox(width: 4),
-                                                    const Icon(
-                                                      Icons.arrow_drop_down,
-                                                      color: Colors.white,
-                                                      size: 16,
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
+                                                  ),
                                             //Bouton d'impression facture
                                             FutureBuilder<bool>(
                                               future: _isVenteContrePassee(),
                                               builder: (context, snapshot) {
                                                 final isContrePassee = snapshot.data ?? false;
-                                                return Tooltip(
-                                                  message: 'Imprimer Facture (Ctrl+P)',
-                                                  child: ElevatedButton(
-                                                    onPressed: isContrePassee ? null : _imprimerFacture,
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: _selectedVerification != 'JOURNAL'
-                                                          ? Colors.grey
-                                                          : Colors.teal,
-                                                      foregroundColor: Colors.white,
-                                                      minimumSize: const Size(60, 30),
-                                                    ),
-                                                    child: const Text(
-                                                      'Imprimer Facture (Ctrl+P)',
-                                                      style: TextStyle(fontSize: 12),
-                                                    ),
-                                                  ),
-                                                );
+                                                return _isVendeur()
+                                                    ? const SizedBox.shrink()
+                                                    : Tooltip(
+                                                        message: 'Imprimer Facture (Ctrl+P)',
+                                                        child: ElevatedButton(
+                                                          onPressed: isContrePassee ? null : _imprimerFacture,
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor:
+                                                                _selectedVerification != 'JOURNAL'
+                                                                ? Colors.grey
+                                                                : Colors.teal,
+                                                            foregroundColor: Colors.white,
+                                                            minimumSize: const Size(60, 30),
+                                                          ),
+                                                          child: const Text(
+                                                            'Imprimer Facture (Ctrl+P)',
+                                                            style: TextStyle(fontSize: 12),
+                                                          ),
+                                                        ),
+                                                      );
                                               },
                                             ),
                                             // Bouton d'Aperçu Facture
@@ -6652,23 +6715,26 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               future: _isVenteContrePassee(),
                                               builder: (context, snapshot) {
                                                 final isContrePassee = snapshot.data ?? false;
-                                                return Tooltip(
-                                                  message: 'Aperçu Facture',
-                                                  child: ElevatedButton(
-                                                    onPressed: isContrePassee ? null : _apercuFacture,
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: _selectedVerification != 'JOURNAL'
-                                                          ? Colors.grey
-                                                          : Colors.orange,
-                                                      foregroundColor: Colors.white,
-                                                      minimumSize: const Size(60, 30),
-                                                    ),
-                                                    child: const Text(
-                                                      'Aperçu Facture',
-                                                      style: TextStyle(fontSize: 12),
-                                                    ),
-                                                  ),
-                                                );
+                                                return _isVendeur()
+                                                    ? const SizedBox.shrink()
+                                                    : Tooltip(
+                                                        message: 'Aperçu Facture',
+                                                        child: ElevatedButton(
+                                                          onPressed: isContrePassee ? null : _apercuFacture,
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor:
+                                                                _selectedVerification != 'JOURNAL'
+                                                                ? Colors.grey
+                                                                : Colors.orange,
+                                                            foregroundColor: Colors.white,
+                                                            minimumSize: const Size(60, 30),
+                                                          ),
+                                                          child: const Text(
+                                                            'Aperçu Facture',
+                                                            style: TextStyle(fontSize: 12),
+                                                          ),
+                                                        ),
+                                                      );
                                               },
                                             ),
                                             // Bouton d'impression BL
@@ -6676,23 +6742,26 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               future: _isVenteContrePassee(),
                                               builder: (context, snapshot) {
                                                 final isContrePassee = snapshot.data ?? false;
-                                                return Tooltip(
-                                                  message: 'Imprimer Bon de Livraison (Ctrl+Shift+P)',
-                                                  child: ElevatedButton(
-                                                    onPressed: isContrePassee ? null : _imprimerBL,
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: _selectedVerification != 'JOURNAL'
-                                                          ? Colors.grey
-                                                          : Colors.teal,
-                                                      foregroundColor: Colors.white,
-                                                      minimumSize: const Size(60, 30),
-                                                    ),
-                                                    child: const Text(
-                                                      'Imprimer BL (Ctrl+Shift+P)',
-                                                      style: TextStyle(fontSize: 12),
-                                                    ),
-                                                  ),
-                                                );
+                                                return _isVendeur()
+                                                    ? const SizedBox.shrink()
+                                                    : Tooltip(
+                                                        message: 'Imprimer Bon de Livraison (Ctrl+Shift+P)',
+                                                        child: ElevatedButton(
+                                                          onPressed: isContrePassee ? null : _imprimerBL,
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor:
+                                                                _selectedVerification != 'JOURNAL'
+                                                                ? Colors.grey
+                                                                : Colors.teal,
+                                                            foregroundColor: Colors.white,
+                                                            minimumSize: const Size(60, 30),
+                                                          ),
+                                                          child: const Text(
+                                                            'Imprimer BL (Ctrl+Shift+P)',
+                                                            style: TextStyle(fontSize: 12),
+                                                          ),
+                                                        ),
+                                                      );
                                               },
                                             ),
                                             //Bouton aperçus BL
@@ -6700,23 +6769,26 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               future: _isVenteContrePassee(),
                                               builder: (context, snapshot) {
                                                 final isContrePassee = snapshot.data ?? false;
-                                                return Tooltip(
-                                                  message: 'Aperçu Bon de Livraison',
-                                                  child: ElevatedButton(
-                                                    onPressed: isContrePassee ? null : _apercuBL,
-                                                    style: ElevatedButton.styleFrom(
-                                                      backgroundColor: _selectedVerification != 'JOURNAL'
-                                                          ? Colors.grey
-                                                          : Colors.orange,
-                                                      foregroundColor: Colors.white,
-                                                      minimumSize: const Size(60, 30),
-                                                    ),
-                                                    child: const Text(
-                                                      'Aperçu BL',
-                                                      style: TextStyle(fontSize: 12),
-                                                    ),
-                                                  ),
-                                                );
+                                                return _isVendeur()
+                                                    ? const SizedBox.shrink()
+                                                    : Tooltip(
+                                                        message: 'Aperçu Bon de Livraison',
+                                                        child: ElevatedButton(
+                                                          onPressed: isContrePassee ? null : _apercuBL,
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor:
+                                                                _selectedVerification != 'JOURNAL'
+                                                                ? Colors.grey
+                                                                : Colors.orange,
+                                                            foregroundColor: Colors.white,
+                                                            minimumSize: const Size(60, 30),
+                                                          ),
+                                                          child: const Text(
+                                                            'Aperçu BL',
+                                                            style: TextStyle(fontSize: 12),
+                                                          ),
+                                                        ),
+                                                      );
                                               },
                                             ),
 

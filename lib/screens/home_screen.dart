@@ -128,8 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final previousStats = Map<String, dynamic>.from(_stats);
 
       // Statistiques communes avec cache intelligent
-      final totalClients = await db.getTotalClients();
-      final totalArticles = await db.getTotalArticles();
+      final totalClients = await DatabaseService().getTotalClients();
+      final totalArticles = await DatabaseService().getTotalArticles();
 
       stats['clients'] = totalClients;
       stats['articles'] = totalArticles;
@@ -147,9 +147,9 @@ class _HomeScreenState extends State<HomeScreen> {
       stats['journalBanque'] = journalBanque;
 
       if (userRole == 'Administrateur') {
-        final totalStock = await db.getTotalStockValue();
+        final totalStock = await DatabaseService().getTotalStockValue();
         final totalAchats = await db.getTotalAchats();
-        final totalVentes = await db.getTotalVentes();
+        final totalVentes = await DatabaseService().getTotalVentes();
         final ventesJour = await db.getVentesToday();
         final totalFournisseurs = await db.getTotalFournisseurs();
         final ventesBrouillard = await db.getVentesBrouillardCount();
@@ -171,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _recentSales = await db.getRecentSales(10);
         _recentBuys = await db.getRecentPurchases(10);
       } else if (userRole == 'Caisse') {
-        final totalVentes = await db.getTotalVentes();
+        final totalVentes = await DatabaseService().getTotalVentes();
         final ventesJour = await db.getVentesToday();
         final encaissements = await db.getTotalEncaissements();
         final transactions = await db.getTotalTransactions();

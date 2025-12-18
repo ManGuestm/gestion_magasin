@@ -61,7 +61,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
           backgroundColor: Colors.transparent,
           child: Container(
             width: AppConstants.defaultModalWidth,
-            height: MediaQuery.of(context).size.height * 0.8,
+            height: MediaQuery.of(context).size.height * 0.98,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -496,7 +496,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
     setState(() => _isLoading = true);
 
     try {
-      final clients = await DatabaseService().database.getAllClients();
+      final clients = await DatabaseService().getAllClients();
       setState(() {
         _clients = clients;
         _isLoading = false;

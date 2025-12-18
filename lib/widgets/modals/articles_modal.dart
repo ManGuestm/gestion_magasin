@@ -66,7 +66,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
           backgroundColor: Colors.transparent,
           child: Container(
             width: AppConstants.defaultModalWidth,
-            height: MediaQuery.of(context).size.height * 0.8,
+            height: MediaQuery.of(context).size.height * 0.98,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
@@ -489,7 +489,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   }
 
   Future<void> _loadDepots() async {
-    final depots = await DatabaseService().database.getAllDepots();
+    final depots = await DatabaseService().getAllDepots();
     setState(() {
       _depots = depots;
     });
@@ -794,10 +794,8 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => HistoriqueStockModal(
-        refArticle: _selectedArticle!.designation,
-        stockDisponible: stockArticle,
-      ),
+      builder: (context) =>
+          HistoriqueStockModal(refArticle: _selectedArticle!.designation, stockDisponible: stockArticle),
     );
   }
 
@@ -809,6 +807,27 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   }
 
   Future<void> _deleteArticle(Article article) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation de suppression'),
+        content: Text('Êtes-vous sûr de vouloir supprimer l\'article "${article.designation}" ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     try {
       await DatabaseService().database.deleteArticle(article.designation);
       await _loadArticles();
@@ -817,8 +836,24 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
           _selectedArticle = null;
         });
       }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Article supprimé avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('Erreur lors de la suppression: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la suppression: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -896,7 +931,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
     setState(() => _isLoading = true);
 
     try {
-      final articles = await DatabaseService().database.getAllArticles();
+      final articles = await DatabaseService().getAllArticles();
       setState(() {
         _articles = articles;
         _isLoading = false;

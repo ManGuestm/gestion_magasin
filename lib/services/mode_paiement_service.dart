@@ -9,9 +9,7 @@ class ModePaiementService {
 
   /// Récupère tous les modes de paiement
   Future<List<String>> getAllModesPaiement() async {
-    final result = await _db.database.customSelect('SELECT mp FROM mp ORDER BY mp').get();
-
-    return result.map((row) => row.read<String>('mp')).toList();
+    return await _db.getAllModesPaiement();
   }
 
   /// Ajoute un mode de paiement s'il n'existe pas

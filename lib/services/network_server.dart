@@ -173,6 +173,24 @@ class NetworkServer {
             'data': result.map((row) => row.data).toList(),
           };
 
+        case 'auth':
+          // Gestion spéciale pour l'authentification avec bcrypt
+          final username = data['username'] as String;
+          final password = data['password'] as String;
+          final user = await _databaseService.authenticateUser(username, password);
+          return {
+            'success': true,
+            'data': user != null ? [{
+              'id': user.id,
+              'nom': user.nom,
+              'username': user.username,
+              'motDePasse': user.motDePasse,
+              'role': user.role,
+              'actif': user.actif ? 1 : 0,
+              'dateCreation': user.dateCreation.toIso8601String(),
+            }] : [],
+          };
+
         case 'insert':
         case 'update':
         case 'delete':

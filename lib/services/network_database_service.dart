@@ -199,22 +199,23 @@ class NetworkDatabaseService {
   }
 
   Future<User?> getUserByCredentials(String username, String password) async {
-    final result = await customSelect('SELECT * FROM users WHERE username = ? AND motDePasse = ?', [
-      Variable(username),
-      Variable(password),
-    ]);
-    if (result.isEmpty) return null;
-
-    final row = result.first;
-    return User(
-      id: row['id'],
-      nom: row['nom'],
-      username: row['username'],
-      motDePasse: row['motDePasse'],
-      role: row['role'],
-      actif: row['actif'] == 1,
-      dateCreation: DateTime.parse(row['dateCreation']),
-    );
+    try {
+      final result = await _client.authenticate(username, password);
+      if (result != null) {
+        return User(
+          id: result['id'],
+          nom: result['nom'],
+          username: result['username'],
+          motDePasse: result['motDePasse'],
+          role: result['role'],
+          actif: result['actif'] == 1,
+          dateCreation: DateTime.parse(result['dateCreation']),
+        );
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Erreur authentification réseau: $e');
+    }
   }
 
   // Méthodes pour les statistiques
@@ -247,5 +248,10 @@ class NetworkDatabaseService {
       [Variable(today)],
     );
     return (result.first['total'] as num).toDouble();
+  }
+
+  Future<List<String>> getAllModesPaiement() async {
+    final result = await customSelect('SELECT mp FROM mp ORDER BY mp');
+    return result.map((row) => row['mp'] as String).toList();
   }
 }

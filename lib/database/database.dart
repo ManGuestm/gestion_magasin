@@ -1372,15 +1372,22 @@ class AppDatabase extends _$AppDatabase {
 
   // ========== MÉTHODES ARTICLES ==========
   /// Récupère tous les articles
-  Future<List<Article>> getAllArticles() => select(articles).get();
+  Future<List<Article>> getAllArticles() =>
+      (select(articles)..orderBy([(a) => OrderingTerm.asc(a.designation)])).get();
 
-  /// Récupère les articles actifs (action='A')
+  /// Récupère les articles actifs (action='A') triés par ordre alphabétique
   Future<List<Article>> getActiveArticles() =>
-      (select(articles)..where((tbl) => tbl.action.equals('A'))).get();
+      (select(articles)
+            ..where((tbl) => tbl.action.equals('A'))
+            ..orderBy([(a) => OrderingTerm.asc(a.designation)]))
+          .get();
 
   /// Récupère un article par désignation
   Future<Article?> getArticleByDesignation(String designation) =>
-      (select(articles)..where((tbl) => tbl.designation.equals(designation))).getSingleOrNull();
+      (select(articles)
+            ..where((tbl) => tbl.designation.equals(designation))
+            ..orderBy([(a) => OrderingTerm.asc(a.designation)]))
+          .getSingleOrNull();
 
   /// Insère un nouvel article
   Future<int> insertArticle(ArticlesCompanion entry) => into(articles).insert(entry);
@@ -2134,6 +2141,23 @@ class AppDatabase extends _$AppDatabase {
             ))
             .getSingleOrNull();
     return user;
+  }
+
+  /// Récupère un utilisateur par nom d'utilisateur et mot de passe
+  Future<User?> getUserByCredentials(String username, String password) async {
+    // Récupérer l'utilisateur par nom d'utilisateur seulement
+    final user = await (select(
+      users,
+    )..where((u) => u.username.equals(username) & u.actif.equals(true))).getSingleOrNull();
+
+    if (user == null) return null;
+
+    // Vérifier le mot de passe avec bcrypt
+    if (SecurityService.verifyPassword(password, user.motDePasse)) {
+      return user;
+    }
+
+    return null;
   }
 
   // ========== MÉTHODES CONTRE PASSER ==========
