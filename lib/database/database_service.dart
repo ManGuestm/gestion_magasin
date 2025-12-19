@@ -54,14 +54,8 @@ class DatabaseService {
       // Configurer Drift pour éviter les warnings
       driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
-      // Vérifier le mode réseau
-      final config = await _getNetworkConfig();
-      final mode = config['mode'];
-
-      if (mode == 'client') {
-        _isNetworkMode = true;
-
-        // Vérifier que le client réseau est connecté
+      if (_isNetworkMode) {
+        // Mode client réseau
         if (!NetworkClient.instance.isConnected) {
           throw Exception('Client réseau non connecté. Vérifiez la configuration réseau.');
         }
@@ -79,10 +73,9 @@ class DatabaseService {
         return;
       }
 
-      // Initialiser la base de données locale seulement en mode serveur
+      // Mode serveur : initialiser la base de données locale
       if (_database == null) {
         _database = AppDatabase();
-        // Créer l'utilisateur administrateur par défaut
         await _database?.createDefaultAdmin();
       }
 

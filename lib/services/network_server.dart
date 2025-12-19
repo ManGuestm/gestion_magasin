@@ -43,7 +43,10 @@ class NetworkServer {
 
   Future<bool> start({int port = 8080}) async {
     try {
+      // S'assurer que le mode réseau est désactivé pour le serveur
+      _databaseService.setNetworkMode(false);
       await _databaseService.initialize();
+      
       _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
       _isRunning = true;
 
@@ -165,6 +168,11 @@ class NetworkServer {
       final query = data['query'] as String?;
       final params = data['params'] as List?;
 
+      // S'assurer que le serveur n'est PAS en mode réseau
+      if (_databaseService.isNetworkMode) {
+        return {'error': 'Le serveur ne peut pas être en mode client réseau'};
+      }
+
       switch (type) {
         case 'select':
           final result = await _databaseService.database.customSelect(query!, variables: params?.map((p) => Variable(p)).toList() ?? []).get();
@@ -174,10 +182,9 @@ class NetworkServer {
           };
 
         case 'auth':
-          // Gestion spéciale pour l'authentification avec bcrypt
           final username = data['username'] as String;
           final password = data['password'] as String;
-          final user = await _databaseService.authenticateUser(username, password);
+          final user = await _databaseService.database.getUserByCredentials(username, password);
           return {
             'success': true,
             'data': user != null ? [{

@@ -121,10 +121,4 @@ Propriétaire - Tous droits réservés
 
 Pour toute assistance technique, contactez l'équipe de développement.
 
-tri journal
-confirmation suppression articles
-creation article: tonga dia eo @designation
-dans le modal vente: tri article par alphabet
-client independant vente MAG Tous Depot
-cachena ny impression sauf admin
-base de données distant
+ℹ️ Les analyses et constats techniques ont été déplacés vers le tracker interne. Pour les signalements ou le suivi des problèmes, consultez le fichier CONTRIBUTING ou le panneau Issues du projet.

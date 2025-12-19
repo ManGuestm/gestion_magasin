@@ -17,32 +17,38 @@ class NetworkManager {
       // Vérifier si c'est le premier démarrage
       final config = await NetworkConfigService.loadConfig();
       final isFirstRun = await _isFirstRun();
-      
+
       if (isFirstRun) {
         debugPrint('Premier démarrage - Configuration réseau requise');
         return false; // Forcer la configuration
       }
-      
+
       final mode = config['mode'] as NetworkMode;
       debugPrint('Initialisation réseau en mode: ${mode.name}');
 
-      // Initialiser le réseau selon le mode
-      if (mode == NetworkMode.server) {
-        // Mode serveur : initialiser la base locale puis démarrer le serveur
-        await DatabaseService().initialize();
-        final serverStarted = await NetworkConfigService.initializeNetwork();
-        if (!serverStarted) {
-          throw Exception('Impossible de démarrer le serveur');
+      // Utiliser une seule instance DatabaseService
+      final db = DatabaseService();
+      try {
+        if (mode == NetworkMode.server) {
+          db.setNetworkMode(false);
+          await db.initialize();
+          final serverStarted = await NetworkConfigService.initializeNetwork();
+          if (!serverStarted) {
+            throw Exception('Impossible de démarrer le serveur');
+          }
+        } else {
+          db.setNetworkMode(true);
+          final connected = await NetworkConfigService.initializeNetwork();
+          if (!connected) {
+            throw Exception('Impossible de se connecter au serveur ${config['serverIp']}:${config['port']}');
+          }
+          await db.initialize();
         }
-      } else {
-        // Mode client : se connecter au serveur d'abord
-        final connected = await NetworkConfigService.initializeNetwork();
-        if (!connected) {
-          throw Exception('Impossible de se connecter au serveur ${config['serverIp']}:${config['port']}');
-        }
-        // Puis initialiser la base en mode réseau
-        DatabaseService().setNetworkMode(true);
-        await DatabaseService().initialize();
+      } catch (e) {
+        db.setNetworkMode(false);
+        await NetworkConfigService.stopNetwork();
+        debugPrint('Rollback réseau suite à erreur: $e');
+        rethrow;
       }
 
       _isInitialized = true;
