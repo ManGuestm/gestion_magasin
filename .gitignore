@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+# Internal documentation and sensitive reports (do not commit)
+docs/INTERNAL_REPORTS.md
+docs/internal/
+*.internal.md
