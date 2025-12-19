@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+
+import '../network/enhanced_network_client.dart';
 
 enum SyncOperationType { insert, update, delete }
 
@@ -47,6 +50,7 @@ class SyncQueueItem {
 }
 
 /// Service de gestion de la queue de synchronisation pour mode offline
+/// Synchronise avec le serveur via HTTP REST
 class SyncQueueService {
   static final SyncQueueService _instance = SyncQueueService._internal();
   factory SyncQueueService() => _instance;
@@ -54,6 +58,7 @@ class SyncQueueService {
 
   late SharedPreferences _prefs;
   final List<SyncQueueItem> _localQueue = [];
+  final EnhancedNetworkClient _networkClient = EnhancedNetworkClient.instance;
   final int maxRetries = 3;
   bool _initialized = false;
 
@@ -61,6 +66,7 @@ class SyncQueueService {
     if (_initialized) return;
     _prefs = await SharedPreferences.getInstance();
     await _loadQueueFromStorage();
+    await _networkClient.initialize();
     _initialized = true;
   }
 
@@ -123,6 +129,104 @@ class SyncQueueService {
 
   /// Retourne le nombre d'opérations en attente
   int get pendingOperations => _localQueue.where((i) => i.isPending).length;
+
+  /// Synchronise la queue avec le serveur distant
+  /// Envoie les opérations en attente via HTTP REST
+  Future<void> syncWithServer() async {
+    if (!_initialized) {
+      throw StateError('SyncQueueService not initialized');
+    }
+
+    if (!_networkClient.isConnected) {
+      debugPrint('⚠️ Serveur indisponible - queue en attente de synchronisation');
+      return;
+    }
+
+    if (!_networkClient.isAuthenticated) {
+      debugPrint('⚠️ Non authentifié - impossible de synchroniser');
+      return;
+    }
+
+    debugPrint('🔄 Synchronisation en cours ($pendingOperations operations en attente)...');
+
+    final itemsToSync = List<SyncQueueItem>.from(_localQueue.where((i) => i.isPending).toList());
+
+    for (final item in itemsToSync) {
+      try {
+        await _syncItemWithServer(item);
+        await removeOperation(item.id);
+        debugPrint('✅ Opération synchronisée: ${item.id}');
+      } catch (e) {
+        item.retryCount++;
+        if (item.retryCount >= maxRetries) {
+          debugPrint('❌ Opération échouée après $maxRetries tentatives: ${item.id}');
+          await removeOperation(item.id);
+        } else {
+          debugPrint('⚠️ Tentative ${item.retryCount}/$maxRetries pour ${item.id}: $e');
+          await _persistQueueToStorage();
+          // Attendre avant la prochaine tentative (backoff exponentiel)
+          await Future.delayed(Duration(seconds: 2 * item.retryCount));
+        }
+      }
+    }
+
+    debugPrint('✅ Synchronisation terminée');
+  }
+
+  /// Synchronise un item individuel avec le serveur via HTTP
+  Future<void> _syncItemWithServer(SyncQueueItem item) async {
+    try {
+      // Construire la requête SQL
+      final (sql, params) = _buildSyncSQL(item);
+
+      debugPrint('📤 Envoi vers serveur: ${item.operation.name.toUpperCase()} ${item.table}');
+
+      // Envoyer via HTTP REST
+      if (item.operation == SyncOperationType.insert || item.operation == SyncOperationType.update) {
+        // INSERT/UPDATE utilise /api/execute
+        await _networkClient.execute(sql, params);
+      } else if (item.operation == SyncOperationType.delete) {
+        // DELETE utilise /api/execute
+        await _networkClient.execute(sql, params);
+      }
+
+      // Marquer comme synchronisée
+      await markAsSynced(item.id);
+    } catch (e) {
+      debugPrint('❌ Erreur sync: $e');
+      rethrow;
+    }
+  }
+
+  /// Construit la requête SQL pour une opération de queue
+  (String sql, List<dynamic> params) _buildSyncSQL(SyncQueueItem item) {
+    switch (item.operation) {
+      case SyncOperationType.insert:
+        final columns = item.data.keys.join(', ');
+        final placeholders = List.filled(item.data.length, '?').join(', ');
+        final sql = 'INSERT INTO ${item.table} ($columns) VALUES ($placeholders)';
+        final params = item.data.values.toList();
+        return (sql, params);
+
+      case SyncOperationType.update:
+        final sets = item.data.entries
+            .where((e) => e.key != 'id' && e.key != 'rsoc')
+            .map((e) => '${e.key} = ?')
+            .join(', ');
+        // Utiliser 'rsoc' comme primary key (ou 'id' si disponible)
+        final primaryKey = item.data.containsKey('rsoc') ? 'rsoc' : 'id';
+        final sql = 'UPDATE ${item.table} SET $sets WHERE $primaryKey = ?';
+        final params = item.data.entries.where((e) => e.key != primaryKey).map((e) => e.value).toList();
+        params.add(item.data[primaryKey]);
+        return (sql, params);
+
+      case SyncOperationType.delete:
+        final primaryKey = item.data.containsKey('rsoc') ? 'rsoc' : 'id';
+        final sql = 'DELETE FROM ${item.table} WHERE $primaryKey = ?';
+        final params = [item.data[primaryKey]];
+        return (sql, params);
+    }
+  }
 
   /// Persiste la queue dans le stockage local
   Future<void> _persistQueueToStorage() async {

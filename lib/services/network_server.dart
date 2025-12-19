@@ -5,11 +5,13 @@ import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 
 import '../database/database_service.dart';
+import 'network/http_server.dart';
 
 class NetworkServer {
   static NetworkServer? _instance;
   HttpServer? _server;
   final DatabaseService _databaseService = DatabaseService();
+  final HTTPServer _httpServer = HTTPServer();
   final Set<WebSocket> _clients = {};
   final Map<WebSocket, Map<String, dynamic>> _clientsInfo = {};
   bool _isRunning = false;
@@ -19,11 +21,11 @@ class NetworkServer {
 
   bool get isRunning => _isRunning;
   int get connectedClientsCount => _clients.length;
-  
+
   List<Map<String, dynamic>> getConnectedClientsInfo() {
     final clientsInfo = <Map<String, dynamic>>[];
     int index = 1;
-    
+
     for (final client in _clients) {
       final info = _clientsInfo[client];
       if (info != null) {
@@ -37,41 +39,43 @@ class NetworkServer {
         index++;
       }
     }
-    
+
     return clientsInfo;
   }
 
   Future<bool> start({int port = 8080}) async {
     try {
-      // S'assurer que le mode réseau est désactivé pour le serveur
+      // S'assurer que la base est initialisée en mode LOCAL (serveur)
       await _databaseService.initializeLocal();
-      
-      _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
+
+      // Démarrer le serveur HTTP REST
+      final httpStarted = await _httpServer.start(port: port);
+      if (!httpStarted) {
+        throw Exception('Failed to start HTTP server');
+      }
+
       _isRunning = true;
-
-      debugPrint('Serveur démarré sur port $port');
-
-      _server!.listen((HttpRequest request) async {
-        await _handleRequest(request);
-      });
+      debugPrint('✅ Serveur démarré sur port $port');
 
       return true;
     } catch (e) {
-      debugPrint('Erreur démarrage serveur: $e');
+      debugPrint('❌ Erreur démarrage serveur: $e');
+      _isRunning = false;
       return false;
     }
   }
 
   Future<void> stop() async {
+    await _httpServer.stop();
     await _server?.close();
     _server = null;
     _isRunning = false;
     _clients.clear();
     _clientsInfo.clear();
-    debugPrint('Serveur arrêté');
+    debugPrint('🛑 Serveur arrêté');
   }
 
-  Future<void> _handleRequest(HttpRequest request) async {
+  Future<void> handleRequest(HttpRequest request) async {
     try {
       // CORS headers
       request.response.headers.add('Access-Control-Allow-Origin', '*');
@@ -98,7 +102,7 @@ class NetworkServer {
           if (method == 'POST') {
             final body = await utf8.decoder.bind(request).join();
             final data = jsonDecode(body);
-            response = await _executeQuery(data);
+            response = await executeQuery(data);
           } else {
             response = {'error': 'Method not allowed'};
             request.response.statusCode = 405;
@@ -106,7 +110,7 @@ class NetworkServer {
           break;
 
         case '/ws':
-          await _handleWebSocket(request);
+          await handleWebSocket(request);
           return;
 
         default:
@@ -125,24 +129,20 @@ class NetworkServer {
     }
   }
 
-  Future<void> _handleWebSocket(HttpRequest request) async {
+  Future<void> handleWebSocket(HttpRequest request) async {
     final socket = await WebSocketTransformer.upgrade(request);
     final clientIp = request.connectionInfo?.remoteAddress.address ?? 'Inconnu';
-    
+
     _clients.add(socket);
-    _clientsInfo[socket] = {
-      'ip': clientIp,
-      'connexion': DateTime.now(),
-      'nom': 'Client ${_clients.length}',
-    };
-    
+    _clientsInfo[socket] = {'ip': clientIp, 'connexion': DateTime.now(), 'nom': 'Client ${_clients.length}'};
+
     debugPrint('Client WebSocket connecté depuis $clientIp (${_clients.length} clients)');
 
     socket.listen(
       (message) async {
         try {
           final data = jsonDecode(message);
-          final response = await _executeQuery(data);
+          final response = await executeQuery(data);
           socket.add(jsonEncode(response));
         } catch (e) {
           socket.add(jsonEncode({'error': e.toString()}));
@@ -161,7 +161,7 @@ class NetworkServer {
     );
   }
 
-  Future<Map<String, dynamic>> _executeQuery(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> executeQuery(Map<String, dynamic> data) async {
     try {
       final type = data['type'] as String;
       final query = data['query'] as String?;
@@ -174,11 +174,10 @@ class NetworkServer {
 
       switch (type) {
         case 'select':
-          final result = await _databaseService.database.customSelect(query!, variables: params?.map((p) => Variable(p)).toList() ?? []).get();
-          return {
-            'success': true,
-            'data': result.map((row) => row.data).toList(),
-          };
+          final result = await _databaseService.database
+              .customSelect(query!, variables: params?.map((p) => Variable(p)).toList() ?? [])
+              .get();
+          return {'success': true, 'data': result.map((row) => row.data).toList()};
 
         case 'auth':
           final username = data['username'] as String;
@@ -186,32 +185,42 @@ class NetworkServer {
           final user = await _databaseService.database.getUserByCredentials(username, password);
           return {
             'success': true,
-            'data': user != null ? [{
-              'id': user.id,
-              'nom': user.nom,
-              'username': user.username,
-              'motDePasse': user.motDePasse,
-              'role': user.role,
-              'actif': user.actif ? 1 : 0,
-              'dateCreation': user.dateCreation.toIso8601String(),
-            }] : [],
+            'data': user != null
+                ? [
+                    {
+                      'id': user.id,
+                      'nom': user.nom,
+                      'username': user.username,
+                      'motDePasse': user.motDePasse,
+                      'role': user.role,
+                      'actif': user.actif ? 1 : 0,
+                      'dateCreation': user.dateCreation.toIso8601String(),
+                    },
+                  ]
+                : [],
           };
 
         case 'insert':
         case 'update':
         case 'delete':
-          await _databaseService.database.customStatement(query!, params?.map((p) => Variable(p)).toList() ?? []);
-          _broadcastChange({'type': type, 'query': query, 'params': params});
+          await _databaseService.database.customStatement(
+            query!,
+            params?.map((p) => Variable(p)).toList() ?? [],
+          );
+          broadcastChange({'type': type, 'query': query, 'params': params});
           return {'success': true};
 
         case 'transaction':
           final queries = data['queries'] as List;
           await _databaseService.database.transaction(() async {
             for (final q in queries) {
-              await _databaseService.database.customStatement(q['query'], q['params']?.map((p) => Variable(p)).toList() ?? []);
+              await _databaseService.database.customStatement(
+                q['query'],
+                q['params']?.map((p) => Variable(p)).toList() ?? [],
+              );
             }
           });
-          _broadcastChange({'type': 'transaction', 'queries': queries});
+          broadcastChange({'type': 'transaction', 'queries': queries});
           return {'success': true};
 
         default:
@@ -222,7 +231,7 @@ class NetworkServer {
     }
   }
 
-  void _broadcastChange(Map<String, dynamic> change) {
+  void broadcastChange(Map<String, dynamic> change) {
     final message = jsonEncode({
       'type': 'data_change',
       'change': change,
