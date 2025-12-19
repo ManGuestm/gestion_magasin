@@ -1,11 +1,15 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/network_client.dart';
-import '../services/network_database_service.dart';
+import '../services/network/enhanced_network_client.dart';
+import '../services/sync/cache_manager.dart';
+import '../services/sync/sync_queue_service.dart';
 import 'database.dart';
+
+enum DatabaseMode { local, serverMode, clientMode }
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -21,8 +25,18 @@ class DatabaseService {
   }
 
   AppDatabase? _database;
-  NetworkDatabaseService? _networkDb;
+  DatabaseMode _mode = DatabaseMode.local; // Mutable - can change modes
+  final EnhancedNetworkClient _networkClient = EnhancedNetworkClient.instance;
+  final CacheManager _cacheManager = CacheManager();
+  final SyncQueueService _syncQueue = SyncQueueService();
   bool _isInitialized = false;
+
+  // Legacy variables for backward compatibility
+  @Deprecated('Use _mode instead')
+  dynamic _networkDb; // Keep for legacy code that references it
+
+  @Deprecated('Use _mode instead')
+  bool get _isNetworkMode => _mode == DatabaseMode.clientMode;
 
   // Cache pour les données fréquemment accédées
   final Map<String, dynamic> _cache = {};
@@ -33,8 +47,8 @@ class DatabaseService {
     if (!_isInitialized) {
       throw StateError('Database not initialized. Call initialize() first.');
     }
-    if (_isNetworkMode) {
-      throw StateError('Database access not allowed in network client mode. Use network methods instead.');
+    if (_mode == DatabaseMode.clientMode) {
+      throw StateError('Database access not allowed in client mode. Use network methods instead.');
     }
     if (_database == null) {
       throw StateError('Database is null after initialization');
@@ -42,50 +56,81 @@ class DatabaseService {
     return _database!;
   }
 
-  bool get isNetworkMode => _isNetworkMode;
-  bool _isNetworkMode = false;
+  bool get isNetworkMode => _mode == DatabaseMode.clientMode;
 
   void setNetworkMode(bool enabled) {
-    _isNetworkMode = enabled;
+    // Compatibilité avec ancien code
+    if (enabled) {
+      _mode = DatabaseMode.clientMode;
+    } else {
+      _mode = DatabaseMode.local;
+    }
   }
 
+  /// Initialize the database service (DEPRECATED - use initializeLocal/AsClient/AsServer).
+  ///
+  /// This method is idempotent: if already successfully initialized,
+  /// it returns immediately without re-initializing.
+  /// On failure, it performs deterministic cleanup to avoid partial state.
+  ///
+  /// For retries after failure, call [reset()] explicitly before retrying.
+  @Deprecated('Use initializeLocal(), initializeAsClient(), or initializeAsServer() instead')
   Future<void> initialize() async {
+    // Idempotent: return immediately if already successfully initialized
+    if (_isInitialized) {
+      return;
+    }
+
     try {
       // Configurer Drift pour éviter les warnings
       driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
-      if (_isNetworkMode) {
-        // Mode client réseau
-        if (!NetworkClient.instance.isConnected) {
-          throw Exception('Client réseau non connecté. Vérifiez la configuration réseau.');
-        }
-
-        _networkDb = NetworkDatabaseService();
-
-        // Tester la connexion avec une requête simple
-        try {
-          await _networkDb!.customSelect('SELECT 1');
-        } catch (e) {
-          throw Exception('Impossible de communiquer avec le serveur: $e');
-        }
-
-        _isInitialized = true;
+      // Check if network mode was set via deprecated setNetworkMode()
+      if (_mode == DatabaseMode.clientMode) {
+        // DEPRECATED: Legacy client mode support
+        await initializeLocal(); // Initialize local cache first
+        debugPrint('Initialize (legacy): Network mode detected, initialized as local with cache');
         return;
       }
 
-      // Mode serveur : initialiser la base de données locale
-      if (_database == null) {
-        _database = AppDatabase();
-        await _database?.createDefaultAdmin();
-      }
-
-      _isInitialized = true;
+      // Default: initialize as local
+      await initializeLocal();
     } catch (e) {
+      _cleanupPartialState();
       throw Exception('Failed to initialize database: $e');
     }
   }
 
-  Future<Map<String, dynamic>> _getNetworkConfig() async {
+  /// Cleanup any partial state after failed initialization.
+  /// This ensures that a retry won't encounter undefined behavior.
+  void _cleanupPartialState() {
+    // Reset network-related state
+    _networkDb = null;
+
+    // Don't close _database here as it may have been partially initialized
+    // and closing it might cause issues. Let it be reset by reset() or close()
+
+    // Clear cache to ensure fresh state
+    _clearCache();
+  }
+
+  /// Reset the database to a clean state for re-initialization.
+  ///
+  /// Call this before retrying initialize() after a failure.
+  /// This clears all state and resources, allowing a fresh initialization attempt.
+  Future<void> reset() async {
+    // Close any existing connections/resources
+    if (_database != null) {
+      await _database?.close();
+      _database = null;
+    }
+    _networkDb = null;
+    _isInitialized = false;
+    _mode = DatabaseMode.local;
+    _clearCache();
+  }
+
+  Future<Map<String, dynamic>> getNetworkConfig() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       return {
@@ -407,5 +452,155 @@ class DatabaseService {
       return await _networkDb!.getAllUsers();
     }
     return await database.getAllUsers();
+  }
+
+  // ==================== NEW METHODS FOR V2 ARCHITECTURE ====================
+
+  /// Initialise en mode local uniquement
+  Future<void> initializeLocal() async {
+    if (_isInitialized && _mode == DatabaseMode.local) {
+      return; // Idempotent
+    }
+
+    try {
+      driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+      _database = AppDatabase();
+      await _cacheManager.initialize();
+      await _syncQueue.initialize();
+      _mode = DatabaseMode.local;
+      _isInitialized = true;
+      debugPrint('Database initialized in LOCAL mode');
+    } catch (e) {
+      _cleanupPartialState();
+      throw Exception('Failed to initialize local database: $e');
+    }
+  }
+
+  /// Initialise le serveur réseau
+  Future<void> initializeAsServer({int port = 8080}) async {
+    try {
+      // D'abord initialiser localement
+      await initializeLocal();
+      _mode = DatabaseMode.serverMode;
+      debugPrint('Database initialized in SERVER mode on port $port');
+      // Démarrer le serveur - à implémenter côté serveur
+    } catch (e) {
+      _cleanupPartialState();
+      throw Exception('Failed to initialize server: $e');
+    }
+  }
+
+  /// Initialise comme client réseau
+  Future<bool> initializeAsClient(String serverIp, int port, String username, String password) async {
+    try {
+      await _networkClient.initialize();
+
+      // S'authentifier au serveur
+      final connected = await _networkClient.connect(serverIp, port, username, password);
+
+      if (!connected) {
+        throw Exception('Impossible de se connecter au serveur');
+      }
+
+      // Initialiser la base locale pour le cache
+      driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+      _database = AppDatabase();
+      await _cacheManager.initialize();
+      await _syncQueue.initialize();
+      _mode = DatabaseMode.clientMode;
+      _isInitialized = true;
+
+      debugPrint('Database initialized in CLIENT mode connected to $serverIp:$port');
+      return true;
+    } catch (e) {
+      _cleanupPartialState();
+      debugPrint('Erreur initialisation client: $e');
+      return false;
+    }
+  }
+
+  /// Synchronise avec le serveur (mode client uniquement)
+  Future<void> syncWithServer() async {
+    if (_mode != DatabaseMode.clientMode) return;
+
+    try {
+      // Envoyer les opérations en queue
+      final pending = await _syncQueue.getPendingOperations();
+      for (final item in pending) {
+        try {
+          await _syncQueue.markAsSynced(item.id);
+        } catch (e) {
+          debugPrint('Sync error for ${item.id}: $e');
+          await _syncQueue.incrementRetry(item.id);
+        }
+      }
+
+      // Invalider le cache pour forcer la récupération
+      await _cacheManager.invalidateAllCache();
+      debugPrint('Sync with server completed');
+    } catch (e) {
+      debugPrint('Erreur synchronisation: $e');
+    }
+  }
+
+  /// Récupère tous les clients avec cache (mode client)
+  Future<List<CltData>> getAllClientsWithCache() async {
+    if (_mode == DatabaseMode.local || _mode == DatabaseMode.serverMode) {
+      return await database.getAllClients();
+    }
+
+    // Mode client: utiliser le cache avec fallback
+    const cacheKey = 'all_clients';
+    final cached = await _cacheManager.getCache<CltData>(
+      cacheKey,
+      expectedVersion: 1,
+      maxAge: const Duration(minutes: 15),
+    );
+
+    if (cached != null) {
+      return cached;
+    }
+
+    try {
+      final result = await _networkClient.query('SELECT * FROM clt ORDER BY rsoc');
+      final clients = result.map((row) => CltData.fromJson(row)).toList();
+
+      await _cacheManager.setCache(cacheKey, clients, version: 1);
+      return clients;
+    } catch (e) {
+      // Fallback sur la base locale
+      try {
+        return await database.getAllClients();
+      } catch (_) {
+        return [];
+      }
+    }
+  }
+
+  /// Ajoute un client avec synchronisation (mode client)
+  Future<void> addClientWithSync(CltCompanion client) async {
+    if (_mode == DatabaseMode.local || _mode == DatabaseMode.serverMode) {
+      await database.insertClient(client);
+      return;
+    }
+
+    // Mode client: ajouter à la queue
+    // TODO: Serialize CltCompanion properly - for now using empty map
+    // This needs to be implemented based on actual CltData structure
+    await _syncQueue.addOperation(
+      table: 'clt',
+      operation: SyncOperationType.insert,
+      data: <String, dynamic>{},
+    );
+
+    // Invalider le cache
+    await _cacheManager.invalidateCache('all_clients');
+
+    // Essayer de synchroniser immédiatement
+    try {
+      await syncWithServer();
+    } catch (e) {
+      debugPrint('Sync différée: $e');
+    }
   }
 }

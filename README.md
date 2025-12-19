@@ -121,4 +121,4 @@ Propriétaire - Tous droits réservés
 
 Pour toute assistance technique, contactez l'équipe de développement.
 
-ℹ️ Les analyses et constats techniques ont été déplacés vers le tracker interne. Pour les signalements ou le suivi des problèmes, consultez le fichier CONTRIBUTING ou le panneau Issues du projet.
+ℹ️ Les analyses et constats techniques ont été déplacés vers le tracker interne. Pour les signalements ou le suivi des problèmes, consultez le fichier CONTRIBUTING ou le panneau Issues du projet

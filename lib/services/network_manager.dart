@@ -12,6 +12,9 @@ class NetworkManager {
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
 
+  // Reuse the singleton DatabaseService instance to avoid resource leaks on retries
+  late final DatabaseService _db = DatabaseService();
+
   Future<bool> initialize() async {
     try {
       // Vérifier si c'est le premier démarrage
@@ -26,27 +29,30 @@ class NetworkManager {
       final mode = config['mode'] as NetworkMode;
       debugPrint('Initialisation réseau en mode: ${mode.name}');
 
-      // Utiliser une seule instance DatabaseService
-      final db = DatabaseService();
+      // Réutiliser l'instance singleton DatabaseService pour éviter les fuites de ressources
       try {
         if (mode == NetworkMode.server) {
-          db.setNetworkMode(false);
-          await db.initialize();
+          _db.setNetworkMode(false);
+          await _db.initialize();
           final serverStarted = await NetworkConfigService.initializeNetwork();
           if (!serverStarted) {
             throw Exception('Impossible de démarrer le serveur');
           }
         } else {
-          db.setNetworkMode(true);
+          _db.setNetworkMode(true);
           final connected = await NetworkConfigService.initializeNetwork();
           if (!connected) {
             throw Exception('Impossible de se connecter au serveur ${config['serverIp']}:${config['port']}');
           }
-          await db.initialize();
+          await _db.initialize();
         }
       } catch (e) {
-        db.setNetworkMode(false);
+        // Rollback: disable network mode and disconnect
+        _db.setNetworkMode(false);
         await NetworkConfigService.stopNetwork();
+
+        // Reset DatabaseService to avoid partial state for retry attempts
+        await _db.reset();
         debugPrint('Rollback réseau suite à erreur: $e');
         rethrow;
       }
