@@ -398,8 +398,7 @@ await enhancedNetworkClient.execute(
 ### Validation des tokens
 
 - Tokens valides **1 heure**
-- Sessions limitées à **100 concurrent**
-- Tokens automatiquement nettoyés après expiration
+- Sessions limitées à **100 sessions concurrentes**- Tokens automatiquement nettoyés après expiration
 - Pas de stockage du mot de passe en clair (demo only)
 
 ### Sécurité SQL

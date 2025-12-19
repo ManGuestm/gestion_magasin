@@ -21,13 +21,6 @@ class HTTPServer {
   static const Duration _sessionTimeout = Duration(hours: 1);
   static const int _maxSessions = 100;
 
-  // Credentials demo (EN PROD: utiliser une vraie base d'authentification)
-  static const Map<String, String> _demoUsers = {
-    'admin': 'admin123',
-    'user': 'user123',
-    'gestionnaire': 'pass123',
-  };
-
   /// Démarrer le serveur HTTP
   Future<bool> start({int port = 8080}) async {
     try {
@@ -167,7 +160,7 @@ class HTTPServer {
       }
 
       // Vérifier credentials
-      if (!_validateCredentials(username, password)) {
+      if (!await _validateCredentials(username, password)) {
         debugPrint('❌ Authentification échouée: $username');
         return _sendError(request, 401, 'Invalid credentials');
       }
@@ -363,14 +356,14 @@ class HTTPServer {
     return session;
   }
 
-  bool _validateCredentials(String username, String password) {
-    // EN PROD: vérifier contre la base de données des utilisateurs
-    final hashedPassword = _demoUsers[username];
-    if (hashedPassword == null) {
+  Future<bool> _validateCredentials(String username, String password) async {
+    try {
+      final user = await _db.getUserByCredentials(username, password);
+      return user != null && user.actif;
+    } catch (e) {
+      debugPrint('❌ Erreur validation credentials: $e');
       return false;
     }
-    // EN PROD: utiliser bcrypt ou argon2 pour vérifier le hash
-    return hashedPassword == password;
   }
 
   String _generateToken() {
