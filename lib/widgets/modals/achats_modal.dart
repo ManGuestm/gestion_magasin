@@ -2113,7 +2113,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
       // Ouvrir la base externe
       final externalDbService = DatabaseService.fromPath(filePath);
-      await externalDbService.initialize();
+      await externalDbService.initializeLocal();
       debugPrint('Base externe initialisée avec succès');
       // Vérifier les tables disponibles dans la base externe
       try {

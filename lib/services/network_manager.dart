@@ -29,30 +29,40 @@ class NetworkManager {
       final mode = config['mode'] as NetworkMode;
       debugPrint('Initialisation réseau en mode: ${mode.name}');
 
+      // Track which resources were successfully initialized for proper cleanup
+      bool dbInitialized = false;
+      bool networkInitialized = false;
+
       // Réutiliser l'instance singleton DatabaseService pour éviter les fuites de ressources
       try {
         if (mode == NetworkMode.server) {
-          _db.setNetworkMode(false);
-          await _db.initialize();
+          await _db.initializeLocal();
+          dbInitialized = true; // ✅ Database successfully initialized
+
           final serverStarted = await NetworkConfigService.initializeNetwork();
           if (!serverStarted) {
             throw Exception('Impossible de démarrer le serveur');
           }
+          networkInitialized = true; // ✅ Network successfully initialized
         } else {
-          _db.setNetworkMode(true);
           final connected = await NetworkConfigService.initializeNetwork();
           if (!connected) {
             throw Exception('Impossible de se connecter au serveur ${config['serverIp']}:${config['port']}');
           }
-          await _db.initialize();
+          networkInitialized = true; // ✅ Network successfully initialized
+
+          await _db.initializeLocal();
+          dbInitialized = true; // ✅ Database successfully initialized
         }
       } catch (e) {
-        // Rollback: disable network mode and disconnect
-        _db.setNetworkMode(false);
-        await NetworkConfigService.stopNetwork();
+        // Rollback: only clean up resources that were actually initialized
+        if (networkInitialized) {
+          await NetworkConfigService.stopNetwork();
+        }
+        if (dbInitialized) {
+          await _db.reset();
+        }
 
-        // Reset DatabaseService to avoid partial state for retry attempts
-        await _db.reset();
         debugPrint('Rollback réseau suite à erreur: $e');
         rethrow;
       }

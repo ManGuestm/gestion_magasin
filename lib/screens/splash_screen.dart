@@ -48,7 +48,7 @@ class _SplashScreenState extends State<SplashScreen> {
       
       // Phase 1: Initialisation critique
       // Initialiser le service de base de données
-      await DatabaseService().initialize();
+      await DatabaseService().initializeLocal();
       
       // Initialiser le service d'authentification
       await AuthService().initialize();

@@ -31,13 +31,6 @@ class DatabaseService {
   final SyncQueueService _syncQueue = SyncQueueService();
   bool _isInitialized = false;
 
-  // Legacy variables for backward compatibility
-  @Deprecated('Use _mode instead')
-  dynamic _networkDb; // Keep for legacy code that references it
-
-  @Deprecated('Use _mode instead')
-  bool get _isNetworkMode => _mode == DatabaseMode.clientMode;
-
   // Cache pour les données fréquemment accédées
   final Map<String, dynamic> _cache = {};
   final Map<String, DateTime> _cacheTimestamps = {};
@@ -58,6 +51,7 @@ class DatabaseService {
 
   bool get isNetworkMode => _mode == DatabaseMode.clientMode;
 
+  @Deprecated('Use initializeAsClient() instead')
   void setNetworkMode(bool enabled) {
     // Compatibilité avec ancien code
     if (enabled) {
@@ -104,9 +98,6 @@ class DatabaseService {
   /// Cleanup any partial state after failed initialization.
   /// This ensures that a retry won't encounter undefined behavior.
   void _cleanupPartialState() {
-    // Reset network-related state
-    _networkDb = null;
-
     // Don't close _database here as it may have been partially initialized
     // and closing it might cause issues. Let it be reset by reset() or close()
 
@@ -124,7 +115,6 @@ class DatabaseService {
       await _database?.close();
       _database = null;
     }
-    _networkDb = null;
     _isInitialized = false;
     _mode = DatabaseMode.local;
     _clearCache();
@@ -146,6 +136,7 @@ class DatabaseService {
   Future<void> close() async {
     await _database?.close();
     _database = null;
+    await _networkClient.disconnect();
     _isInitialized = false;
     _clearCache();
   }
@@ -227,143 +218,84 @@ class DatabaseService {
 
   // Méthodes directes sans cache
   Future<List<Article>> getAllArticles() async {
-    if (_isNetworkMode && _networkDb != null) {
-      final articles = await _networkDb!.getAllArticles();
-      articles.sort((a, b) => a.designation.compareTo(b.designation));
-      return articles;
-    }
     final articles = await database.getAllArticles();
     articles.sort((a, b) => a.designation.compareTo(b.designation));
     return articles;
   }
 
   Future<List<Frn>> getAllFournisseurs() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getAllFournisseurs();
-    }
     return await database.getAllFournisseurs();
   }
 
   Future<List<CltData>> getAllClients() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getAllClients();
-    }
     return await database.getAllClients();
   }
 
   Future<List<Depot>> getAllDepots() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getAllDepots();
-    }
     return await database.getAllDepots();
   }
 
   Future<List<SocData>> getAllSoc() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getAllSoc();
-    }
     return await database.getAllSoc();
   }
 
-  // Authentification via réseau ou local
+  // Authentification
   Future<User?> authenticateUser(String username, String password) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getUserByCredentials(username, password);
-    }
     return await database.getUserByCredentials(username, password);
   }
 
   Future<List<String>> getAllModesPaiement() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getAllModesPaiement();
-    }
     final result = await database.customSelect('SELECT mp FROM mp ORDER BY mp').get();
     return result.map((row) => row.read<String>('mp')).toList();
   }
 
   Future<int> getTotalClients() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getTotalClients();
-    }
     return await database.getTotalClients();
   }
 
   Future<int> getTotalArticles() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getTotalArticles();
-    }
     return await database.getTotalArticles();
   }
 
   Future<double> getTotalStockValue() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getTotalStockValue();
-    }
     return await database.getTotalStockValue();
   }
 
   Future<double> getTotalVentes() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getTotalVentes();
-    }
     return await database.getTotalVentes();
   }
 
-  // Méthodes supplémentaires pour le mode réseau
+  // Méthodes supplémentaires
   Future<List<Article>> getActiveArticles() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getActiveArticles();
-    }
     return await database.getActiveArticles();
   }
 
   Future<List<CltData>> getActiveClients() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getActiveClients();
-    }
     return await database.getActiveClients();
   }
 
   Future<List<Frn>> getActiveFournisseurs() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getActiveFournisseurs();
-    }
     return await database.getActiveFournisseurs();
   }
 
   Future<Article?> getArticleByDesignation(String designation) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getArticleByDesignation(designation);
-    }
     return await database.getArticleByDesignation(designation);
   }
 
   Future<bool> userExists(String username) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.userExists(username);
-    }
     return await database.userExists(username);
   }
 
   Future<User?> getUserByCredentials(String username, String password) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getUserByCredentials(username, password);
-    }
     return await database.getUserByCredentials(username, password);
   }
 
   Future<double> getVentesToday() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getVentesToday();
-    }
     return await database.getVentesToday();
   }
 
-  // Méthodes de requête personnalisées pour le mode réseau
+  // Méthodes de requête personnalisées
   Future<List<Map<String, dynamic>>> customSelect(String sql, [List<dynamic>? params]) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.customSelect(sql, params?.map((p) => Variable(p)).toList());
-    }
     final result = await database
         .customSelect(sql, variables: params?.map((p) => Variable(p)).toList() ?? [])
         .get();
@@ -371,16 +303,10 @@ class DatabaseService {
   }
 
   Future<void> customStatement(String sql, [List<dynamic>? params]) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.customStatement(sql, params?.map((p) => Variable(p)).toList());
-    }
     return await database.customStatement(sql, params?.map((p) => Variable(p)).toList() ?? []);
   }
 
   Future<void> transaction(Future<void> Function() action) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.transaction(action);
-    }
     return await database.transaction(action);
   }
 
@@ -401,56 +327,38 @@ class DatabaseService {
   Future<void> closeDatabase() async {
     await _database?.close();
     _database = null;
-    _networkDb = null;
+    await _networkClient.disconnect();
     _isInitialized = false;
     _clearCache();
   }
 
   Future<void> reinitializeDatabase() async {
     await closeDatabase();
-    await initialize();
+    await initializeLocal();
   }
 
   // Méthodes supplémentaires pour compatibilité complète
   Future<CltData?> getClientByRsoc(String rsoc) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getClientByRsoc(rsoc);
-    }
     return await database.getClientByRsoc(rsoc);
   }
 
   Future<Frn?> getFournisseurByRsoc(String rsoc) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getFournisseurByRsoc(rsoc);
-    }
     return await database.getFournisseurByRsoc(rsoc);
   }
 
   Future<Depot?> getDepotByName(String name) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getDepotByName(name);
-    }
     return await database.getDepotByName(name);
   }
 
   Future<User?> getUserByUsername(String username) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getUserByUsername(username);
-    }
     return await database.getUserByUsername(username);
   }
 
   Future<User?> getUserById(String id) async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getUserById(id);
-    }
     return await database.getUserById(id);
   }
 
   Future<List<User>> getAllUsers() async {
-    if (_isNetworkMode && _networkDb != null) {
-      return await _networkDb!.getAllUsers();
-    }
     return await database.getAllUsers();
   }
 
@@ -584,14 +492,10 @@ class DatabaseService {
       return;
     }
 
-    // Mode client: ajouter à la queue
-    // TODO: Serialize CltCompanion properly - for now using empty map
-    // This needs to be implemented based on actual CltData structure
-    await _syncQueue.addOperation(
-      table: 'clt',
-      operation: SyncOperationType.insert,
-      data: <String, dynamic>{},
-    );
+    // Mode client: ajouter à la queue avec sérialisation
+    final data = _serializeCltCompanion(client);
+
+    await _syncQueue.addOperation(table: 'clt', operation: SyncOperationType.insert, data: data);
 
     // Invalider le cache
     await _cacheManager.invalidateCache('all_clients');
@@ -602,5 +506,33 @@ class DatabaseService {
     } catch (e) {
       debugPrint('Sync différée: $e');
     }
+  }
+
+  /// Sérialise un CltCompanion en Map pour la queue
+  Map<String, dynamic> _serializeCltCompanion(CltCompanion companion) {
+    return {
+      'rsoc': companion.rsoc.value,
+      if (companion.adr.present) 'adr': companion.adr.value,
+      if (companion.capital.present) 'capital': companion.capital.value,
+      if (companion.rcs.present) 'rcs': companion.rcs.value,
+      if (companion.nif.present) 'nif': companion.nif.value,
+      if (companion.stat.present) 'stat': companion.stat.value,
+      if (companion.tel.present) 'tel': companion.tel.value,
+      if (companion.port.present) 'port': companion.port.value,
+      if (companion.email.present) 'email': companion.email.value,
+      if (companion.site.present) 'site': companion.site.value,
+      if (companion.fax.present) 'fax': companion.fax.value,
+      if (companion.telex.present) 'telex': companion.telex.value,
+      if (companion.soldes.present) 'soldes': companion.soldes.value,
+      if (companion.datedernop.present) 'datedernop': companion.datedernop.value?.toIso8601String(),
+      if (companion.delai.present) 'delai': companion.delai.value,
+      if (companion.soldesa.present) 'soldesa': companion.soldesa.value,
+      if (companion.action.present) 'action': companion.action.value,
+      if (companion.commercial.present) 'commercial': companion.commercial.value,
+      if (companion.plafon.present) 'plafon': companion.plafon.value,
+      if (companion.taux.present) 'taux': companion.taux.value,
+      if (companion.categorie.present) 'categorie': companion.categorie.value,
+      if (companion.plafonbl.present) 'plafonbl': companion.plafonbl.value,
+    };
   }
 }

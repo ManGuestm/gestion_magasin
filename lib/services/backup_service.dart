@@ -87,7 +87,7 @@ class BackupService {
       await DatabaseService().close();
       
       await backupFile.copy(dbPath);
-      await DatabaseService().initialize();
+      await DatabaseService().initializeLocal();
 
       await AuditService().log(
         userId: 'system',

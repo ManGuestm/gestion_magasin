@@ -44,8 +44,7 @@ class NetworkServer {
   Future<bool> start({int port = 8080}) async {
     try {
       // S'assurer que le mode réseau est désactivé pour le serveur
-      _databaseService.setNetworkMode(false);
-      await _databaseService.initialize();
+      await _databaseService.initializeLocal();
       
       _server = await HttpServer.bind(InternetAddress.anyIPv4, port);
       _isRunning = true;

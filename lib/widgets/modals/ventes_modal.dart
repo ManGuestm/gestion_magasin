@@ -1669,7 +1669,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
       // Ouvrir la base externe
       final externalDbService = DatabaseService.fromPath(filePath);
-      await externalDbService.initialize();
+      await externalDbService.initializeLocal();
 
       // Récupérer les ventes de la base externe
       final ventesExternes = await externalDbService.database.select(externalDbService.database.ventes).get();

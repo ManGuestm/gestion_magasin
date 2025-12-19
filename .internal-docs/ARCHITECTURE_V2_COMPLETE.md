@@ -184,20 +184,20 @@ if (success) {
 
 #### Nouvelles Méthodes
 
-| Méthode | Mode | Description |
-|---------|------|-------------|
-| `initializeLocal()` | Local | Base SQLite locale uniquement |
-| `initializeAsServer(port)` | Server | Serveur réseau |
-| `initializeAsClient(ip, port, user, pass)` | Client | Client avec cache + sync |
-| `syncWithServer()` | Client | Synchronisation offline queue |
-| `getAllClientsWithCache()` | Client | Récup avec cache + fallback local |
-| `addClientWithSync()` | Client | Ajout en queue si offline |
+| Méthode                                       | Mode   | Description                          |
+|-----------------------------------------------|--------|--------------------------------------|
+| `initializeLocal()`                           | Local  | Base SQLite locale uniquement        |
+| `initializeAsServer(port)`                    | Server | Serveur réseau                       |
+| `initializeAsClient(ip, port, user, pass)`    | Client | Client avec cache + sync             |
+| `syncWithServer()`                            | Client | Synchronisation offline queue        |
+| `getAllClientsWithCache()`                    | Client | Récup avec cache + fallback local    |
+| `addClientWithSync()`                         | Client | Ajout en queue si offline            |
 
 ---
 
 ## 🏗️ Architecture Vue d'Ensemble
 
-```
+```text
 ┌─────────────────────────────────────────────┐
 │       DatabaseService (SINGLETON)           │
 │   Manages 3 mutually exclusive modes:        │
@@ -236,15 +236,15 @@ if (success) {
 
 ## ✨ Avantages de la Nouvelle Architecture
 
-| Problème Ancien | Solution |
-|-----------------|----------|
-| ❌ Pas de cache | ✅ CacheManager avec TTL + versioning |
-| ❌ Offline perdu | ✅ SyncQueueService persista |
-| ❌ Pas d'auth | ✅ JWT Token service avec auto-refresh |
-| ❌ Ressources leak | ✅ Singleton + idempotent initialize |
-| ❌ Mode ambigu | ✅ 3 modes mutuellement exclusifs |
-| ❌ Pas de fallback | ✅ Cache + DB local comme fallback |
-| ❌ Token expiration | ✅ Auto-refresh 5 min avant expiry |
+| Problème Ancien      | Solution                                 |
+|----------------------|------------------------------------------|
+| ❌ Pas de cache      | ✅ CacheManager avec TTL + versioning    |
+| ❌ Offline perdu     | ✅ SyncQueueService persista             |
+| ❌ Pas d'auth        | ✅ JWT Token service avec auto-refresh   |
+| ❌ Ressources leak   | ✅ Singleton + idempotent initialize     |
+| ❌ Mode ambigu       | ✅ 3 modes mutuellement exclusifs        |
+| ❌ Pas de fallback   | ✅ Cache + DB local comme fallback       |
+| ❌ Token expiration  | ✅ Auto-refresh 5 min avant expiry       |
 
 ---
 
@@ -287,7 +287,7 @@ if (success) {
 
 ✅ **All modules compiling successfully**
 
-```
+```text
 lib/services/sync/cache_manager.dart       ✅ No errors
 lib/services/sync/sync_queue_service.dart  ✅ No errors
 lib/services/auth/auth_token_service.dart  ✅ No errors
