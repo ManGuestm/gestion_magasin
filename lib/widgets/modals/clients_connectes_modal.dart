@@ -22,7 +22,7 @@ class _ClientsConnectesModalState extends State<ClientsConnectesModal> {
 
   void _loadConnectedClients() {
     setState(() => _isLoading = true);
-    
+
     final server = NetworkServer.instance;
     if (!server.isRunning) {
       setState(() {
@@ -31,10 +31,10 @@ class _ClientsConnectesModalState extends State<ClientsConnectesModal> {
       });
       return;
     }
-    
+
     // Récupérer les vraies informations des clients connectés
     _clients = server.getConnectedClientsInfo();
-    
+
     setState(() => _isLoading = false);
   }
 
@@ -42,8 +42,8 @@ class _ClientsConnectesModalState extends State<ClientsConnectesModal> {
   Widget build(BuildContext context) {
     return BaseModal(
       title: 'Clients Connectés',
-      width: 700,
-      height: 500,
+      width: MediaQuery.of(context).size.width * 0.7,
+      height: MediaQuery.of(context).size.height * 0.7,
       content: Column(
         children: [
           _buildHeader(),
@@ -67,14 +67,8 @@ class _ClientsConnectesModalState extends State<ClientsConnectesModal> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Serveur actif',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  '${_clients.length} client(s) connecté(s)',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
+                const Text('Serveur actif', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('${_clients.length} client(s) connecté(s)', style: TextStyle(color: Colors.grey[600])),
               ],
             ),
             const Spacer(),
@@ -101,81 +95,113 @@ class _ClientsConnectesModalState extends State<ClientsConnectesModal> {
           children: [
             Icon(Icons.computer_outlined, size: 64, color: Colors.grey[400]),
             const SizedBox(height: 16),
-            Text(
-              'Aucun client connecté',
-              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-            ),
+            Text('Aucun client connecté', style: TextStyle(fontSize: 16, color: Colors.grey[600])),
           ],
         ),
       );
     }
 
     return Card(
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
-              ),
+      child: SingleChildScrollView(
+        child: DataTable(
+          headingRowHeight: 50,
+          dataRowMinHeight: 60,
+          dataRowMaxHeight: 60,
+          columns: const [
+            DataColumn(
+              label: Text('ID', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-            child: const Row(
-              children: [
-                Expanded(flex: 1, child: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Nom', style: TextStyle(fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Adresse IP', style: TextStyle(fontWeight: FontWeight.bold))),
-                Expanded(flex: 2, child: Text('Connexion', style: TextStyle(fontWeight: FontWeight.bold))),
-                Expanded(flex: 1, child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold))),
-              ],
+            DataColumn(
+              label: Text('Nom', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-          ),
-          Expanded(
-            child: ListView.separated(
-              itemCount: _clients.length,
-              separatorBuilder: (context, index) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final client = _clients[index];
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  leading: CircleAvatar(
-                    backgroundColor: Colors.green[100],
-                    child: Icon(Icons.computer, color: Colors.green[700], size: 20),
-                  ),
-                  title: Row(
-                    children: [
-                      Expanded(flex: 1, child: Text('${client['id']}')),
-                      Expanded(flex: 2, child: Text(client['nom'])),
-                      Expanded(flex: 2, child: Text(client['ip'])),
-                      Expanded(flex: 2, child: Text(_formatDuration(client['connexion']))),
-                      Expanded(
-                        flex: 1,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.green[100],
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            client['statut'],
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.green[700],
-                              fontWeight: FontWeight.w500,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
+            DataColumn(
+              label: Text('Adresse IP', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            DataColumn(
+              label: Text('Connexion', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            DataColumn(
+              label: Text('Type', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+            DataColumn(
+              label: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+          rows: _clients.map((client) {
+            return DataRow(
+              cells: [
+                DataCell(
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.blue[100],
+                        borderRadius: BorderRadius.circular(8),
                       ),
+                      child: Text(
+                        '${client['id']}',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue[700]),
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  Row(
+                    children: [
+                      Icon(Icons.computer, color: Colors.green[700], size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(client['nom'] ?? 'N/A', overflow: TextOverflow.ellipsis)),
                     ],
                   ),
-                );
-              },
-            ),
-          ),
-        ],
+                ),
+                DataCell(
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      client['ip'] ?? 'N/A',
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ),
+                ),
+                DataCell(Text(_formatDuration(client['connexion'] ?? DateTime.now()))),
+                DataCell(
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: (client['type'] == 'HTTP REST') ? Colors.orange[100] : Colors.blue[100],
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      client['type'] ?? 'N/A',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: (client['type'] == 'HTTP REST') ? Colors.orange[700] : Colors.blue[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+                DataCell(
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green[100],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      client['statut'] ?? 'N/A',
+                      style: TextStyle(fontSize: 12, color: Colors.green[700], fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -183,19 +209,14 @@ class _ClientsConnectesModalState extends State<ClientsConnectesModal> {
   Widget _buildActions() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Fermer'),
-        ),
-      ],
+      children: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer'))],
     );
   }
 
   String _formatDuration(DateTime connexion) {
     final now = DateTime.now();
     final diff = now.difference(connexion);
-    
+
     if (diff.inMinutes < 1) {
       return 'À l\'instant';
     } else if (diff.inMinutes < 60) {
