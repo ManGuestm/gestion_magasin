@@ -356,6 +356,29 @@ class HTTPServer {
     return session;
   }
 
+  /// Public method to validate token for WebSocket connections
+  /// Returns session data if token is valid, null otherwise
+  Future<Map<String, dynamic>?> validateWebSocketToken(String token) async {
+    try {
+      final session = _activeSessions[token];
+
+      if (session == null || session.isExpired) {
+        _activeSessions.remove(token);
+        return null;
+      }
+
+      return {
+        'username': session.username,
+        'token': token,
+        'expiresAt': session.expiresAt.toIso8601String(),
+        'remainingTime': session.remainingTime.inSeconds,
+      };
+    } catch (e) {
+      debugPrint('Erreur validation token WebSocket: $e');
+      return null;
+    }
+  }
+
   Future<bool> _validateCredentials(String username, String password) async {
     try {
       final user = await _db.getUserByCredentials(username, password);

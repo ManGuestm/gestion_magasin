@@ -8,6 +8,8 @@ class NetworkClient {
   WebSocket? _socket;
   String? _serverUrl;
   bool _isConnected = false;
+  String? _authToken;
+  String? _currentUsername;
   final Map<String, dynamic> _cache = {};
   final Set<Function(Map<String, dynamic>)> _changeListeners = {};
 
@@ -20,10 +22,10 @@ class NetworkClient {
     try {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 3);
-      
+
       final request = await client.get(serverIp, port, '/api/health');
       final response = await request.close();
-      
+
       client.close();
       return response.statusCode == 200;
     } catch (e) {
@@ -31,15 +33,15 @@ class NetworkClient {
     }
   }
 
-  Future<bool> connect(String serverIp, int port) async {
+  Future<bool> connect(String serverIp, int port, [String? username, String? password]) async {
     try {
       _serverUrl = 'http://$serverIp:$port';
-      debugPrint('Tentative de connexion à $_serverUrl');
+      debugPrint('🌐 Tentative de connexion CLIENT à $_serverUrl');
 
       // Test connexion HTTP avec timeout
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
-      
+
       final request = await client.get(serverIp, port, '/api/health');
       final response = await request.close();
 
@@ -48,11 +50,22 @@ class NetworkClient {
         throw Exception('Serveur non accessible (HTTP ${response.statusCode})');
       }
 
-      debugPrint('Test HTTP réussi, connexion WebSocket...');
-      
+      debugPrint('✅ Test HTTP réussi');
+
+      // Authentification si credentials fournis
+      if (username != null && password != null) {
+        debugPrint('🔐 Authentification CLIENT avec utilisateur: $username');
+        final authResult = await authenticate(username, password);
+        if (authResult == null) {
+          throw Exception('❌ Authentification échouée - Utilisateur/mot de passe invalide');
+        }
+        _currentUsername = username;
+        _authToken = authResult['token'] ?? authResult['id']?.toString();
+        debugPrint('✅ Authentification réussie - Token obtenu');
+      }
+
       // Connexion WebSocket pour temps réel
-      _socket = await WebSocket.connect('ws://$serverIp:$port/ws')
-          .timeout(const Duration(seconds: 10));
+      _socket = await WebSocket.connect('ws://$serverIp:$port/ws').timeout(const Duration(seconds: 10));
       _isConnected = true;
 
       _socket!.listen(
@@ -77,11 +90,13 @@ class NetworkClient {
       );
 
       client.close();
-      debugPrint('Connecté au serveur $_serverUrl');
+      debugPrint('✅ CLIENT connecté et authentifié au serveur $_serverUrl');
       return true;
     } catch (e) {
-      debugPrint('Erreur connexion: $e');
+      debugPrint('❌ Erreur connexion CLIENT: $e');
       _isConnected = false;
+      _authToken = null;
+      _currentUsername = null;
       return false;
     }
   }
@@ -110,6 +125,11 @@ class NetworkClient {
       final client = HttpClient();
       final request = await client.postUrl(Uri.parse('$_serverUrl/api/query'));
       request.headers.contentType = ContentType.json;
+
+      // Ajouter token d'authentification si présent
+      if (_authToken != null) {
+        request.headers.add('Authorization', 'Bearer $_authToken');
+      }
 
       final body = jsonEncode({'type': 'select', 'query': sql, 'params': params});
 
@@ -145,6 +165,11 @@ class NetworkClient {
       final client = HttpClient();
       final request = await client.postUrl(Uri.parse('$_serverUrl/api/query'));
       request.headers.contentType = ContentType.json;
+
+      // Ajouter token d'authentification si présent
+      if (_authToken != null) {
+        request.headers.add('Authorization', 'Bearer $_authToken');
+      }
 
       String type = 'update';
       if (sql.trim().toUpperCase().startsWith('INSERT')) {
@@ -220,19 +245,14 @@ class NetworkClient {
   }
 
   Future<Map<String, dynamic>?> authenticate(String username, String password) async {
-    if (!_isConnected) throw Exception('Non connecté au serveur');
-
     try {
       final client = HttpClient();
-      final request = await client.postUrl(Uri.parse('$_serverUrl/api/query'));
+      final request = await client.postUrl(Uri.parse('$_serverUrl/api/auth'));
       request.headers.contentType = ContentType.json;
 
-      final body = jsonEncode({
-        'type': 'auth',
-        'username': username,
-        'password': password,
-      });
+      final body = jsonEncode({'username': username, 'password': password});
 
+      debugPrint('🔐 Envoi authentification au serveur...');
       request.write(body);
       final response = await request.close();
       final responseBody = await utf8.decoder.bind(response).join();
@@ -240,14 +260,21 @@ class NetworkClient {
 
       client.close();
 
-      if (data['success'] == true && data['data'].isNotEmpty) {
-        return data['data'][0];
+      if (data['success'] == true && data['data'] != null) {
+        debugPrint('✅ Authentification serveur réussie pour: $username');
+        return data['data'];
+      } else {
+        debugPrint('❌ Authentification serveur échouée: ${data['error']}');
+        return null;
       }
-      return null;
     } catch (e) {
-      throw Exception('Erreur authentification réseau: $e');
+      debugPrint('❌ Erreur authentification réseau: $e');
+      rethrow;
     }
   }
+
+  String? get authToken => _authToken;
+  String? get currentUsername => _currentUsername;
 
   void _invalidateCache() {
     _cache.clear();

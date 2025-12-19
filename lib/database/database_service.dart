@@ -38,13 +38,27 @@ class DatabaseService {
 
   AppDatabase get database {
     if (!_isInitialized) {
-      throw StateError('Database not initialized. Call initialize() first.');
+      throw StateError(
+        '❌ ERREUR: Base de données non initialisée.\n'
+        'Appelez initialize() en premier.',
+      );
     }
+
+    // 🔴 BLOQUER l'accès direct en mode CLIENT
     if (_mode == DatabaseMode.clientMode) {
-      throw StateError('Database access not allowed in client mode. Use network methods instead.');
+      throw StateError(
+        '❌ ERREUR CRITIQUE: Accès direct à la base de données REFUSÉ en mode CLIENT.\n'
+        'En mode CLIENT, vous DEVEZ utiliser les méthodes réseau:\n'
+        '  • getAllClientsWithCache() - pour lire les clients\n'
+        '  • addClientWithSync() - pour ajouter des données\n'
+        '  • updateClientWithSync() - pour modifier des données\n'
+        '  • syncWithServer() - pour synchroniser avec le serveur\n'
+        'Mode actuel: CLIENT (réseau)',
+      );
     }
+
     if (_database == null) {
-      throw StateError('Database is null after initialization');
+      throw StateError('❌ ERREUR: Base de données est null après initialisation.');
     }
     return _database!;
   }

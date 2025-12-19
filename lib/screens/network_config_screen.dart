@@ -17,6 +17,8 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
   NetworkMode _selectedMode = NetworkMode.server;
   final _serverIpController = TextEditingController();
   final _portController = TextEditingController(text: '8080');
+  final _usernameController = TextEditingController(text: 'admin');
+  final _passwordController = TextEditingController(text: 'admin123');
   bool _isTestingConnection = false;
 
   @override
@@ -29,6 +31,8 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
   void dispose() {
     _serverIpController.dispose();
     _portController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -38,6 +42,8 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
       _selectedMode = config['mode'];
       _serverIpController.text = config['serverIp'];
       _portController.text = config['port'];
+      _usernameController.text = config['username'];
+      _passwordController.text = config['password'];
     });
   }
 
@@ -130,6 +136,8 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
         mode: _selectedMode,
         serverIp: _selectedMode == NetworkMode.client ? _serverIpController.text : null,
         port: _selectedMode == NetworkMode.client ? _portController.text : null,
+        username: _selectedMode == NetworkMode.client ? _usernameController.text : null,
+        password: _selectedMode == NetworkMode.client ? _passwordController.text : null,
       );
 
       // Vérifier si c'est le premier démarrage
@@ -343,6 +351,25 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                       prefixIcon: const Icon(Icons.settings_ethernet),
                     ),
                     keyboardType: TextInputType.number,
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _usernameController,
+                    decoration: InputDecoration(
+                      labelText: 'Nom d\'utilisateur',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      prefixIcon: const Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordController,
+                    decoration: InputDecoration(
+                      labelText: 'Mot de passe',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      prefixIcon: const Icon(Icons.lock),
+                    ),
+                    obscureText: true,
                   ),
                   const SizedBox(height: 16),
                   Row(

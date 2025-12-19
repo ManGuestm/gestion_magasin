@@ -22,12 +22,15 @@ class NetworkManager {
       final isFirstRun = await _isFirstRun();
 
       if (isFirstRun) {
-        debugPrint('Premier démarrage - Configuration réseau requise');
+        debugPrint('🔴 Premier démarrage - Configuration réseau requise');
         return false; // Forcer la configuration
       }
 
       final mode = config['mode'] as NetworkMode;
-      debugPrint('Initialisation réseau en mode: ${mode.name}');
+      debugPrint('\n${'='*60}');
+      debugPrint('🚀 INITIALISATION RÉSEAU');
+      debugPrint('Mode: ${mode.name.toUpperCase()}');
+      debugPrint('='*60);
 
       // Track which resources were successfully initialized for proper cleanup
       bool dbInitialized = false;
@@ -36,23 +39,40 @@ class NetworkManager {
       // Réutiliser l'instance singleton DatabaseService pour éviter les fuites de ressources
       try {
         if (mode == NetworkMode.server) {
+          debugPrint('\n🖥️  MODE SERVEUR');
+          debugPrint('  → Initialisation de la base de données locale');
           await _db.initializeLocal();
-          dbInitialized = true; // ✅ Database successfully initialized
+          dbInitialized = true;
+          debugPrint('  ✅ Base locale initialisée');
 
+          debugPrint('  → Démarrage du serveur réseau...');
           final serverStarted = await NetworkConfigService.initializeNetwork();
           if (!serverStarted) {
             throw Exception('Impossible de démarrer le serveur');
           }
-          networkInitialized = true; // ✅ Network successfully initialized
+          networkInitialized = true;
+          debugPrint('  ✅ Serveur démarré avec succès');
+          
         } else {
-          final connected = await NetworkConfigService.initializeNetwork();
-          if (!connected) {
-            throw Exception('Impossible de se connecter au serveur ${config['serverIp']}:${config['port']}');
-          }
-          networkInitialized = true; // ✅ Network successfully initialized
+          // Mode client: utiliser initializeAsClient avec authentification
+          debugPrint('\n🌐 MODE CLIENT (RÉSEAU LOCAL)');
+          
+          final serverIp = config['serverIp'] as String;
+          final port = int.tryParse(config['port'] as String) ?? 8080;
+          final username = config['username'] as String? ?? 'admin';
+          final password = config['password'] as String? ?? 'admin123';
 
-          await _db.initializeLocal();
-          dbInitialized = true; // ✅ Database successfully initialized
+          debugPrint('  Serveur: $serverIp:$port');
+          debugPrint('  Utilisateur: $username');
+          debugPrint('  → Connexion au serveur...');
+          
+          final success = await _db.initializeAsClient(serverIp, port, username, password);
+          if (!success) {
+            throw Exception('Impossible de se connecter au serveur $serverIp:$port');
+          }
+          dbInitialized = true;
+          networkInitialized = true;
+          debugPrint('  ✅ Connecté au serveur avec succès');
         }
       } catch (e) {
         // Rollback: only clean up resources that were actually initialized
@@ -63,18 +83,40 @@ class NetworkManager {
           await _db.reset();
         }
 
-        debugPrint('Rollback réseau suite à erreur: $e');
+        debugPrint('\n  ❌ ERREUR: $e');
+        debugPrint('  → Rollback en cours...');
         rethrow;
       }
 
       _isInitialized = true;
-      debugPrint('Initialisation réseau réussie');
+      debugPrint('\n✅ Initialisation réseau RÉUSSIE');
+      debugPrint('='*60 + '\n');
       return true;
     } catch (e) {
-      debugPrint('Erreur initialisation réseau: $e');
+      debugPrint('\n❌ ERREUR INITIALISATION: $e');
+      debugPrint('='*60 + '\n');
       _isInitialized = false;
       return false;
     }
+  }
+
+  /// Get current network mode for diagnostics
+  Future<String> getDiagnostics() async {
+    final config = await NetworkConfigService.loadConfig();
+    final mode = config['mode'] as NetworkMode;
+    final serverIp = config['serverIp'] as String;
+    final port = config['port'] as String;
+    
+    return '''
+═══════════════════════════════════════════════════════════════
+📊 DIAGNOSTIC RÉSEAU
+═══════════════════════════════════════════════════════════════
+🔍 Statut Initialisation: ${_isInitialized ? '✅ OUI' : '❌ NON'}
+🌐 Mode Actuel: ${mode.name.toUpperCase()}
+📡 Serveur: $serverIp:$port
+👤 Utilisateur: ${config['username']}
+═══════════════════════════════════════════════════════════════
+''';
   }
 
   Future<void> shutdown() async {
