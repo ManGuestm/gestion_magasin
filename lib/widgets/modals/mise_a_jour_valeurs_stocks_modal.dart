@@ -30,7 +30,7 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
 
   Future<void> _loadArticles() async {
     try {
-      final articles = await _databaseService.database.getActiveArticles();
+      final articles = await _databaseService.getActiveArticlesWithModeAwareness();
       setState(() {
         _articles = articles;
         _isLoading = false;
@@ -38,9 +38,7 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -64,9 +62,9 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
       await _loadArticles();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la mise à jour: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur lors de la mise à jour: $e')));
       }
     } finally {
       setState(() => _isUpdating = false);
@@ -94,10 +92,7 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
   void _showManualCMUPModal() {
     showDialog(
       context: context,
-      builder: (context) => _ManualCMUPModal(
-        articles: _articles,
-        onUpdate: _loadArticles,
-      ),
+      builder: (context) => _ManualCMUPModal(articles: _articles, onUpdate: _loadArticles),
     );
   }
 
@@ -113,10 +108,7 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
         child: Container(
           width: MediaQuery.of(context).size.width * 0.9,
           height: MediaQuery.of(context).size.height * 0.9,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.grey[100],
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: Colors.grey[100]),
           child: Column(
             children: [
               Container(
@@ -162,7 +154,10 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
                           onPressed: _isUpdating ? null : _updateCMUP,
                           icon: _isUpdating
                               ? const SizedBox(
-                                  width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
                               : const Icon(Icons.update),
                           label: Text(_isUpdating ? 'Mise à jour...' : 'Mettre à jour CMUP'),
                           style: ElevatedButton.styleFrom(
@@ -199,30 +194,36 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
                               child: const Row(
                                 children: [
                                   Expanded(
-                                      flex: 3,
-                                      child: Center(
-                                          child: Text('Article',
-                                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    flex: 3,
+                                    child: Center(
+                                      child: Text('Article', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child: Text('Stock U1',
-                                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child: Text('Stock U2',
-                                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child: Text('Stock U3',
-                                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child:
-                                              Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('CMUP', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child:
-                                              Text('Valeur', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('Valeur', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -240,7 +241,8 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
                                           decoration: BoxDecoration(
                                             color: index % 2 == 0 ? Colors.white : Colors.grey[50],
                                             border: const Border(
-                                                bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                              bottom: BorderSide(color: Colors.grey, width: 0.5),
+                                            ),
                                           ),
                                           child: Row(
                                             children: [
@@ -284,7 +286,9 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
                                                   child: Text(
                                                     NumberUtils.formatNumber(article.cmup ?? 0),
                                                     style: const TextStyle(
-                                                        fontSize: 11, fontWeight: FontWeight.bold),
+                                                      fontSize: 11,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -293,9 +297,10 @@ class _MiseAJourValeursStocksModalState extends State<MiseAJourValeursStocksModa
                                                   child: Text(
                                                     NumberUtils.formatNumber(valeur),
                                                     style: const TextStyle(
-                                                        fontSize: 11,
-                                                        color: Colors.blue,
-                                                        fontWeight: FontWeight.bold),
+                                                      fontSize: 11,
+                                                      color: Colors.blue,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -353,9 +358,9 @@ class _ManualCMUPModalState extends State<_ManualCMUPModal> {
 
   Future<void> _saveCMUP() async {
     if (_selectedArticle == null || _cmupController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Veuillez sélectionner un article et saisir le CMUP')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Veuillez sélectionner un article et saisir le CMUP')));
       return;
     }
 
@@ -368,7 +373,9 @@ class _ManualCMUPModalState extends State<_ManualCMUPModal> {
 
       await _databaseService.database.transaction(() async {
         // Sauvegarder l'historique
-        await _databaseService.database.into(_databaseService.database.cmupHistory).insert(
+        await _databaseService.database
+            .into(_databaseService.database.cmupHistory)
+            .insert(
               CmupHistoryCompanion.insert(
                 designation: _selectedArticle!.designation,
                 cmupValue: newCMUP,
@@ -382,26 +389,19 @@ class _ManualCMUPModalState extends State<_ManualCMUPModal> {
         // Mettre à jour le CMUP actuel
         await (_databaseService.database.update(_databaseService.database.articles)
               ..where((a) => a.designation.equals(_selectedArticle!.designation)))
-            .write(ArticlesCompanion(
-          cmup: Value(newCMUP),
-        ));
+            .write(ArticlesCompanion(cmup: Value(newCMUP)));
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('CMUP mis à jour avec succès'),
-            backgroundColor: Colors.green,
-          ),
+          const SnackBar(content: Text('CMUP mis à jour avec succès'), backgroundColor: Colors.green),
         );
         widget.onUpdate();
         Navigator.of(context).pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     } finally {
       setState(() => _isLoading = false);
@@ -426,10 +426,7 @@ class _ManualCMUPModalState extends State<_ManualCMUPModal> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                ),
+                IconButton(onPressed: () => Navigator.of(context).pop(), icon: const Icon(Icons.close)),
               ],
             ),
             const SizedBox(height: 16),
@@ -452,10 +449,7 @@ class _ManualCMUPModalState extends State<_ManualCMUPModal> {
             TextField(
               controller: _cmupController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                hintText: 'Nouveau CMUP',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(hintText: 'Nouveau CMUP', border: OutlineInputBorder()),
             ),
             const SizedBox(height: 16),
             Row(
@@ -466,9 +460,7 @@ class _ManualCMUPModalState extends State<_ManualCMUPModal> {
                     children: [
                       const Text('Date début:', style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      DatePickerField(
-                        controller: _dateDebutController,
-                      ),
+                      DatePickerField(controller: _dateDebutController),
                     ],
                   ),
                 ),
@@ -479,9 +471,7 @@ class _ManualCMUPModalState extends State<_ManualCMUPModal> {
                     children: [
                       const Text('Date fin:', style: TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      DatePickerField(
-                        controller: _dateFinController,
-                      ),
+                      DatePickerField(controller: _dateFinController),
                     ],
                   ),
                 ),
@@ -491,10 +481,7 @@ class _ManualCMUPModalState extends State<_ManualCMUPModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Annuler'),
-                ),
+                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
                 const SizedBox(width: 8),
                 ElevatedButton(
                   onPressed: _isLoading ? null : _saveCMUP,

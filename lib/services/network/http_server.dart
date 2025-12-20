@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../database/database_service.dart';
+import '../network_server.dart';
 
 /// Serveur HTTP pour l'architecture Serveur/Client
 /// Expose 5 endpoints REST pour les clients distants
@@ -18,6 +19,7 @@ class HTTPServer {
 
   final DatabaseService _db = DatabaseService();
   final Map<String, _SessionToken> _activeSessions = {};
+  final Map<String, Map<String, dynamic>> _connectedClients = {}; // IP -> client info
   static const Duration _sessionTimeout = Duration(hours: 1);
   static const int _maxSessions = 100;
 
@@ -53,14 +55,29 @@ class HTTPServer {
     if (_server != null) {
       await _server!.close();
       _isRunning = false;
+      _connectedClients.clear();
       debugPrint('🛑 Serveur arrêté');
     }
+  }
+
+  /// Obtenir les clients REST connectés
+  List<Map<String, dynamic>> getConnectedClientsInfo() {
+    return _connectedClients.values.toList();
   }
 
   /// Traiter une requête HTTP
   Future<void> _handleRequest(HttpRequest request) async {
     final path = request.uri.path;
     final method = request.method;
+    final clientIp = request.connectionInfo?.remoteAddress.address ?? 'Inconnu';
+
+    // Enregistrer le client actif
+    _connectedClients[clientIp] = {
+      'ip': clientIp,
+      'derniere_activite': DateTime.now(),
+      'methode': method,
+      'endpoint': path,
+    };
 
     // Ajouter headers CORS
     _addCorsHeaders(request);
@@ -114,6 +131,22 @@ class HTTPServer {
         case '/api/execute':
           if (method == 'POST') {
             await _handleExecute(request);
+          } else {
+            _sendError(request, 405, 'Method not allowed');
+          }
+          break;
+
+        case '/api/sync':
+          if (method == 'POST') {
+            await _handleSync(request);
+          } else {
+            _sendError(request, 405, 'Method not allowed');
+          }
+          break;
+
+        case '/api/changes':
+          if (method == 'GET') {
+            await _handleChanges(request);
           } else {
             _sendError(request, 405, 'Method not allowed');
           }
@@ -249,6 +282,13 @@ class HTTPServer {
         return _sendError(request, 401, 'Unauthorized');
       }
 
+      final clientIp = request.connectionInfo?.remoteAddress.address ?? 'Inconnu';
+
+      // Enregistrer/mettre à jour le username du client
+      if (_connectedClients.containsKey(clientIp)) {
+        _connectedClients[clientIp]!['username'] = session.username;
+      }
+
       final body = await _readBody(request);
       final data = jsonDecode(body) as Map<String, dynamic>;
 
@@ -276,6 +316,9 @@ class HTTPServer {
         debugPrint('✅ Query réussie: ${result.length} lignes');
       } catch (e) {
         debugPrint('❌ Erreur SQL: $e');
+        debugPrint('   SQL reçue: $sql');
+        debugPrint('   Params: $params');
+        debugPrint('   Session: ${session.username}');
         return _sendError(request, 400, 'SQL error: $e');
       }
     } catch (e) {
@@ -394,6 +437,84 @@ class HTTPServer {
     final random = DateTime.now().millisecondsSinceEpoch;
     final hash = random.toString().codeUnits.fold<int>(0, (a, b) => a ^ b);
     return base64Url.encode(utf8.encode('token_${random}_$hash')).replaceAll('=', '');
+  }
+
+  /// POST /api/sync - Synchroniser les opérations du client
+  Future<void> _handleSync(HttpRequest request) async {
+    try {
+      final session = await _validateSession(request);
+      if (session == null) {
+        return _sendError(request, 401, 'Unauthorized');
+      }
+
+      final clientIp = request.connectionInfo?.remoteAddress.address ?? 'Inconnu';
+
+      // Enregistrer/mettre à jour le username du client
+      if (_connectedClients.containsKey(clientIp)) {
+        _connectedClients[clientIp]!['username'] = session.username;
+      }
+
+      final body = await _readBody(request);
+      final data = jsonDecode(body) as Map<String, dynamic>;
+
+      debugPrint('📤 Sync reçue de ${session.username} (${data['operations']?.length ?? 0} opérations)');
+
+      // Appeler le serveur pour traiter la synchronisation
+      final result = await NetworkServer.instance.handleSync(data);
+
+      request.response.statusCode = 200;
+      _sendJson(request, result);
+    } catch (e) {
+      debugPrint('❌ Erreur sync: $e');
+      _sendError(request, 400, 'Sync error: $e');
+    }
+  }
+
+  /// GET /api/changes - Récupérer les changements depuis un timestamp
+  /// Query params: ?since=ISO8601_DATETIME
+  Future<void> _handleChanges(HttpRequest request) async {
+    try {
+      final session = await _validateSession(request);
+      if (session == null) {
+        return _sendError(request, 401, 'Unauthorized');
+      }
+
+      final clientIp = request.connectionInfo?.remoteAddress.address ?? 'Inconnu';
+
+      // Enregistrer/mettre à jour le username du client
+      if (_connectedClients.containsKey(clientIp)) {
+        _connectedClients[clientIp]!['username'] = session.username;
+      }
+
+      // Extraire le paramètre 'since'
+      final sinceParam = request.uri.queryParameters['since'];
+      DateTime? lastSync;
+
+      if (sinceParam != null && sinceParam.isNotEmpty) {
+        try {
+          lastSync = DateTime.parse(sinceParam);
+        } catch (e) {
+          return _sendError(request, 400, 'Invalid since parameter. Use ISO8601 format');
+        }
+      }
+
+      debugPrint('📥 Requête changements depuis ${lastSync?.toIso8601String() ?? 'début'}');
+
+      // Récupérer les changements depuis le dernier sync
+      // Pour l'instant, retourner une liste vide (implémentation future avec audit trail)
+      final changes = <Map<String, dynamic>>[];
+
+      request.response.statusCode = 200;
+      _sendJson(request, {
+        'success': true,
+        'data': {'changes': changes, 'lastSync': DateTime.now().toIso8601String(), 'count': changes.length},
+      });
+
+      debugPrint('✅ ${changes.length} changements envoyés');
+    } catch (e) {
+      debugPrint('❌ Erreur changements: $e');
+      _sendError(request, 400, 'Changes error: $e');
+    }
   }
 
   void _cleanupExpiredSessions() {

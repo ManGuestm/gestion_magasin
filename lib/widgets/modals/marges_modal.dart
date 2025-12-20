@@ -27,7 +27,7 @@ class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
   Future<void> _loadData() async {
     try {
       final ventes = await _databaseService.database.getAllVentes();
-      final articles = await _databaseService.database.getActiveArticles();
+      final articles = await _databaseService.getActiveArticlesWithModeAwareness();
       setState(() {
         _ventes = ventes;
         _articles = articles;
@@ -36,9 +36,7 @@ class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -83,8 +81,9 @@ class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
 
   @override
   Widget build(BuildContext context) {
-    Map<String, double> marges =
-        _selectedType == 'Par Articles' ? _calculerMargesParArticles() : _calculerMargesParClients();
+    Map<String, double> marges = _selectedType == 'Par Articles'
+        ? _calculerMargesParArticles()
+        : _calculerMargesParClients();
 
     return Focus(
       autofocus: true,
@@ -94,10 +93,7 @@ class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
         child: Container(
           width: MediaQuery.of(context).size.width * 0.9,
           height: MediaQuery.of(context).size.height * 0.9,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.grey[100],
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: Colors.grey[100]),
           child: Column(
             children: [
               Container(
@@ -105,10 +101,7 @@ class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
                 child: Row(
                   children: [
                     const Expanded(
-                      child: Text(
-                        'Marges',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-                      ),
+                      child: Text('Marges', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
@@ -208,7 +201,8 @@ class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
                                           decoration: BoxDecoration(
                                             color: index % 2 == 0 ? Colors.white : Colors.grey[50],
                                             border: const Border(
-                                                bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                              bottom: BorderSide(color: Colors.grey, width: 0.5),
+                                            ),
                                           ),
                                           child: Row(
                                             children: [
@@ -239,15 +233,19 @@ class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
                                                 child: Center(
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(
-                                                        horizontal: 6, vertical: 2),
+                                                      horizontal: 6,
+                                                      vertical: 2,
+                                                    ),
                                                     decoration: BoxDecoration(
                                                       color: margeColor,
                                                       borderRadius: BorderRadius.circular(10),
                                                     ),
                                                     child: Text(
                                                       statut,
-                                                      style:
-                                                          const TextStyle(fontSize: 9, color: Colors.white),
+                                                      style: const TextStyle(
+                                                        fontSize: 9,
+                                                        color: Colors.white,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),

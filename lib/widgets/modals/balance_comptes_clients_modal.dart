@@ -34,7 +34,7 @@ class _BalanceComptesClientsModalState extends State<BalanceComptesClientsModal>
 
   Future<void> _loadClients() async {
     try {
-      final clients = await DatabaseService().database.getActiveClients();
+      final clients = await DatabaseService().getActiveClientsWithModeAwareness();
       setState(() => _clients = clients);
     } catch (e) {
       debugPrint('Erreur chargement clients: $e');

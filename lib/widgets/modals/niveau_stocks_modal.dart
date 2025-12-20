@@ -34,7 +34,7 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
 
   Future<void> _loadArticlesACommander() async {
     try {
-      final allArticles = await _databaseService.database.getActiveArticles();
+      final allArticles = await _databaseService.getActiveArticlesWithModeAwareness();
       // Filtrer les articles avec stock faible
       final articlesACommander = allArticles.where((article) {
         final stockTotal = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);
@@ -48,9 +48,7 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }
@@ -119,8 +117,10 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
   Future<void> _printViaWindows(Uint8List pdfBytes) async {
     try {
       // Méthode 1: rundll32
-      await Process.run(
-          'rundll32', ['mshtml.dll,PrintHTML', 'data:application/pdf;base64,${base64Encode(pdfBytes)}']);
+      await Process.run('rundll32', [
+        'mshtml.dll,PrintHTML',
+        'data:application/pdf;base64,${base64Encode(pdfBytes)}',
+      ]);
     } catch (e) {
       try {
         // Méthode 2: cmd start
@@ -147,8 +147,9 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
     final now = DateTime.now();
 
     // Obtenir les informations de la société
-    final societe =
-        await _databaseService.database.getAllSoc().then((socs) => socs.isNotEmpty ? socs.first : null);
+    final societe = await _databaseService.database.getAllSoc().then(
+      (socs) => socs.isNotEmpty ? socs.first : null,
+    );
 
     const itemsPerPage = 35; // Nombre d'articles par page
     final totalPages = (_articlesACommander.length / itemsPerPage).ceil().clamp(1, double.infinity).toInt();
@@ -202,8 +203,10 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
                   children: [
                     pw.Text('RCS:', style: const pw.TextStyle(fontSize: 10)),
                     pw.Text('NIF:', style: const pw.TextStyle(fontSize: 10)),
-                    pw.Text('STAT:-------Mobile 034 21 363 03 ----------',
-                        style: const pw.TextStyle(fontSize: 10)),
+                    pw.Text(
+                      'STAT:-------Mobile 034 21 363 03 ----------',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
                   ],
                 ),
                 pw.SizedBox(height: 20),
@@ -254,18 +257,12 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text(
-                      'GESTION COMMERCIALE DES PME',
-                      style: const pw.TextStyle(fontSize: 10),
-                    ),
+                    pw.Text('GESTION COMMERCIALE DES PME', style: const pw.TextStyle(fontSize: 10)),
                     pw.Text(
                       DateFormat('dd/MM/yyyy HH:mm:ss').format(now),
                       style: const pw.TextStyle(fontSize: 10),
                     ),
-                    pw.Text(
-                      '${pageIndex + 1}',
-                      style: const pw.TextStyle(fontSize: 10),
-                    ),
+                    pw.Text('${pageIndex + 1}', style: const pw.TextStyle(fontSize: 10)),
                   ],
                 ),
               ],
@@ -292,11 +289,7 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
   pw.Widget _buildPdfDataCell(String text) {
     return pw.Container(
       padding: const pw.EdgeInsets.all(3),
-      child: pw.Text(
-        text,
-        style: const pw.TextStyle(fontSize: 8),
-        textAlign: pw.TextAlign.left,
-      ),
+      child: pw.Text(text, style: const pw.TextStyle(fontSize: 8), textAlign: pw.TextAlign.left),
     );
   }
 
@@ -321,10 +314,7 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
         child: Container(
           width: MediaQuery.of(context).size.width * 0.9,
           height: MediaQuery.of(context).size.height * 0.9,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: Colors.grey[100],
-          ),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), color: Colors.grey[100]),
           child: Column(
             children: [
               Container(
@@ -414,30 +404,36 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
                               child: const Row(
                                 children: [
                                   Expanded(
-                                      flex: 3,
-                                      child: Center(
-                                          child: Text('Article',
-                                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    flex: 3,
+                                    child: Center(
+                                      child: Text('Article', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child: Text('Stock U1',
-                                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('Stock U1', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child: Text('Stock U2',
-                                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('Stock U2', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child: Text('Stock U3',
-                                              style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('Stock U3', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child:
-                                              Text('Total', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                   Expanded(
-                                      child: Center(
-                                          child:
-                                              Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)))),
+                                    child: Center(
+                                      child: Text('Statut', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -450,8 +446,10 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
                                           Icon(Icons.check_circle, size: 64, color: Colors.green),
                                           SizedBox(height: 16),
                                           Text('Tous les stocks sont suffisants'),
-                                          Text('Aucun article à commander',
-                                              style: TextStyle(color: Colors.grey)),
+                                          Text(
+                                            'Aucun article à commander',
+                                            style: TextStyle(color: Colors.grey),
+                                          ),
                                         ],
                                       ),
                                     )
@@ -459,7 +457,8 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
                                       itemCount: _articlesACommander.length,
                                       itemBuilder: (context, index) {
                                         final article = _articlesACommander[index];
-                                        final stockTotal = (article.stocksu1 ?? 0) +
+                                        final stockTotal =
+                                            (article.stocksu1 ?? 0) +
                                             (article.stocksu2 ?? 0) +
                                             (article.stocksu3 ?? 0);
                                         final stockColor = _getStockColor(stockTotal);
@@ -469,7 +468,8 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
                                           decoration: BoxDecoration(
                                             color: index % 2 == 0 ? Colors.white : Colors.grey[50],
                                             border: const Border(
-                                                bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                                              bottom: BorderSide(color: Colors.grey, width: 0.5),
+                                            ),
                                           ),
                                           child: Row(
                                             children: [
@@ -524,15 +524,19 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
                                                 child: Center(
                                                   child: Container(
                                                     padding: const EdgeInsets.symmetric(
-                                                        horizontal: 6, vertical: 2),
+                                                      horizontal: 6,
+                                                      vertical: 2,
+                                                    ),
                                                     decoration: BoxDecoration(
                                                       color: stockTotal <= 0 ? Colors.red : Colors.orange,
                                                       borderRadius: BorderRadius.circular(10),
                                                     ),
                                                     child: Text(
                                                       stockTotal <= 0 ? 'Épuisé' : 'Faible',
-                                                      style:
-                                                          const TextStyle(fontSize: 9, color: Colors.white),
+                                                      style: const TextStyle(
+                                                        fontSize: 9,
+                                                        color: Colors.white,
+                                                      ),
                                                     ),
                                                   ),
                                                 ),

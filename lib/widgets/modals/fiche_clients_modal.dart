@@ -34,7 +34,7 @@ class _FicheClientsModalState extends State<FicheClientsModal> {
   Future<void> _loadClients() async {
     setState(() => _isLoading = true);
     try {
-      final clients = await DatabaseService().database.getActiveClients();
+      final clients = await DatabaseService().getActiveClientsWithModeAwareness();
       setState(() {
         _clients = clients;
         _filteredClients = clients;

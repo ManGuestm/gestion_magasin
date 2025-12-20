@@ -78,6 +78,12 @@ class EnhancedNetworkClient {
       throw Exception('Non connecté au serveur');
     }
 
+    // Log debugging - tracer la requête
+    debugPrint('🔍 Client sending query: $sql');
+    if (params != null && params.isNotEmpty) {
+      debugPrint('   Params: $params');
+    }
+
     // Rafraîchir le token s'il expire bientôt
     final token = _tokenService.currentToken;
     if (token != null) {
@@ -172,5 +178,231 @@ class EnhancedNetworkClient {
     _isConnected = false;
     _serverUrl = null;
     debugPrint('Disconnected from server');
+  }
+
+  // ============ MÉTHODES MÉTIER POUR MODE CLIENT ============
+
+  /// Récupère tous les clients du serveur
+  Future<List<Map<String, dynamic>>> getAllClients() async {
+    try {
+      final result = await query('SELECT * FROM clt ORDER BY rsoc');
+      debugPrint('✅ ${result.length} clients récupérés du serveur');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération clients: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère tous les articles du serveur
+  Future<List<Map<String, dynamic>>> getAllArticles() async {
+    try {
+      final result = await query('SELECT * FROM articles ORDER BY designation');
+      debugPrint('✅ ${result.length} articles récupérés du serveur');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération articles: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère les articles actifs du serveur
+  Future<List<Map<String, dynamic>>> getActiveArticles() async {
+    try {
+      final result = await query('SELECT * FROM articles WHERE action = ? ORDER BY designation', ['A']);
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération articles actifs: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère tous les clients actifs du serveur
+  Future<List<Map<String, dynamic>>> getActiveClients() async {
+    try {
+      final result = await query('SELECT * FROM clt WHERE action = ? ORDER BY rsoc', ['A']);
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération clients actifs: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère tous les fournisseurs du serveur
+  Future<List<Map<String, dynamic>>> getAllFournisseurs() async {
+    try {
+      final result = await query('SELECT * FROM frns ORDER BY rsoc');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération fournisseurs: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère les fournisseurs actifs du serveur
+  Future<List<Map<String, dynamic>>> getActiveFournisseurs() async {
+    try {
+      final result = await query('SELECT * FROM frns WHERE action = ? ORDER BY rsoc', ['A']);
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération fournisseurs actifs: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère tous les dépôts du serveur
+  Future<List<Map<String, dynamic>>> getAllDepots() async {
+    try {
+      final result = await query('SELECT * FROM depots ORDER BY depots');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération dépôts: $e');
+      rethrow;
+    }
+  }
+
+  /// Authentifie un utilisateur via le serveur
+  Future<Map<String, dynamic>?> authenticateUser(String username, String password) async {
+    try {
+      final result = await query('SELECT * FROM users WHERE username = ?', [username]);
+      if (result.isEmpty) {
+        debugPrint('❌ Utilisateur $username introuvable');
+        return null;
+      }
+      return result.first;
+    } catch (e) {
+      debugPrint('❌ Erreur authentification réseau: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère les modes de paiement du serveur
+  Future<List<Map<String, dynamic>>> getAllModesPaiement() async {
+    try {
+      final result = await query('SELECT DISTINCT mp FROM mp ORDER BY mp');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération modes paiement: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère tous les utilisateurs du serveur
+  Future<List<Map<String, dynamic>>> getAllUsers() async {
+    try {
+      final result = await query('SELECT id, nom, username, role, actif FROM users ORDER BY nom');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération utilisateurs: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère toutes les ventes du serveur
+  Future<List<Map<String, dynamic>>> getAllVentes() async {
+    try {
+      final result = await query('SELECT * FROM ventes ORDER BY datev DESC');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération ventes: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère les stocks du serveur
+  Future<List<Map<String, dynamic>>> getAllStocks() async {
+    try {
+      final result = await query('SELECT * FROM stocks ORDER BY article, depot');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Erreur récupération stocks: $e');
+      rethrow;
+    }
+  }
+
+  /// ============ SYNCHRONISATION CLIENT/SERVEUR ============
+
+  /// Synchronise les opérations en attente vers le serveur
+  Future<Map<String, dynamic>> syncPendingOperations(List<Map<String, dynamic>> operations) async {
+    if (!_isConnected || _serverUrl == null) {
+      throw Exception('Non connecté au serveur');
+    }
+
+    if (operations.isEmpty) {
+      return {'success': true, 'synchronized': 0};
+    }
+
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 10);
+
+      final request = await client.postUrl(Uri.parse('$_serverUrl/api/sync'));
+      request.headers.contentType = ContentType.json;
+      request.headers.add('Authorization', 'Bearer ${_tokenService.currentToken!.token}');
+
+      final body = jsonEncode({'operations': operations, 'timestamp': DateTime.now().toIso8601String()});
+
+      debugPrint('📤 Envoi ${operations.length} opérations au serveur...');
+      request.write(body);
+
+      final response = await request.close();
+      final responseBody = await utf8.decoder.bind(response).join();
+      client.close();
+
+      if (response.statusCode != 200) {
+        throw Exception('Erreur serveur: ${response.statusCode}');
+      }
+
+      final data = jsonDecode(responseBody) as Map<String, dynamic>;
+
+      if (data['success'] != true) {
+        throw Exception(data['error'] ?? 'Erreur synchronisation');
+      }
+
+      final synchronized = data['synchronized'] as int? ?? 0;
+      debugPrint('✅ Synchronisation: $synchronized/${operations.length} opérations traitées');
+
+      return data;
+    } catch (e) {
+      debugPrint('❌ Erreur synchronisation: $e');
+      rethrow;
+    }
+  }
+
+  /// Récupère les changements du serveur depuis une date donnée
+  Future<List<Map<String, dynamic>>> getServerChanges(DateTime lastSync) async {
+    if (!_isConnected || _serverUrl == null) {
+      return [];
+    }
+
+    try {
+      final client = HttpClient();
+      client.connectionTimeout = const Duration(seconds: 5);
+
+      final request = await client.getUrl(
+        Uri.parse('$_serverUrl/api/changes?since=${lastSync.toIso8601String()}'),
+      );
+      request.headers.add('Authorization', 'Bearer ${_tokenService.currentToken!.token}');
+
+      final response = await request.close();
+      final responseBody = await utf8.decoder.bind(response).join();
+      client.close();
+
+      if (response.statusCode != 200) {
+        return [];
+      }
+
+      final data = jsonDecode(responseBody) as Map<String, dynamic>;
+      final changes = (data['changes'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+
+      if (changes.isNotEmpty) {
+        debugPrint('📥 ${changes.length} changements récupérés du serveur');
+      }
+
+      return changes;
+    } catch (e) {
+      debugPrint('⚠️ Erreur récupération changements: $e');
+      return [];
+    }
   }
 }

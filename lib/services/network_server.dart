@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 
+import '../database/database.dart';
 import '../database/database_service.dart';
 import 'audit_service.dart';
 import 'network/http_server.dart';
@@ -28,18 +29,39 @@ class NetworkServer {
     final clientsInfo = <Map<String, dynamic>>[];
     int index = 1;
 
+    // Ajouter les clients WebSocket
     for (final client in _clients) {
       final info = _clientsInfo[client];
       if (info != null) {
         clientsInfo.add({
           'id': index,
-          'nom': info['nom'] ?? 'Client $index',
+          'nom': info['nom'] ?? 'Client WebSocket $index',
           'ip': info['ip'] ?? 'Inconnu',
           'connexion': info['connexion'] ?? DateTime.now(),
           'statut': 'Connecté',
+          'type': 'WebSocket',
         });
         index++;
       }
+    }
+
+    // Ajouter les clients HTTP REST
+    final httpClients = _httpServer.getConnectedClientsInfo();
+    for (final httpClient in httpClients) {
+      final username = httpClient['username'] as String?;
+      final displayName = username != null && username.isNotEmpty
+          ? username
+          : 'Client REST ${httpClient['ip']}';
+
+      clientsInfo.add({
+        'id': index,
+        'nom': displayName,
+        'ip': httpClient['ip'] ?? 'Inconnu',
+        'connexion': httpClient['derniere_activite'] ?? DateTime.now(),
+        'statut': 'Actif',
+        'type': 'HTTP REST',
+      });
+      index++;
     }
 
     return clientsInfo;
@@ -279,10 +301,7 @@ class NetworkServer {
 
   /// Validate Origin and Host headers to prevent CSRF attacks
   bool _validateOriginHost(HttpRequest request, String? origin, String? host) {
-    // If Origin is provided, validate it (common in browsers)
     if (origin != null) {
-      // In production, compare against allowed origins
-      // For now, we allow same-origin requests
       final requestHost = request.requestedUri.host;
       try {
         final originUri = Uri.parse(origin);
@@ -294,7 +313,6 @@ class NetworkServer {
       }
     }
 
-    // Host header should match request
     if (host != null) {
       final requestHost = request.requestedUri.host;
       if (!host.startsWith(requestHost)) {
@@ -306,14 +324,12 @@ class NetworkServer {
   }
 
   /// Validate WebSocket token against active sessions in HTTPServer
-  /// Returns session data if valid, null otherwise
   Future<Map<String, dynamic>?> _validateWebSocketToken(String token) async {
     try {
       if (token.isEmpty || token.length < 10) {
         return null;
       }
 
-      // Use HTTPServer's public validation method for consistency
       final sessionData = await _httpServer.validateWebSocketToken(token);
       return sessionData;
     } catch (e) {
@@ -334,7 +350,6 @@ class NetworkServer {
 
       debugPrint('🔐 Authentification du CLIENT: $username');
 
-      // Vérifier les credentials contre la table users du serveur
       final user = await _databaseService.database.getUserByCredentials(username, password);
 
       if (user == null) {
@@ -347,7 +362,6 @@ class NetworkServer {
         return {'success': false, 'error': 'Utilisateur inactif'};
       }
 
-      // Générer token (simple: UUID-based)
       final token = '${user.id}_${DateTime.now().millisecondsSinceEpoch}_${username.hashCode}';
 
       debugPrint('✅ Authentification réussie pour CLIENT: $username');
@@ -376,7 +390,6 @@ class NetworkServer {
       final query = data['query'] as String?;
       final params = data['params'] as List?;
 
-      // S'assurer que le serveur n'est PAS en mode réseau
       if (_databaseService.isNetworkMode) {
         return {'error': 'Le serveur ne peut pas être en mode client réseau'};
       }
@@ -434,5 +447,582 @@ class NetworkServer {
         return true;
       }
     });
+  }
+
+  /// Traite les opérations de synchronisation du client
+  Future<Map<String, dynamic>> handleSync(Map<String, dynamic> data) async {
+    try {
+      final operations = data['operations'] as List?;
+      if (operations == null || operations.isEmpty) {
+        return {'success': true, 'synchronized': 0};
+      }
+
+      int synchronized = 0;
+      final db = _databaseService.database;
+
+      for (final op in operations) {
+        try {
+          final table = op['table'] as String?;
+          final operationType = op['operation'] as String?;
+          final opData = op['data'] as Map<String, dynamic>?;
+
+          if (table == null || operationType == null || opData == null) continue;
+
+          debugPrint('📥 Traitement sync: $operationType sur table $table');
+
+          switch (table) {
+            case 'clt':
+              await _syncClientOperation(db, operationType, opData);
+              break;
+            case 'frns':
+              await _syncFournisseurOperation(db, operationType, opData);
+              break;
+            case 'articles':
+              await _syncArticleOperation(db, operationType, opData);
+              break;
+            case 'ventes':
+              await _syncVenteOperation(db, operationType, opData);
+              break;
+            case 'achats':
+              await _syncAchatOperation(db, operationType, opData);
+              break;
+            case 'detventes':
+              await _syncDetVenteOperation(db, operationType, opData);
+              break;
+            case 'detachats':
+              await _syncDetAchatOperation(db, operationType, opData);
+              break;
+            case 'stocks':
+              await _syncStockOperation(db, operationType, opData);
+              break;
+            default:
+              debugPrint('⚠️ Table non gérée: $table');
+          }
+          synchronized++;
+        } catch (e) {
+          debugPrint('❌ Erreur opération: $e');
+        }
+      }
+
+      debugPrint('✅ Synchronisation: $synchronized/${operations.length} opérations traitées');
+      return {'success': true, 'synchronized': synchronized};
+    } catch (e) {
+      debugPrint('❌ Erreur sync: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  Future<void> _syncClientOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
+    switch (operation) {
+      case 'INSERT':
+        await db.insertClient(
+          CltCompanion(
+            rsoc: Value(data['rsoc'] ?? ''),
+            adr: Value(data['adr']),
+            capital: Value(double.tryParse(data['capital']?.toString() ?? '')),
+            rcs: Value(data['rcs']),
+            nif: Value(data['nif']),
+            stat: Value(data['stat']),
+            tel: Value(data['tel']),
+            port: Value(data['port']),
+            email: Value(data['email']),
+            site: Value(data['site']),
+            fax: Value(data['fax']),
+            telex: Value(data['telex']),
+            soldes: Value(double.tryParse(data['soldes']?.toString() ?? '')),
+            datedernop: Value(DateTime.tryParse(data['datedernop']?.toString() ?? '')),
+            delai: Value(int.tryParse(data['delai']?.toString() ?? '')),
+            soldesa: Value(double.tryParse(data['soldesa']?.toString() ?? '')),
+            action: Value(data['action'] ?? 'A'),
+            commercial: Value(data['commercial']),
+            plafon: Value(double.tryParse(data['plafon']?.toString() ?? '')),
+            taux: Value(double.tryParse(data['taux']?.toString() ?? '')),
+            categorie: Value(data['categorie']),
+            plafonbl: Value(double.tryParse(data['plafonbl']?.toString() ?? '')),
+          ),
+        );
+        break;
+      case 'UPDATE':
+        await db.updateClient(
+          data['rsoc'],
+          CltCompanion(
+            adr: Value(data['adr']),
+            capital: Value(double.tryParse(data['capital']?.toString() ?? '')),
+            rcs: Value(data['rcs']),
+            nif: Value(data['nif']),
+            stat: Value(data['stat']),
+            tel: Value(data['tel']),
+            port: Value(data['port']),
+            email: Value(data['email']),
+            site: Value(data['site']),
+            fax: Value(data['fax']),
+            telex: Value(data['telex']),
+            soldes: Value(double.tryParse(data['soldes']?.toString() ?? '')),
+            datedernop: Value(DateTime.tryParse(data['datedernop']?.toString() ?? '')),
+            delai: Value(int.tryParse(data['delai']?.toString() ?? '')),
+            soldesa: Value(double.tryParse(data['soldesa']?.toString() ?? '')),
+            action: Value(data['action'] ?? 'A'),
+            commercial: Value(data['commercial']),
+            plafon: Value(double.tryParse(data['plafon']?.toString() ?? '')),
+            taux: Value(double.tryParse(data['taux']?.toString() ?? '')),
+            categorie: Value(data['categorie']),
+            plafonbl: Value(double.tryParse(data['plafonbl']?.toString() ?? '')),
+          ),
+        );
+        break;
+      case 'DELETE':
+        await db.deleteClient(data['rsoc']);
+        break;
+    }
+  }
+
+  Future<void> _syncFournisseurOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
+    switch (operation) {
+      case 'INSERT':
+        await db.insertFournisseur(
+          FrnsCompanion(
+            rsoc: Value(data['rsoc'] ?? ''),
+            adr: Value(data['adr']),
+            capital: Value(double.tryParse(data['capital']?.toString() ?? '')),
+            rcs: Value(data['rcs']),
+            nif: Value(data['nif']),
+            stat: Value(data['stat']),
+            tel: Value(data['tel']),
+            port: Value(data['port']),
+            email: Value(data['email']),
+            site: Value(data['site']),
+            fax: Value(data['fax']),
+            telex: Value(data['telex']),
+            soldes: Value(double.tryParse(data['soldes']?.toString() ?? '')),
+            datedernop: Value(DateTime.tryParse(data['datedernop']?.toString() ?? '')),
+            delai: Value(int.tryParse(data['delai']?.toString() ?? '')),
+            soldesa: Value(double.tryParse(data['soldesa']?.toString() ?? '')),
+            action: Value(data['action'] ?? 'A'),
+          ),
+        );
+        break;
+      case 'UPDATE':
+        await db.updateFournisseur(
+          data['rsoc'],
+          FrnsCompanion(
+            adr: Value(data['adr']),
+            capital: Value(double.tryParse(data['capital']?.toString() ?? '')),
+            rcs: Value(data['rcs']),
+            nif: Value(data['nif']),
+            stat: Value(data['stat']),
+            tel: Value(data['tel']),
+            port: Value(data['port']),
+            email: Value(data['email']),
+            site: Value(data['site']),
+            fax: Value(data['fax']),
+            telex: Value(data['telex']),
+            soldes: Value(double.tryParse(data['soldes']?.toString() ?? '')),
+            datedernop: Value(DateTime.tryParse(data['datedernop']?.toString() ?? '')),
+            delai: Value(int.tryParse(data['delai']?.toString() ?? '')),
+            soldesa: Value(double.tryParse(data['soldesa']?.toString() ?? '')),
+            action: Value(data['action'] ?? 'A'),
+          ),
+        );
+        break;
+      case 'DELETE':
+        await db.deleteFournisseur(data['rsoc']);
+        break;
+    }
+  }
+
+  Future<void> _syncArticleOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
+    switch (operation) {
+      case 'INSERT':
+        await db.insertArticle(
+          ArticlesCompanion(
+            designation: Value(data['designation'] ?? ''),
+            u1: Value(data['u1']),
+            u2: Value(data['u2']),
+            tu2u1: Value(double.tryParse(data['tu2u1']?.toString() ?? '')),
+            u3: Value(data['u3']),
+            tu3u2: Value(double.tryParse(data['tu3u2']?.toString() ?? '')),
+            pvu1: Value(double.tryParse(data['pvu1']?.toString() ?? '')),
+            pvu2: Value(double.tryParse(data['pvu2']?.toString() ?? '')),
+            pvu3: Value(double.tryParse(data['pvu3']?.toString() ?? '')),
+            stocksu1: Value(double.tryParse(data['stocksu1']?.toString() ?? '')),
+            stocksu2: Value(double.tryParse(data['stocksu2']?.toString() ?? '')),
+            stocksu3: Value(double.tryParse(data['stocksu3']?.toString() ?? '')),
+            sec: Value(data['sec']),
+            usec: Value(double.tryParse(data['usec']?.toString() ?? '')),
+            cmup: Value(double.tryParse(data['cmup']?.toString() ?? '')),
+            dep: Value(data['dep']),
+            action: Value(data['action']),
+            categorie: Value(data['categorie']),
+            classification: Value(data['classification']),
+            emb: Value(data['emb']),
+          ),
+        );
+        break;
+      case 'UPDATE':
+        await db.customUpdate(
+          'UPDATE articles SET u1 = ?, u2 = ?, tu2u1 = ?, u3 = ?, tu3u2 = ?, pvu1 = ?, pvu2 = ?, pvu3 = ?, stocksu1 = ?, stocksu2 = ?, stocksu3 = ?, sec = ?, usec = ?, cmup = ?, dep = ?, action = ?, categorie = ?, classification = ?, emb = ? WHERE designation = ?',
+          variables: [
+            Variable(data['u1']),
+            Variable(data['u2']),
+            Variable(double.tryParse(data['tu2u1']?.toString() ?? '')),
+            Variable(data['u3']),
+            Variable(double.tryParse(data['tu3u2']?.toString() ?? '')),
+            Variable(double.tryParse(data['pvu1']?.toString() ?? '')),
+            Variable(double.tryParse(data['pvu2']?.toString() ?? '')),
+            Variable(double.tryParse(data['pvu3']?.toString() ?? '')),
+            Variable(double.tryParse(data['stocksu1']?.toString() ?? '')),
+            Variable(double.tryParse(data['stocksu2']?.toString() ?? '')),
+            Variable(double.tryParse(data['stocksu3']?.toString() ?? '')),
+            Variable(data['sec']),
+            Variable(double.tryParse(data['usec']?.toString() ?? '')),
+            Variable(double.tryParse(data['cmup']?.toString() ?? '')),
+            Variable(data['dep']),
+            Variable(data['action']),
+            Variable(data['categorie']),
+            Variable(data['classification']),
+            Variable(data['emb']),
+            Variable(data['designation']),
+          ],
+        );
+        break;
+      case 'DELETE':
+        await db.deleteArticle(data['designation']);
+        break;
+    }
+  }
+
+  Future<void> _syncVenteOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
+    try {
+      switch (operation) {
+        case 'INSERT':
+          await db
+              .into(db.ventes)
+              .insert(
+                VentesCompanion(
+                  numventes: Value(data['numventes']),
+                  nfact: Value(data['nfact']),
+                  daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                  clt: Value(data['clt']),
+                  modepai: Value(data['modepai']),
+                  echeance: Value(DateTime.tryParse(data['echeance']?.toString() ?? '')),
+                  totalttc: Value(double.tryParse(data['totalttc']?.toString() ?? '')),
+                  contre: Value(data['contre']),
+                  avance: Value(double.tryParse(data['avance']?.toString() ?? '')),
+                  bq: Value(data['bq']),
+                  regl: Value(double.tryParse(data['regl']?.toString() ?? '')),
+                  datrcol: Value(DateTime.tryParse(data['datrcol']?.toString() ?? '')),
+                  mregl: Value(data['mregl']),
+                  commerc: Value(data['commerc']),
+                  remise: Value(double.tryParse(data['remise']?.toString() ?? '')),
+                  verification: Value(data['verification'] ?? 'JOURNAL'),
+                  type: Value(data['type']),
+                  as: Value(data['as']),
+                  emb: Value(data['emb']),
+                  transp: Value(data['transp']),
+                  heure: Value(data['heure']),
+                  poste: Value(data['poste']),
+                ),
+              );
+          break;
+        case 'UPDATE':
+          if (data['numventes'] != null) {
+            await db.customUpdate(
+              'UPDATE ventes SET nfact = ?, daty = ?, modepai = ?, echeance = ?, totalttc = ?, contre = ?, avance = ?, bq = ?, regl = ?, datrcol = ?, mregl = ?, commerc = ?, remise = ?, verification = ?, type = ?, as = ?, emb = ?, transp = ?, heure = ?, poste = ? WHERE numventes = ?',
+              variables: [
+                Variable(data['nfact']),
+                Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                Variable(data['modepai']),
+                Variable(DateTime.tryParse(data['echeance']?.toString() ?? '')),
+                Variable(double.tryParse(data['totalttc']?.toString() ?? '')),
+                Variable(data['contre']),
+                Variable(double.tryParse(data['avance']?.toString() ?? '')),
+                Variable(data['bq']),
+                Variable(double.tryParse(data['regl']?.toString() ?? '')),
+                Variable(DateTime.tryParse(data['datrcol']?.toString() ?? '')),
+                Variable(data['mregl']),
+                Variable(data['commerc']),
+                Variable(double.tryParse(data['remise']?.toString() ?? '')),
+                Variable(data['verification']),
+                Variable(data['type']),
+                Variable(data['as']),
+                Variable(data['emb']),
+                Variable(data['transp']),
+                Variable(data['heure']),
+                Variable(data['poste']),
+                Variable(data['numventes']),
+              ],
+            );
+          }
+          break;
+        case 'DELETE':
+          if (data['numventes'] != null) {
+            await db.customUpdate(
+              'DELETE FROM ventes WHERE numventes = ?',
+              variables: [Variable(data['numventes'])],
+            );
+          }
+          break;
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur sync vente: $e');
+    }
+  }
+
+  Future<void> _syncAchatOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
+    try {
+      switch (operation) {
+        case 'INSERT':
+          await db
+              .into(db.achats)
+              .insert(
+                AchatsCompanion(
+                  numachats: Value(data['numachats']),
+                  nfact: Value(data['nfact']),
+                  daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                  frns: Value(data['frns']),
+                  modepai: Value(data['modepai']),
+                  echeance: Value(DateTime.tryParse(data['echeance']?.toString() ?? '')),
+                  totalttc: Value(double.tryParse(data['totalttc']?.toString() ?? '')),
+                  contre: Value(data['contre']),
+                  bq: Value(data['bq']),
+                  regl: Value(double.tryParse(data['regl']?.toString() ?? '')),
+                  datregl: Value(DateTime.tryParse(data['datregl']?.toString() ?? '')),
+                  mregl: Value(data['mregl']),
+                  verification: Value(data['verification'] ?? 'JOURNAL'),
+                  type: Value(data['type']),
+                  as: Value(data['as']),
+                  emb: Value(data['emb']),
+                  transp: Value(data['transp']),
+                ),
+              );
+          break;
+        case 'UPDATE':
+          if (data['numachats'] != null) {
+            await db.customUpdate(
+              'UPDATE achats SET nfact = ?, daty = ?, modepai = ?, echeance = ?, totalttc = ?, contre = ?, bq = ?, regl = ?, datregl = ?, mregl = ?, verification = ?, type = ?, as = ?, emb = ?, transp = ? WHERE numachats = ?',
+              variables: [
+                Variable(data['nfact']),
+                Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                Variable(data['modepai']),
+                Variable(DateTime.tryParse(data['echeance']?.toString() ?? '')),
+                Variable(double.tryParse(data['totalttc']?.toString() ?? '')),
+                Variable(data['contre']),
+                Variable(data['bq']),
+                Variable(double.tryParse(data['regl']?.toString() ?? '')),
+                Variable(DateTime.tryParse(data['datregl']?.toString() ?? '')),
+                Variable(data['mregl']),
+                Variable(data['verification']),
+                Variable(data['type']),
+                Variable(data['as']),
+                Variable(data['emb']),
+                Variable(data['transp']),
+                Variable(data['numachats']),
+              ],
+            );
+          }
+          break;
+        case 'DELETE':
+          if (data['numachats'] != null) {
+            await db.customUpdate(
+              'DELETE FROM achats WHERE numachats = ?',
+              variables: [Variable(data['numachats'])],
+            );
+          }
+          break;
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur sync achat: $e');
+    }
+  }
+
+  Future<void> _syncDetVenteOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
+    try {
+      switch (operation) {
+        case 'INSERT':
+          await db
+              .into(db.detventes)
+              .insert(
+                DetventesCompanion(
+                  numventes: Value(data['numventes']),
+                  designation: Value(data['designation']),
+                  unites: Value(data['unites']),
+                  depots: Value(data['depots']),
+                  q: Value(double.tryParse(data['q']?.toString() ?? '')),
+                  pu: Value(double.tryParse(data['pu']?.toString() ?? '')),
+                  daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                  emb: Value(data['emb']),
+                  transp: Value(data['transp']),
+                  qe: Value(double.tryParse(data['qe']?.toString() ?? '')),
+                  diffPrix: Value(double.tryParse(data['diffPrix']?.toString() ?? '')),
+                ),
+              );
+          break;
+        case 'UPDATE':
+          if (data['numventes'] != null && data['designation'] != null) {
+            await db.customUpdate(
+              'UPDATE detventes SET unites = ?, depots = ?, q = ?, pu = ?, daty = ?, emb = ?, transp = ?, qe = ?, diffPrix = ? WHERE numventes = ? AND designation = ?',
+              variables: [
+                Variable(data['unites']),
+                Variable(data['depots']),
+                Variable(double.tryParse(data['q']?.toString() ?? '')),
+                Variable(double.tryParse(data['pu']?.toString() ?? '')),
+                Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                Variable(data['emb']),
+                Variable(data['transp']),
+                Variable(double.tryParse(data['qe']?.toString() ?? '')),
+                Variable(double.tryParse(data['diffPrix']?.toString() ?? '')),
+                Variable(data['numventes']),
+                Variable(data['designation']),
+              ],
+            );
+          }
+          break;
+        case 'DELETE':
+          if (data['numventes'] != null && data['designation'] != null) {
+            await db.customUpdate(
+              'DELETE FROM detventes WHERE numventes = ? AND designation = ?',
+              variables: [Variable(data['numventes']), Variable(data['designation'])],
+            );
+          }
+          break;
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur sync detail vente: $e');
+    }
+  }
+
+  Future<void> _syncDetAchatOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
+    try {
+      switch (operation) {
+        case 'INSERT':
+          await db
+              .into(db.detachats)
+              .insert(
+                DetachatsCompanion(
+                  numachats: Value(data['numachats']),
+                  designation: Value(data['designation']),
+                  unites: Value(data['unites']),
+                  depots: Value(data['depots']),
+                  q: Value(double.tryParse(data['q']?.toString() ?? '')),
+                  pu: Value(double.tryParse(data['pu']?.toString() ?? '')),
+                  daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                  emb: Value(data['emb']),
+                  transp: Value(data['transp']),
+                  qe: Value(double.tryParse(data['qe']?.toString() ?? '')),
+                ),
+              );
+          break;
+        case 'UPDATE':
+          if (data['numachats'] != null && data['designation'] != null) {
+            await db.customUpdate(
+              'UPDATE detachats SET unites = ?, depots = ?, q = ?, pu = ?, daty = ?, emb = ?, transp = ?, qe = ? WHERE numachats = ? AND designation = ?',
+              variables: [
+                Variable(data['unites']),
+                Variable(data['depots']),
+                Variable(double.tryParse(data['q']?.toString() ?? '')),
+                Variable(double.tryParse(data['pu']?.toString() ?? '')),
+                Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                Variable(data['emb']),
+                Variable(data['transp']),
+                Variable(double.tryParse(data['qe']?.toString() ?? '')),
+                Variable(data['numachats']),
+                Variable(data['designation']),
+              ],
+            );
+          }
+          break;
+        case 'DELETE':
+          if (data['numachats'] != null && data['designation'] != null) {
+            await db.customUpdate(
+              'DELETE FROM detachats WHERE numachats = ? AND designation = ?',
+              variables: [Variable(data['numachats']), Variable(data['designation'])],
+            );
+          }
+          break;
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur sync detail achat: $e');
+    }
+  }
+
+  Future<void> _syncStockOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
+    try {
+      switch (operation) {
+        case 'INSERT':
+          await db
+              .into(db.stocks)
+              .insert(
+                StocksCompanion(
+                  ref: Value(data['ref'] ?? ''),
+                  daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                  lib: Value(data['lib']),
+                  numachats: Value(data['numachats']),
+                  nfact: Value(data['nfact']),
+                  refart: Value(data['refart']),
+                  qe: Value(double.tryParse(data['qe']?.toString() ?? '')),
+                  pus: Value(double.tryParse(data['pus']?.toString() ?? '')),
+                  entres: Value(double.tryParse(data['entres']?.toString() ?? '')),
+                  qs: Value(double.tryParse(data['qs']?.toString() ?? '')),
+                  pue: Value(double.tryParse(data['pue']?.toString() ?? '')),
+                  sortie: Value(double.tryParse(data['sortie']?.toString() ?? '')),
+                  stocksu1: Value(double.tryParse(data['stocksu1']?.toString() ?? '')),
+                  numventes: Value(data['numventes']),
+                  ue: Value(data['ue']),
+                  us: Value(data['us']),
+                  stocksu2: Value(double.tryParse(data['stocksu2']?.toString() ?? '')),
+                  stocksu3: Value(double.tryParse(data['stocksu3']?.toString() ?? '')),
+                  depots: Value(data['depots']),
+                  cmup: Value(double.tryParse(data['cmup']?.toString() ?? '')),
+                  clt: Value(data['clt']),
+                  frns: Value(data['frns']),
+                  verification: Value(data['verification']),
+                  stkdep: Value(double.tryParse(data['stkdep']?.toString() ?? '')),
+                  marq: Value(data['marq']),
+                ),
+              );
+          break;
+        case 'UPDATE':
+          if (data['ref'] != null) {
+            await db.customUpdate(
+              'UPDATE stocks SET daty = ?, lib = ?, numachats = ?, nfact = ?, refart = ?, qe = ?, pus = ?, entres = ?, qs = ?, pue = ?, sortie = ?, stocksu1 = ?, numventes = ?, ue = ?, us = ?, stocksu2 = ?, stocksu3 = ?, depots = ?, cmup = ?, clt = ?, frns = ?, verification = ?, stkdep = ?, marq = ? WHERE ref = ?',
+              variables: [
+                Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                Variable(data['lib']),
+                Variable(data['numachats']),
+                Variable(data['nfact']),
+                Variable(data['refart']),
+                Variable(double.tryParse(data['qe']?.toString() ?? '')),
+                Variable(double.tryParse(data['pus']?.toString() ?? '')),
+                Variable(double.tryParse(data['entres']?.toString() ?? '')),
+                Variable(double.tryParse(data['qs']?.toString() ?? '')),
+                Variable(double.tryParse(data['pue']?.toString() ?? '')),
+                Variable(double.tryParse(data['sortie']?.toString() ?? '')),
+                Variable(double.tryParse(data['stocksu1']?.toString() ?? '')),
+                Variable(data['numventes']),
+                Variable(data['ue']),
+                Variable(data['us']),
+                Variable(double.tryParse(data['stocksu2']?.toString() ?? '')),
+                Variable(double.tryParse(data['stocksu3']?.toString() ?? '')),
+                Variable(data['depots']),
+                Variable(double.tryParse(data['cmup']?.toString() ?? '')),
+                Variable(data['clt']),
+                Variable(data['frns']),
+                Variable(data['verification']),
+                Variable(double.tryParse(data['stkdep']?.toString() ?? '')),
+                Variable(data['marq']),
+                Variable(data['ref']),
+              ],
+            );
+          }
+          break;
+        case 'DELETE':
+          if (data['ref'] != null) {
+            await db.customUpdate('DELETE FROM stocks WHERE ref = ?', variables: [Variable(data['ref'])]);
+          }
+          break;
+      }
+    } catch (e) {
+      debugPrint('❌ Erreur sync stock: $e');
+    }
   }
 }

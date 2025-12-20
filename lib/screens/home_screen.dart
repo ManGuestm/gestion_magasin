@@ -12,6 +12,8 @@ import '../services/auth_service.dart';
 import '../services/menu_service.dart';
 import '../services/modal_loader.dart';
 import '../services/network_config_service.dart';
+import '../services/sync/sync_queue_service.dart';
+import '../services/sync/sync_timer_service.dart';
 import '../widgets/common/notification_panel.dart';
 import '../widgets/common/theme_selector.dart';
 import '../widgets/menu/icon_bar_widget.dart';
@@ -53,15 +55,25 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _hasNewData = false;
   int updateCounter = 0;
 
+  // Service de synchronisation
+  final SyncTimerService _syncTimer = SyncTimerService();
+
   @override
   void initState() {
     super.initState();
+
+    // ✅ Démarrer la synchronisation automatique Client/Serveur
+    _syncTimer.startPeriodicSync();
+
     _loadDashboardData();
     _startRealTimeUpdates();
   }
 
   @override
   void dispose() {
+    // ✅ Arrêter la synchronisation
+    _syncTimer.dispose();
+
     _realTimeTimer?.cancel();
     _refreshTimer?.cancel();
     _removeAllOverlays();
@@ -113,6 +125,109 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// 🔴 AJOUT: Récupère le nombre de ventes brouillard en attente de synchronisation
+  /// ⚠️ IMPORTANT: Seulement en mode SERVER (en mode CLIENT, le serveur envoie déjà les bonnes données)
+  Future<int> _getVentesBrouillardPending() async {
+    try {
+      // 🔴 Ne compter les ventes en attente que si on est en mode SERVER
+      final dbService = DatabaseService();
+      if (dbService.isNetworkMode) {
+        // Mode CLIENT: le serveur envoie déjà les ventes brouillard correctes
+        debugPrint('ℹ️ Mode CLIENT: ventes brouillard du serveur utilisées');
+        return 0;
+      }
+
+      // Mode SERVER: compter les ventes brouillard en attente de sync
+      final syncQueue = SyncQueueService();
+      await syncQueue.initialize();
+
+      final pendingOps = await syncQueue.getPendingOperations();
+      final ventesBrouillardCount = pendingOps
+          .where((item) => item.table == 'ventes' && item.data['verification'] == 'BROUILLARD')
+          .length;
+
+      if (ventesBrouillardCount > 0) {
+        debugPrint('✅ MODE SERVER - Ventes brouillard en attente de sync: $ventesBrouillardCount');
+      }
+      return ventesBrouillardCount;
+    } catch (e) {
+      debugPrint('⚠️ Erreur compte ventes brouillard pending: $e');
+      return 0;
+    }
+  }
+
+  /// 🔴 AJOUT: Récupère le nombre de ventes brouillard magasin en attente de synchronisation
+  /// ⚠️ IMPORTANT: Seulement en mode SERVER (en mode CLIENT, le serveur envoie déjà les bonnes données)
+  Future<int> _getVentesBrouillardMagPending() async {
+    try {
+      // 🔴 Ne compter les ventes en attente que si on est en mode SERVER
+      final dbService = DatabaseService();
+      if (dbService.isNetworkMode) {
+        // Mode CLIENT: le serveur envoie déjà les ventes brouillard correctes
+        debugPrint('ℹ️ Mode CLIENT: ventes brouillard magasin du serveur utilisées');
+        return 0;
+      }
+
+      // Mode SERVER: compter les ventes brouillard magasin en attente de sync
+      final syncQueue = SyncQueueService();
+      await syncQueue.initialize();
+
+      final pendingOps = await syncQueue.getPendingOperations();
+
+      int count = 0;
+      for (final item in pendingOps) {
+        if (item.table == 'ventes' && item.data['verification'] == 'BROUILLARD') {
+          // Filtrer par type MAG (similaire à getVentesBrouillardMagCount)
+          final type = item.data['type'];
+          if (type == null || type == 'MAG') {
+            count++;
+          }
+        }
+      }
+
+      if (count > 0) {
+        debugPrint('✅ MODE SERVER - Ventes brouillard magasin en attente de sync: $count');
+      }
+      return count;
+    } catch (e) {
+      debugPrint('⚠️ Erreur compte ventes brouillard mag pending: $e');
+      return 0;
+    }
+  }
+
+  /// 🔴 AJOUT: Récupère le nombre de ventes brouillard tous dépôts en attente de synchronisation
+  /// ⚠️ IMPORTANT: Seulement en mode SERVER (en mode CLIENT, le serveur envoie déjà les bonnes données)
+  Future<int> _getVentesBrouillardTousDepotsPending() async {
+    try {
+      // 🔴 Ne compter les ventes en attente que si on est en mode SERVER
+      final dbService = DatabaseService();
+      if (dbService.isNetworkMode) {
+        // Mode CLIENT: le serveur envoie déjà les ventes brouillard correctes
+        debugPrint('ℹ️ Mode CLIENT: ventes brouillard tous dépôts du serveur utilisées');
+        return 0;
+      }
+
+      // Mode SERVER: compter les ventes brouillard en attente de sync
+      final syncQueue = SyncQueueService();
+      await syncQueue.initialize();
+
+      final pendingOps = await syncQueue.getPendingOperations();
+      final ventesBrouillardCount = pendingOps
+          .where((item) => item.table == 'ventes' && item.data['verification'] == 'BROUILLARD')
+          .length;
+
+      if (ventesBrouillardCount > 0) {
+        debugPrint(
+          '✅ MODE SERVER - Ventes brouillard tous dépôts en attente de sync: $ventesBrouillardCount',
+        );
+      }
+      return ventesBrouillardCount;
+    } catch (e) {
+      debugPrint('⚠️ Erreur compte ventes brouillard tous dépôts pending: $e');
+      return 0;
+    }
+  }
+
   Future<void> _loadDashboardData({bool silent = false}) async {
     if (!silent) {
       setState(() => _isLoadingStats = true);
@@ -156,6 +271,15 @@ class _HomeScreenState extends State<HomeScreen> {
         final ventesBrouillardMag = await db.getVentesBrouillardMagCount();
         final ventesBrouillardTousDepots = await db.getVentesBrouillardTousDepotsCount();
 
+        // ✅ Ajouter les ventes brouillard en attente de synchronisation
+        final ventesBrouillardPending = await _getVentesBrouillardPending();
+        final ventesBrouillardTotal = ventesBrouillard + ventesBrouillardPending;
+        final ventesBrouillardMagPending = await _getVentesBrouillardMagPending();
+        final ventesBrouillardMagTotal = ventesBrouillardMag + ventesBrouillardMagPending;
+        final ventesBrouillardTousDepotsPending = await _getVentesBrouillardTousDepotsPending();
+        final ventesBrouillardTousDepotsTotal =
+            ventesBrouillardTousDepots + ventesBrouillardTousDepotsPending;
+
         stats['totalStock'] = totalStock;
         stats['totalAchats'] = totalAchats;
         stats['totalVentes'] = totalVentes;
@@ -164,9 +288,9 @@ class _HomeScreenState extends State<HomeScreen> {
         stats['cmpt_fournisseurs'] = await _getCompteFournisseursSolde();
         stats['benefices'] = await db.getBeneficesReels();
         stats['beneficesJour'] = await db.getBeneficesJour();
-        stats['ventesBrouillard'] = ventesBrouillard;
-        stats['ventesBrouillardMag'] = ventesBrouillardMag;
-        stats['ventesBrouillardTousDepots'] = ventesBrouillardTousDepots;
+        stats['ventesBrouillard'] = ventesBrouillardTotal;
+        stats['ventesBrouillardMag'] = ventesBrouillardMagTotal;
+        stats['ventesBrouillardTousDepots'] = ventesBrouillardTousDepotsTotal;
 
         _recentSales = await db.getRecentSales(10);
         _recentBuys = await db.getRecentPurchases(10);
@@ -179,13 +303,22 @@ class _HomeScreenState extends State<HomeScreen> {
         final ventesBrouillardMag = await db.getVentesBrouillardMagCount();
         final ventesBrouillardTousDepots = await db.getVentesBrouillardTousDepotsCount();
 
+        // ✅ Ajouter les ventes brouillard en attente de synchronisation
+        final ventesBrouillardPending = await _getVentesBrouillardPending();
+        final ventesBrouillardTotal = ventesBrouillard + ventesBrouillardPending;
+        final ventesBrouillardMagPending = await _getVentesBrouillardMagPending();
+        final ventesBrouillardMagTotal = ventesBrouillardMag + ventesBrouillardMagPending;
+        final ventesBrouillardTousDepotsPending = await _getVentesBrouillardTousDepotsPending();
+        final ventesBrouillardTousDepotsTotal =
+            ventesBrouillardTousDepots + ventesBrouillardTousDepotsPending;
+
         stats['totalVentes'] = totalVentes;
         stats['ventesJour'] = ventesJour;
         stats['encaissements'] = encaissements;
         stats['transactions'] = transactions;
-        stats['ventesBrouillard'] = ventesBrouillard;
-        stats['ventesBrouillardMag'] = ventesBrouillardMag;
-        stats['ventesBrouillardTousDepots'] = ventesBrouillardTousDepots;
+        stats['ventesBrouillard'] = ventesBrouillardTotal;
+        stats['ventesBrouillardMag'] = ventesBrouillardMagTotal;
+        stats['ventesBrouillardTousDepots'] = ventesBrouillardTousDepotsTotal;
 
         _recentSales = await db.getRecentSales(5);
         _recentBuys = (await db.getRecentPurchases(5));

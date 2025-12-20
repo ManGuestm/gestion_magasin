@@ -26,20 +26,21 @@ class TresorerieService {
     final nouveauSolde = type == 'ENTREE' ? soldeActuel + montant : soldeActuel - montant;
 
     await database.customStatement(
-        '''INSERT INTO caisse (ref, daty, lib, debit, credit, soldes, type, clt, frns, comptes)
+      '''INSERT INTO caisse (ref, daty, lib, debit, credit, soldes, type, clt, frns, comptes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        [
-          ref,
-          DateTime.now().toIso8601String(),
-          libelle,
-          type == 'SORTIE' ? montant : 0,
-          type == 'ENTREE' ? montant : 0,
-          nouveauSolde,
-          type,
-          client,
-          fournisseur,
-          compte
-        ]);
+      [
+        ref,
+        DateTime.now().toIso8601String(),
+        libelle,
+        type == 'SORTIE' ? montant : 0,
+        type == 'ENTREE' ? montant : 0,
+        nouveauSolde,
+        type,
+        client,
+        fournisseur,
+        compte,
+      ],
+    );
   }
 
   /// Enregistre une opération bancaire
@@ -60,21 +61,22 @@ class TresorerieService {
     final nouveauSolde = type == 'ENTREE' ? soldeActuel + montant : soldeActuel - montant;
 
     await database.customStatement(
-        '''INSERT INTO banque (ref, daty, lib, debit, credit, soldes, code, type, clt, frns, comptes)
+      '''INSERT INTO banque (ref, daty, lib, debit, credit, soldes, code, type, clt, frns, comptes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        [
-          ref,
-          DateTime.now().toIso8601String(),
-          libelle,
-          type == 'SORTIE' ? montant : 0,
-          type == 'ENTREE' ? montant : 0,
-          nouveauSolde,
-          codeBanque,
-          type,
-          client,
-          fournisseur,
-          compte
-        ]);
+      [
+        ref,
+        DateTime.now().toIso8601String(),
+        libelle,
+        type == 'SORTIE' ? montant : 0,
+        type == 'ENTREE' ? montant : 0,
+        nouveauSolde,
+        codeBanque,
+        type,
+        client,
+        fournisseur,
+        compte,
+      ],
+    );
 
     // Mettre à jour le solde de la banque configurée
     await database.customStatement('UPDATE bq SET soldes = ? WHERE code = ?', [nouveauSolde, codeBanque]);
@@ -94,18 +96,19 @@ class TresorerieService {
     final database = _db.database;
 
     await database.customStatement(
-        '''INSERT INTO chequier (ncheq, tire, bqtire, montant, datechq, daterecep, action, numventes)
+      '''INSERT INTO chequier (ncheq, tire, bqtire, montant, datechq, daterecep, action, numventes)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-        [
-          numeroCheque,
-          tire,
-          banqueTire,
-          montant,
-          dateCheque.toIso8601String(),
-          dateReception?.toIso8601String(),
-          action ?? 'EN_ATTENTE',
-          numVente
-        ]);
+      [
+        numeroCheque,
+        tire,
+        banqueTire,
+        montant,
+        dateCheque.toIso8601String(),
+        dateReception?.toIso8601String(),
+        action ?? 'EN_ATTENTE',
+        numVente,
+      ],
+    );
   }
 
   /// Encaisse un chèque
@@ -114,16 +117,20 @@ class TresorerieService {
 
     await database.transaction(() async {
       // Récupérer le chèque
-      final cheque = await database.customSelect('SELECT * FROM chequier WHERE ncheq = ?',
-          variables: [Variable(numeroCheque)]).getSingleOrNull();
+      final cheque = await database
+          .customSelect('SELECT * FROM chequier WHERE ncheq = ?', variables: [Variable(numeroCheque)])
+          .getSingleOrNull();
 
       if (cheque == null) throw Exception('Chèque introuvable');
 
       final montant = cheque.read<double>('montant');
 
       // Marquer le chèque comme encaissé
-      await database.customStatement('UPDATE chequier SET action = ?, daterecep = ? WHERE ncheq = ?',
-          ['ENCAISSE', DateTime.now().toIso8601String(), numeroCheque]);
+      await database.customStatement('UPDATE chequier SET action = ?, daterecep = ? WHERE ncheq = ?', [
+        'ENCAISSE',
+        DateTime.now().toIso8601String(),
+        numeroCheque,
+      ]);
 
       // Enregistrer l'opération bancaire
       await enregistrerOperationBanque(
@@ -184,7 +191,7 @@ class TresorerieService {
     final database = _db.database;
 
     final result = await database
-        .customSelect('SELECT COALESCE(SUM(credit - debit), 0) as solde FROM caisse')
+        .customSelect('SELECT COALESCE(SUM(credit - debit), 0) as solde FROM caisse', variables: [])
         .getSingle();
 
     return result.read<double>('solde');
@@ -194,9 +201,12 @@ class TresorerieService {
   Future<double> _getSoldeBanque(String codeBanque) async {
     final database = _db.database;
 
-    final result = await database.customSelect(
-        'SELECT COALESCE(SUM(credit - debit), 0) as solde FROM banque WHERE code = ?',
-        variables: [Variable(codeBanque)]).getSingle();
+    final result = await database
+        .customSelect(
+          'SELECT COALESCE(SUM(credit - debit), 0) as solde FROM banque WHERE code = ?',
+          variables: [Variable(codeBanque)],
+        )
+        .getSingle();
 
     return result.read<double>('solde');
   }
@@ -205,21 +215,27 @@ class TresorerieService {
   Future<List<Map<String, dynamic>>> getJournalCaisse(DateTime debut, DateTime fin) async {
     final database = _db.database;
 
-    final result = await database.customSelect('''SELECT * FROM caisse 
+    final result = await database
+        .customSelect(
+          '''SELECT * FROM caisse 
          WHERE daty BETWEEN ? AND ? 
          ORDER BY daty DESC, ref DESC''',
-        variables: [Variable(debut.toIso8601String()), Variable(fin.toIso8601String())]).get();
+          variables: [Variable(debut.toIso8601String()), Variable(fin.toIso8601String())],
+        )
+        .get();
 
     return result
-        .map((row) => {
-              'ref': row.read<String>('ref'),
-              'daty': row.read<DateTime?>('daty'),
-              'lib': row.read<String?>('lib'),
-              'debit': row.read<double?>('debit'),
-              'credit': row.read<double?>('credit'),
-              'soldes': row.read<double?>('soldes'),
-              'type': row.read<String?>('type'),
-            })
+        .map(
+          (row) => {
+            'ref': row.read<String>('ref'),
+            'daty': row.read<DateTime?>('daty'),
+            'lib': row.read<String?>('lib'),
+            'debit': row.read<double?>('debit'),
+            'credit': row.read<double?>('credit'),
+            'soldes': row.read<double?>('soldes'),
+            'type': row.read<String?>('type'),
+          },
+        )
         .toList();
   }
 
@@ -227,24 +243,31 @@ class TresorerieService {
   Future<List<Map<String, dynamic>>> getJournalBanque(String codeBanque, DateTime debut, DateTime fin) async {
     final database = _db.database;
 
-    final result = await database.customSelect('''SELECT * FROM banque 
+    final result = await database
+        .customSelect(
+          '''SELECT * FROM banque 
          WHERE code = ? AND daty BETWEEN ? AND ? 
-         ORDER BY daty DESC, ref DESC''', variables: [
-      Variable(codeBanque),
-      Variable(debut.toIso8601String()),
-      Variable(fin.toIso8601String())
-    ]).get();
+         ORDER BY daty DESC, ref DESC''',
+          variables: [
+            Variable(codeBanque),
+            Variable(debut.toIso8601String()),
+            Variable(fin.toIso8601String()),
+          ],
+        )
+        .get();
 
     return result
-        .map((row) => {
-              'ref': row.read<String>('ref'),
-              'daty': row.read<DateTime?>('daty'),
-              'lib': row.read<String?>('lib'),
-              'debit': row.read<double?>('debit'),
-              'credit': row.read<double?>('credit'),
-              'soldes': row.read<double?>('soldes'),
-              'type': row.read<String?>('type'),
-            })
+        .map(
+          (row) => {
+            'ref': row.read<String>('ref'),
+            'daty': row.read<DateTime?>('daty'),
+            'lib': row.read<String?>('lib'),
+            'debit': row.read<double?>('debit'),
+            'credit': row.read<double?>('credit'),
+            'soldes': row.read<double?>('soldes'),
+            'type': row.read<String?>('type'),
+          },
+        )
         .toList();
   }
 
@@ -257,15 +280,17 @@ class TresorerieService {
          ORDER BY datechq DESC''').get();
 
     return result
-        .map((row) => {
-              'ncheq': row.read<String?>('ncheq'),
-              'tire': row.read<String?>('tire'),
-              'bqtire': row.read<String?>('bqtire'),
-              'montant': row.read<double?>('montant'),
-              'datechq': row.read<DateTime?>('datechq'),
-              'daterecep': row.read<DateTime?>('daterecep'),
-              'numventes': row.read<String?>('numventes'),
-            })
+        .map(
+          (row) => {
+            'ncheq': row.read<String?>('ncheq'),
+            'tire': row.read<String?>('tire'),
+            'bqtire': row.read<String?>('bqtire'),
+            'montant': row.read<double?>('montant'),
+            'datechq': row.read<DateTime?>('datechq'),
+            'daterecep': row.read<DateTime?>('daterecep'),
+            'numventes': row.read<String?>('numventes'),
+          },
+        )
         .toList();
   }
 
@@ -279,9 +304,7 @@ class TresorerieService {
     // Soldes banques
     final banques = await database.customSelect('SELECT code, intitule, soldes FROM bq').get();
 
-    Map<String, double> soldes = {
-      'CAISSE': soldeCaisse,
-    };
+    Map<String, double> soldes = {'CAISSE': soldeCaisse};
 
     for (final banque in banques) {
       final code = banque.read<String>('code');
@@ -303,20 +326,28 @@ class TresorerieService {
     final database = _db.database;
 
     // Entrées et sorties de caisse
-    final caisseStats = await database.customSelect('''SELECT 
+    final caisseStats = await database
+        .customSelect(
+          '''SELECT 
            COALESCE(SUM(credit), 0) as entrees_caisse,
            COALESCE(SUM(debit), 0) as sorties_caisse
          FROM caisse 
          WHERE daty BETWEEN ? AND ?''',
-        variables: [Variable(debut.toIso8601String()), Variable(fin.toIso8601String())]).getSingle();
+          variables: [Variable(debut.toIso8601String()), Variable(fin.toIso8601String())],
+        )
+        .getSingle();
 
     // Entrées et sorties de banque
-    final banqueStats = await database.customSelect('''SELECT 
+    final banqueStats = await database
+        .customSelect(
+          '''SELECT 
            COALESCE(SUM(credit), 0) as entrees_banque,
            COALESCE(SUM(debit), 0) as sorties_banque
          FROM banque 
          WHERE daty BETWEEN ? AND ?''',
-        variables: [Variable(debut.toIso8601String()), Variable(fin.toIso8601String())]).getSingle();
+          variables: [Variable(debut.toIso8601String()), Variable(fin.toIso8601String())],
+        )
+        .getSingle();
 
     final tresorerieTotal = await calculateTotalTreasury();
 

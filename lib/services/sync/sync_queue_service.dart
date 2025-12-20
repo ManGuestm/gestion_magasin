@@ -254,4 +254,25 @@ class SyncQueueService {
       debugPrint('Erreur chargement queue: $e');
     }
   }
+
+  /// Récupère les changements du serveur
+  Future<void> pullChangesFromServer() async {
+    if (!_initialized || !_networkClient.isConnected) {
+      return;
+    }
+
+    try {
+      final lastSync = DateTime.now().subtract(const Duration(minutes: 5));
+      final changes = await _networkClient.getServerChanges(lastSync);
+
+      if (changes.isEmpty) {
+        return;
+      }
+
+      debugPrint('📥 Application de ${changes.length} changements du serveur');
+      // Les changements sont déjà appliqués par le serveur lors de la synchronisation
+    } catch (e) {
+      debugPrint('⚠️ Erreur récupération changements: $e');
+    }
+  }
 }

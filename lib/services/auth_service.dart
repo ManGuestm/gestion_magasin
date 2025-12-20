@@ -15,30 +15,28 @@ class AuthService {
   String get currentUserRole => _currentUser?.role ?? '';
 
   /// Authentifie un utilisateur avec cryptage du mot de passe
+  /// ✅ En mode CLIENT: authentifie via le serveur
+  /// ✅ En mode LOCAL/SERVER: authentifie via la base locale
   Future<bool> login(String username, String password) async {
     try {
-      final db = DatabaseService().database;
-      
-      // En mode réseau, utiliser la base de données locale qui est synchronisée
-      final users = await db.getAllUsers();
+      final dbService = DatabaseService();
 
-      for (final user in users) {
-        if (user.username == username) {
-          if (SecurityService.verifyPassword(password, user.motDePasse)) {
-            _currentUser = user;
+      // ✅ Utiliser le wrapper mode-aware pour l'authentification
+      final user = await dbService.authenticateUserWithModeAwareness(username, password);
 
-            // Log de connexion
-            await AuditService().log(
-              userId: user.id,
-              userName: user.nom,
-              action: AuditAction.login,
-              module: 'Authentification',
-              details: 'Connexion réussie',
-            );
+      if (user != null && SecurityService.verifyPassword(password, user.motDePasse)) {
+        _currentUser = user;
 
-            return true;
-          }
-        }
+        // Log de connexion
+        await AuditService().log(
+          userId: user.id,
+          userName: user.nom,
+          action: AuditAction.login,
+          module: 'Authentification',
+          details: 'Connexion réussie (${dbService.isNetworkMode ? "RÉSEAU" : "LOCAL"})',
+        );
+
+        return true;
       }
 
       // Log de tentative de connexion échouée

@@ -200,229 +200,234 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Mode de fonctionnement',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800]),
-                ),
-                const SizedBox(height: 20),
-
-                // Mode Serveur
-                GestureDetector(
-                  onTap: () => setState(() => _selectedMode = NetworkMode.server),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: _selectedMode == NetworkMode.server ? Colors.indigo[600]! : Colors.grey[300]!,
-                        width: 2,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _selectedMode == NetworkMode.server
-                                  ? Colors.indigo[600]!
-                                  : Colors.grey[400]!,
-                              width: 2,
-                            ),
-                          ),
-                          child: _selectedMode == NetworkMode.server
-                              ? Center(
-                                  child: Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.indigo[600],
-                                    ),
-                                  ),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Serveur', style: TextStyle(fontWeight: FontWeight.w500)),
-                              Text(
-                                'Cet ordinateur hébergera la base de données',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Mode Client
-                GestureDetector(
-                  onTap: () => setState(() => _selectedMode = NetworkMode.client),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: _selectedMode == NetworkMode.client ? Colors.indigo[600]! : Colors.grey[300]!,
-                        width: 2,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _selectedMode == NetworkMode.client
-                                  ? Colors.indigo[600]!
-                                  : Colors.grey[400]!,
-                              width: 2,
-                            ),
-                          ),
-                          child: _selectedMode == NetworkMode.client
-                              ? Center(
-                                  child: Container(
-                                    width: 10,
-                                    height: 10,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Colors.indigo[600],
-                                    ),
-                                  ),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Client', style: TextStyle(fontWeight: FontWeight.w500)),
-                              Text(
-                                'Cet ordinateur se connectera au serveur',
-                                style: TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Configuration Client
-                if (_selectedMode == NetworkMode.client) ...[
-                  const SizedBox(height: 24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    'Configuration du serveur',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800]),
+                    'Mode de fonctionnement',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[800]),
                   ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _serverIpController,
-                    decoration: InputDecoration(
-                      labelText: 'Adresse IP du serveur',
-                      hintText: '192.168.1.100',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      prefixIcon: const Icon(Icons.computer),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _portController,
-                    decoration: InputDecoration(
-                      labelText: 'Port',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      prefixIcon: const Icon(Icons.settings_ethernet),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: InputDecoration(
-                      labelText: 'Nom d\'utilisateur',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      prefixIcon: const Icon(Icons.person),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Mot de passe',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      prefixIcon: const Icon(Icons.lock),
-                    ),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      ElevatedButton.icon(
-                        onPressed: _isTestingConnection ? null : _testConnection,
-                        icon: _isTestingConnection
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.wifi_find),
-                        label: Text(_isTestingConnection ? 'Test en cours...' : 'Tester'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green[600],
-                          foregroundColor: Colors.white,
+                  const SizedBox(height: 20),
+
+                  // Mode Serveur
+                  GestureDetector(
+                    onTap: () => setState(() => _selectedMode = NetworkMode.server),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _selectedMode == NetworkMode.server
+                              ? Colors.indigo[600]!
+                              : Colors.grey[300]!,
+                          width: 2,
                         ),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        onPressed: _showDiagnostic,
-                        icon: const Icon(Icons.bug_report),
-                        label: const Text('Diagnostic'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange[600],
-                          foregroundColor: Colors.white,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _selectedMode == NetworkMode.server
+                                    ? Colors.indigo[600]!
+                                    : Colors.grey[400]!,
+                                width: 2,
+                              ),
+                            ),
+                            child: _selectedMode == NetworkMode.server
+                                ? Center(
+                                    child: Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.indigo[600],
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Serveur', style: TextStyle(fontWeight: FontWeight.w500)),
+                                Text(
+                                  'Cet ordinateur hébergera la base de données',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Mode Client
+                  GestureDetector(
+                    onTap: () => setState(() => _selectedMode = NetworkMode.client),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _selectedMode == NetworkMode.client
+                              ? Colors.indigo[600]!
+                              : Colors.grey[300]!,
+                          width: 2,
                         ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: _selectedMode == NetworkMode.client
+                                    ? Colors.indigo[600]!
+                                    : Colors.grey[400]!,
+                                width: 2,
+                              ),
+                            ),
+                            child: _selectedMode == NetworkMode.client
+                                ? Center(
+                                    child: Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.indigo[600],
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Client', style: TextStyle(fontWeight: FontWeight.w500)),
+                                Text(
+                                  'Cet ordinateur se connectera au serveur',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Configuration Client
+                  if (_selectedMode == NetworkMode.client) ...[
+                    const SizedBox(height: 24),
+                    Text(
+                      'Configuration du serveur',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800]),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _serverIpController,
+                      decoration: InputDecoration(
+                        labelText: 'Adresse IP du serveur',
+                        hintText: '192.168.1.100',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        prefixIcon: const Icon(Icons.computer),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _portController,
+                      decoration: InputDecoration(
+                        labelText: 'Port',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        prefixIcon: const Icon(Icons.settings_ethernet),
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _usernameController,
+                      decoration: InputDecoration(
+                        labelText: 'Nom d\'utilisateur',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        prefixIcon: const Icon(Icons.person),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      decoration: InputDecoration(
+                        labelText: 'Mot de passe',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        prefixIcon: const Icon(Icons.lock),
+                      ),
+                      obscureText: true,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _isTestingConnection ? null : _testConnection,
+                          icon: _isTestingConnection
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.wifi_find),
+                          label: Text(_isTestingConnection ? 'Test en cours...' : 'Tester'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green[600],
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          onPressed: _showDiagnostic,
+                          icon: const Icon(Icons.bug_report),
+                          label: const Text('Diagnostic'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.orange[600],
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  const SizedBox(height: 32),
+
+                  // Boutons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      const SizedBox(width: 16),
+                      ElevatedButton(
+                        onPressed: _saveConfiguration,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.indigo[600],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                        ),
+                        child: const Text('Sauvegarder'),
                       ),
                     ],
                   ),
                 ],
-
-                const SizedBox(height: 32),
-
-                // Boutons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    // TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
-                    const SizedBox(width: 16),
-                    ElevatedButton(
-                      onPressed: _saveConfiguration,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo[600],
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      ),
-                      child: const Text('Sauvegarder'),
-                    ),
-                  ],
-                ),
-              ],
+              ),
             ),
           ),
         ),
