@@ -2399,17 +2399,33 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     _defaultDepot = depot;
 
     setState(() {
-      _lignesVente.add({
-        'designation': _selectedArticle!.designation,
-        'unites': unite,
-        'quantite': quantite,
-        'prixUnitaire': prix,
-        'montant': montant,
-        'depot': depot,
-        'article': _selectedArticle,
-        'stockInsuffisant': quantite > _stockDisponible,
-        'diffPrix': diffPrix,
-      });
+      if (_isModifyingLine && _modifyingLineIndex != null) {
+        // En mode modification: remplacer à la même position
+        _lignesVente[_modifyingLineIndex!] = {
+          'designation': _selectedArticle!.designation,
+          'unites': unite,
+          'quantite': quantite,
+          'prixUnitaire': prix,
+          'montant': montant,
+          'depot': depot,
+          'article': _selectedArticle,
+          'stockInsuffisant': quantite > _stockDisponible,
+          'diffPrix': diffPrix,
+        };
+      } else {
+        // Mode normal: ajouter à la fin
+        _lignesVente.add({
+          'designation': _selectedArticle!.designation,
+          'unites': unite,
+          'quantite': quantite,
+          'prixUnitaire': prix,
+          'montant': montant,
+          'depot': depot,
+          'article': _selectedArticle,
+          'stockInsuffisant': quantite > _stockDisponible,
+          'diffPrix': diffPrix,
+        });
+      }
       _isModifyingLine = false;
       _modifyingLineIndex = null;
       originalLineData = null;
@@ -2504,17 +2520,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     _quantiteController.text = quantiteOriginale;
     debugPrint('Quantité restaurée: ${_quantiteController.text}');
 
-    // Supprimer la ligne après un délai
-    Future.delayed(const Duration(milliseconds: 50), () {
-      if (mounted && _isModifyingLine && _modifyingLineIndex == adjustedIndex) {
-        debugPrint('Suppression ligne - Index: $adjustedIndex, Quantité avant: ${_quantiteController.text}');
-        setState(() {
-          _lignesVente.removeAt(adjustedIndex);
-        });
-        _calculerTotaux();
-        debugPrint('Ligne supprimée - Quantité après: ${_quantiteController.text}');
-      }
-    });
+    // Remplacer la ligne à sa position au lieu de la supprimer
+    // La ligne sera mise à jour lors de l'ajout
+    debugPrint('Ligne prête pour modification à l\'index: $adjustedIndex');
 
     // Focus sur le champ quantité pour modification rapide
     Future.delayed(const Duration(milliseconds: 150), () {

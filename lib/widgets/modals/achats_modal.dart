@@ -746,8 +746,8 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
   void _validerAjout() async {
     debugPrint('Validation ajout - Mode modification: $_isModifyingArticle');
     if (_isModifyingArticle && _originalArticleData != null) {
-      debugPrint('Suppression ancienne ligne: ${_originalArticleData!['designation']}');
-      // En mode modification : supprimer l'ancienne ligne
+      debugPrint('Modification ligne: ${_originalArticleData!['designation']}');
+      // En mode modification : remplacer à la même position
       final originalIndex = _lignesAchat.indexWhere(
         (ligne) =>
             ligne['designation'] == _originalArticleData!['designation'] &&
@@ -755,11 +755,26 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             ligne['depot'] == _originalArticleData!['depot'],
       );
 
-      if (originalIndex != -1) {
-        _supprimerLigne(originalIndex);
+      if (originalIndex != -1 && _selectedArticle != null) {
+        double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
+        double prix = NumberUtils.parseFormattedNumber(_prixController.text);
+        double montant = quantite * prix;
+
+        setState(() {
+          _lignesAchat[originalIndex] = {
+            'designation': _selectedArticle!.designation,
+            'unites': _selectedUnite ?? 'Pce',
+            'quantite': quantite,
+            'prixUnitaire': prix,
+            'montant': montant,
+            'depot': _selectedDepot ?? 'MAG',
+          };
+        });
+        _calculerTotaux();
       }
+    } else {
+      _ajouterLigne();
     }
-    _ajouterLigne();
     await _resetArticleForm();
     debugPrint('Nombre total de lignes après ajout: ${_lignesAchat.length}');
   }
