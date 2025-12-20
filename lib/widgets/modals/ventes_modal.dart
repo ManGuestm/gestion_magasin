@@ -7005,6 +7005,56 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                                 ),
                                                               ),
                                                             ),
+                                                            const SizedBox(height: 12),
+                                                            // Stock disponible
+                                                            const Text(
+                                                              'STOCK DISPONIBLE',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: Colors.blue,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(height: 4),
+                                                            FutureBuilder<String>(
+                                                              future: _getStocksToutesUnites(
+                                                                _searchedArticle!,
+                                                                _selectedDepot ?? _defaultDepot,
+                                                              ),
+                                                              builder: (context, snapshot) {
+                                                                if (snapshot.connectionState ==
+                                                                    ConnectionState.waiting) {
+                                                                  return Container(
+                                                                    padding: const EdgeInsets.all(6),
+                                                                    child: const Text(
+                                                                      'Chargement...',
+                                                                      style: TextStyle(fontSize: 12),
+                                                                    ),
+                                                                  );
+                                                                }
+                                                                final stockText =
+                                                                    snapshot.data ?? 'Aucun stock';
+                                                                return Container(
+                                                                  width: double.infinity,
+                                                                  padding: const EdgeInsets.all(6),
+                                                                  decoration: BoxDecoration(
+                                                                    color: Colors.blue[50],
+                                                                    borderRadius: BorderRadius.circular(4),
+                                                                    border: Border.all(
+                                                                      color: Colors.blue[200]!,
+                                                                    ),
+                                                                  ),
+                                                                  child: Text(
+                                                                    stockText,
+                                                                    style: TextStyle(
+                                                                      fontSize: 12,
+                                                                      color: Colors.blue[700],
+                                                                      fontWeight: FontWeight.w500,
+                                                                    ),
+                                                                  ),
+                                                                );
+                                                              },
+                                                            ),
                                                           ],
                                                         ),
                                                       ),
