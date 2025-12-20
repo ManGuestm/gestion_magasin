@@ -35,7 +35,7 @@ class NetworkServer {
       if (info != null) {
         clientsInfo.add({
           'id': index,
-          'nom': info['nom'] ?? 'Client WebSocket $index',
+          'nom': info['username'] ?? 'Client WebSocket $index',
           'ip': info['ip'] ?? 'Inconnu',
           'connexion': info['connexion'] ?? DateTime.now(),
           'statut': 'Connecté',

@@ -16,6 +16,7 @@ Application professionnelle de gestion de magasin développée avec Flutter pour
 
 - **Authentification sécurisée** avec cryptage bcrypt
 - **Architecture réseau** serveur/client avec synchronisation temps réel
+- **Synchronisation temps réel** via WebSocket pour tous les clients connectés
 - **Gestion multi-utilisateurs** avec contrôle d'accès par rôles
 - **Audit complet** des actions utilisateurs
 - **Sauvegarde automatique** programmable
@@ -95,6 +96,17 @@ L'application supporte deux modes :
 
 - **Serveur** : Héberge la base de données
 - **Client** : Se connecte au serveur avec synchronisation temps réel
+
+### ✅ Synchronisation Temps Réel
+
+- **WebSocket** : Communication bidirectionnelle instantanée
+- **Broadcast automatique** : Tous les clients reçoivent les changements
+- **Pas de polling** : Efficace et performant
+- **Facile à intégrer** : Widget wrapper simple
+
+**Exemple :** Un vendeur fait une vente sur Client A → L'administrateur voit la vente immédiatement sur Client B
+
+📖 **Guide complet** : Voir `REALTIME_SYNC_GUIDE.md`
 
 ## 📈 Rapports
 

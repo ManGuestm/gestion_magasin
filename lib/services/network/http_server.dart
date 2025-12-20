@@ -144,12 +144,18 @@ class HTTPServer {
     final clientIp = request.connectionInfo?.remoteAddress.address ?? 'Inconnu';
 
     // Enregistrer le client actif
-    _connectedClients[clientIp] = {
-      'ip': clientIp,
-      'derniere_activite': DateTime.now(),
-      'methode': method,
-      'endpoint': path,
-    };
+    if (!_connectedClients.containsKey(clientIp)) {
+      _connectedClients[clientIp] = {
+        'ip': clientIp,
+        'derniere_activite': DateTime.now(),
+        'methode': method,
+        'endpoint': path,
+      };
+    } else {
+      _connectedClients[clientIp]!['derniere_activite'] = DateTime.now();
+      _connectedClients[clientIp]!['methode'] = method;
+      _connectedClients[clientIp]!['endpoint'] = path;
+    }
 
     // Ajouter headers CORS
     _addCorsHeaders(request);
@@ -285,6 +291,12 @@ class HTTPServer {
         expiresAt: expiresAt,
         createdAt: DateTime.now(),
       );
+
+      // Enregistrer le username du client
+      final clientIp = request.connectionInfo?.remoteAddress.address ?? 'Inconnu';
+      if (_connectedClients.containsKey(clientIp)) {
+        _connectedClients[clientIp]!['username'] = username;
+      }
 
       request.response.statusCode = 200;
       _sendJson(request, {
@@ -431,6 +443,14 @@ class HTTPServer {
         // Exécuter l'instruction
         await _db.customStatement(sql, params?.cast<dynamic>());
 
+        // 🔥 BROADCAST aux clients WebSocket
+        NetworkServer.instance.broadcastChange({
+          'type': sqlUpper.startsWith('INSERT') ? 'insert' : sqlUpper.startsWith('UPDATE') ? 'update' : 'delete',
+          'query': sql,
+          'params': params,
+          'user': session.username,
+        });
+
         request.response.statusCode = 200;
         _sendJson(request, {'success': true, 'message': 'Query executed successfully'});
 
@@ -533,6 +553,15 @@ class HTTPServer {
 
       // Appeler le serveur pour traiter la synchronisation
       final result = await NetworkServer.instance.handleSync(data);
+
+      // 🔥 BROADCAST aux autres clients
+      if (result['success'] == true) {
+        NetworkServer.instance.broadcastChange({
+          'type': 'sync',
+          'operations': data['operations'],
+          'user': session.username,
+        });
+      }
 
       request.response.statusCode = 200;
       _sendJson(request, result);

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/material.dart';
 
 import '../database/database.dart';
 import '../database/database_service.dart';
@@ -19,6 +20,22 @@ class AchatService {
     required double totalTTC,
     required List<Map<String, dynamic>> lignesAchat,
   }) async {
+    // 🔥 En mode CLIENT, envoyer au serveur via customStatement
+    if (_databaseService.isNetworkMode) {
+      await _traiterAchatBrouillardViaServeur(
+        numAchats: numAchats,
+        nFacture: nFacture,
+        date: date,
+        fournisseur: fournisseur,
+        modePaiement: modePaiement,
+        echeance: echeance,
+        totalTTC: totalTTC,
+        lignesAchat: lignesAchat,
+      );
+      return;
+    }
+    
+    // Mode LOCAL/SERVER : enregistrer localement
     await _databaseService.database.transaction(() async {
       // 1. Insérer l'achat principal
       await _databaseService.database
@@ -53,6 +70,44 @@ class AchatService {
             );
       }
     });
+  }
+  
+  /// Traite un achat brouillard via le serveur (mode CLIENT)
+  Future<void> _traiterAchatBrouillardViaServeur({
+    required String numAchats,
+    required String? nFacture,
+    required DateTime date,
+    required String? fournisseur,
+    required String? modePaiement,
+    DateTime? echeance,
+    required double totalTTC,
+    required List<Map<String, dynamic>> lignesAchat,
+  }) async {
+    // 1. Insérer l'achat
+    await _databaseService.customStatement(
+      'INSERT INTO achats (numachats, nfact, daty, frns, modepai, echeance, totalttc, verification) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [numAchats, nFacture, date.toIso8601String(), fournisseur, modePaiement, echeance?.toIso8601String(), totalTTC, 'BROUILLARD'],
+    );
+
+    // 2. Insérer les détails
+    for (final ligne in lignesAchat) {
+      await _databaseService.customStatement(
+        'INSERT INTO detachats (numachats, designation, unites, depots, q, pu, daty) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          numAchats,
+          ligne['designation'],
+          ligne['unite'],
+          ligne['depot'],
+          ligne['quantite'],
+          ligne['prixUnitaire'],
+          date.toIso8601String(),
+        ],
+      );
+    }
+    
+    debugPrint('✅ Achat brouillard $numAchats envoyé au serveur');
   }
 
   /// Traite un achat complet en mode JOURNAL avec mouvements de stock
@@ -395,6 +450,13 @@ class AchatService {
 
   /// Valide un achat brouillard vers journal
   Future<void> validerAchatBrouillard(String numAchats) async {
+    // 🔥 En mode CLIENT, envoyer au serveur via customStatement
+    if (_databaseService.isNetworkMode) {
+      await _validerAchatBrouillardViaServeur(numAchats);
+      return;
+    }
+    
+    // Mode LOCAL/SERVER : traiter localement
     final achat = await (_databaseService.database.select(
       _databaseService.database.achats,
     )..where((a) => a.numachats.equals(numAchats))).getSingleOrNull();
@@ -613,8 +675,26 @@ class AchatService {
     );
   }
 
+  /// Valide un achat brouillard via le serveur (mode CLIENT)
+  Future<void> _validerAchatBrouillardViaServeur(String numAchats) async {
+    // Mettre à jour le statut vers JOURNAL
+    await _databaseService.customStatement(
+      'UPDATE achats SET verification = ? WHERE numachats = ?',
+      ['JOURNAL', numAchats],
+    );
+    
+    debugPrint('✅ Achat brouillard $numAchats validé via serveur');
+  }
+
   /// Contre-passe un achat brouillard (suppression définitive)
   Future<void> contrePasserAchatBrouillard(String numAchats) async {
+    // 🔥 En mode CLIENT, envoyer au serveur via customStatement
+    if (_databaseService.isNetworkMode) {
+      await _contrePasserAchatBrouillardViaServeur(numAchats);
+      return;
+    }
+    
+    // Mode LOCAL/SERVER : traiter localement
     await _databaseService.database.transaction(() async {
       // Supprimer les détails
       await (_databaseService.database.delete(
@@ -627,9 +707,33 @@ class AchatService {
       )..where((a) => a.numachats.equals(numAchats))).go();
     });
   }
+  
+  /// Contre-passe un achat brouillard via le serveur (mode CLIENT)
+  Future<void> _contrePasserAchatBrouillardViaServeur(String numAchats) async {
+    // Supprimer les détails
+    await _databaseService.customStatement(
+      'DELETE FROM detachats WHERE numachats = ?',
+      [numAchats],
+    );
+    
+    // Supprimer l'achat principal
+    await _databaseService.customStatement(
+      'DELETE FROM achats WHERE numachats = ?',
+      [numAchats],
+    );
+    
+    debugPrint('✅ Achat brouillard $numAchats supprimé via serveur');
+  }
 
   /// Contre-passe un achat journalisé
   Future<void> contrePasserAchatJournal(String numAchats) async {
+    // 🔥 En mode CLIENT, envoyer au serveur via customStatement
+    if (_databaseService.isNetworkMode) {
+      await _contrePasserAchatJournalViaServeur(numAchats);
+      return;
+    }
+    
+    // Mode LOCAL/SERVER : traiter localement
     final achat = await (_databaseService.database.select(
       _databaseService.database.achats,
     )..where((a) => a.numachats.equals(numAchats))).getSingleOrNull();
@@ -939,5 +1043,16 @@ class AchatService {
     await (_databaseService.database.update(_databaseService.database.articles)
           ..where((a) => a.designation.equals(article.designation)))
         .write(ArticlesCompanion(cmup: Value(nouveauCMUP)));
+  }
+  
+  /// Contre-passe un achat journalisé via le serveur (mode CLIENT)
+  Future<void> _contrePasserAchatJournalViaServeur(String numAchats) async {
+    // Marquer comme contre-passé
+    await _databaseService.customStatement(
+      'UPDATE achats SET contre = ? WHERE numachats = ?',
+      ['1', numAchats],
+    );
+    
+    debugPrint('✅ Achat journal $numAchats contre-passé via serveur');
   }
 }

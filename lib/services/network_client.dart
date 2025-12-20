@@ -18,6 +18,16 @@ class NetworkClient {
 
   bool get isConnected => _isConnected;
 
+  /// Ajoute un listener pour les changements de données
+  void addChangeListener(Function(Map<String, dynamic>) listener) {
+    _changeListeners.add(listener);
+  }
+
+  /// Retire un listener
+  void removeChangeListener(Function(Map<String, dynamic>) listener) {
+    _changeListeners.remove(listener);
+  }
+
   Future<bool> testConnection(String serverIp, int port) async {
     try {
       final client = HttpClient();
@@ -73,6 +83,7 @@ class NetworkClient {
           try {
             final data = jsonDecode(message);
             if (data['type'] == 'data_change') {
+              debugPrint('🔔 Changement reçu: ${data['change']['type']}');
               _handleDataChange(data['change']);
             }
           } catch (e) {
@@ -193,6 +204,9 @@ class NetworkClient {
 
       // Invalider cache
       _invalidateCache();
+      
+      // Notifier les listeners locaux immédiatement
+      _handleDataChange({'type': type, 'query': sql, 'params': params});
     } catch (e) {
       throw Exception('Erreur réseau: $e');
     }
@@ -220,20 +234,16 @@ class NetworkClient {
       }
 
       _invalidateCache();
+      
+      // Notifier les listeners
+      _handleDataChange({'type': 'transaction', 'queries': queries});
     } catch (e) {
       throw Exception('Erreur réseau: $e');
     }
   }
 
-  void addChangeListener(Function(Map<String, dynamic>) listener) {
-    _changeListeners.add(listener);
-  }
-
-  void removeChangeListener(Function(Map<String, dynamic>) listener) {
-    _changeListeners.remove(listener);
-  }
-
   void _handleDataChange(Map<String, dynamic> change) {
+    debugPrint('🔄 Traitement changement: ${change['type']}');
     _invalidateCache();
     for (final listener in _changeListeners) {
       try {

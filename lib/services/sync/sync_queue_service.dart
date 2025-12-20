@@ -138,7 +138,7 @@ class SyncQueueService {
     }
 
     if (!_networkClient.isConnected) {
-      debugPrint('⚠️ Serveur indisponible - queue en attente de synchronisation');
+      // Ne pas afficher de message si pas connecté (normal pour le serveur)
       return;
     }
 

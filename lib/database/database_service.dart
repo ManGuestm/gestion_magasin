@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/network/enhanced_network_client.dart';
+import '../services/network_server.dart';
 import '../services/sync/cache_manager.dart';
 import '../services/sync/sync_queue_service.dart';
 import 'database.dart';
@@ -44,17 +45,9 @@ class DatabaseService {
       );
     }
 
-    // 🔴 BLOQUER l'accès direct en mode CLIENT
+    // 🟡 AVERTISSEMENT en mode CLIENT mais autoriser l'accès
     if (_mode == DatabaseMode.clientMode) {
-      throw StateError(
-        '❌ ERREUR CRITIQUE: Accès direct à la base de données REFUSÉ en mode CLIENT.\n'
-        'En mode CLIENT, vous DEVEZ utiliser les méthodes réseau:\n'
-        '  • getAllClientsWithCache() - pour lire les clients\n'
-        '  • addClientWithSync() - pour ajouter des données\n'
-        '  • updateClientWithSync() - pour modifier des données\n'
-        '  • syncWithServer() - pour synchroniser avec le serveur\n'
-        'Mode actuel: CLIENT (réseau)',
-      );
+      debugPrint('⚠️ Accès direct à la base locale en mode CLIENT - Les données doivent être synchronisées');
     }
 
     if (_database == null) {
@@ -317,7 +310,34 @@ class DatabaseService {
   }
 
   Future<void> customStatement(String sql, [List<dynamic>? params]) async {
-    return await database.customStatement(sql, params?.map((p) => Variable(p)).toList() ?? []);
+    // 🔥 En mode CLIENT, envoyer au serveur via HTTP
+    if (_mode == DatabaseMode.clientMode) {
+      try {
+        await _networkClient.execute(sql, params);
+        debugPrint('✅ Opération envoyée au serveur: ${sql.substring(0, 50)}...');
+        return;
+      } catch (e) {
+        debugPrint('❌ Erreur envoi serveur: $e');
+        rethrow;
+      }
+    }
+    
+    // Mode LOCAL ou SERVER : exécuter localement
+    await database.customStatement(sql, params?.map((p) => Variable(p)).toList() ?? []);
+    
+    // 🔥 Broadcaster si en mode serveur
+    if (_mode == DatabaseMode.serverMode) {
+      final sqlUpper = sql.trim().toUpperCase();
+      String type = 'update';
+      if (sqlUpper.startsWith('INSERT')) type = 'insert';
+      if (sqlUpper.startsWith('DELETE')) type = 'delete';
+      
+      NetworkServer.instance.broadcastChange({
+        'type': type,
+        'query': sql,
+        'params': params,
+      });
+    }
   }
 
   Future<void> transaction(Future<void> Function() action) async {

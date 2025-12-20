@@ -62,11 +62,27 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    // ✅ Démarrer la synchronisation automatique Client/Serveur
-    _syncTimer.startPeriodicSync();
+    // ✅ Démarrer la synchronisation automatique UNIQUEMENT en mode CLIENT
+    _startSyncIfClientMode();
 
     _loadDashboardData();
     _startRealTimeUpdates();
+  }
+
+  Future<void> _startSyncIfClientMode() async {
+    try {
+      final config = await NetworkConfigService.loadConfig();
+      final mode = config['mode'] as NetworkMode;
+      
+      if (mode == NetworkMode.client) {
+        debugPrint('✅ Mode CLIENT détecté - Démarrage synchronisation périodique');
+        _syncTimer.startPeriodicSync();
+      } else {
+        debugPrint('🟢 Mode SERVEUR détecté - Synchronisation périodique désactivée');
+      }
+    } catch (e) {
+      debugPrint('⚠️ Erreur détection mode: $e');
+    }
   }
 
   @override

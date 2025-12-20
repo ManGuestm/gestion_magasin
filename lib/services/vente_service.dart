@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/material.dart';
 
 import '../database/database.dart';
 import '../database/database_service.dart';
@@ -22,6 +23,25 @@ class VenteService {
     required List<Map<String, dynamic>> lignesVente,
     String? heure,
   }) async {
+    // 🔥 En mode CLIENT, envoyer au serveur via customStatement
+    if (_databaseService.isNetworkMode) {
+      await _enregistrerVenteBrouillardViaServeur(
+        numVentes: numVentes,
+        nFacture: nFacture,
+        date: date,
+        client: client,
+        modePaiement: modePaiement,
+        totalTTC: totalTTC,
+        avance: avance,
+        commercial: commercial,
+        remise: remise,
+        lignesVente: lignesVente,
+        heure: heure,
+      );
+      return;
+    }
+    
+    // Mode LOCAL/SERVER : enregistrer localement
     await _databaseService.database.transaction(() async {
       // 1. Insérer la vente en mode BROUILLARD
       await _databaseService.database
@@ -60,6 +80,48 @@ class VenteService {
             );
       }
     });
+  }
+  
+  /// Enregistre une vente brouillard via le serveur (mode CLIENT)
+  Future<void> _enregistrerVenteBrouillardViaServeur({
+    required String numVentes,
+    required String? nFacture,
+    required DateTime date,
+    required String? client,
+    required String? modePaiement,
+    required double totalTTC,
+    required double? avance,
+    required String? commercial,
+    required double? remise,
+    required List<Map<String, dynamic>> lignesVente,
+    String? heure,
+  }) async {
+    // 1. Insérer la vente
+    await _databaseService.customStatement(
+      'INSERT INTO ventes (numventes, nfact, daty, clt, modepai, totalttc, avance, commerc, remise, verification, heure) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [numVentes, nFacture, date.toIso8601String(), client, modePaiement, totalTTC, avance, commercial, remise, 'BROUILLARD', heure],
+    );
+
+    // 2. Insérer les détails
+    for (final ligne in lignesVente) {
+      await _databaseService.customStatement(
+        'INSERT INTO detventes (numventes, designation, unites, depots, q, pu, daty, diffPrix) '
+        'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [
+          numVentes,
+          ligne['designation'],
+          ligne['unite'],
+          ligne['depot'],
+          ligne['quantite'],
+          ligne['prixUnitaire'],
+          date.toIso8601String(),
+          (ligne['diffPrix'] ?? 0.0) * ligne['quantite'],
+        ],
+      );
+    }
+    
+    debugPrint('✅ Vente brouillard $numVentes envoyée au serveur');
   }
 
   /// Traite une vente complète en mode JOURNAL avec toutes les opérations nécessaires
