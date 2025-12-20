@@ -102,6 +102,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   double _stockDisponible = 0.0;
   bool _stockInsuffisant = false;
   String _uniteAffichage = '';
+  bool _stockWarningShown = false;
 
   // Client balance
   double _soldeAnterieur = 0.0;
@@ -1811,8 +1812,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
     double quantite = double.tryParse(value) ?? 0.0;
 
-    // Si stock insuffisant, afficher modal d'avertissement
-    if (quantite > _stockDisponible) {
+    // Si stock insuffisant, afficher modal d'avertissement (une seule fois)
+    if (quantite > _stockDisponible && !_stockWarningShown) {
+      _stockWarningShown = true;
       // Pour les vendeurs, empêcher complètement la vente avec stock insuffisant
       if (_isVendeur()) {
         // Désactiver temporairement le focus global pour éviter les conflits
@@ -1897,8 +1899,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
         _ensureGlobalShortcutsFocus();
         // Remettre la quantité à la valeur du stock disponible
         _quantiteController.text = _stockDisponible > 0 ? _stockDisponible.toStringAsFixed(0) : '';
+        _stockWarningShown = false;
         return;
       }
+      _stockWarningShown = false;
 
       // Désactiver temporairement le focus global pour éviter les conflits
       _globalShortcutsFocusNode.unfocus();
@@ -2026,8 +2030,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       if (confirm != true) {
         // Remettre la quantité à la valeur du stock disponible
         _quantiteController.text = _stockDisponible > 0 ? _stockDisponible.toStringAsFixed(0) : '';
+        _stockWarningShown = false;
         return;
       }
+      _stockWarningShown = false;
 
       // Forcer le mode brouillard
       setState(() {
@@ -2149,23 +2155,110 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       // Prix de vente < Prix d'achat : Modal confirmation
       final continuer = await showDialog<bool>(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Prix de vente inférieur au coût'),
-          content: Text(
-            'Prix de vente: ${AppFunctions.formatNumber(prixVente)} Ar/$unite\n'
-            'Prix d\'achat (CMUP): ${AppFunctions.formatNumber(prixAchat)} Ar/$unite\n\n'
-            'Le prix de vente est inférieur au prix d\'achat.\n\n'
-            'Êtes-vous sûr de continuer cette opération ?',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              autofocus: true,
-              child: const Text('Continuer quand même'),
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          final annulerButtonFocusNode = FocusNode();
+          final continuerButtonFocusNode = FocusNode();
+
+          return PopScope(
+            canPop: true,
+            onPopInvokedWithResult: (didPop, result) {
+              annulerButtonFocusNode.dispose();
+              continuerButtonFocusNode.dispose();
+            },
+            child: AlertDialog(
+              title: const Text(
+                'Prix de vente inférieur au coût',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 18),
+              ),
+              content: Text(
+                'Prix de vente: ${AppFunctions.formatNumber(prixVente)} Ar/$unite\n'
+                'Prix d\'achat (CMUP): ${AppFunctions.formatNumber(prixAchat)} Ar/$unite\n\n'
+                'Le prix de vente est inférieur au prix d\'achat.\n\n'
+                'Êtes-vous sûr de continuer cette opération ?',
+                style: const TextStyle(fontSize: 14),
+              ),
+              actions: [
+                StatefulBuilder(
+                  builder: (context, setState) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      continuerButtonFocusNode.requestFocus();
+                      setState(() {});
+                    });
+
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Focus(
+                          focusNode: annulerButtonFocusNode,
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(false),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                              elevation: 3,
+                              side: annulerButtonFocusNode.hasFocus
+                                  ? const BorderSide(color: Colors.grey, width: 3)
+                                  : null,
+                            ),
+                            child: const Text(
+                              'Annuler',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                        Focus(
+                          focusNode: continuerButtonFocusNode,
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                Navigator.of(dialogContext).pop(true);
+                                return KeyEventResult.handled;
+                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                              elevation: 3,
+                              side: continuerButtonFocusNode.hasFocus
+                                  ? const BorderSide(color: Colors.blue, width: 3)
+                                  : null,
+                            ),
+                            child: const Text(
+                              'Continuer quand même',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       );
       return continuer ?? false;
     }
@@ -2241,145 +2334,87 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     final prixValide = await _verifierPrixVente(prix, prixAchat, unite);
     if (!prixValide) return;
 
-    // Vérifier stock selon le type de dépôt
-    if (quantite > _stockDisponible) {
-      // Pour les vendeurs, empêcher complètement la vente avec stock insuffisant
-      if (_isVendeur() && mounted) {
-        // Désactiver temporairement le focus global pour éviter les conflits
-        _globalShortcutsFocusNode.unfocus();
+    // Vérifier stock uniquement pour les vendeurs (bloquer)
+    if (quantite > _stockDisponible && _isVendeur() && mounted) {
+      // Désactiver temporairement le focus global pour éviter les conflits
+      _globalShortcutsFocusNode.unfocus();
 
-        await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) {
-            // Créer un FocusNode pour le bouton
-            final buttonFocusNode = FocusNode();
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          // Créer un FocusNode pour le bouton
+          final buttonFocusNode = FocusNode();
 
-            return PopScope(
-              canPop: true,
-              onPopInvokedWithResult: (didPop, result) {
-                // Nettoyer le FocusNode
-                buttonFocusNode.dispose();
-                // Restaurer le focus global après fermeture
-                if (mounted) {
-                  _ensureGlobalShortcutsFocus();
-                }
-              },
-              child: AlertDialog(
-                title: const Text(
-                  'Vente impossible',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18),
-                ),
-                content: Text(
-                  'Stock insuffisant pour "${_selectedArticle!.designation}".\n\n'
-                  'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\n'
-                  'Quantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\n'
-                  'Les vendeurs ne peuvent pas vendre avec un stock insuffisant.',
-                  style: const TextStyle(fontSize: 14),
-                ),
-                actions: [
-                  StatefulBuilder(
-                    builder: (context, setState) {
-                      // Demander le focus après la construction
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        buttonFocusNode.requestFocus();
-                        setState(() {}); // Déclencher rebuild pour afficher la bordure
-                      });
-
-                      return Focus(
-                        focusNode: buttonFocusNode,
-                        onKeyEvent: (node, event) {
-                          // Gérer les touches Enter et Escape directement
-                          if (event is KeyDownEvent) {
-                            if (event.logicalKey == LogicalKeyboardKey.enter ||
-                                event.logicalKey == LogicalKeyboardKey.escape) {
-                              Navigator.of(dialogContext).pop();
-                              return KeyEventResult.handled;
-                            }
-                          }
-                          return KeyEventResult.ignored;
-                        },
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blue,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                            elevation: 3,
-                            side: buttonFocusNode.hasFocus
-                                ? const BorderSide(color: Colors.blue, width: 3)
-                                : null,
-                          ),
-                          child: const Text(
-                            'OK',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+          return PopScope(
+            canPop: true,
+            onPopInvokedWithResult: (didPop, result) {
+              // Nettoyer le FocusNode
+              buttonFocusNode.dispose();
+              // Restaurer le focus global après fermeture
+              if (mounted) {
+                _ensureGlobalShortcutsFocus();
+              }
+            },
+            child: AlertDialog(
+              title: const Text(
+                'Vente impossible',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18),
               ),
-            );
-          },
-        );
+              content: Text(
+                'Stock insuffisant pour "${_selectedArticle!.designation}".\n\n'
+                'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\n'
+                'Quantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\n'
+                'Les vendeurs ne peuvent pas vendre avec un stock insuffisant.',
+                style: const TextStyle(fontSize: 14),
+              ),
+              actions: [
+                StatefulBuilder(
+                  builder: (context, setState) {
+                    // Demander le focus après la construction
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      buttonFocusNode.requestFocus();
+                      setState(() {}); // Déclencher rebuild pour afficher la bordure
+                    });
 
-        // Restaurer le focus global après fermeture
-        _ensureGlobalShortcutsFocus();
-        return;
-      }
-
-      // Pour les autres utilisateurs, utiliser la logique existante
-      final validation = await _venteService.verifierStockSelonDepot(
-        designation: _selectedArticle!.designation,
-        depot: depot,
-        unite: unite,
-        quantite: quantite,
-        tousDepots: widget.tousDepots,
+                    return Focus(
+                      focusNode: buttonFocusNode,
+                      onKeyEvent: (node, event) {
+                        // Gérer les touches Enter et Escape directement
+                        if (event is KeyDownEvent) {
+                          if (event.logicalKey == LogicalKeyboardKey.enter ||
+                              event.logicalKey == LogicalKeyboardKey.escape) {
+                            Navigator.of(dialogContext).pop();
+                            return KeyEventResult.handled;
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                          elevation: 3,
+                          side: buttonFocusNode.hasFocus
+                              ? const BorderSide(color: Colors.blue, width: 3)
+                              : null,
+                        ),
+                        child: const Text('OK', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          );
+        },
       );
 
-      if (!validation['autorise'] && mounted) {
-        if (validation['typeDialog'] == 'confirmation') {
-          // Tous dépôts: dialog de confirmation
-          final continuer = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Stock insuffisant'),
-              content: Text(
-                'Stock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\nVoulez-vous continuer quand même ?',
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  autofocus: true,
-                  child: const Text('Continuer quand même'),
-                ),
-              ],
-            ),
-          );
-          if (continuer != true) return;
-        } else if (validation['typeDialog'] == 'restriction') {
-          // MAG uniquement: dialog de restriction
-          await showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Vente impossible'),
-              content: Text(
-                'Stock insuffisant dans le dépôt MAG\n\nStock disponible: ${_stockDisponible.toStringAsFixed(0)} $unite\nQuantité demandée: ${quantite.toStringAsFixed(0)} $unite\n\nLa vente avec stock insuffisant n\'est autorisée que pour "Tous dépôts".',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  autofocus: true,
-                  child: const Text('Annuler'),
-                ),
-              ],
-            ),
-          );
-          return;
-        }
-      }
+      // Restaurer le focus global après fermeture
+      _ensureGlobalShortcutsFocus();
+      return;
     }
 
     double montant = quantite * prix;
@@ -2588,6 +2623,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       _stockDisponible = 0.0;
       _stockInsuffisant = false;
       _uniteAffichage = '';
+      _stockWarningShown = false;
       _isModifyingLine = false;
       _modifyingLineIndex = null;
       originalLineData = null;
@@ -6000,11 +6036,19 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                               child: Container(
                                                                 height: 18,
                                                                 decoration: BoxDecoration(
-                                                                  color: _selectedRowIndex == index
-                                                                      ? Colors.blue[200]
-                                                                      : (index % 2 == 0
-                                                                            ? Colors.white
-                                                                            : Colors.grey[50]),
+                                                                  color: ligne['stockInsuffisant'] == true
+                                                                      ? Colors.orange[100]
+                                                                      : (_selectedRowIndex == index
+                                                                            ? Colors.blue[200]
+                                                                            : (index % 2 == 0
+                                                                                  ? Colors.white
+                                                                                  : Colors.grey[50])),
+                                                                  border: ligne['stockInsuffisant'] == true
+                                                                      ? Border.all(
+                                                                          color: Colors.orange,
+                                                                          width: 2,
+                                                                        )
+                                                                      : null,
                                                                 ),
                                                                 child: Row(
                                                                   children: [
