@@ -727,10 +727,11 @@ class NetworkServer {
         case 'UPDATE':
           if (data['numventes'] != null) {
             await db.customUpdate(
-              'UPDATE ventes SET nfact = ?, daty = ?, modepai = ?, echeance = ?, totalttc = ?, contre = ?, avance = ?, bq = ?, regl = ?, datrcol = ?, mregl = ?, commerc = ?, remise = ?, verification = ?, type = ?, as = ?, emb = ?, transp = ?, heure = ?, poste = ? WHERE numventes = ?',
+              'UPDATE ventes SET nfact = ?, daty = ?, clt = ?, modepai = ?, echeance = ?, totalttc = ?, contre = ?, avance = ?, bq = ?, regl = ?, datrcol = ?, mregl = ?, commerc = ?, remise = ?, verification = ?, type = ?, as = ?, emb = ?, transp = ?, heure = ?, poste = ? WHERE numventes = ?',
               variables: [
                 Variable(data['nfact']),
                 Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                Variable(data['clt']),
                 Variable(data['modepai']),
                 Variable(DateTime.tryParse(data['echeance']?.toString() ?? '')),
                 Variable(double.tryParse(data['totalttc']?.toString() ?? '')),

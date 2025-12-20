@@ -45,9 +45,11 @@ class DatabaseService {
       );
     }
 
-    // 🟡 AVERTISSEMENT en mode CLIENT mais autoriser l'accès
     if (_mode == DatabaseMode.clientMode) {
-      debugPrint('⚠️ Accès direct à la base locale en mode CLIENT - Les données doivent être synchronisées');
+      throw StateError(
+        '❌ ERREUR: Pas de base locale en mode CLIENT.\n'
+        'Utilisez les méthodes *WithModeAwareness().',
+      );
     }
 
     if (_database == null) {
@@ -310,22 +312,14 @@ class DatabaseService {
   }
 
   Future<void> customStatement(String sql, [List<dynamic>? params]) async {
-    // 🔥 En mode CLIENT, envoyer au serveur via HTTP
     if (_mode == DatabaseMode.clientMode) {
-      try {
-        await _networkClient.execute(sql, params);
-        debugPrint('✅ Opération envoyée au serveur: ${sql.substring(0, 50)}...');
-        return;
-      } catch (e) {
-        debugPrint('❌ Erreur envoi serveur: $e');
-        rethrow;
-      }
+      await _networkClient.execute(sql, params);
+      debugPrint('✅ Opération envoyée au serveur');
+      return;
     }
     
-    // Mode LOCAL ou SERVER : exécuter localement
-    await database.customStatement(sql, params?.map((p) => Variable(p)).toList() ?? []);
+    await _database!.customStatement(sql, params?.map((p) => Variable(p)).toList() ?? []);
     
-    // 🔥 Broadcaster si en mode serveur
     if (_mode == DatabaseMode.serverMode) {
       final sqlUpper = sql.trim().toUpperCase();
       String type = 'update';
@@ -432,72 +426,23 @@ class DatabaseService {
     }
   }
 
-  /// Initialise comme client réseau
   Future<bool> initializeAsClient(String serverIp, int port, String username, String password) async {
     try {
       await _networkClient.initialize();
-
-      // S'authentifier au serveur
       final connected = await _networkClient.connect(serverIp, port, username, password);
-
-      if (!connected) {
-        throw Exception('Impossible de se connecter au serveur');
-      }
-
-      // Initialiser la base locale pour le cache
-      driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
-      _database = AppDatabase();
-      await _cacheManager.initialize();
-      await _syncQueue.initialize();
+      if (!connected) throw Exception('Connexion serveur échouée');
+      
       _mode = DatabaseMode.clientMode;
       _isInitialized = true;
-
-      // ✅ Télécharger les données initiales du serveur
-      debugPrint('📥 Synchronisation initiale des données du serveur...');
-      await _syncInitialDataFromServer();
-
-      debugPrint('✅ Database initialized in CLIENT mode connected to $serverIp:$port');
+      debugPrint('✅ CLIENT: Connecté à $serverIp:$port (pas de base locale)');
       return true;
     } catch (e) {
-      _cleanupPartialState();
-      debugPrint('❌ Erreur initialisation client: $e');
+      debugPrint('❌ Erreur CLIENT: $e');
       return false;
     }
   }
 
-  /// ✅ Télécharge les données initiales du serveur et les stocke localement
-  Future<void> _syncInitialDataFromServer() async {
-    try {
-      debugPrint('🔄 Téléchargement des clients...');
-      final clients = await _networkClient.getAllClients();
-      if (clients.isNotEmpty) {
-        debugPrint('✅ ${clients.length} clients téléchargés');
-      }
 
-      debugPrint('🔄 Téléchargement des articles...');
-      final articles = await _networkClient.getAllArticles();
-      if (articles.isNotEmpty) {
-        debugPrint('✅ ${articles.length} articles téléchargés');
-      }
-
-      debugPrint('🔄 Téléchargement des fournisseurs...');
-      final fournisseurs = await _networkClient.getAllFournisseurs();
-      if (fournisseurs.isNotEmpty) {
-        debugPrint('✅ ${fournisseurs.length} fournisseurs téléchargés');
-      }
-
-      debugPrint('🔄 Téléchargement des dépôts...');
-      final depots = await _networkClient.getAllDepots();
-      if (depots.isNotEmpty) {
-        debugPrint('✅ ${depots.length} dépôts téléchargés');
-      }
-
-      debugPrint('✅ Synchronisation initiale terminée avec succès');
-    } catch (e) {
-      debugPrint('⚠️ Erreur sync initiale (continue avec données locales): $e');
-      // Ne pas lever une erreur - continuer avec les données locales si présentes
-    }
-  }
 
   /// Synchronise avec le serveur (mode client uniquement)
   Future<void> syncWithServer() async {
@@ -610,46 +555,28 @@ class DatabaseService {
 
   // ==================== WRAPPERS CRITIQUES POUR ARCHITECTURE CLIENT/Server ====================
 
-  /// ✅ Wrapper: Récupère clients (force réseau en mode CLIENT)
   Future<List<CltData>> getClientsWithModeAwareness() async {
     if (_mode == DatabaseMode.clientMode) {
-      try {
-        final result = await _networkClient.getAllClients();
-        return result.map((row) => CltData.fromJson(row)).toList();
-      } catch (e) {
-        debugPrint('⚠️ Fallback locale: $e');
-        return await database.getAllClients();
-      }
+      final result = await _networkClient.getAllClients();
+      return result.map((row) => CltData.fromJson(row)).toList();
     }
-    return await database.getAllClients();
+    return _database!.getAllClients();
   }
 
-  /// ✅ Wrapper: Récupère articles (force réseau en mode CLIENT)
   Future<List<Article>> getArticlesWithModeAwareness() async {
     if (_mode == DatabaseMode.clientMode) {
-      try {
-        final result = await _networkClient.getAllArticles();
-        return result.map((row) => Article.fromJson(row)).toList();
-      } catch (e) {
-        debugPrint('⚠️ Fallback locale: $e');
-        return await database.getAllArticles();
-      }
+      final result = await _networkClient.getAllArticles();
+      return result.map((row) => Article.fromJson(row)).toList();
     }
-    return await database.getAllArticles();
+    return _database!.getAllArticles();
   }
 
-  /// ✅ Wrapper: Récupère articles actifs (force réseau en mode CLIENT)
   Future<List<Article>> getActiveArticlesWithModeAwareness() async {
     if (_mode == DatabaseMode.clientMode) {
-      try {
-        final result = await _networkClient.getActiveArticles();
-        return result.map((row) => Article.fromJson(row)).toList();
-      } catch (e) {
-        debugPrint('⚠️ Fallback locale: $e');
-        return await database.getActiveArticles();
-      }
+      final result = await _networkClient.getActiveArticles();
+      return result.map((row) => Article.fromJson(row)).toList();
     }
-    return await database.getActiveArticles();
+    return _database!.getActiveArticles();
   }
 
   /// ✅ Wrapper: Récupère clients actifs (force réseau en mode CLIENT)

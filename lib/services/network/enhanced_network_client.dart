@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/material.dart';
 
 import '../auth/auth_token_service.dart';
@@ -185,37 +184,22 @@ class EnhancedNetworkClient {
 
   /// Récupère tous les clients du serveur
   Future<List<Map<String, dynamic>>> getAllClients() async {
-    try {
-      final result = await query('SELECT * FROM clt ORDER BY rsoc');
-      debugPrint('✅ ${result.length} clients récupérés du serveur');
-      return result;
-    } catch (e) {
-      debugPrint('❌ Erreur récupération clients: $e');
-      rethrow;
-    }
+    final result = await query('SELECT * FROM clt ORDER BY rsoc');
+    debugPrint('✅ ${result.length} clients récupérés du serveur');
+    return result;
   }
 
   /// Récupère tous les articles du serveur
   Future<List<Map<String, dynamic>>> getAllArticles() async {
-    try {
-      final result = await query('SELECT * FROM articles ORDER BY designation');
-      debugPrint('✅ ${result.length} articles récupérés du serveur');
-      return result;
-    } catch (e) {
-      debugPrint('❌ Erreur récupération articles: $e');
-      rethrow;
-    }
+    final result = await query('SELECT * FROM articles ORDER BY designation');
+    debugPrint('✅ ${result.length} articles récupérés du serveur');
+    return result;
   }
 
   /// Récupère les articles actifs du serveur
   Future<List<Map<String, dynamic>>> getActiveArticles() async {
-    try {
-      final result = await query('SELECT * FROM articles WHERE action = ? ORDER BY designation', ['A']);
-      return result;
-    } catch (e) {
-      debugPrint('❌ Erreur récupération articles actifs: $e');
-      rethrow;
-    }
+    final result = await query('SELECT * FROM articles WHERE action = ? ORDER BY designation', ['A']);
+    return result;
   }
 
   /// Récupère tous les clients actifs du serveur
@@ -262,60 +246,28 @@ class EnhancedNetworkClient {
     }
   }
 
-  /// Authentifie un utilisateur via le serveur avec vérification de mot de passe
-  /// CRITICAL: This method now enforces password verification using bcrypt
-  /// to prevent unauthorized access even if username exists
   Future<Map<String, dynamic>?> authenticateUser(String username, String password) async {
+    if (username.isEmpty || password.isEmpty) return null;
+
     try {
-      // Validate input parameters
-      if (username.isEmpty || password.isEmpty) {
-        debugPrint('❌ Authentification refusée: credentials vides');
-        return null;
-      }
+      final client = HttpClient();
+      final request = await client.postUrl(Uri.parse('$_serverUrl/api/authenticate'));
+      request.headers.contentType = ContentType.json;
+      request.write(jsonEncode({'username': username, 'password': password}));
+      
+      final response = await request.close();
+      final responseBody = await utf8.decoder.bind(response).join();
+      client.close();
 
-      // Query user by username and retrieve password hash
-      final result = await query(
-        'SELECT id, nom, username, role, actif, password FROM users WHERE username = ?',
-        [username],
-      );
-      if (result.isEmpty) {
-        debugPrint('⚠️ Tentative authentification: utilisateur $username introuvable');
-        return null;
-      }
+      if (response.statusCode != 200) return null;
 
-      final userRecord = result.first;
-      final passwordHash = userRecord['password'] as String?;
+      final data = jsonDecode(responseBody) as Map<String, dynamic>;
+      if (data['success'] != true) return null;
 
-      // SECURITY CHECK: Verify password hash against provided password
-      if (passwordHash == null || passwordHash.isEmpty) {
-        debugPrint('❌ ERREUR SÉCURITÉ: Utilisateur $username n\'a pas de mot de passe défini');
-        return null;
-      }
-
-      // Use bcrypt to safely verify the password
-      try {
-        final passwordMatches = BCrypt.checkpw(password, passwordHash);
-
-        if (!passwordMatches) {
-          // Log failed authentication attempt (but not the password)
-          debugPrint('❌ Authentification échouée: mot de passe incorrect pour $username');
-          return null;
-        }
-      } catch (e) {
-        // Bcrypt hash validation failed
-        debugPrint('❌ ERREUR SÉCURITÉ: Impossible de valider le hash pour $username - $e');
-        return null;
-      }
-
-      // Password verified successfully - return user info WITHOUT the password hash
-      debugPrint('✅ Authentification réussie pour $username (role: ${userRecord['role']})');
-
-      // Remove password hash before returning to caller
-      userRecord.remove('password');
-      return userRecord;
+      return data['data'] as Map<String, dynamic>?;
     } catch (e) {
-      debugPrint('❌ Erreur authentification réseau: $e');
-      rethrow;
+      debugPrint('❌ Erreur auth: $e');
+      return null;
     }
   }
 
