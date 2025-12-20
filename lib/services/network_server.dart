@@ -763,8 +763,9 @@ class NetworkServer {
           }
           break;
       }
-    } catch (e) {
-      debugPrint('❌ Erreur sync vente: $e');
+    } catch (e, st) {
+      debugPrint('❌ Erreur sync vente: $e\n$st');
+      rethrow;
     }
   }
 
@@ -799,10 +800,11 @@ class NetworkServer {
         case 'UPDATE':
           if (data['numachats'] != null) {
             await db.customUpdate(
-              'UPDATE achats SET nfact = ?, daty = ?, modepai = ?, echeance = ?, totalttc = ?, contre = ?, bq = ?, regl = ?, datregl = ?, mregl = ?, verification = ?, type = ?, as = ?, emb = ?, transp = ? WHERE numachats = ?',
+              'UPDATE achats SET nfact = ?, daty = ?, frns = ?, modepai = ?, echeance = ?, totalttc = ?, contre = ?, bq = ?, regl = ?, datregl = ?, mregl = ?, verification = ?, type = ?, as = ?, emb = ?, transp = ? WHERE numachats = ?',
               variables: [
                 Variable(data['nfact']),
                 Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                Variable(data['frns']),
                 Variable(data['modepai']),
                 Variable(DateTime.tryParse(data['echeance']?.toString() ?? '')),
                 Variable(double.tryParse(data['totalttc']?.toString() ?? '')),
@@ -830,118 +832,111 @@ class NetworkServer {
           }
           break;
       }
-    } catch (e) {
-      debugPrint('❌ Erreur sync achat: $e');
+    } catch (e, st) {
+      debugPrint('❌ Erreur sync achat: $e\n$st');
+      rethrow;
     }
   }
 
   Future<void> _syncDetVenteOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
-    try {
-      switch (operation) {
-        case 'INSERT':
-          await db
-              .into(db.detventes)
-              .insert(
-                DetventesCompanion(
-                  numventes: Value(data['numventes']),
-                  designation: Value(data['designation']),
-                  unites: Value(data['unites']),
-                  depots: Value(data['depots']),
-                  q: Value(double.tryParse(data['q']?.toString() ?? '')),
-                  pu: Value(double.tryParse(data['pu']?.toString() ?? '')),
-                  daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '')),
-                  emb: Value(data['emb']),
-                  transp: Value(data['transp']),
-                  qe: Value(double.tryParse(data['qe']?.toString() ?? '')),
-                  diffPrix: Value(double.tryParse(data['diffPrix']?.toString() ?? '')),
-                ),
-              );
-          break;
-        case 'UPDATE':
-          if (data['numventes'] != null && data['designation'] != null) {
-            await db.customUpdate(
-              'UPDATE detventes SET unites = ?, depots = ?, q = ?, pu = ?, daty = ?, emb = ?, transp = ?, qe = ?, diffPrix = ? WHERE numventes = ? AND designation = ?',
-              variables: [
-                Variable(data['unites']),
-                Variable(data['depots']),
-                Variable(double.tryParse(data['q']?.toString() ?? '')),
-                Variable(double.tryParse(data['pu']?.toString() ?? '')),
-                Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
-                Variable(data['emb']),
-                Variable(data['transp']),
-                Variable(double.tryParse(data['qe']?.toString() ?? '')),
-                Variable(double.tryParse(data['diffPrix']?.toString() ?? '')),
-                Variable(data['numventes']),
-                Variable(data['designation']),
-              ],
+    switch (operation) {
+      case 'INSERT':
+        await db
+            .into(db.detventes)
+            .insert(
+              DetventesCompanion(
+                numventes: Value(data['numventes']),
+                designation: Value(data['designation']),
+                unites: Value(data['unites']),
+                depots: Value(data['depots']),
+                q: Value(double.tryParse(data['q']?.toString() ?? '')),
+                pu: Value(double.tryParse(data['pu']?.toString() ?? '')),
+                daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                emb: Value(data['emb']),
+                transp: Value(data['transp']),
+                qe: Value(double.tryParse(data['qe']?.toString() ?? '')),
+                diffPrix: Value(double.tryParse(data['diffPrix']?.toString() ?? '')),
+              ),
             );
-          }
-          break;
-        case 'DELETE':
-          if (data['numventes'] != null && data['designation'] != null) {
-            await db.customUpdate(
-              'DELETE FROM detventes WHERE numventes = ? AND designation = ?',
-              variables: [Variable(data['numventes']), Variable(data['designation'])],
-            );
-          }
-          break;
-      }
-    } catch (e) {
-      debugPrint('❌ Erreur sync detail vente: $e');
+        break;
+      case 'UPDATE':
+        if (data['numventes'] != null && data['designation'] != null) {
+          await db.customUpdate(
+            'UPDATE detventes SET unites = ?, depots = ?, q = ?, pu = ?, daty = ?, emb = ?, transp = ?, qe = ?, diffPrix = ? WHERE numventes = ? AND designation = ?',
+            variables: [
+              Variable(data['unites']),
+              Variable(data['depots']),
+              Variable(double.tryParse(data['q']?.toString() ?? '')),
+              Variable(double.tryParse(data['pu']?.toString() ?? '')),
+              Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
+              Variable(data['emb']),
+              Variable(data['transp']),
+              Variable(double.tryParse(data['qe']?.toString() ?? '')),
+              Variable(double.tryParse(data['diffPrix']?.toString() ?? '')),
+              Variable(data['numventes']),
+              Variable(data['designation']),
+            ],
+          );
+        }
+        break;
+      case 'DELETE':
+        if (data['numventes'] != null && data['designation'] != null) {
+          await db.customUpdate(
+            'DELETE FROM detventes WHERE numventes = ? AND designation = ?',
+            variables: [Variable(data['numventes']), Variable(data['designation'])],
+          );
+        }
+        break;
     }
   }
 
   Future<void> _syncDetAchatOperation(AppDatabase db, String operation, Map<String, dynamic> data) async {
-    try {
-      switch (operation) {
-        case 'INSERT':
-          await db
-              .into(db.detachats)
-              .insert(
-                DetachatsCompanion(
-                  numachats: Value(data['numachats']),
-                  designation: Value(data['designation']),
-                  unites: Value(data['unites']),
-                  depots: Value(data['depots']),
-                  q: Value(double.tryParse(data['q']?.toString() ?? '')),
-                  pu: Value(double.tryParse(data['pu']?.toString() ?? '')),
-                  daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '')),
-                  emb: Value(data['emb']),
-                  transp: Value(data['transp']),
-                  qe: Value(double.tryParse(data['qe']?.toString() ?? '')),
-                ),
-              );
-          break;
-        case 'UPDATE':
-          if (data['numachats'] != null && data['designation'] != null) {
-            await db.customUpdate(
-              'UPDATE detachats SET unites = ?, depots = ?, q = ?, pu = ?, daty = ?, emb = ?, transp = ?, qe = ? WHERE numachats = ? AND designation = ?',
-              variables: [
-                Variable(data['unites']),
-                Variable(data['depots']),
-                Variable(double.tryParse(data['q']?.toString() ?? '')),
-                Variable(double.tryParse(data['pu']?.toString() ?? '')),
-                Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
-                Variable(data['emb']),
-                Variable(data['transp']),
-                Variable(double.tryParse(data['qe']?.toString() ?? '')),
-                Variable(data['numachats']),
-                Variable(data['designation']),
-              ],
+    switch (operation) {
+      case 'INSERT':
+        await db
+            .into(db.detachats)
+            .insert(
+              DetachatsCompanion(
+                numachats: Value(data['numachats']),
+                designation: Value(data['designation']),
+                unites: Value(data['unites']),
+                depots: Value(data['depots']),
+                q: Value(double.tryParse(data['q']?.toString() ?? '')),
+                pu: Value(double.tryParse(data['pu']?.toString() ?? '')),
+                daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '')),
+                emb: Value(data['emb']),
+                transp: Value(data['transp']),
+                qe: Value(double.tryParse(data['qe']?.toString() ?? '')),
+              ),
             );
-          }
-          break;
-        case 'DELETE':
-          if (data['numachats'] != null && data['designation'] != null) {
-            await db.customUpdate(
-              'DELETE FROM detachats WHERE numachats = ? AND designation = ?',
-              variables: [Variable(data['numachats']), Variable(data['designation'])],
-            );
-          }
-          break;
-      }
-    } catch (e) {
-      debugPrint('❌ Erreur sync detail achat: $e');
+        break;
+      case 'UPDATE':
+        if (data['numachats'] != null && data['designation'] != null) {
+          await db.customUpdate(
+            'UPDATE detachats SET unites = ?, depots = ?, q = ?, pu = ?, daty = ?, emb = ?, transp = ?, qe = ? WHERE numachats = ? AND designation = ?',
+            variables: [
+              Variable(data['unites']),
+              Variable(data['depots']),
+              Variable(double.tryParse(data['q']?.toString() ?? '')),
+              Variable(double.tryParse(data['pu']?.toString() ?? '')),
+              Variable(DateTime.tryParse(data['daty']?.toString() ?? '')),
+              Variable(data['emb']),
+              Variable(data['transp']),
+              Variable(double.tryParse(data['qe']?.toString() ?? '')),
+              Variable(data['numachats']),
+              Variable(data['designation']),
+            ],
+          );
+        }
+        break;
+      case 'DELETE':
+        if (data['numachats'] != null && data['designation'] != null) {
+          await db.customUpdate(
+            'DELETE FROM detachats WHERE numachats = ? AND designation = ?',
+            variables: [Variable(data['numachats']), Variable(data['designation'])],
+          );
+        }
+        break;
     }
   }
 
@@ -1021,8 +1016,9 @@ class NetworkServer {
           }
           break;
       }
-    } catch (e) {
-      debugPrint('❌ Erreur sync stock: $e');
+    } catch (e, st) {
+      debugPrint('❌ Erreur sync stock: $e\n$st');
+      rethrow;
     }
   }
 }

@@ -25,7 +25,8 @@ class _EtatsArticlesModalState extends State<EtatsArticlesModal> with TabNavigat
 
   Future<void> _loadArticles() async {
     try {
-      final articles = await _databaseService.getActiveArticlesWithModeAwareness();
+      // ✅ Charger TOUS les articles actifs localement pour états
+      final articles = await _databaseService.database.getActiveArticles();
       setState(() {
         _articles = articles;
         _isLoading = false;

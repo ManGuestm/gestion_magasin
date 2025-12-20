@@ -15,6 +15,7 @@ class NetworkConfigScreen extends StatefulWidget {
 
 class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
   NetworkMode _selectedMode = NetworkMode.server;
+  final _formKey = GlobalKey<FormState>();
   final _serverIpController = TextEditingController();
   final _portController = TextEditingController(text: '8080');
   final _usernameController = TextEditingController(text: 'admin');
@@ -45,6 +46,68 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
       _usernameController.text = config['username'];
       _passwordController.text = config['password'];
     });
+  }
+
+  /// Validate server IP address format
+  String? _validateServerIp(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'L\'adresse IP du serveur est requise';
+    }
+
+    // Simple IP address format validation
+    final ipPattern = RegExp(
+      r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$',
+    );
+
+    if (!ipPattern.hasMatch(value)) {
+      return 'Format d\'adresse IP invalide (ex: 192.168.1.100)';
+    }
+
+    return null;
+  }
+
+  /// Validate port number
+  String? _validatePort(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Le port est requis';
+    }
+
+    final port = int.tryParse(value);
+    if (port == null) {
+      return 'Le port doit être un nombre';
+    }
+
+    if (port < 1 || port > 65535) {
+      return 'Le port doit être entre 1 et 65535';
+    }
+
+    return null;
+  }
+
+  /// Validate username
+  String? _validateUsername(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Le nom d\'utilisateur est requis';
+    }
+
+    if (value.isEmpty) {
+      return 'Le nom d\'utilisateur doit contenir au moins 1 caractère';
+    }
+
+    return null;
+  }
+
+  /// Validate password
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Le mot de passe est requis';
+    }
+
+    if (value.isEmpty) {
+      return 'Le mot de passe doit contenir au moins 1 caractère';
+    }
+
+    return null;
   }
 
   Future<void> _testConnection() async {
@@ -132,6 +195,14 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
 
   Future<void> _saveConfiguration() async {
     try {
+      // Validate client configuration if in client mode
+      if (_selectedMode == NetworkMode.client) {
+        if (!_formKey.currentState!.validate()) {
+          debugPrint('❌ Validation du formulaire échouée');
+          return;
+        }
+      }
+
       await NetworkConfigService.saveConfig(
         mode: _selectedMode,
         serverIp: _selectedMode == NetworkMode.client ? _serverIpController.text : null,
@@ -338,43 +409,54 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey[800]),
                     ),
                     const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _serverIpController,
-                      decoration: InputDecoration(
-                        labelText: 'Adresse IP du serveur',
-                        hintText: '192.168.1.100',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        prefixIcon: const Icon(Icons.computer),
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          TextFormField(
+                            controller: _serverIpController,
+                            decoration: InputDecoration(
+                              labelText: 'Adresse IP du serveur',
+                              hintText: '192.168.1.100',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              prefixIcon: const Icon(Icons.computer),
+                            ),
+                            validator: _validateServerIp,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _portController,
+                            decoration: InputDecoration(
+                              labelText: 'Port',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              prefixIcon: const Icon(Icons.settings_ethernet),
+                            ),
+                            keyboardType: TextInputType.number,
+                            validator: _validatePort,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _usernameController,
+                            decoration: InputDecoration(
+                              labelText: 'Nom d\'utilisateur',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              prefixIcon: const Icon(Icons.person),
+                            ),
+                            validator: _validateUsername,
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            decoration: InputDecoration(
+                              labelText: 'Mot de passe',
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              prefixIcon: const Icon(Icons.lock),
+                            ),
+                            obscureText: true,
+                            validator: _validatePassword,
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _portController,
-                      decoration: InputDecoration(
-                        labelText: 'Port',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        prefixIcon: const Icon(Icons.settings_ethernet),
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _usernameController,
-                      decoration: InputDecoration(
-                        labelText: 'Nom d\'utilisateur',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        prefixIcon: const Icon(Icons.person),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Mot de passe',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        prefixIcon: const Icon(Icons.lock),
-                      ),
-                      obscureText: true,
                     ),
                     const SizedBox(height: 16),
                     Row(

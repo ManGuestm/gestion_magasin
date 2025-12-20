@@ -125,37 +125,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  /// 🔴 AJOUT: Récupère le nombre de ventes brouillard en attente de synchronisation
-  /// ⚠️ IMPORTANT: Seulement en mode SERVER (en mode CLIENT, le serveur envoie déjà les bonnes données)
-  Future<int> _getVentesBrouillardPending() async {
-    try {
-      // 🔴 Ne compter les ventes en attente que si on est en mode SERVER
-      final dbService = DatabaseService();
-      if (dbService.isNetworkMode) {
-        // Mode CLIENT: le serveur envoie déjà les ventes brouillard correctes
-        debugPrint('ℹ️ Mode CLIENT: ventes brouillard du serveur utilisées');
-        return 0;
-      }
-
-      // Mode SERVER: compter les ventes brouillard en attente de sync
-      final syncQueue = SyncQueueService();
-      await syncQueue.initialize();
-
-      final pendingOps = await syncQueue.getPendingOperations();
-      final ventesBrouillardCount = pendingOps
-          .where((item) => item.table == 'ventes' && item.data['verification'] == 'BROUILLARD')
-          .length;
-
-      if (ventesBrouillardCount > 0) {
-        debugPrint('✅ MODE SERVER - Ventes brouillard en attente de sync: $ventesBrouillardCount');
-      }
-      return ventesBrouillardCount;
-    } catch (e) {
-      debugPrint('⚠️ Erreur compte ventes brouillard pending: $e');
-      return 0;
-    }
-  }
-
   /// 🔴 AJOUT: Récupère le nombre de ventes brouillard magasin en attente de synchronisation
   /// ⚠️ IMPORTANT: Seulement en mode SERVER (en mode CLIENT, le serveur envoie déjà les bonnes données)
   Future<int> _getVentesBrouillardMagPending() async {
@@ -272,7 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final ventesBrouillardTousDepots = await db.getVentesBrouillardTousDepotsCount();
 
         // ✅ Ajouter les ventes brouillard en attente de synchronisation
-        final ventesBrouillardPending = await _getVentesBrouillardPending();
+        final ventesBrouillardPending = await _getVentesBrouillardTousDepotsPending();
         final ventesBrouillardTotal = ventesBrouillard + ventesBrouillardPending;
         final ventesBrouillardMagPending = await _getVentesBrouillardMagPending();
         final ventesBrouillardMagTotal = ventesBrouillardMag + ventesBrouillardMagPending;
@@ -304,7 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final ventesBrouillardTousDepots = await db.getVentesBrouillardTousDepotsCount();
 
         // ✅ Ajouter les ventes brouillard en attente de synchronisation
-        final ventesBrouillardPending = await _getVentesBrouillardPending();
+        final ventesBrouillardPending = await _getVentesBrouillardTousDepotsPending();
         final ventesBrouillardTotal = ventesBrouillard + ventesBrouillardPending;
         final ventesBrouillardMagPending = await _getVentesBrouillardMagPending();
         final ventesBrouillardMagTotal = ventesBrouillardMag + ventesBrouillardMagPending;

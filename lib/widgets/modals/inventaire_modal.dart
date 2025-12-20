@@ -178,7 +178,9 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   }
 
   Future<List<Article>> _loadArticlesAsync() async {
-    return await _databaseService.getActiveArticlesWithModeAwareness();
+    // ✅ Charger TOUS les articles actifs localement (pas de mode-aware)
+    // L'inventaire physique doit être complet et immuable, indépendant du mode réseau
+    return await _databaseService.database.getActiveArticles();
   }
 
   Future<List<DepartData>> _loadStocksAsync() async {

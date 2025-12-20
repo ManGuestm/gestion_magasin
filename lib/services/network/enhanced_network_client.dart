@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:bcrypt/bcrypt.dart';
 import 'package:flutter/material.dart';
 
 import '../auth/auth_token_service.dart';
@@ -261,15 +262,57 @@ class EnhancedNetworkClient {
     }
   }
 
-  /// Authentifie un utilisateur via le serveur
+  /// Authentifie un utilisateur via le serveur avec vérification de mot de passe
+  /// CRITICAL: This method now enforces password verification using bcrypt
+  /// to prevent unauthorized access even if username exists
   Future<Map<String, dynamic>?> authenticateUser(String username, String password) async {
     try {
-      final result = await query('SELECT * FROM users WHERE username = ?', [username]);
-      if (result.isEmpty) {
-        debugPrint('❌ Utilisateur $username introuvable');
+      // Validate input parameters
+      if (username.isEmpty || password.isEmpty) {
+        debugPrint('❌ Authentification refusée: credentials vides');
         return null;
       }
-      return result.first;
+
+      // Query user by username and retrieve password hash
+      final result = await query(
+        'SELECT id, nom, username, role, actif, password FROM users WHERE username = ?',
+        [username],
+      );
+      if (result.isEmpty) {
+        debugPrint('⚠️ Tentative authentification: utilisateur $username introuvable');
+        return null;
+      }
+
+      final userRecord = result.first;
+      final passwordHash = userRecord['password'] as String?;
+
+      // SECURITY CHECK: Verify password hash against provided password
+      if (passwordHash == null || passwordHash.isEmpty) {
+        debugPrint('❌ ERREUR SÉCURITÉ: Utilisateur $username n\'a pas de mot de passe défini');
+        return null;
+      }
+
+      // Use bcrypt to safely verify the password
+      try {
+        final passwordMatches = BCrypt.checkpw(password, passwordHash);
+
+        if (!passwordMatches) {
+          // Log failed authentication attempt (but not the password)
+          debugPrint('❌ Authentification échouée: mot de passe incorrect pour $username');
+          return null;
+        }
+      } catch (e) {
+        // Bcrypt hash validation failed
+        debugPrint('❌ ERREUR SÉCURITÉ: Impossible de valider le hash pour $username - $e');
+        return null;
+      }
+
+      // Password verified successfully - return user info WITHOUT the password hash
+      debugPrint('✅ Authentification réussie pour $username (role: ${userRecord['role']})');
+
+      // Remove password hash before returning to caller
+      userRecord.remove('password');
+      return userRecord;
     } catch (e) {
       debugPrint('❌ Erreur authentification réseau: $e');
       rethrow;
@@ -287,9 +330,38 @@ class EnhancedNetworkClient {
     }
   }
 
-  /// Récupère tous les utilisateurs du serveur
+  /// Récupère tous les utilisateurs du serveur (administrateurs uniquement)
+  /// Enforce role-based access control - only administrators can retrieve all users
   Future<List<Map<String, dynamic>>> getAllUsers() async {
     try {
+      // Verify caller is authenticated
+      if (!isAuthenticated) {
+        throw Exception('Non authentifié');
+      }
+
+      // Get current user's role information
+      final currentUsername = _tokenService.username;
+      if (currentUsername == null) {
+        throw Exception('Utilisateur invalide');
+      }
+
+      // Query to verify user role
+      final userInfo = await query('SELECT role FROM users WHERE username = ?', [currentUsername]);
+      if (userInfo.isEmpty) {
+        debugPrint('❌ Tentative accès getAllUsers: utilisateur $currentUsername introuvable');
+        throw Exception('Utilisateur introuvable');
+      }
+
+      final userRole = userInfo.first['role'] as String?;
+
+      // Check authorization: only admins can retrieve all users
+      if (userRole != 'admin' && userRole != 'ADMIN') {
+        debugPrint('⚠️ ACCÈS NON AUTORISÉ à getAllUsers: utilisateur=$currentUsername, role=$userRole');
+        throw Exception('Accès refusé: Droits administrateur requis (HTTP 403)');
+      }
+
+      // User is authorized, proceed with query
+      debugPrint('✅ Accès autorisé à getAllUsers pour $currentUsername (role: $userRole)');
       final result = await query('SELECT id, nom, username, role, actif FROM users ORDER BY nom');
       return result;
     } catch (e) {
@@ -349,6 +421,11 @@ class EnhancedNetworkClient {
       final responseBody = await utf8.decoder.bind(response).join();
       client.close();
 
+      if (response.statusCode == 401) {
+        await disconnect();
+        throw Exception('Session expirée');
+      }
+
       if (response.statusCode != 200) {
         throw Exception('Erreur serveur: ${response.statusCode}');
       }
@@ -388,8 +465,13 @@ class EnhancedNetworkClient {
       final responseBody = await utf8.decoder.bind(response).join();
       client.close();
 
+      if (response.statusCode == 401) {
+        await disconnect();
+        throw Exception('Session expirée');
+      }
+
       if (response.statusCode != 200) {
-        return [];
+        throw Exception('Erreur serveur: ${response.statusCode}');
       }
 
       final data = jsonDecode(responseBody) as Map<String, dynamic>;

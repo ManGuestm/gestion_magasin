@@ -34,7 +34,8 @@ class _NiveauStocksModalState extends State<NiveauStocksModal> with TabNavigatio
 
   Future<void> _loadArticlesACommander() async {
     try {
-      final allArticles = await _databaseService.getActiveArticlesWithModeAwareness();
+      // ✅ Charger TOUS les articles actifs localement pour niveaux stocks
+      final allArticles = await _databaseService.database.getActiveArticles();
       // Filtrer les articles avec stock faible
       final articlesACommander = allArticles.where((article) {
         final stockTotal = (article.stocksu1 ?? 0) + (article.stocksu2 ?? 0) + (article.stocksu3 ?? 0);

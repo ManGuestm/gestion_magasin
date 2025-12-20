@@ -27,7 +27,8 @@ class _MargesModalState extends State<MargesModal> with TabNavigationMixin {
   Future<void> _loadData() async {
     try {
       final ventes = await _databaseService.database.getAllVentes();
-      final articles = await _databaseService.getActiveArticlesWithModeAwareness();
+      // ✅ Charger TOUS les articles actifs localement pour calcul marges
+      final articles = await _databaseService.database.getActiveArticles();
       setState(() {
         _ventes = ventes;
         _articles = articles;

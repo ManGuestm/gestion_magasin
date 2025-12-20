@@ -44,7 +44,6 @@ class SyncTimerService {
   void stopPeriodicSync() {
     _syncTimer?.cancel();
     _syncTimer = null;
-    _isRunning = false;
     debugPrint('⏱️ Synchronisation périodique arrêtée');
   }
 
@@ -72,5 +71,5 @@ class SyncTimerService {
     stopPeriodicSync();
   }
 
-  bool get isRunning => _syncTimer != null;
+  bool get isRunning => _isRunning;
 }

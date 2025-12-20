@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -23,6 +24,11 @@ class HTTPServer {
   static const Duration _sessionTimeout = Duration(hours: 1);
   static const int _maxSessions = 100;
 
+  // TTL-based eviction for connected clients
+  static const Duration _clientActivityTimeout = Duration(minutes: 30);
+  static const Duration _cleanupInterval = Duration(minutes: 5);
+  Timer? _clientCleanupTimer;
+
   /// Démarrer le serveur HTTP
   Future<bool> start({int port = 8080}) async {
     try {
@@ -30,6 +36,9 @@ class HTTPServer {
       _isRunning = true;
 
       debugPrint('🚀 Serveur HTTP démarré sur port $port');
+
+      // Start client activity cleanup timer (TTL-based eviction)
+      _startClientCleanupTimer();
 
       // Écouter les requêtes
       _server!.listen(
@@ -53,6 +62,9 @@ class HTTPServer {
   /// Arrêter le serveur
   Future<void> stop() async {
     if (_server != null) {
+      // Cancel client cleanup timer
+      _stopClientCleanupTimer();
+
       await _server!.close();
       _isRunning = false;
       _connectedClients.clear();
@@ -62,7 +74,67 @@ class HTTPServer {
 
   /// Obtenir les clients REST connectés
   List<Map<String, dynamic>> getConnectedClientsInfo() {
-    return _connectedClients.values.toList();
+    return _connectedClients.values.map((client) => Map<String, dynamic>.from(client)).toList();
+  }
+
+  /// Start periodic cleanup timer for inactive clients (TTL-based eviction)
+  void _startClientCleanupTimer() {
+    if (_clientCleanupTimer != null) {
+      return; // Timer already running
+    }
+
+    _clientCleanupTimer = Timer.periodic(_cleanupInterval, (_) {
+      _evictInactiveClients();
+    });
+
+    debugPrint('⏱️ Cleanup timer démarré: exécution toutes les ${_cleanupInterval.inMinutes} minutes');
+  }
+
+  /// Stop the client cleanup timer
+  void _stopClientCleanupTimer() {
+    if (_clientCleanupTimer != null) {
+      _clientCleanupTimer!.cancel();
+      _clientCleanupTimer = null;
+      debugPrint('⏱️ Cleanup timer annulé');
+    }
+  }
+
+  /// Remove inactive clients from the map (TTL-based eviction with safe removal)
+  /// Collects keys to remove first, then removes them to avoid concurrent modification
+  void _evictInactiveClients() {
+    if (_connectedClients.isEmpty) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final keysToRemove = <String>[];
+
+    // Collect all keys whose last activity is older than the timeout threshold
+    for (final entry in _connectedClients.entries) {
+      final lastActivity = entry.value['derniere_activite'] as DateTime?;
+      if (lastActivity != null) {
+        final timeSinceLastActivity = now.difference(lastActivity);
+        if (timeSinceLastActivity > _clientActivityTimeout) {
+          keysToRemove.add(entry.key);
+        }
+      }
+    }
+
+    // Perform removals safely (no concurrent modification issues)
+    if (keysToRemove.isNotEmpty) {
+      for (final key in keysToRemove) {
+        final removedClient = _connectedClients.remove(key);
+        if (removedClient != null) {
+          debugPrint(
+            '🧹 Client inactif supprimé: IP=$key, dernière_activité=${removedClient['derniere_activite']}, '
+            'timeout=${_clientActivityTimeout.inMinutes}min',
+          );
+        }
+      }
+      debugPrint(
+        '♻️ Cleanup: ${keysToRemove.length} clients inactifs supprimés, ${_connectedClients.length} clients actifs restants',
+      );
+    }
   }
 
   /// Traiter une requête HTTP

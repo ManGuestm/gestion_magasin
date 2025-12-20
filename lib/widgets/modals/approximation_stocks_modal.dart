@@ -37,7 +37,8 @@ class _ApproximationStocksModalState extends State<ApproximationStocksModal> wit
 
   Future<void> _loadData() async {
     try {
-      final articles = await _databaseService.getActiveArticlesWithModeAwareness();
+      // ✅ Charger TOUS les articles actifs localement pour approximation stocks
+      final articles = await _databaseService.database.getActiveArticles();
       final depots = await _databaseService.database.getAllDepots();
 
       // Charger les stocks par dépôt

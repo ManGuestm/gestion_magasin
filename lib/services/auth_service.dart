@@ -1,7 +1,6 @@
 import '../database/database.dart';
 import '../database/database_service.dart';
 import 'audit_service.dart';
-import 'security_service.dart';
 
 class AuthService {
   static final AuthService _instance = AuthService._internal();
@@ -21,10 +20,13 @@ class AuthService {
     try {
       final dbService = DatabaseService();
 
-      // ✅ Utiliser le wrapper mode-aware pour l'authentification
+      // ✅ authenticateUserWithModeAwareness effectue déjà la vérification du mot de passe (bcrypt)
+      // - En mode CLIENT: via enhanced_network_client.authenticateUser()
+      // - En mode LOCAL/SERVER: via database.getUserByCredentials()
+      // Si l'utilisateur est non-null, il est authentifié
       final user = await dbService.authenticateUserWithModeAwareness(username, password);
 
-      if (user != null && SecurityService.verifyPassword(password, user.motDePasse)) {
+      if (user != null) {
         _currentUser = user;
 
         // Log de connexion
