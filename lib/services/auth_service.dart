@@ -16,6 +16,8 @@ class AuthService {
   /// Authentifie un utilisateur avec cryptage du mot de passe
   /// ✅ En mode CLIENT: authentifie via le serveur
   /// ✅ En mode LOCAL/SERVER: authentifie via la base locale
+  /// 🔒 SERVEUR → Administrateur uniquement
+  /// 🔒 CLIENT → Caisse et Vendeur uniquement
   Future<bool> login(String username, String password) async {
     try {
       final dbService = DatabaseService();
@@ -27,6 +29,18 @@ class AuthService {
       final user = await dbService.authenticateUserWithModeAwareness(username, password);
 
       if (user != null) {
+        // 🔒 Vérifier les restrictions de rôle selon le mode
+        if (!_validateRoleForMode(user.role, dbService.isNetworkMode)) {
+          await AuditService().log(
+            userId: user.id,
+            userName: user.nom,
+            action: AuditAction.error,
+            module: 'Authentification',
+            details: 'Accès refusé: Rôle ${user.role} non autorisé en mode ${dbService.isNetworkMode ? "CLIENT" : "SERVEUR"}',
+          );
+          return false;
+        }
+
         _currentUser = user;
 
         // Log de connexion
@@ -92,6 +106,19 @@ class AuthService {
       module: 'Authentification',
       details: 'Connexion réussie (réseau)',
     );
+  }
+
+  /// Valide si un rôle est autorisé selon le mode réseau
+  /// SERVEUR (isNetworkMode=false) → Administrateur uniquement
+  /// CLIENT (isNetworkMode=true) → Caisse et Vendeur uniquement
+  bool _validateRoleForMode(String role, bool isNetworkMode) {
+    if (isNetworkMode) {
+      // Mode CLIENT: Caisse et Vendeur uniquement
+      return role == 'Caisse' || role == 'Vendeur';
+    } else {
+      // Mode SERVEUR: Administrateur uniquement
+      return role == 'Administrateur';
+    }
   }
 
   /// Vérifie si l'utilisateur a le rôle requis

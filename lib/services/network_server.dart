@@ -362,9 +362,22 @@ class NetworkServer {
         return {'success': false, 'error': 'Utilisateur inactif'};
       }
 
+      // 🔒 Vérifier que seuls Caisse et Vendeur peuvent se connecter en mode CLIENT
+      if (user.role != 'Caisse' && user.role != 'Vendeur') {
+        debugPrint('❌ Authentification échouée pour: $username - Rôle ${user.role} non autorisé en mode CLIENT');
+        await _auditService.log(
+          userId: user.id,
+          userName: user.nom,
+          action: AuditAction.error,
+          module: 'Authentification',
+          details: 'Tentative de connexion CLIENT avec rôle non autorisé: ${user.role}',
+        );
+        return {'success': false, 'error': 'Accès refusé: Seuls les utilisateurs Caisse et Vendeur peuvent se connecter en mode client'};
+      }
+
       final token = '${user.id}_${DateTime.now().millisecondsSinceEpoch}_${username.hashCode}';
 
-      debugPrint('✅ Authentification réussie pour CLIENT: $username');
+      debugPrint('✅ Authentification réussie pour CLIENT: $username (${user.role})');
 
       return {
         'success': true,

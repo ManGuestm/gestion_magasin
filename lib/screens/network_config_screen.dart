@@ -330,8 +330,13 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                               children: [
                                 Text('Serveur', style: TextStyle(fontWeight: FontWeight.w500)),
                                 Text(
-                                  'Cet ordinateur hébergera la base de données',
+                                  'Ordinateur principal - Base de données locale',
                                   style: TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  '🔒 Accès: Administrateur uniquement',
+                                  style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),
@@ -390,8 +395,13 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                               children: [
                                 Text('Client', style: TextStyle(fontWeight: FontWeight.w500)),
                                 Text(
-                                  'Cet ordinateur se connectera au serveur',
+                                  'Se connecte au serveur - Aucune base locale',
                                   style: TextStyle(fontSize: 12, color: Colors.grey),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  '🔒 Accès: Caisse et Vendeur uniquement',
+                                  style: TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.bold),
                                 ),
                               ],
                             ),

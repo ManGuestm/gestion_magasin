@@ -12,6 +12,10 @@ class NetworkClient {
   String? _currentUsername;
   final Map<String, dynamic> _cache = {};
   final Set<Function(Map<String, dynamic>)> _changeListeners = {};
+  bool _autoReconnect = true;
+  int _reconnectAttempts = 0;
+  static const int _maxReconnectAttempts = 5;
+  static const Duration _reconnectDelay = Duration(seconds: 3);
 
   static NetworkClient get instance => _instance ??= NetworkClient._();
   NetworkClient._();
@@ -92,11 +96,13 @@ class NetworkClient {
         },
         onDone: () {
           _isConnected = false;
-          debugPrint('Connexion WebSocket fermée');
+          debugPrint('⚠️ Connexion WebSocket fermée');
+          _attemptReconnect();
         },
         onError: (error) {
           _isConnected = false;
-          debugPrint('Erreur WebSocket: $error');
+          debugPrint('❌ Erreur WebSocket: $error');
+          _attemptReconnect();
         },
       );
 
@@ -113,12 +119,40 @@ class NetworkClient {
   }
 
   Future<void> disconnect() async {
+    _autoReconnect = false;
     await _socket?.close();
     _socket = null;
     _isConnected = false;
     _cache.clear();
     _changeListeners.clear();
+    _reconnectAttempts = 0;
     debugPrint('Déconnecté du serveur');
+  }
+
+  /// Tente une reconnexion automatique
+  Future<void> _attemptReconnect() async {
+    if (!_autoReconnect || _reconnectAttempts >= _maxReconnectAttempts) {
+      if (_reconnectAttempts >= _maxReconnectAttempts) {
+        debugPrint('❌ Nombre maximum de tentatives de reconnexion atteint');
+      }
+      return;
+    }
+
+    _reconnectAttempts++;
+    debugPrint('🔄 Tentative de reconnexion $_reconnectAttempts/$_maxReconnectAttempts...');
+
+    await Future.delayed(_reconnectDelay);
+
+    if (_serverUrl != null && _currentUsername != null && _authToken != null) {
+      final uri = Uri.parse(_serverUrl!);
+      final success = await connect(uri.host, uri.port, _currentUsername, null);
+      if (success) {
+        _reconnectAttempts = 0;
+        debugPrint('✅ Reconnexion réussie');
+      } else {
+        _attemptReconnect();
+      }
+    }
   }
 
   Future<List<Map<String, dynamic>>> query(String sql, [List<dynamic>? params]) async {
