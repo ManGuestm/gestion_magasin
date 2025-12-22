@@ -11,13 +11,16 @@ import 'package:pdf/widgets.dart' as pw;
 import '../../constants/app_functions.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../../models/inventaire_state.dart';
+import '../../models/inventaire_stats.dart';
 import '../../services/auth_service.dart';
 import '../../utils/date_utils.dart';
 import '../../utils/stock_converter.dart';
-import '../common/article_navigation_autocomplete.dart';
 import '../common/loading_overlay.dart';
-import 'tabs/rapports_tab.dart';
-import 'tabs/stock_tab.dart';
+import 'tabs/inventaire_tab_new.dart';
+import 'tabs/mouvements_tab_new.dart';
+import 'tabs/rapports_tab_new.dart';
+import 'tabs/stock_tab_new.dart';
 
 class InventaireModal extends StatefulWidget {
   const InventaireModal({super.key});
@@ -79,23 +82,10 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   // Variables pour le tab Mouvements
   List<Stock> _mouvements = [];
   List<Stock> _filteredMouvements = [];
-  bool _isLoadingMouvements = false;
   int _mouvementsPage = 0;
   final ScrollController _mouvementsScrollController = ScrollController();
-  String _mouvementsSearchQuery = '';
-  String _selectedMouvementType = 'Tous';
   DateTime? _dateDebutMouvement;
   DateTime? _dateFinMouvement;
-  final List<String> _typesMovement = [
-    'Tous',
-    'ACHAT',
-    'VENTE',
-    'INVENTAIRE',
-    'TRANSFERT',
-    'AJUSTEMENT',
-    'CP VENTE',
-    'CP ACHAT',
-  ];
   int? _hoveredMouvementIndex;
 
   @override
@@ -471,20 +461,34 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     );
   }
 
-  Widget _buildStockTab() {
-    return StockTab(
-      isLoading: _isLoading,
-      stats: _stats,
+  InventaireState _buildInventaireState() {
+    return InventaireState.initial().copyWith(
+      articles: _articles,
+      stocks: stock,
       filteredArticles: _filteredArticles,
-      stock: stock,
+      searchQuery: _searchQuery,
       selectedDepot: _selectedDepot,
       selectedCategorie: _selectedCategorie,
+      stockPage: _currentPage,
       depots: _depots,
       categories: _categories,
-      currentPage: _currentPage,
-      itemsPerPage: _itemsPerPage,
+      stats: InventaireStats.fromMap(_stats),
+      isLoading: _isLoading,
       hoveredStockIndex: _hoveredStockIndex,
-      scrollController: _scrollController,
+      hoveredInventaireIndex: _hoveredInventaireIndex,
+      hoveredMouvementIndex: _hoveredMouvementIndex,
+      itemsPerPage: _itemsPerPage,
+      inventaireMode: _inventaireMode,
+      selectedDepotInventaire: _selectedDepotInventaire,
+      inventairePage: _inventairePage,
+      mouvementsPage: _mouvementsPage,
+    );
+  }
+
+  Widget _buildStockTab() {
+    return StockTabNew(
+      state: _buildInventaireState(),
+      stocks: stock,
       onSearchChanged: (value) {
         setState(() => _searchQuery = value);
         Future.delayed(const Duration(milliseconds: 300), () {
@@ -590,156 +594,40 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   }
 
   Widget _buildInventaireTab() {
-    return Column(
-      children: [
-        _buildInventaireHeader(),
-        Expanded(child: _buildInventaireList()),
-      ],
+    return InventaireTabNew(
+      state: _buildInventaireState(),
+      stocks: stock,
+      inventaireMode: _inventaireMode,
+      dateInventaire: _dateInventaire,
+      selectedDepotInventaire: _selectedDepotInventaire,
+      inventairePhysique: _inventairePhysique,
+      onStartInventaire: _startInventaire,
+      onCancelInventaire: _cancelInventaire,
+      onSaveInventaire: _saveInventaire,
+      onImportInventaire: _importInventaire,
+      onDepotChanged: (depot) {
+        setState(() => _selectedDepotInventaire = depot);
+        _applyFilters();
+      },
+      onSaisie: (designation, values) {
+        setState(() {
+          final key = '${designation}_$_selectedDepotInventaire';
+          _inventairePhysique[key] = {
+            'u1': values['u1'] ?? 0.0,
+            'u2': values['u2'] ?? 0.0,
+            'u3': values['u3'] ?? 0.0,
+          };
+        });
+      },
+      onPageChanged: (page) {
+        setState(() => _inventairePage = page);
+      },
+      onHoverChanged: (index) => setState(() => _hoveredInventaireIndex = index),
+      onScrollToArticle: (article) => _scrollToArticle(article),
     );
   }
 
-  Widget _buildInventaireHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.orange[50],
-        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(Icons.fact_check, color: Colors.orange[700]),
-              const SizedBox(width: 8),
-              const Text('Inventaire Physique', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              if (_inventaireMode) ...[
-                SizedBox(
-                  width: 200,
-                  child: ArticleNavigationAutocomplete(
-                    articles: _filteredArticles,
-                    focusNode: _inventaireSearchFocusNode,
-                    onArticleChanged: (article) {
-                      if (article != null && mounted) {
-                        _scrollToArticle(article);
-                      }
-                    },
-                    decoration: const InputDecoration(
-                      hintText: 'Rechercher article...',
-                      prefixIcon: Icon(Icons.search, size: 16),
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    ),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  width: 150,
-                  child: DropdownButtonFormField<String>(
-                    initialValue:
-                        _selectedDepotInventaire.isNotEmpty &&
-                            _depots.where((d) => d != 'Tous').contains(_selectedDepotInventaire)
-                        ? _selectedDepotInventaire
-                        : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Dépôt',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    ),
-                    items: _depots
-                        .where((depot) => depot != 'Tous')
-                        .map(
-                          (depot) => DropdownMenuItem(
-                            value: depot,
-                            child: Text(depot, style: const TextStyle(fontSize: 12)),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedDepotInventaire = value!);
-                      _applyFilters();
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-              ],
-              if (!_inventaireMode) ...[
-                ElevatedButton.icon(
-                  onPressed: _startInventaire,
-                  icon: const Icon(Icons.play_arrow, size: 16),
-                  label: const Text('Démarrer Inventaire'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _importInventaire,
-                  icon: const Icon(Icons.upload_file, size: 16),
-                  label: const Text('Importer Inventaire'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ] else ...[
-                ElevatedButton.icon(
-                  onPressed: _saveInventaire,
-                  icon: const Icon(Icons.save, size: 16),
-                  label: const Text('Sauvegarder'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  onPressed: _cancelInventaire,
-                  icon: const Icon(Icons.cancel, size: 16),
-                  label: const Text('Annuler'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                ),
-              ],
-            ],
-          ),
-          if (_dateInventaire != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Inventaire du ${AppDateUtils.formatDate(_dateInventaire!)} - Dépôt: $_selectedDepotInventaire',
-              style: TextStyle(color: Colors.orange[700], fontWeight: FontWeight.w500),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 
-  Widget _buildInventaireList() {
-    if (!_inventaireMode) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inventory_2, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text(
-              'Démarrez un inventaire pour saisir les quantités physiques',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        Expanded(child: _buildVirtualizedInventaireList()),
-        _buildInventairePagination(),
-      ],
-    );
-  }
 
   Widget _buildVirtualizedInventaireList() {
     final startIndex = _inventairePage * _itemsPerPage;
@@ -1233,196 +1121,26 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   }
 
   Widget _buildMouvementsTab() {
-    return Column(
-      children: [
-        _buildMouvementsHeader(),
-        _buildMouvementsFilters(),
-        Expanded(child: _buildMouvementsList()),
-      ],
+    return MouvementsTabNew(
+      state: _buildInventaireState(),
+      allMouvements: _filteredMouvements,
+      onApplyFilters: _applyMouvementsFilters,
+      onDepotChanged: (depot) {
+        setState(() => _selectedDepot = depot);
+        _applyMouvementsFilters();
+      },
+      onSearchChanged: (value) {},
+      onTypeChanged: (type) {},
+      onDateRangeChanged: (range) {},
+      onExport: _exportMouvements,
+      onPageChanged: (page) {
+        setState(() => _mouvementsPage = page);
+      },
+      onHoverChanged: (index) => setState(() => _hoveredMouvementIndex = index),
     );
   }
 
-  Widget _buildMouvementsHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue[50],
-        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.swap_horiz, color: Colors.blue[700]),
-          const SizedBox(width: 8),
-          const Text('Mouvements de Stock', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const Spacer(),
-          if (_filteredMouvements.isNotEmpty) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.blue[100],
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.blue),
-              ),
-              child: Text(
-                '${_filteredMouvements.length} mouvements',
-                style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          ElevatedButton.icon(
-            onPressed: _exportMouvements,
-            icon: const Icon(Icons.download, size: 16),
-            label: const Text('Exporter'),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildMouvementsFilters() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                flex: 2,
-                child: TextField(
-                  decoration: const InputDecoration(
-                    hintText: 'Rechercher article ou référence...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  onChanged: (value) {
-                    setState(() => _mouvementsSearchQuery = value);
-                    Future.delayed(const Duration(milliseconds: 300), () {
-                      if (_mouvementsSearchQuery == value) {
-                        _applyMouvementsFilters();
-                      }
-                    });
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _selectedDepot,
-                  decoration: const InputDecoration(
-                    labelText: 'Dépôt',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  items: _depots.map((depot) => DropdownMenuItem(value: depot, child: Text(depot))).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedDepot = value!);
-                    _applyMouvementsFilters();
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: _selectedMouvementType,
-                  decoration: const InputDecoration(
-                    labelText: 'Type',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  items: _typesMovement
-                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedMouvementType = value!);
-                    _applyMouvementsFilters();
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: InkWell(
-                  onTap: () => _selectDateRange(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[400]!),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.date_range, size: 16),
-                        const SizedBox(width: 8),
-                        Text(
-                          _dateDebutMouvement != null && _dateFinMouvement != null
-                              ? '${AppDateUtils.formatDate(_dateDebutMouvement!)} - ${AppDateUtils.formatDate(_dateFinMouvement!)}'
-                              : 'Sélectionner période',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              if (_dateDebutMouvement != null || _dateFinMouvement != null)
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _dateDebutMouvement = null;
-                      _dateFinMouvement = null;
-                    });
-                    _applyMouvementsFilters();
-                  },
-                  icon: const Icon(Icons.clear, size: 16),
-                  label: const Text('Effacer'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMouvementsList() {
-    if (_isLoadingMouvements) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_filteredMouvements.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inbox, size: 64, color: Colors.grey),
-            SizedBox(height: 16),
-            Text('Aucun mouvement trouvé', style: TextStyle(fontSize: 16, color: Colors.grey)),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        Expanded(child: _buildVirtualizedMouvementsList()),
-        _buildMouvementsPagination(),
-      ],
-    );
-  }
 
   Widget _buildVirtualizedMouvementsList() {
     final startIndex = _mouvementsPage * _itemsPerPage;
@@ -1605,12 +1323,19 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   }
 
   Widget _buildRapportsTab() {
-    return RapportsTab(
+    return RapportsTabNew(
+      state: _buildInventaireState(),
       stats: _stats,
-      articles: _articles,
-      stock: stock,
-      depots: _depots,
-      onExport: _exportRapports,
+      onRefreshStats: () async {
+        setState(() => _isLoading = true);
+        try {
+          await _calculateStatsAsync();
+        } finally {
+          setState(() => _isLoading = false);
+        }
+      },
+      onGenerateExcel: _exportToExcel,
+      onGeneratePDF: _exportToPdf,
     );
   }
 
@@ -1895,20 +1620,16 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
   // Méthodes pour le tab Mouvements
   Future<void> _loadMouvementsAsync() async {
-    setState(() => _isLoadingMouvements = true);
-
     try {
       final mouvements = await _databaseService.database.getAllStocks();
       if (mounted) {
         setState(() {
           _mouvements = mouvements;
-          _isLoadingMouvements = false;
         });
         _applyMouvementsFilters();
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isLoadingMouvements = false);
         _showError('Erreur lors du chargement des mouvements: $e');
       }
     }
@@ -1916,18 +1637,8 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
   void _applyMouvementsFilters() {
     final filteredMouvements = _mouvements.where((mouvement) {
-      // Filtre par recherche
-      final matchesSearch =
-          _mouvementsSearchQuery.isEmpty ||
-          (mouvement.refart?.toLowerCase().contains(_mouvementsSearchQuery.toLowerCase()) ?? false) ||
-          (mouvement.lib?.toLowerCase().contains(_mouvementsSearchQuery.toLowerCase()) ?? false);
-
       // Filtre par dépôt
       final matchesDepot = _selectedDepot == 'Tous' || mouvement.depots == _selectedDepot;
-
-      // Filtre par type
-      final matchesType =
-          _selectedMouvementType == 'Tous' || mouvement.verification == _selectedMouvementType;
 
       // Filtre par date avec conversion timestamp
       bool matchesDate = true;
@@ -1939,7 +1650,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
           } else if (mouvement.daty is DateTime) {
             mouvementDate = mouvement.daty as DateTime;
           } else {
-            return matchesSearch && matchesDepot && matchesType;
+            return matchesDepot;
           }
 
           matchesDate =
@@ -1950,7 +1661,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         }
       }
 
-      return matchesSearch && matchesDepot && matchesType && matchesDate;
+      return matchesDepot && matchesDate;
     }).toList();
 
     // Trier par date décroissante avec gestion des timestamps
