@@ -38,6 +38,10 @@ class IconBarWidget extends StatelessWidget {
     // Si l'utilisateur est vendeur, filtrer les icônes restreintes
     if (userRole == 'Vendeur') {
       const restrictedLabels = [
+        'Articles',
+        'Dépôts',
+        'Inventaire',
+        'Transferts',
         'Encaissements',
         'Décaissements',
         'Suivi de différence de Prix de vente',

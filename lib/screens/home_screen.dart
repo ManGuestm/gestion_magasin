@@ -73,7 +73,7 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final config = await NetworkConfigService.loadConfig();
       final mode = config['mode'] as NetworkMode;
-      
+
       if (mode == NetworkMode.client) {
         debugPrint('✅ Mode CLIENT détecté - Démarrage synchronisation périodique');
         _syncTimer.startPeriodicSync();
@@ -1008,7 +1008,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Colors.orange,
       ),
       _buildStatCard('Mes Clients', '${_stats['mesClients'] ?? 0}', Icons.people, Colors.teal),
-      _buildStatCard('Articles Dispo', '${_stats['articles'] ?? 0}', Icons.inventory, Colors.blue),
+      // _buildStatCard('Articles Dispo', '${_stats['articles'] ?? 0}', Icons.inventory, Colors.blue),
       if ((_stats['mesVentesBrouillard'] ?? 0) > 0)
         _buildStatCard(
           'Mes Ventes en attente',
@@ -1016,9 +1016,6 @@ class _HomeScreenState extends State<HomeScreen> {
           Icons.pending_actions,
           Colors.orange,
         ),
-      // _buildStatCard('Objectif Mois', '${_stats['objectif'] ?? 0}%', Icons.track_changes, Colors.green),
-      // _buildStatCard('Commission', '${_formatNumber(_stats['commission'] ?? 0)} Ar', Icons.monetization_on,
-      //     Colors.amber),
     ];
   }
 

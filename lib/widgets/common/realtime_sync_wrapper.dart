@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../database/database_service.dart';
 import '../../services/network_client.dart';
 
@@ -8,11 +9,7 @@ class RealtimeSyncWrapper extends StatefulWidget {
   final Widget child;
   final VoidCallback? onDataChanged;
 
-  const RealtimeSyncWrapper({
-    super.key,
-    required this.child,
-    this.onDataChanged,
-  });
+  const RealtimeSyncWrapper({super.key, required this.child, this.onDataChanged});
 
   @override
   State<RealtimeSyncWrapper> createState() => _RealtimeSyncWrapperState();
@@ -41,15 +38,17 @@ class _RealtimeSyncWrapperState extends State<RealtimeSyncWrapper> {
   }
 
   void _onServerChange(Map<String, dynamic> change) {
+    if (!mounted) return;
+
     debugPrint('📥 Changement reçu: ${change['type']}');
-    
+
     // Invalider le cache
     _db.invalidateCache('all_');
-    
+
     // Notifier le parent
     if (widget.onDataChanged != null) {
       widget.onDataChanged!();
-    } else if (mounted) {
+    } else {
       setState(() {});
     }
   }

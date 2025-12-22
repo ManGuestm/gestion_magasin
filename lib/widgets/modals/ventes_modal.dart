@@ -5632,7 +5632,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                             _ajouterFocusNode.requestFocus(),
                                                         readOnly:
                                                             _selectedVerification == 'JOURNAL' ||
-                                                            !_isClientSelected,
+                                                            !_isClientSelected ||
+                                                            _isVendeur(),
                                                       ),
                                                     ),
                                                   ),
@@ -7021,35 +7022,39 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                               _searchedArticle!.u3,
                                                               _searchedArticle!.tu3u2,
                                                             ),
-                                                            const SizedBox(height: 12),
+                                                            const SizedBox(
+                                                              height: 12,
+                                                            ), // Prix d'achat`n                                                            if (!_isVendeur()) ...[`n                                                              const Text(`n                                                                'PRIX D\'ACHAT',`n                                                                style: TextStyle(`n                                                                  fontSize: 12,`n                                                                  fontWeight: FontWeight.bold,`n                                                                  color: Colors.red,`n                                                                ),`n                                                              ),`n                                                              const SizedBox(height: 4),`n                                                              Container(`n                                                                width: double.infinity,`n                                                                padding: const EdgeInsets.all(6),`n                                                                decoration: BoxDecoration(`n                                                                  color: Colors.red[50],`n                                                                  borderRadius: BorderRadius.circular(4),`n                                                                  border: Border.all(color: Colors.red[200]!),`n                                                                ),`n                                                                child: Text(`n                                                                  'CMUP: ${AppFunctions.formatNumber(_searchedArticle!.cmup ?? 0)}',`n                                                                  style: TextStyle(`n                                                                    fontSize: 12,`n                                                                    color: Colors.red[700],`n                                                                    fontWeight: FontWeight.w500,`n                                                                  ),`n                                                                ),`n                                                              ),`n                                                              const SizedBox(height: 12),`n                                                            ],
                                                             // Prix d'achat
-                                                            const Text(
-                                                              'PRIX D\'ACHAT',
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                fontWeight: FontWeight.bold,
-                                                                color: Colors.red,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(height: 4),
-                                                            Container(
-                                                              width: double.infinity,
-                                                              padding: const EdgeInsets.all(6),
-                                                              decoration: BoxDecoration(
-                                                                color: Colors.red[50],
-                                                                borderRadius: BorderRadius.circular(4),
-                                                                border: Border.all(color: Colors.red[200]!),
-                                                              ),
-                                                              child: Text(
-                                                                'CMUP: ${AppFunctions.formatNumber(_searchedArticle!.cmup ?? 0)}',
+                                                            if (!_isVendeur()) ...[
+                                                              const Text(
+                                                                'PRIX D\'ACHAT',
                                                                 style: TextStyle(
                                                                   fontSize: 12,
-                                                                  color: Colors.red[700],
-                                                                  fontWeight: FontWeight.w500,
+                                                                  fontWeight: FontWeight.bold,
+                                                                  color: Colors.red,
                                                                 ),
                                                               ),
-                                                            ),
-                                                            const SizedBox(height: 12),
+                                                              const SizedBox(height: 4),
+                                                              Container(
+                                                                width: double.infinity,
+                                                                padding: const EdgeInsets.all(6),
+                                                                decoration: BoxDecoration(
+                                                                  color: Colors.red[50],
+                                                                  borderRadius: BorderRadius.circular(4),
+                                                                  border: Border.all(color: Colors.red[200]!),
+                                                                ),
+                                                                child: Text(
+                                                                  'CMUP: ${AppFunctions.formatNumber(_searchedArticle!.cmup ?? 0)}',
+                                                                  style: TextStyle(
+                                                                    fontSize: 12,
+                                                                    color: Colors.red[700],
+                                                                    fontWeight: FontWeight.w500,
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              const SizedBox(height: 12),
+                                                            ],
                                                             // Stock disponible
                                                             const Text(
                                                               'STOCK DISPONIBLE',
