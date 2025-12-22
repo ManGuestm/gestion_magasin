@@ -6,6 +6,10 @@ import 'package:flutter/material.dart';
 
 import '../database/database.dart';
 import '../database/database_service.dart';
+import 'advanced/client_monitor.dart';
+import 'advanced/compression_service.dart';
+import 'advanced/rate_limiter.dart';
+import 'advanced/session_manager.dart';
 import 'audit_service.dart';
 import 'network/http_server.dart';
 
@@ -15,6 +19,10 @@ class NetworkServer {
   final DatabaseService _databaseService = DatabaseService();
   final HTTPServer _httpServer = HTTPServer();
   final AuditService _auditService = AuditService();
+  final SessionManager _sessionManager = SessionManager();
+  final ClientMonitor _clientMonitor = ClientMonitor();
+  final RateLimiterPool _rateLimiterPool = RateLimiterPool();
+  final CompressionService _compressionService = CompressionService();
   final Set<WebSocket> _clients = {};
   final Map<WebSocket, Map<String, dynamic>> _clientsInfo = {};
   bool _isRunning = false;
@@ -72,6 +80,16 @@ class NetworkServer {
       // S'assurer que la base est initialisée en mode LOCAL (serveur)
       await _databaseService.initializeLocal();
 
+      // Initialiser les services
+      _rateLimiterPool.initialize(
+        defaultConfig: RateLimitConfig(
+          requestsPerMinute: 120,
+          burst: 20,
+          windowSize: const Duration(minutes: 1),
+        ),
+      );
+      _sessionManager.startCleanupTimer();
+
       // Démarrer le serveur HTTP REST
       final httpStarted = await _httpServer.start(port: port);
       if (!httpStarted) {
@@ -80,6 +98,7 @@ class NetworkServer {
 
       _isRunning = true;
       debugPrint('✅ Serveur démarré sur port $port');
+      debugPrint('🛡️  Services de sécurité activés (Rate Limiting, Session Manager, Client Monitor)');
 
       return true;
     } catch (e) {
@@ -96,6 +115,12 @@ class NetworkServer {
     _isRunning = false;
     _clients.clear();
     _clientsInfo.clear();
+
+    // Nettoyer les services
+    _sessionManager.dispose();
+    _clientMonitor.dispose();
+    _rateLimiterPool.dispose();
+
     debugPrint('🛑 Serveur arrêté');
   }
 
@@ -114,6 +139,7 @@ class NetworkServer {
 
       final path = request.uri.path;
       final method = request.method;
+      final clientIp = request.connectionInfo?.remoteAddress.address ?? 'Unknown';
 
       Map<String, dynamic> response;
 
@@ -135,19 +161,40 @@ class NetworkServer {
 
         case '/api/query':
           if (method == 'POST') {
-            // Vérifier authentification via Bearer token
-            final authHeader = request.headers.value('Authorization');
-            if (authHeader == null || !authHeader.startsWith('Bearer ')) {
-              debugPrint('❌ Requête /api/query sans token d\'authentification');
-              response = {'success': false, 'error': 'Authentification requise'};
-              request.response.statusCode = 401;
+            // Vérifier le rate limit
+            if (!_rateLimiterPool.checkLimit(clientIp)) {
+              response = {'success': false, 'error': 'Rate limit exceeded'};
+              request.response.statusCode = 429;
+              request.response.headers.add('Retry-After', '60');
             } else {
-              final token = authHeader.substring(7);
-              debugPrint('🔐 Requête authentifiée avec token: ${token.substring(0, 10)}...');
-              final body = await utf8.decoder.bind(request).join();
-              final data = jsonDecode(body);
-              response = await executeQuery(data);
+              // Vérifier authentification via Bearer token
+              final authHeader = request.headers.value('Authorization');
+              if (authHeader == null || !authHeader.startsWith('Bearer ')) {
+                debugPrint('❌ Requête /api/query sans token d\'authentification');
+                response = {'success': false, 'error': 'Authentification requise'};
+                request.response.statusCode = 401;
+              } else {
+                final token = authHeader.substring(7);
+                debugPrint('🔐 Requête authentifiée avec token: ${token.substring(0, 10)}...');
+                final body = await utf8.decoder.bind(request).join();
+                final data = jsonDecode(body);
+                response = await executeQuery(data);
+              }
             }
+          } else {
+            response = {'error': 'Method not allowed'};
+            request.response.statusCode = 405;
+          }
+          break;
+
+        case '/api/metrics':
+          if (method == 'GET') {
+            response = {
+              'clients': _clientMonitor.getMetrics(),
+              'aggregated': _clientMonitor.getAggregatedStats(),
+              'sessions': _sessionManager.getAllActiveSessions(),
+              'compression': _compressionService.getCompressionStats(),
+            };
           } else {
             response = {'error': 'Method not allowed'};
             request.response.statusCode = 405;
@@ -364,7 +411,9 @@ class NetworkServer {
 
       // 🔒 Vérifier que seuls Caisse et Vendeur peuvent se connecter en mode CLIENT
       if (user.role != 'Caisse' && user.role != 'Vendeur') {
-        debugPrint('❌ Authentification échouée pour: $username - Rôle ${user.role} non autorisé en mode CLIENT');
+        debugPrint(
+          '❌ Authentification échouée pour: $username - Rôle ${user.role} non autorisé en mode CLIENT',
+        );
         await _auditService.log(
           userId: user.id,
           userName: user.nom,
@@ -372,7 +421,11 @@ class NetworkServer {
           module: 'Authentification',
           details: 'Tentative de connexion CLIENT avec rôle non autorisé: ${user.role}',
         );
-        return {'success': false, 'error': 'Accès refusé: Seuls les utilisateurs Caisse et Vendeur peuvent se connecter en mode client'};
+        return {
+          'success': false,
+          'error':
+              'Accès refusé: Seuls les utilisateurs Caisse et Vendeur peuvent se connecter en mode client',
+        };
       }
 
       final token = '${user.id}_${DateTime.now().millisecondsSinceEpoch}_${username.hashCode}';

@@ -3,12 +3,19 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'advanced/compression_service.dart';
+import 'advanced/heartbeat_service.dart';
+import 'advanced/server_pool.dart';
+import 'advanced/session_manager.dart';
+import 'advanced/sync_conflict_resolver.dart';
+
 class NetworkClient {
   static NetworkClient? _instance;
   WebSocket? _socket;
   String? _serverUrl;
   bool _isConnected = false;
   String? _authToken;
+  String? _sessionId;
   String? _currentUsername;
   final Map<String, dynamic> _cache = {};
   final Set<Function(Map<String, dynamic>)> _changeListeners = {};
@@ -17,10 +24,18 @@ class NetworkClient {
   static const int _maxReconnectAttempts = 5;
   static const Duration _reconnectDelay = Duration(seconds: 3);
 
+  // Services avancés
+  final HeartbeatService _heartbeatService = HeartbeatService();
+  final SessionManager _sessionManager = SessionManager();
+  final SyncConflictResolver _syncConflictResolver = SyncConflictResolver(); // ignore: unused_field
+  final CompressionService _compressionService = CompressionService(); // ignore: unused_field
+  ServerPool? _serverPool; // ignore: unused_field
+
   static NetworkClient get instance => _instance ??= NetworkClient._();
   NetworkClient._();
 
   bool get isConnected => _isConnected;
+  bool get isServerHealthy => _heartbeatService.isHealthy;
 
   /// Ajoute un listener pour les changements de données
   void addChangeListener(Function(Map<String, dynamic>) listener) {
@@ -75,8 +90,22 @@ class NetworkClient {
         }
         _currentUsername = username;
         _authToken = authResult['token'] ?? authResult['id']?.toString();
-        debugPrint('✅ Authentification réussie - Token obtenu');
+
+        // Créer une session
+        _sessionId = await _sessionManager.createSession(
+          authResult['id']?.toString() ?? 'unknown',
+          username,
+          _authToken ?? '',
+        );
+
+        debugPrint('✅ Authentification réussie - Token et Session obtenu');
       }
+
+      // Démarrer le heartbeat pour vérifier la connexion serveur
+      _heartbeatService.startHeartbeat(
+        checkConnection: () => testConnection(serverIp, port),
+        onConnectionLost: _handleConnectionLost,
+      );
 
       // Connexion WebSocket pour temps réel
       _socket = await WebSocket.connect('ws://$serverIp:$port/ws').timeout(const Duration(seconds: 10));
@@ -85,6 +114,11 @@ class NetworkClient {
       _socket!.listen(
         (message) {
           try {
+            // Mettre à jour l'activité de session
+            if (_sessionId != null) {
+              _sessionManager.updateActivity(_sessionId!);
+            }
+
             final data = jsonDecode(message);
             if (data['type'] == 'data_change') {
               debugPrint('🔔 Changement reçu: ${data['change']['type']}');
@@ -120,6 +154,13 @@ class NetworkClient {
 
   Future<void> disconnect() async {
     _autoReconnect = false;
+    _heartbeatService.stopHeartbeat();
+
+    // Fermer la session
+    if (_sessionId != null) {
+      _sessionManager.closeSession(_sessionId!);
+    }
+
     await _socket?.close();
     _socket = null;
     _isConnected = false;
@@ -127,6 +168,12 @@ class NetworkClient {
     _changeListeners.clear();
     _reconnectAttempts = 0;
     debugPrint('Déconnecté du serveur');
+  }
+
+  void _handleConnectionLost() {
+    debugPrint('❌ Connexion serveur perdue - Le serveur ne répond plus');
+    _isConnected = false;
+    _attemptReconnect();
   }
 
   /// Tente une reconnexion automatique
@@ -238,7 +285,7 @@ class NetworkClient {
 
       // Invalider cache
       _invalidateCache();
-      
+
       // Notifier les listeners locaux immédiatement
       _handleDataChange({'type': type, 'query': sql, 'params': params});
     } catch (e) {
@@ -268,7 +315,7 @@ class NetworkClient {
       }
 
       _invalidateCache();
-      
+
       // Notifier les listeners
       _handleDataChange({'type': 'transaction', 'queries': queries});
     } catch (e) {

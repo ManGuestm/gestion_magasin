@@ -84,32 +84,6 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
     return null;
   }
 
-  /// Validate username
-  String? _validateUsername(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Le nom d\'utilisateur est requis';
-    }
-
-    if (value.isEmpty) {
-      return 'Le nom d\'utilisateur doit contenir au moins 1 caractère';
-    }
-
-    return null;
-  }
-
-  /// Validate password
-  String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Le mot de passe est requis';
-    }
-
-    if (value.isEmpty) {
-      return 'Le mot de passe doit contenir au moins 1 caractère';
-    }
-
-    return null;
-  }
-
   Future<void> _testConnection() async {
     if (_selectedMode != NetworkMode.client) return;
 
@@ -336,7 +310,11 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                                 SizedBox(height: 4),
                                 Text(
                                   '🔒 Accès: Administrateur uniquement',
-                                  style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.orange,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -401,7 +379,11 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                                 SizedBox(height: 4),
                                 Text(
                                   '🔒 Accès: Caisse et Vendeur uniquement',
-                                  style: TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
@@ -443,27 +425,6 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                             ),
                             keyboardType: TextInputType.number,
                             validator: _validatePort,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _usernameController,
-                            decoration: InputDecoration(
-                              labelText: 'Nom d\'utilisateur',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              prefixIcon: const Icon(Icons.person),
-                            ),
-                            validator: _validateUsername,
-                          ),
-                          const SizedBox(height: 16),
-                          TextFormField(
-                            controller: _passwordController,
-                            decoration: InputDecoration(
-                              labelText: 'Mot de passe',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                              prefixIcon: const Icon(Icons.lock),
-                            ),
-                            obscureText: true,
-                            validator: _validatePassword,
                           ),
                         ],
                       ),
