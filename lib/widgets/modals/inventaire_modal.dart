@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:excel/excel.dart' hide Border;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
@@ -670,6 +671,16 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
                   label: const Text('Démarrer Inventaire'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: _importInventaire,
+                  icon: const Icon(Icons.upload_file, size: 16),
+                  label: const Text('Importer Inventaire'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -1609,6 +1620,72 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       _dateInventaire = DateTime.now();
       _inventairePhysique.clear();
     });
+  }
+
+  Future<void> _importInventaire() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['xlsx', 'xls'],
+        dialogTitle: 'Sélectionner un fichier Excel',
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final filePath = result.files.first.path;
+      if (filePath == null) {
+        _showError('Erreur: Chemin de fichier invalide');
+        return;
+      }
+
+      final bytes = await File(filePath).readAsBytes();
+      final excel = Excel.decodeBytes(bytes);
+
+      if (excel.tables.isEmpty) {
+        _showError('Le fichier Excel est vide');
+        return;
+      }
+
+      final sheet = excel.tables[excel.tables.keys.first];
+      if (sheet == null || sheet.rows.isEmpty) {
+        _showError('La feuille Excel est vide');
+        return;
+      }
+
+      int imported = 0;
+      int errors = 0;
+
+      for (int i = 1; i < sheet.rows.length; i++) {
+        final row = sheet.rows[i];
+        if (row.length < 4) continue;
+
+        final designation = row[0]?.value?.toString().trim();
+        final u1 = double.tryParse(row[1]?.value?.toString() ?? '0') ?? 0;
+        final u2 = double.tryParse(row[2]?.value?.toString() ?? '0') ?? 0;
+        final u3 = double.tryParse(row[3]?.value?.toString() ?? '0') ?? 0;
+
+        if (designation == null || designation.isEmpty) continue;
+
+        final article = _articles.where((a) => a.designation == designation).firstOrNull;
+        if (article == null) {
+          errors++;
+          continue;
+        }
+
+        final key = '${article.designation}_$_selectedDepotInventaire';
+        _inventairePhysique[key] = {'u1': u1, 'u2': u2, 'u3': u3};
+        imported++;
+      }
+
+      setState(() {
+        _inventaireMode = true;
+        _dateInventaire = DateTime.now();
+      });
+
+      _showSuccess('Import réussi: $imported articles importés${errors > 0 ? ', $errors erreurs' : ''}');
+    } catch (e) {
+      _showError('Erreur lors de l\'importation: $e');
+    }
   }
 
   void _cancelInventaire() {
