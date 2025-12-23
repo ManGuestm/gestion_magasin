@@ -781,6 +781,11 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     return authService.currentUserRole == 'Vendeur';
   }
 
+  bool _canPrint() {
+    final authService = AuthService();
+    return authService.canPrint();
+  }
+
   bool _shouldShowCreditMode(CltData? client) {
     if (client == null) return true;
     return client.categorie == null || client.categorie == ClientCategory.tousDepots.label;
@@ -6814,7 +6819,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               future: _isVenteContrePassee(),
                                               builder: (context, snapshot) {
                                                 final isContrePassee = snapshot.data ?? false;
-                                                return _isVendeur()
+                                                return !_canPrint()
                                                     ? const SizedBox.shrink()
                                                     : Tooltip(
                                                         message: 'Imprimer Facture (Ctrl+P)',
@@ -6868,7 +6873,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                               future: _isVenteContrePassee(),
                                               builder: (context, snapshot) {
                                                 final isContrePassee = snapshot.data ?? false;
-                                                return _isVendeur()
+                                                return !_canPrint()
                                                     ? const SizedBox.shrink()
                                                     : Tooltip(
                                                         message: 'Imprimer Bon de Livraison (Ctrl+Shift+P)',

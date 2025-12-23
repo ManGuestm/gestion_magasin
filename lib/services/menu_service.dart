@@ -160,6 +160,14 @@ class MenuService {
       items = items.where((item) => !restrictedItems.contains(item)).toList();
     }
 
+    // Si l'utilisateur est consultant, ne montrer que Ventes (Tous dépôts)
+    if (userRole == 'Consultant') {
+      const allowedItems = [
+        'Ventes (Tous dépôts)',
+      ];
+      items = items.where((item) => allowedItems.contains(item)).toList();
+    }
+
     return items;
   }
 }

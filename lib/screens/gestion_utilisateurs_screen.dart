@@ -35,9 +35,9 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
     } catch (e) {
       setState(() => _isLoading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -74,10 +74,7 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
               children: [
                 TextFormField(
                   controller: nomController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nom complet',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Nom complet', border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
@@ -99,14 +96,12 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
                   initialValue: roleSelectionne,
-                  decoration: const InputDecoration(
-                    labelText: 'Rôle',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: 'Rôle', border: OutlineInputBorder()),
                   items: const [
                     DropdownMenuItem(value: 'Administrateur', child: Text('Administrateur')),
                     DropdownMenuItem(value: 'Caisse', child: Text('Caisse')),
                     DropdownMenuItem(value: 'Vendeur', child: Text('Vendeur')),
+                    DropdownMenuItem(value: 'Consultant', child: Text('Consultant')),
                   ],
                   onChanged: (value) => setDialogState(() => roleSelectionne = value!),
                 ),
@@ -120,10 +115,7 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Annuler'),
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Annuler')),
             ElevatedButton(
               onPressed: () => _sauvegarderUtilisateur(
                 context,
@@ -161,7 +153,9 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
     if (utilisateurExistant == null && motDePasse.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Mot de passe requis pour un nouvel utilisateur'), backgroundColor: Colors.red),
+          content: Text('Mot de passe requis pour un nouvel utilisateur'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -173,15 +167,17 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
       if (utilisateurExistant == null) {
         // Nouvel utilisateur
         final id = 'user_${DateTime.now().millisecondsSinceEpoch}';
-        await db.insertUser(UsersCompanion(
-          id: Value(id),
-          nom: Value(nom.trim()),
-          username: Value(username.trim()),
-          motDePasse: Value(_crypterMotDePasse(motDePasse)),
-          role: Value(role),
-          actif: Value(actif),
-          dateCreation: Value(DateTime.now()),
-        ));
+        await db.insertUser(
+          UsersCompanion(
+            id: Value(id),
+            nom: Value(nom.trim()),
+            username: Value(username.trim()),
+            motDePasse: Value(_crypterMotDePasse(motDePasse)),
+            role: Value(role),
+            actif: Value(actif),
+            dateCreation: Value(DateTime.now()),
+          ),
+        );
       } else {
         // Modification
         String motDePasseFinal = utilisateurExistant.motDePasse;
@@ -189,15 +185,17 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
           motDePasseFinal = _crypterMotDePasse(motDePasse);
         }
 
-        await db.updateUser(UsersCompanion(
-          id: Value(utilisateurExistant.id),
-          nom: Value(nom.trim()),
-          username: Value(username.trim()),
-          motDePasse: Value(motDePasseFinal),
-          role: Value(role),
-          actif: Value(actif),
-          dateCreation: Value(utilisateurExistant.dateCreation),
-        ));
+        await db.updateUser(
+          UsersCompanion(
+            id: Value(utilisateurExistant.id),
+            nom: Value(nom.trim()),
+            username: Value(username.trim()),
+            motDePasse: Value(motDePasseFinal),
+            role: Value(role),
+            actif: Value(actif),
+            dateCreation: Value(utilisateurExistant.dateCreation),
+          ),
+        );
       }
 
       navigator.pop();
@@ -213,9 +211,9 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red));
       }
     }
   }
@@ -225,7 +223,9 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
     if (currentUser?.id == utilisateur.id) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Impossible de supprimer votre propre compte'), backgroundColor: Colors.red),
+          content: Text('Impossible de supprimer votre propre compte'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -259,9 +259,9 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red));
         }
       }
     }
@@ -287,132 +287,131 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _utilisateurs.isEmpty
-              ? const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.people_outline, size: 64, color: Colors.grey),
-                      SizedBox(height: 16),
-                      Text('Aucun utilisateur trouvé', style: TextStyle(fontSize: 18, color: Colors.grey)),
-                    ],
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                  SizedBox(height: 16),
+                  Text('Aucun utilisateur trouvé', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                ],
+              ),
+            )
+          : Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  // En-tête
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.people, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${_utilisateurs.length} utilisateur(s)',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
-                )
-              : Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      // En-tête
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.people, color: Colors.blue),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${_utilisateurs.length} utilisateur(s)',
-                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                      // Liste des utilisateurs
-                      Expanded(
-                        child: ListView.builder(
-                          itemCount: _utilisateurs.length,
-                          itemBuilder: (context, index) {
-                            final utilisateur = _utilisateurs[index];
-                            final currentUser = AuthService().currentUser;
-                            final isCurrentUser = currentUser?.id == utilisateur.id;
+                  // Liste des utilisateurs
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _utilisateurs.length,
+                      itemBuilder: (context, index) {
+                        final utilisateur = _utilisateurs[index];
+                        final currentUser = AuthService().currentUser;
+                        final isCurrentUser = currentUser?.id == utilisateur.id;
 
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: utilisateur.actif ? Colors.green : Colors.grey,
-                                  child: Text(
-                                    utilisateur.nom.isNotEmpty ? utilisateur.nom[0].toUpperCase() : 'U',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                                title: Row(
-                                  children: [
-                                    Text(utilisateur.nom,
-                                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    if (isCurrentUser) ...[
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.blue,
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        child: const Text(
-                                          'Vous',
-                                          style: TextStyle(color: Colors.white, fontSize: 10),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('Username: ${utilisateur.username}'),
-                                    Row(
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: _getRoleColor(utilisateur.role),
-                                            borderRadius: BorderRadius.circular(12),
-                                          ),
-                                          child: Text(
-                                            utilisateur.role,
-                                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          utilisateur.actif ? 'Actif' : 'Inactif',
-                                          style: TextStyle(
-                                            color: utilisateur.actif ? Colors.green : Colors.red,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      onPressed: () => _modifierUtilisateur(utilisateur),
-                                      icon: const Icon(Icons.edit, color: Colors.blue),
-                                      tooltip: 'Modifier',
-                                    ),
-                                    if (!isCurrentUser)
-                                      IconButton(
-                                        onPressed: () => _supprimerUtilisateur(utilisateur),
-                                        icon: const Icon(Icons.delete, color: Colors.red),
-                                        tooltip: 'Supprimer',
-                                      ),
-                                  ],
-                                ),
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: utilisateur.actif ? Colors.green : Colors.grey,
+                              child: Text(
+                                utilisateur.nom.isNotEmpty ? utilisateur.nom[0].toUpperCase() : 'U',
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                            ),
+                            title: Row(
+                              children: [
+                                Text(utilisateur.nom, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                if (isCurrentUser) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Text(
+                                      'Vous',
+                                      style: TextStyle(color: Colors.white, fontSize: 10),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Username: ${utilisateur.username}'),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: _getRoleColor(utilisateur.role),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        utilisateur.role,
+                                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      utilisateur.actif ? 'Actif' : 'Inactif',
+                                      style: TextStyle(
+                                        color: utilisateur.actif ? Colors.green : Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  onPressed: () => _modifierUtilisateur(utilisateur),
+                                  icon: const Icon(Icons.edit, color: Colors.blue),
+                                  tooltip: 'Modifier',
+                                ),
+                                if (!isCurrentUser)
+                                  IconButton(
+                                    onPressed: () => _supprimerUtilisateur(utilisateur),
+                                    icon: const Icon(Icons.delete, color: Colors.red),
+                                    tooltip: 'Supprimer',
+                                  ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
+                ],
+              ),
+            ),
     );
   }
 
@@ -424,6 +423,8 @@ class _GestionUtilisateursScreenState extends State<GestionUtilisateursScreen> {
         return Colors.orange;
       case 'Vendeur':
         return Colors.green;
+      case 'Consultant':
+        return Colors.purple;
       default:
         return Colors.grey;
     }

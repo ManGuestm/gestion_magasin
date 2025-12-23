@@ -187,6 +187,8 @@ class AuthService {
         return _caissePermissions.contains(feature);
       case 'Vendeur':
         return _vendeurPermissions.contains(feature);
+      case 'Consultant':
+        return _consultantPermissions.contains(feature);
       default:
         return false;
     }
@@ -204,6 +206,9 @@ class AuthService {
 
   /// Permissions pour le rôle Vendeur
   static const List<String> _vendeurPermissions = ['ventes', 'clients', 'articles_view', 'stocks_view'];
+
+  /// Permissions pour le rôle Consultant
+  static const List<String> _consultantPermissions = ['ventes_tous_depots_view', 'articles_view'];
 
   /// Vérifie si un vendeur peut accéder à un modal spécifique
   bool isVendeurRestrictedModal(String modalName) {
@@ -228,6 +233,23 @@ class AuthService {
     ];
 
     return restrictedModals.contains(modalName);
+  }
+
+  /// Vérifie si un consultant peut accéder à un modal spécifique
+  bool isConsultantRestrictedModal(String modalName) {
+    if (_currentUser?.role != 'Consultant') return false;
+
+    const allowedModals = [
+      'Ventes (Tous dépôts)',
+    ];
+
+    return !allowedModals.contains(modalName);
+  }
+
+  /// Vérifie si l'utilisateur peut imprimer
+  bool canPrint() {
+    if (_currentUser == null) return false;
+    return _currentUser!.role != 'Consultant';
   }
 
   /// Initialise le service d'authentification
