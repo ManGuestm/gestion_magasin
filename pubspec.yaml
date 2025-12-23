@@ -2,7 +2,7 @@ name: gestion_magasin
 description: "Application de gestion de magasin développée avec Flutter pour desktop Windows."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 2.0.5+1
 
 environment:
   sdk: '>=3.10.0 <4.0.0'

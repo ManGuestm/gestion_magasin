@@ -427,18 +427,73 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       final confirmer =
           await showDialog<bool>(
             context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Fournisseur inconnu!!'),
-              content: Text('Le fournisseur "$nomFournisseur" n\'existe pas.\n\nVoulez-vous le créer?'),
-              actions: [
-                TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Non')),
-                TextButton(
-                  autofocus: true,
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Oui'),
+            barrierDismissible: false,
+            builder: (dialogContext) {
+              // Créer un FocusNode pour le bouton Oui
+              final ouiButtonFocusNode = FocusNode();
+              final nonButtonFocusNode = FocusNode();
+
+              return PopScope(
+                canPop: true,
+                onPopInvokedWithResult: (didPop, result) {
+                  ouiButtonFocusNode.dispose();
+                  nonButtonFocusNode.dispose();
+                },
+                child: AlertDialog(
+                  title: const Text('Fournisseur inconnu!!'),
+                  content: Text('Le fournisseur "$nomFournisseur" n\'existe pas.\n\nVoulez-vous le créer?'),
+                  actions: [
+                    StatefulBuilder(
+                      builder: (context, setState) {
+                        return Focus(
+                          focusNode: nonButtonFocusNode,
+                          child: TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(false),
+                            child: const Text('Non'),
+                          ),
+                        );
+                      },
+                    ),
+                    StatefulBuilder(
+                      builder: (context, setState) {
+                        // Demander le focus après la construction
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          ouiButtonFocusNode.requestFocus();
+                          setState(() {});
+                        });
+
+                        return Focus(
+                          focusNode: ouiButtonFocusNode,
+                          onKeyEvent: (node, event) {
+                            if (event is KeyDownEvent) {
+                              if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                Navigator.of(dialogContext).pop(true);
+                                return KeyEventResult.handled;
+                              }
+                              if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                Navigator.of(dialogContext).pop(false);
+                                return KeyEventResult.handled;
+                              }
+                            }
+                            return KeyEventResult.ignored;
+                          },
+                          child: TextButton(
+                            autofocus: true,
+                            onPressed: () => Navigator.of(dialogContext).pop(true),
+                            style: TextButton.styleFrom(
+                              side: ouiButtonFocusNode.hasFocus
+                                  ? const BorderSide(color: Colors.blue, width: 2)
+                                  : null,
+                            ),
+                            child: const Text('Oui'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           ) ??
           true;
 
