@@ -17,29 +17,31 @@ class AuthService {
   /// ✅ En mode CLIENT: authentifie via le serveur
   /// ✅ En mode LOCAL/SERVER: authentifie via la base locale
   /// 🔒 SERVEUR → Administrateur uniquement
-  /// 🔒 CLIENT → Caisse et Vendeur uniquement
+  /// 🔒 CLIENT → Tous les utilisateurs
   Future<bool> login(String username, String password) async {
     try {
       final dbService = DatabaseService();
+      final isClientMode = dbService.isNetworkMode;
 
-      // ✅ authenticateUserWithModeAwareness effectue déjà la vérification du mot de passe (bcrypt)
-      // - En mode CLIENT: via enhanced_network_client.authenticateUser()
-      // - En mode LOCAL/SERVER: via database.getUserByCredentials()
-      // Si l'utilisateur est non-null, il est authentifié
-      final user = await dbService.authenticateUserWithModeAwareness(username, password);
-
-      if (user != null) {
-        // 🔒 Vérifier les restrictions de rôle selon le mode
-        if (!_validateRoleForMode(user.role, dbService.isNetworkMode)) {
+      // 🔒 SERVEUR: Vérifier que l'utilisateur est Administrateur AVANT l'authentification
+      if (!isClientMode) {
+        final user = await dbService.database.getUserByUsername(username);
+        if (user == null || user.role != 'Administrateur') {
           await AuditService().log(
-            userId: user.id,
-            userName: user.nom,
+            userId: user?.id ?? 'unknown',
+            userName: username,
             action: AuditAction.error,
             module: 'Authentification',
-            details: 'Accès refusé: Rôle ${user.role} non autorisé en mode ${dbService.isNetworkMode ? "CLIENT" : "SERVEUR"}',
+            details: 'Accès refusé: Seul l\'Administrateur peut se connecter en mode SERVEUR',
           );
           return false;
         }
+      }
+
+      // ✅ authenticateUserWithModeAwareness effectue la vérification du mot de passe (bcrypt)
+      final user = await dbService.authenticateUserWithModeAwareness(username, password);
+
+      if (user != null) {
 
         _currentUser = user;
 
@@ -108,18 +110,7 @@ class AuthService {
     );
   }
 
-  /// Valide si un rôle est autorisé selon le mode réseau
-  /// SERVEUR (isNetworkMode=false) → Administrateur uniquement
-  /// CLIENT (isNetworkMode=true) → Caisse et Vendeur uniquement
-  bool _validateRoleForMode(String role, bool isNetworkMode) {
-    if (isNetworkMode) {
-      // Mode CLIENT: Caisse et Vendeur uniquement
-      return role == 'Caisse' || role == 'Vendeur';
-    } else {
-      // Mode SERVEUR: Administrateur uniquement
-      return role == 'Administrateur';
-    }
-  }
+
 
   /// Vérifie si l'utilisateur a le rôle requis
   bool hasRole(String requiredRole) {

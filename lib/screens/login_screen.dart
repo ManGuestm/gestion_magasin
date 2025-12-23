@@ -75,7 +75,40 @@ class _LoginScreenState extends State<LoginScreen> {
       final password = _passwordController.text;
 
       // Authentification via DatabaseService (réseau ou local)
-      final user = await DatabaseService().authenticateUserWithModeAwareness(username, password);
+      final dbService = DatabaseService();
+      final isClientMode = dbService.isNetworkMode;
+
+      // 🔒 SERVEUR: Vérifier que l'utilisateur est Administrateur AVANT l'authentification
+      if (!isClientMode) {
+        final user = await dbService.database.getUserByUsername(username);
+        if (user == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Nom d\'utilisateur incorrect'),
+                backgroundColor: Colors.red,
+              ),
+            );
+            _usernameFocus.requestFocus();
+          }
+          return;
+        }
+        if (user.role != 'Administrateur') {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('🔒 Accès refusé: Seul l\'Administrateur peut se connecter en mode SERVEUR'),
+                backgroundColor: Colors.red,
+                duration: Duration(seconds: 4),
+              ),
+            );
+            _usernameFocus.requestFocus();
+          }
+          return;
+        }
+      }
+
+      final user = await dbService.authenticateUserWithModeAwareness(username, password);
 
       if (user == null) {
         if (mounted) {
@@ -91,8 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       // Connexion réussie
-      await AuthService().setCurrentUser(user);
-      final success = true;
+      final success = await AuthService().login(username, password);
 
       if (success && mounted) {
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const HomeScreen()));

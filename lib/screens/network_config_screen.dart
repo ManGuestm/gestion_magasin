@@ -378,7 +378,7 @@ class _NetworkConfigScreenState extends State<NetworkConfigScreen> {
                                 ),
                                 SizedBox(height: 4),
                                 Text(
-                                  '🔒 Accès: Caisse et Vendeur uniquement',
+                                  '🔒 Accès: Tous les utilisateurs',
                                   style: TextStyle(
                                     fontSize: 11,
                                     color: Colors.blue,
