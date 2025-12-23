@@ -74,65 +74,26 @@ class _LoginScreenState extends State<LoginScreen> {
       final username = _usernameController.text.trim();
       final password = _passwordController.text;
 
-      // Authentification via DatabaseService (réseau ou local)
-      final dbService = DatabaseService();
-      final isClientMode = dbService.isNetworkMode;
+      debugPrint('🔐 LOGIN_SCREEN: Tentative de connexion pour: $username');
 
-      // 🔒 SERVEUR: Vérifier que l'utilisateur est Administrateur AVANT l'authentification
-      if (!isClientMode) {
-        final user = await dbService.database.getUserByUsername(username);
-        if (user == null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Nom d\'utilisateur incorrect'), backgroundColor: Colors.red),
-            );
-            _usernameFocus.requestFocus();
-          }
-          return;
-        }
-        if (user.role != 'Administrateur') {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('🔒 Accès refusé: Seul l\'Administrateur peut se connecter en mode SERVEUR'),
-                backgroundColor: Colors.red,
-                duration: Duration(seconds: 4),
-              ),
-            );
-            _usernameFocus.requestFocus();
-          }
-          return;
-        }
-      }
-
-      final user = await dbService.authenticateUserWithModeAwareness(username, password);
-
-      if (user == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Nom d\'utilisateur ou mot de passe incorrect'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          _usernameFocus.requestFocus();
-        }
-        return;
-      }
-
-      // Connexion réussie
+      // Authentification via AuthService (gère automatiquement mode Client/Serveur)
       final success = await AuthService().login(username, password);
 
       if (success && mounted) {
+        debugPrint('✅ LOGIN_SCREEN: Connexion réussie pour: $username');
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const HomeScreen()));
       } else if (mounted) {
-        // Mot de passe incorrect - focus sur password
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Mot de passe incorrect'), backgroundColor: Colors.red));
-        _passwordFocus.requestFocus();
+        debugPrint('❌ LOGIN_SCREEN: Connexion échouée pour: $username');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nom d\'utilisateur ou mot de passe incorrect'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        _usernameFocus.requestFocus();
       }
     } catch (e) {
+      debugPrint('❌ LOGIN_SCREEN: Erreur - $e');
       if (mounted) {
         String errorMessage = 'Erreur de connexion';
         if (e.toString().contains('SqliteException') || e.toString().contains('database')) {
@@ -140,9 +101,9 @@ class _LoginScreenState extends State<LoginScreen> {
         } else if (e.toString().contains('Connection') || e.toString().contains('network')) {
           errorMessage = 'Impossible de se connecter au serveur. Vérifiez la configuration réseau.';
         }
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+        );
       }
     } finally {
       if (mounted) {
