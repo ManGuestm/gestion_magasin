@@ -22,6 +22,7 @@ import '../../widgets/common/article_navigation_autocomplete.dart';
 import '../../widgets/common/enhanced_autocomplete.dart';
 import '../../widgets/common/mode_paiement_dropdown.dart';
 import '../common/tab_navigation_widget.dart';
+import 'add_client_modal.dart';
 import 'bon_livraison_preview.dart';
 import 'facture_preview.dart';
 import 'ventes_intents.dart';
@@ -4094,191 +4095,218 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   Future<void> _verifierEtCreerClient(String nomClient) async {
     if (nomClient.trim().isEmpty) return;
 
-    // Vérifier si le client existe
     final clientExiste = _clients.any((client) => client.rsoc.toLowerCase() == nomClient.toLowerCase());
-
+    // Client inexiste, le créer
     if (!clientExiste) {
-      // Désactiver temporairement le focus global pour éviter les conflits
-      _globalShortcutsFocusNode.unfocus();
+      // Tous dépôts: Afficher le modal complet d'ajout client
+      if (widget.tousDepots) {
+        // Suspendre le timer de focus global
+        _globalFocusTimer?.cancel();
 
-      // Afficher le modal de confirmation avec focus garanti et isolation des shortcuts parents
-      final confirmer = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          // Créer des FocusNodes pour les boutons
-          final nonButtonFocusNode = FocusNode();
-          final ouiButtonFocusNode = FocusNode();
+        final clientCree = await showDialog<CltData>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) =>
+              AddClientModal(nomClient: nomClient, forceCategorie: ClientCategory.tousDepots.label),
+        );
 
-          return PopScope(
-            canPop: true,
-            onPopInvokedWithResult: (didPop, result) {
-              // Nettoyer les FocusNodes
-              nonButtonFocusNode.dispose();
-              ouiButtonFocusNode.dispose();
-              // Restaurer le focus global après fermeture
-              if (mounted) {
-                _ensureGlobalShortcutsFocus();
-              }
-            },
-            child: AlertDialog(
-              title: const Text(
-                'Client inconnu!!',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18),
-              ),
-              content: Text(
-                'Le client "$nomClient" n\'existe pas.\n\nVoulez-vous le créer?',
-                style: const TextStyle(fontSize: 14),
-              ),
-              actions: [
-                StatefulBuilder(
-                  builder: (context, setState) {
-                    // Demander le focus après la construction
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      ouiButtonFocusNode.requestFocus();
-                      setState(() {}); // Déclencher rebuild pour afficher la bordure
-                    });
+        // Réactiver le timer de focus global
+        _globalFocusTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (!mounted) {
+            timer.cancel();
+            return;
+          }
+          if (!_globalShortcutsFocusNode.hasFocus && !_globalShortcutsFocusNode.hasPrimaryFocus) {
+            _ensureGlobalShortcutsFocus();
+          }
+        });
 
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Focus(
-                          focusNode: nonButtonFocusNode,
-                          onKeyEvent: (node, event) {
-                            // Gérer les touches Enter et Escape directement
-                            if (event is KeyDownEvent) {
-                              if (event.logicalKey == LogicalKeyboardKey.enter) {
-                                Navigator.of(dialogContext).pop(false);
-                                return KeyEventResult.handled;
-                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-                                Navigator.of(dialogContext).pop(false);
-                                return KeyEventResult.handled;
-                              }
-                            }
-                            return KeyEventResult.ignored;
-                          },
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(false),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.grey,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                              elevation: 3,
-                              side: nonButtonFocusNode.hasFocus
-                                  ? const BorderSide(color: Colors.grey, width: 3)
-                                  : null,
-                            ),
-                            child: const Text(
-                              'Non',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                        Focus(
-                          focusNode: ouiButtonFocusNode,
-                          onKeyEvent: (node, event) {
-                            // Gérer les touches Enter et Escape directement
-                            if (event is KeyDownEvent) {
-                              if (event.logicalKey == LogicalKeyboardKey.enter) {
-                                Navigator.of(dialogContext).pop(true);
-                                return KeyEventResult.handled;
-                              } else if (event.logicalKey == LogicalKeyboardKey.escape) {
-                                Navigator.of(dialogContext).pop(false);
-                                return KeyEventResult.handled;
-                              }
-                            }
-                            return KeyEventResult.ignored;
-                          },
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(true),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                              elevation: 3,
-                              side: ouiButtonFocusNode.hasFocus
-                                  ? const BorderSide(color: Colors.blue, width: 3)
-                                  : null,
-                            ),
-                            child: const Text(
-                              'Oui',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-              ],
-            ),
-          );
-        },
-      );
+        _ensureGlobalShortcutsFocus();
 
-      // Restaurer le focus global après fermeture
-      _ensureGlobalShortcutsFocus();
-
-      if (confirmer == true) {
-        // Créer directement le client avec le nom saisi
-        try {
-          await _databaseService.database
-              .into(_databaseService.database.clt)
-              .insert(
-                CltCompanion.insert(
-                  rsoc: nomClient,
-                  categorie: drift.Value(
-                    widget.tousDepots ? ClientCategory.tousDepots.label : ClientCategory.magasin.label,
-                  ),
-                  commercial: drift.Value(AuthService().currentUser?.nom ?? ''),
-                  taux: const drift.Value(0),
-                  soldes: const drift.Value(0),
-                  soldesa: const drift.Value(0),
-                  action: const drift.Value("A"),
-                  plafon: const drift.Value(9000000000.0),
-                  plafonbl: const drift.Value(9000000000.0),
-                ),
-              );
-
-          // Recharger la liste des clients
+        if (clientCree != null) {
           await _loadData();
-
           setState(() {
-            _selectedClient = nomClient;
-            _clientController.text = nomClient;
-            _showCreditMode = widget.tousDepots;
+            _selectedClient = clientCree.rsoc;
+            _clientController.text = clientCree.rsoc;
+            _showCreditMode = _shouldShowCreditMode(clientCree);
             if ((!_showCreditMode || _isVendeur()) && _selectedModePaiement == 'A crédit') {
               _selectedModePaiement = 'Espèces';
             }
           });
-          _chargerSoldeClient(nomClient);
-
-          // Positionner le curseur selon le type d'utilisateur
-          Future.delayed(const Duration(milliseconds: 100), () {
-            if (_shouldFocusOnClient()) {
-              _clientFocusNode.requestFocus();
-            } else {
-              _designationFocusNode.requestFocus();
-            }
+          _chargerSoldeClient(clientCree.rsoc);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _designationFocusNode.requestFocus();
           });
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Erreur lors de la création du client: $e'),
-                backgroundColor: Colors.red,
+        } else {
+          setState(() {
+            _selectedClient = null;
+            _clientController.clear();
+          });
+        }
+      }
+      // MAG: Afficher l'AlertDialog simple
+      else {
+        final confirmer = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) {
+            final nonButtonFocusNode = FocusNode();
+            final ouiButtonFocusNode = FocusNode();
+
+            return PopScope(
+              canPop: true,
+              onPopInvokedWithResult: (didPop, result) {
+                nonButtonFocusNode.dispose();
+                ouiButtonFocusNode.dispose();
+                if (mounted) _ensureGlobalShortcutsFocus();
+              },
+              child: AlertDialog(
+                title: const Text(
+                  'Client inconnu!!',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 18),
+                ),
+                content: Text(
+                  'Le client "$nomClient" n\'existe pas.\n\nVoulez-vous le créer?',
+                  style: const TextStyle(fontSize: 14),
+                ),
+                actions: [
+                  StatefulBuilder(
+                    builder: (context, setState) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        ouiButtonFocusNode.requestFocus();
+                        setState(() {});
+                      });
+
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Focus(
+                            focusNode: nonButtonFocusNode,
+                            onKeyEvent: (node, event) {
+                              if (event is KeyDownEvent) {
+                                if (event.logicalKey == LogicalKeyboardKey.enter ||
+                                    event.logicalKey == LogicalKeyboardKey.escape) {
+                                  Navigator.of(dialogContext).pop(false);
+                                  return KeyEventResult.handled;
+                                }
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(false),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                                elevation: 3,
+                                side: nonButtonFocusNode.hasFocus
+                                    ? const BorderSide(color: Colors.grey, width: 3)
+                                    : null,
+                              ),
+                              child: const Text(
+                                'Non',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                          Focus(
+                            focusNode: ouiButtonFocusNode,
+                            onKeyEvent: (node, event) {
+                              if (event is KeyDownEvent) {
+                                if (event.logicalKey == LogicalKeyboardKey.enter) {
+                                  Navigator.of(dialogContext).pop(true);
+                                  return KeyEventResult.handled;
+                                } else if (event.logicalKey == LogicalKeyboardKey.escape) {
+                                  Navigator.of(dialogContext).pop(false);
+                                  return KeyEventResult.handled;
+                                }
+                              }
+                              return KeyEventResult.ignored;
+                            },
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.of(dialogContext).pop(true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                                elevation: 3,
+                                side: ouiButtonFocusNode.hasFocus
+                                    ? const BorderSide(color: Colors.blue, width: 3)
+                                    : null,
+                              ),
+                              child: const Text(
+                                'Oui',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
               ),
             );
+          },
+        );
+
+        _ensureGlobalShortcutsFocus();
+
+        if (confirmer == true) {
+          try {
+            await _databaseService.database
+                .into(_databaseService.database.clt)
+                .insert(
+                  CltCompanion.insert(
+                    rsoc: nomClient,
+                    categorie: drift.Value(ClientCategory.magasin.label),
+                    commercial: drift.Value(AuthService().currentUser?.nom ?? ''),
+                    taux: const drift.Value(0),
+                    soldes: const drift.Value(0),
+                    soldesa: const drift.Value(0),
+                    action: const drift.Value("A"),
+                    plafon: const drift.Value(9000000000.0),
+                    plafonbl: const drift.Value(9000000000.0),
+                  ),
+                );
+
+            await _loadData();
+            setState(() {
+              _selectedClient = nomClient;
+              _clientController.text = nomClient;
+              _showCreditMode = false;
+              if (_selectedModePaiement == 'A crédit') {
+                _selectedModePaiement = 'Espèces';
+              }
+            });
+            _chargerSoldeClient(nomClient);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _shouldFocusOnClient()
+                    ? _clientFocusNode.requestFocus()
+                    : _designationFocusNode.requestFocus();
+              }
+            });
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Erreur lors de la création du client: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
+        } else {
+          setState(() {
+            _selectedClient = null;
+            _clientController.clear();
+          });
         }
-      } else {
-        // Réinitialiser le champ client
-        setState(() {
-          _selectedClient = null;
-          _clientController.clear();
-        });
       }
-    } else {
+    }
+    // Client existe, le sélectionner
+    else {
       // Client existe, le sélectionner
       final client = _clients.firstWhere((client) => client.rsoc.toLowerCase() == nomClient.toLowerCase());
       setState(() {
