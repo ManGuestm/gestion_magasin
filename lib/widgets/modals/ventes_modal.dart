@@ -1344,6 +1344,37 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     // L'utilisateur peut maintenant ajouter directement l'article même avec stock insuffisant
   }
 
+  Future<String> _getStockParDepot(Article article, String depot) async {
+    try {
+      final stockDepart = await (_databaseService.database.select(
+        _databaseService.database.depart,
+      )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
+
+      double stockTotalU3 = StockConverter.calculerStockTotalU3(
+        article: article,
+        stockU1: stockDepart?.stocksu1 ?? 0.0,
+        stockU2: stockDepart?.stocksu2 ?? 0.0,
+        stockU3: stockDepart?.stocksu3 ?? 0.0,
+      );
+
+      final stocksOptimaux = StockConverter.convertirStockOptimal(
+        article: article,
+        quantiteU1: 0.0,
+        quantiteU2: 0.0,
+        quantiteU3: stockTotalU3,
+      );
+
+      return StockConverter.formaterAffichageStock(
+        article: article,
+        stockU1: stocksOptimaux['u1']!,
+        stockU2: stocksOptimaux['u2']!,
+        stockU3: stocksOptimaux['u3']!,
+      );
+    } catch (e) {
+      return '';
+    }
+  }
+
   Future<List<Map<String, dynamic>>> _verifierStocksAutresDepots(Article article, String depotActuel) async {
     final autresStocks = <Map<String, dynamic>>[];
 
@@ -7103,6 +7134,89 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                                   ),
                                                                 );
                                                               },
+                                                            ),
+                                                            const SizedBox(height: 12),
+                                                            const Text(
+                                                              'STOCK PAR DÉPÔT',
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight: FontWeight.bold,
+                                                                color: Colors.blue,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(height: 4),
+                                                            Container(
+                                                              decoration: BoxDecoration(
+                                                                border: Border.all(color: Colors.blue[200]!),
+                                                                borderRadius: BorderRadius.circular(4),
+                                                              ),
+                                                              child: Column(
+                                                                children: [
+                                                                  Container(
+                                                                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                                                                    decoration: BoxDecoration(
+                                                                      color: Colors.blue[100],
+                                                                      borderRadius: const BorderRadius.only(
+                                                                        topLeft: Radius.circular(3),
+                                                                        topRight: Radius.circular(3),
+                                                                      ),
+                                                                    ),
+                                                                    child: Row(
+                                                                      children: const [
+                                                                        Expanded(
+                                                                          child: Text(
+                                                                            'DÉPÔT',
+                                                                            style: TextStyle(
+                                                                              fontSize: 11,
+                                                                              fontWeight: FontWeight.bold,
+                                                                              color: Colors.blue,
+                                                                            ),
+                                                                          ),
+                                                                        ),
+                                                                        Expanded(
+                                                                          child: Text(
+                                                                            'STOCK',
+                                                                            style: TextStyle(
+                                                                              fontSize: 11,
+                                                                              fontWeight: FontWeight.bold,
+                                                                              color: Colors.blue,
+                                                                            ),
+                                                                            textAlign: TextAlign.right,
+                                                                          ),
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  ),
+                                                                  ..._depots.map((depot) => Container(
+                                                                    padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+                                                                    decoration: BoxDecoration(
+                                                                      border: Border(top: BorderSide(color: Colors.blue[100]!)),
+                                                                    ),
+                                                                    child: Row(
+                                                                      children: [
+                                                                        Expanded(
+                                                                          child: Text(
+                                                                            depot.depots,
+                                                                            style: const TextStyle(fontSize: 11),
+                                                                          ),
+                                                                        ),
+                                                                        Expanded(
+                                                                          child: FutureBuilder<String>(
+                                                                            future: _getStockParDepot(_searchedArticle!, depot.depots),
+                                                                            builder: (context, snapshot) {
+                                                                              return Text(
+                                                                                snapshot.data ?? '...',
+                                                                                style: const TextStyle(fontSize: 11),
+                                                                                textAlign: TextAlign.right,
+                                                                              );
+                                                                            },
+                                                                          ),
+                                                                        ),
+                                                                      ],
+                                                                    ),
+                                                                  )),
+                                                                ],
+                                                              ),
                                                             ),
                                                           ],
                                                         ),

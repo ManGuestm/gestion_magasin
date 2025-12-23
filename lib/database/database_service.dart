@@ -317,20 +317,16 @@ class DatabaseService {
       debugPrint('✅ Opération envoyée au serveur');
       return;
     }
-    
+
     await _database!.customStatement(sql, params?.map((p) => Variable(p)).toList() ?? []);
-    
+
     if (_mode == DatabaseMode.serverMode) {
       final sqlUpper = sql.trim().toUpperCase();
       String type = 'update';
       if (sqlUpper.startsWith('INSERT')) type = 'insert';
       if (sqlUpper.startsWith('DELETE')) type = 'delete';
-      
-      NetworkServer.instance.broadcastChange({
-        'type': type,
-        'query': sql,
-        'params': params,
-      });
+
+      NetworkServer.instance.broadcastChange({'type': type, 'query': sql, 'params': params});
     }
   }
 
@@ -392,7 +388,7 @@ class DatabaseService {
 
   // ==================== NEW METHODS FOR V2 ARCHITECTURE ====================
 
-  /// Initialise en mode local uniquement
+  /// Initialise en mode local uniquement (SERVEUR)
   Future<void> initializeLocal() async {
     if (_isInitialized && _mode == DatabaseMode.local) {
       return; // Idempotent
@@ -405,44 +401,45 @@ class DatabaseService {
       await _syncQueue.initialize();
       _mode = DatabaseMode.local;
       _isInitialized = true;
-      debugPrint('Database initialized in LOCAL mode');
+      debugPrint('✅ Base de données initialisée en mode LOCAL (SERVEUR)');
     } catch (e) {
       _cleanupPartialState();
       throw Exception('Failed to initialize local database: $e');
     }
   }
 
-  /// Initialise le serveur réseau
+  /// Initialise le serveur réseau (Administrateur uniquement)
   Future<void> initializeAsServer({int port = 8080}) async {
     try {
       // D'abord initialiser localement
       await initializeLocal();
       _mode = DatabaseMode.serverMode;
-      debugPrint('Database initialized in SERVER mode on port $port');
-      // Démarrer le serveur - à implémenter côté serveur
+      debugPrint('✅ Base de données initialisée en mode SERVEUR (port $port)');
+      debugPrint('🔒 Accès: Administrateur uniquement');
     } catch (e) {
       _cleanupPartialState();
       throw Exception('Failed to initialize server: $e');
     }
   }
 
+  /// Initialise en mode CLIENT (pas de base locale, tout via réseau)
   Future<bool> initializeAsClient(String serverIp, int port, String username, String password) async {
     try {
       await _networkClient.initialize();
       final connected = await _networkClient.connect(serverIp, port, username, password);
       if (!connected) throw Exception('Connexion serveur échouée');
-      
+
       _mode = DatabaseMode.clientMode;
       _isInitialized = true;
-      debugPrint('✅ CLIENT: Connecté à $serverIp:$port (pas de base locale)');
+      debugPrint('✅ CLIENT: Connecté à $serverIp:$port');
+      debugPrint('📌 Aucune base locale - Tout passe par le serveur');
+      debugPrint('🔒 Accès: Caisse et Vendeur uniquement');
       return true;
     } catch (e) {
       debugPrint('❌ Erreur CLIENT: $e');
       return false;
     }
   }
-
-
 
   /// Synchronise avec le serveur (mode client uniquement)
   Future<void> syncWithServer() async {

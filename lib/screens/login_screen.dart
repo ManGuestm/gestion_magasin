@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final password = _passwordController.text;
 
       // Authentification via DatabaseService (réseau ou local)
-      final user = await DatabaseService().authenticateUser(username, password);
+      final user = await DatabaseService().authenticateUserWithModeAwareness(username, password);
 
       if (user == null) {
         if (mounted) {

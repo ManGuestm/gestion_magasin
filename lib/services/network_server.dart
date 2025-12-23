@@ -410,21 +410,38 @@ class NetworkServer {
       }
 
       // 🔒 Vérifier que seuls Caisse et Vendeur peuvent se connecter en mode CLIENT
-      if (user.role != 'Caisse' && user.role != 'Vendeur') {
+      // Administrateur ne peut PAS se connecter en mode client
+      if (user.role == 'Administrateur') {
         debugPrint(
-          '❌ Authentification échouée pour: $username - Rôle ${user.role} non autorisé en mode CLIENT',
+          '❌ Authentification échouée pour: $username - Administrateur ne peut pas se connecter en mode CLIENT',
         );
         await _auditService.log(
           userId: user.id,
           userName: user.nom,
           action: AuditAction.error,
           module: 'Authentification',
-          details: 'Tentative de connexion CLIENT avec rôle non autorisé: ${user.role}',
+          details: 'Tentative de connexion CLIENT avec rôle Administrateur (interdit)',
         );
         return {
           'success': false,
-          'error':
-              'Accès refusé: Seuls les utilisateurs Caisse et Vendeur peuvent se connecter en mode client',
+          'error': 'Accès refusé: Les Administrateurs doivent utiliser le mode Serveur uniquement',
+        };
+      }
+
+      if (user.role != 'Caisse' && user.role != 'Vendeur') {
+        debugPrint(
+          '❌ Authentification échouée pour: $username - Rôle ${user.role} non autorisé',
+        );
+        await _auditService.log(
+          userId: user.id,
+          userName: user.nom,
+          action: AuditAction.error,
+          module: 'Authentification',
+          details: 'Tentative de connexion avec rôle non autorisé: ${user.role}',
+        );
+        return {
+          'success': false,
+          'error': 'Accès refusé: Seuls Caisse et Vendeur peuvent se connecter en mode client',
         };
       }
 

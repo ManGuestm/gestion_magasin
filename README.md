@@ -92,10 +92,19 @@ lib/
 
 ## 🌐 Mode Réseau
 
-L'application supporte deux modes :
+L'application supporte une architecture **Serveur/Client stricte** :
 
-- **Serveur** : Héberge la base de données
-- **Client** : Se connecte au serveur avec synchronisation temps réel
+### 🖥️ Mode Serveur
+- **Ordinateur principal** - Toujours allumé
+- **Base de données locale** - SQLite
+- **Accès**: **Administrateur uniquement** 🔒
+- **Rôle**: Héberge la base et diffuse les changements
+
+### 💻 Mode Client
+- **Postes de travail distants**
+- **Aucune base locale** - Tout passe par le serveur
+- **Accès**: **Caisse et Vendeur uniquement** 🔒
+- **Connexion**: Réseau local (LAN)
 
 ### ✅ Synchronisation Temps Réel
 
@@ -104,9 +113,18 @@ L'application supporte deux modes :
 - **Pas de polling** : Efficace et performant
 - **Facile à intégrer** : Widget wrapper simple
 
-**Exemple :** Un vendeur fait une vente sur Client A → L'administrateur voit la vente immédiatement sur Client B
+**Exemple :** Un vendeur fait une vente sur Client A → L'administrateur voit la vente immédiatement sur le Serveur → Un caissier voit la vente immédiatement sur Client B
 
-📖 **Guide complet** : Voir `REALTIME_SYNC_GUIDE.md`
+📖 **Guides complets** :
+- **Index de la documentation** : `INDEX.md` 📚
+- Architecture détaillée : `ARCHITECTURE_SERVEUR_CLIENT.md`
+- Diagrammes visuels : `ARCHITECTURE_DIAGRAM.md`
+- Guide de migration : `MIGRATION_GUIDE.md`
+- Exemples de configuration : `CONFIG_EXAMPLES.md`
+- Référence rapide : `QUICK_REFERENCE.md`
+- Questions fréquentes : `FAQ.md`
+- Résumé exécutif : `EXECUTIVE_SUMMARY.md`
+- Synchronisation temps réel : `REALTIME_SYNC_GUIDE.md`
 
 ## 📈 Rapports
 
