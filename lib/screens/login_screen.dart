@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/audit_service.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 
@@ -73,16 +74,33 @@ class _LoginScreenState extends State<LoginScreen> {
       final username = _usernameController.text.trim();
       final password = _passwordController.text;
 
-      debugPrint('🔐 LOGIN_SCREEN: Tentative de connexion pour: $username');
+      await AuditService().log(
+        userId: 'system',
+        userName: 'system',
+        action: AuditAction.login,
+        module: 'LOGIN_SCREEN',
+        details: 'Tentative de connexion pour: $username',
+      );
 
-      // Authentification via AuthService (gère automatiquement mode Client/Serveur)
       final success = await AuthService().login(username, password);
 
       if (success && mounted) {
-        debugPrint('✅ LOGIN_SCREEN: Connexion réussie pour: $username');
+        await AuditService().log(
+          userId: 'system',
+          userName: username,
+          action: AuditAction.login,
+          module: 'LOGIN_SCREEN',
+          details: 'Connexion réussie',
+        );
         Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const HomeScreen()));
       } else if (mounted) {
-        debugPrint('❌ LOGIN_SCREEN: Connexion échouée pour: $username');
+        await AuditService().log(
+          userId: 'system',
+          userName: username,
+          action: AuditAction.error,
+          module: 'LOGIN_SCREEN',
+          details: 'Connexion échouée',
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Nom d\'utilisateur ou mot de passe incorrect'),
@@ -92,7 +110,13 @@ class _LoginScreenState extends State<LoginScreen> {
         _usernameFocus.requestFocus();
       }
     } catch (e) {
-      debugPrint('❌ LOGIN_SCREEN: Erreur - $e');
+      await AuditService().log(
+        userId: 'system',
+        userName: _usernameController.text.trim(),
+        action: AuditAction.error,
+        module: 'LOGIN_SCREEN',
+        details: 'Exception: $e',
+      );
       if (mounted) {
         String errorMessage = 'Erreur de connexion';
         if (e.toString().contains('SqliteException') || e.toString().contains('database')) {

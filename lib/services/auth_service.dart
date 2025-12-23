@@ -20,35 +20,76 @@ class AuthService {
   /// 🔒 CLIENT → Tous les utilisateurs
   Future<bool> login(String username, String password) async {
     try {
-      debugPrint('🔐 AUTH_SERVICE: Tentative de connexion pour: $username');
+      await AuditService().log(
+        userId: 'system',
+        userName: 'system',
+        action: AuditAction.login,
+        module: 'AUTH_SERVICE',
+        details: 'Tentative de connexion pour: $username',
+      );
+      
       final dbService = DatabaseService();
       final isClientMode = dbService.isNetworkMode;
-      debugPrint('📍 AUTH_SERVICE: Mode détecté: ${isClientMode ? "CLIENT" : "SERVEUR"}');
+      
+      await AuditService().log(
+        userId: 'system',
+        userName: 'system',
+        action: AuditAction.login,
+        module: 'AUTH_SERVICE',
+        details: 'Mode détecté: ${isClientMode ? "CLIENT" : "SERVEUR"}',
+      );
 
       // 🔒 SERVEUR: Vérifier que l'utilisateur est Administrateur AVANT l'authentification
       if (!isClientMode) {
-        debugPrint('🔍 AUTH_SERVICE: Vérification rôle en mode SERVEUR...');
+        await AuditService().log(
+          userId: 'system',
+          userName: 'system',
+          action: AuditAction.login,
+          module: 'AUTH_SERVICE',
+          details: 'Vérification rôle en mode SERVEUR...',
+        );
+        
         final user = await dbService.database.getUserByUsername(username);
         if (user == null || user.role != 'Administrateur') {
-          debugPrint('❌ AUTH_SERVICE: Accès refusé - Rôle: ${user?.role ?? "utilisateur inconnu"}');
           await AuditService().log(
             userId: user?.id ?? 'unknown',
             userName: username,
             action: AuditAction.error,
             module: 'Authentification',
-            details: 'Accès refusé: Seul l\'Administrateur peut se connecter en mode SERVEUR',
+            details: 'Accès refusé: Rôle ${user?.role ?? "utilisateur inconnu"} - Seul Administrateur autorisé en mode SERVEUR',
           );
           return false;
         }
-        debugPrint('✅ AUTH_SERVICE: Rôle Administrateur confirmé');
+        
+        await AuditService().log(
+          userId: 'system',
+          userName: 'system',
+          action: AuditAction.login,
+          module: 'AUTH_SERVICE',
+          details: 'Rôle Administrateur confirmé',
+        );
       }
 
       // ✅ authenticateUserWithModeAwareness effectue la vérification du mot de passe (bcrypt)
-      debugPrint('🔐 AUTH_SERVICE: Authentification en cours...');
+      await AuditService().log(
+        userId: 'system',
+        userName: 'system',
+        action: AuditAction.login,
+        module: 'AUTH_SERVICE',
+        details: 'Authentification en cours via ${isClientMode ? "serveur réseau" : "base locale"}...',
+      );
+      
       final user = await dbService.authenticateUserWithModeAwareness(username, password);
 
       if (user != null) {
-        debugPrint('✅ AUTH_SERVICE: Authentification réussie pour: ${user.nom} (${user.role})');
+        await AuditService().log(
+          userId: user.id,
+          userName: user.nom,
+          action: AuditAction.login,
+          module: 'AUTH_SERVICE',
+          details: 'Authentification réussie pour: ${user.nom} (${user.role})',
+        );
+        
         _currentUser = user;
 
         // Log de connexion
@@ -63,7 +104,14 @@ class AuthService {
         return true;
       }
 
-      debugPrint('❌ AUTH_SERVICE: Authentification échouée - Credentials invalides');
+      await AuditService().log(
+        userId: 'unknown',
+        userName: username,
+        action: AuditAction.error,
+        module: 'AUTH_SERVICE',
+        details: 'Authentification échouée - Credentials invalides',
+      );
+      
       await AuditService().log(
         userId: 'unknown',
         userName: username,
@@ -74,12 +122,11 @@ class AuthService {
 
       return false;
     } catch (e) {
-      debugPrint('❌ AUTH_SERVICE: Erreur - $e');
       await AuditService().log(
         userId: 'unknown',
         userName: username,
         action: AuditAction.error,
-        module: 'Authentification',
+        module: 'AUTH_SERVICE',
         details: 'Erreur lors de la connexion: $e',
       );
       rethrow;
