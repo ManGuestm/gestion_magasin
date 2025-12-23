@@ -1,5 +1,3 @@
-// export 'ventes_modal/ventes_modal.dart';
-
 import 'dart:async';
 
 import 'package:collection/collection.dart';
@@ -17,6 +15,7 @@ import '../../constants/vente_types.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/price_calculation_service.dart';
 import '../../services/vente_service.dart';
 import '../../utils/stock_converter.dart';
 import '../../widgets/common/article_navigation_autocomplete.dart';
@@ -2144,27 +2143,26 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   }
 
   void _calculerMontant() {
+    final priceService = PriceCalculationService();
     double quantite = double.tryParse(_quantiteController.text) ?? 0.0;
     double prix = double.tryParse(_prixController.text.replaceAll(' ', '')) ?? 0.0;
-    double montant = quantite * prix;
+    double montant = priceService.calculateLineAmount(quantite, prix);
     _montantController.text = montant > 0 ? AppFunctions.formatNumber(montant) : '';
   }
 
   void _calculerTotaux() {
-    double totalHT = 0;
-    for (var ligne in _lignesVente) {
-      totalHT += ligne['montant'] ?? 0;
-    }
-
+    final priceService = PriceCalculationService();
+    double totalHT = priceService.calculateTotalHT(_lignesVente);
     double remise = double.tryParse(_remiseController.text) ?? 0;
-    double totalTTC = totalHT - (totalHT * remise / 100);
+    double totalTTC = priceService.calculateTotalTTC(totalHT, remise);
     double avance = double.tryParse(_avanceController.text) ?? 0;
-    double reste = totalTTC - avance;
+    double reste = priceService.calculateReste(totalTTC, avance);
 
-    double nouveauSolde = _soldeAnterieur;
-    if (_selectedModePaiement == 'A crédit') {
-      nouveauSolde += reste;
-    }
+    double nouveauSolde = priceService.calculateNewClientBalance(
+      _soldeAnterieur,
+      totalTTC,
+      _selectedModePaiement ?? 'A crédit',
+    );
 
     setState(() {
       _totalTTCController.text = AppFunctions.formatNumber(totalTTC);
@@ -4474,6 +4472,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
   @override
   Widget build(BuildContext context) {
+    return _buildContent(context);
+  }
+
+  Widget _buildContent(BuildContext context) {
     return PopScope(
       canPop: false,
       child: Shortcuts(
