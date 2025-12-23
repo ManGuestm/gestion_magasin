@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../constants/app_constants.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/enhanced_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
 import 'add_fournisseur_modal.dart';
 
@@ -20,6 +21,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
   List<Frn> _fournisseurs = [];
   List<Frn> _filteredFournisseurs = [];
   final TextEditingController _searchController = TextEditingController();
+  String _userTypedText = '';
   late final FocusNode _searchFocus;
   late final FocusNode _keyboardFocusNode;
   Frn? _selectedFournisseur;
@@ -192,8 +194,15 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.grey[300]!),
                 ),
-                child: TextField(
+                child: EnhancedAutocomplete<Frn>(
+                  options: _filteredFournisseurs,
+                  displayStringForOption: (frn) => frn.rsoc,
+                  onSelected: (frn) {
+                    _selectFournisseur(frn);
+                  },
+                  controller: _searchController,
                   focusNode: _searchFocus,
+                  hintText: 'Tapez le nom du fournisseur...',
                   style: const TextStyle(fontSize: 13),
                   decoration: const InputDecoration(
                     border: InputBorder.none,
@@ -201,7 +210,15 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
                     hintText: 'Tapez le nom du fournisseur...',
                     hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
                   ),
-                  onChanged: filterFournisseurs,
+                  onTextChanged: (value) {
+                    final selection = _searchController.selection;
+                    if (selection.baseOffset <= selection.extentOffset) {
+                      _userTypedText = _searchController.text.substring(0, selection.baseOffset);
+                    } else {
+                      _userTypedText = value;
+                    }
+                    filterFournisseurs(_userTypedText);
+                  },
                 ),
               ),
             ),
@@ -505,14 +522,12 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
   }
 
   void filterFournisseurs(String query) {
-    if (query.length < 2 && query.isNotEmpty) return;
-
     setState(() {
       if (query.isEmpty) {
         _filteredFournisseurs = _fournisseurs.take(_pageSize).toList();
       } else {
         final filtered = _fournisseurs
-            .where((fournisseur) => fournisseur.rsoc.toLowerCase().contains(query.toLowerCase()))
+            .where((fournisseur) => fournisseur.rsoc.toLowerCase().startsWith(query.toLowerCase()))
             .toList();
         _filteredFournisseurs = filtered.take(_pageSize).toList();
       }
@@ -523,6 +538,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
     setState(() {
       _filteredFournisseurs = _fournisseurs.take(_pageSize).toList();
       _searchController.clear();
+      _userTypedText = '';
     });
     _applySort();
   }

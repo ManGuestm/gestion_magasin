@@ -943,12 +943,6 @@ class _HomeScreenState extends State<HomeScreen> {
         Icons.account_balance_wallet,
         Colors.green,
       ),
-      _buildStatCard(
-        'Journal Banque',
-        '${_formatNumber(_stats['journalBanque'] ?? 0)} Ar',
-        Icons.account_balance,
-        Colors.blue,
-      ),
     ];
   }
 

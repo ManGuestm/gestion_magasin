@@ -8,7 +8,7 @@ import '../../constants/client_categories.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../../services/auth_service.dart';
-import '../common/client_navigation_autocomplete.dart';
+import '../common/enhanced_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
 import 'add_client_modal.dart';
 
@@ -23,6 +23,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
   List<CltData> _clients = [];
   List<CltData> _filteredClients = [];
   final TextEditingController _searchController = TextEditingController();
+  String _userTypedText = '';
   late final FocusNode searchFocus;
   late final FocusNode _keyboardFocusNode;
   CltData? _selectedClient;
@@ -201,14 +202,13 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.grey[300]!),
             ),
-            child: ClientNavigationAutocomplete(
-              clients: _clients,
-              selectedClient: _selectedClient,
-              onClientChanged: (client) {
-                if (client != null) {
-                  _selectClient(client);
-                }
+            child: EnhancedAutocomplete<CltData>(
+              options: _filteredClients,
+              displayStringForOption: (client) => client.rsoc,
+              onSelected: (client) {
+                _selectClient(client);
               },
+              controller: _searchController,
               focusNode: searchFocus,
               hintText: 'Tapez le nom du client...',
               style: const TextStyle(fontSize: 13),
@@ -218,6 +218,16 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
                 hintText: 'Tapez le nom du client...',
                 hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
               ),
+              onTextChanged: (value) {
+                // Extraire uniquement le texte tapé (avant la sélection)
+                final selection = _searchController.selection;
+                if (selection.baseOffset <= selection.extentOffset) {
+                  _userTypedText = _searchController.text.substring(0, selection.baseOffset);
+                } else {
+                  _userTypedText = value;
+                }
+                _applyFilter();
+              },
             ),
           ),
           const SizedBox(width: 12),
@@ -519,6 +529,8 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
         _selectedCategoryFilter = null;
       }
       _selectedClient = null;
+      _searchController.clear();
+      _userTypedText = '';
     });
     _applyFilter();
   }
@@ -583,6 +595,12 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
 
   void _applyFilter() {
     List<CltData> filtered = _clients;
+
+    // Filtrer par recherche (utiliser le texte tapé par l'utilisateur)
+    final searchQuery = _userTypedText.trim().toLowerCase();
+    if (searchQuery.isNotEmpty) {
+      filtered = filtered.where((client) => client.rsoc.toLowerCase().startsWith(searchQuery)).toList();
+    }
 
     final userRole = AuthService().currentUser?.role ?? '';
 
