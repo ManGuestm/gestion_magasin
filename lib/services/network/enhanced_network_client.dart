@@ -28,6 +28,7 @@ class EnhancedNetworkClient {
   /// Teste la connexion au serveur
   Future<bool> testConnection(String serverIp, int port) async {
     try {
+      debugPrint('🔍 CLIENT: Test de connexion au serveur $serverIp:$port...');
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
 
@@ -36,11 +37,15 @@ class EnhancedNetworkClient {
       client.close();
 
       _isConnected = response.statusCode == 200;
-      debugPrint('Connection test: ${_isConnected ? 'OK' : 'FAILED'}');
+      if (_isConnected) {
+        debugPrint('✅ CLIENT: Serveur $serverIp:$port est disponible');
+      } else {
+        debugPrint('❌ CLIENT: Serveur $serverIp:$port indisponible (status: ${response.statusCode})');
+      }
       return _isConnected;
     } catch (e) {
       _isConnected = false;
-      debugPrint('Connection test error: $e');
+      debugPrint('❌ CLIENT: Erreur connexion au serveur $serverIp:$port - $e');
       return false;
     }
   }
@@ -48,6 +53,7 @@ class EnhancedNetworkClient {
   /// Établit la connexion et s'authentifie
   Future<bool> connect(String serverIp, int port, String username, String password) async {
     try {
+      debugPrint('🔐 CLIENT: Tentative de connexion à $serverIp:$port avec utilisateur: $username');
       _serverUrl = 'http://$serverIp:$port';
 
       // Tester la connexion d'abord
@@ -56,17 +62,20 @@ class EnhancedNetworkClient {
       }
 
       // S'authentifier
+      debugPrint('🔐 CLIENT: Authentification en cours...');
       final token = await _tokenService.authenticate(_serverUrl!, username, password);
 
       if (token == null) {
+        debugPrint('❌ CLIENT: Authentification échouée pour $username');
         throw Exception('Authentification échouée');
       }
 
       _isConnected = true;
-      debugPrint('Connected to $serverIp:$port as $username');
+      debugPrint('✅ CLIENT: Connecté au serveur $serverIp:$port en tant que $username');
+      debugPrint('📡 CLIENT: Token reçu, session active');
       return true;
     } catch (e) {
-      debugPrint('Erreur connexion: $e');
+      debugPrint('❌ CLIENT: Erreur connexion - $e');
       _isConnected = false;
       return false;
     }
@@ -184,8 +193,9 @@ class EnhancedNetworkClient {
 
   /// Récupère tous les clients du serveur
   Future<List<Map<String, dynamic>>> getAllClients() async {
+    debugPrint('📥 CLIENT: Récupération de tous les clients depuis le serveur...');
     final result = await query('SELECT * FROM clt ORDER BY rsoc');
-    debugPrint('✅ ${result.length} clients récupérés du serveur');
+    debugPrint('✅ CLIENT: ${result.length} clients récupérés du serveur');
     return result;
   }
 

@@ -84,10 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (user == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Nom d\'utilisateur incorrect'),
-                backgroundColor: Colors.red,
-              ),
+              const SnackBar(content: Text('Nom d\'utilisateur incorrect'), backgroundColor: Colors.red),
             );
             _usernameFocus.requestFocus();
           }

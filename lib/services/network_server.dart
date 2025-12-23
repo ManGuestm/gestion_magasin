@@ -77,8 +77,10 @@ class NetworkServer {
 
   Future<bool> start({int port = 8080}) async {
     try {
+      debugPrint('🚀 SERVEUR: Démarrage en cours...');
       // S'assurer que la base est initialisée en mode LOCAL (serveur)
       await _databaseService.initializeLocal();
+      debugPrint('✅ SERVEUR: Base de données initialisée');
 
       // Initialiser les services
       _rateLimiterPool.initialize(
@@ -91,18 +93,20 @@ class NetworkServer {
       _sessionManager.startCleanupTimer();
 
       // Démarrer le serveur HTTP REST
+      debugPrint('🌐 SERVEUR: Démarrage du serveur HTTP sur port $port...');
       final httpStarted = await _httpServer.start(port: port);
       if (!httpStarted) {
         throw Exception('Failed to start HTTP server');
       }
 
       _isRunning = true;
-      debugPrint('✅ Serveur démarré sur port $port');
-      debugPrint('🛡️  Services de sécurité activés (Rate Limiting, Session Manager, Client Monitor)');
+      debugPrint('✅ SERVEUR: Démarré avec succès sur port $port');
+      debugPrint('📡 SERVEUR: En attente de connexions clients...');
+      debugPrint('🛡️  SERVEUR: Services de sécurité activés (Rate Limiting, Session Manager, Client Monitor)');
 
       return true;
     } catch (e) {
-      debugPrint('❌ Erreur démarrage serveur: $e');
+      debugPrint('❌ SERVEUR: Erreur démarrage - $e');
       _isRunning = false;
       return false;
     }
@@ -294,9 +298,8 @@ class NetworkServer {
         'token': token,
       };
 
-      debugPrint(
-        '✅ Client WebSocket authentifié connecté depuis $clientIp - User: ${sessionValid['username']} (${_clients.length} clients)',
-      );
+      debugPrint('✅ SERVEUR: Client WebSocket authentifié connecté depuis $clientIp - User: ${sessionValid['username']} (${_clients.length} clients)');
+      debugPrint('📊 SERVEUR: Nombre total de clients connectés: ${_clients.length}');
 
       await _auditService.log(
         userId: sessionValid['username'],
@@ -395,7 +398,8 @@ class NetworkServer {
         return {'success': false, 'error': 'Username et password requis'};
       }
 
-      debugPrint('🔐 Authentification du CLIENT: $username');
+      debugPrint('🔐 SERVEUR: Authentification du CLIENT: $username');
+      debugPrint('📍 SERVEUR: Vérification des credentials...');
 
       final user = await _databaseService.database.getUserByCredentials(username, password);
 
@@ -447,7 +451,8 @@ class NetworkServer {
 
       final token = '${user.id}_${DateTime.now().millisecondsSinceEpoch}_${username.hashCode}';
 
-      debugPrint('✅ Authentification réussie pour CLIENT: $username (${user.role})');
+      debugPrint('✅ SERVEUR: Authentification réussie pour CLIENT: $username (${user.role})');
+      debugPrint('🎫 SERVEUR: Token généré pour la session');
 
       return {
         'success': true,

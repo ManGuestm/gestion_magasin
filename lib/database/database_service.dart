@@ -425,18 +425,24 @@ class DatabaseService {
   /// Initialise en mode CLIENT (pas de base locale, tout via réseau)
   Future<bool> initializeAsClient(String serverIp, int port, String username, String password) async {
     try {
+      debugPrint('📡 CLIENT: Initialisation en mode CLIENT...');
+      debugPrint('🔍 CLIENT: Serveur cible: $serverIp:$port');
+      debugPrint('👤 CLIENT: Utilisateur: $username');
+      
       await _networkClient.initialize();
+      debugPrint('✅ CLIENT: Service réseau initialisé');
+      
       final connected = await _networkClient.connect(serverIp, port, username, password);
       if (!connected) throw Exception('Connexion serveur échouée');
 
       _mode = DatabaseMode.clientMode;
       _isInitialized = true;
       debugPrint('✅ CLIENT: Connecté à $serverIp:$port');
-      debugPrint('📌 Aucune base locale - Tout passe par le serveur');
-      debugPrint('🔒 Accès: Caisse et Vendeur uniquement');
+      debugPrint('📌 CLIENT: Aucune base locale - Tout passe par le serveur');
+      debugPrint('🔒 CLIENT: Accès: Caisse et Vendeur uniquement');
       return true;
     } catch (e) {
-      debugPrint('❌ Erreur CLIENT: $e');
+      debugPrint('❌ CLIENT: Erreur initialisation - $e');
       return false;
     }
   }
