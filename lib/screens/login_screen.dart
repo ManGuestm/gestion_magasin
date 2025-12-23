@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../database/database_service.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 
@@ -101,9 +100,9 @@ class _LoginScreenState extends State<LoginScreen> {
         } else if (e.toString().contains('Connection') || e.toString().contains('network')) {
           errorMessage = 'Impossible de se connecter au serveur. Vérifiez la configuration réseau.';
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) {

@@ -20,13 +20,17 @@ class AuthService {
   /// 🔒 CLIENT → Tous les utilisateurs
   Future<bool> login(String username, String password) async {
     try {
+      debugPrint('🔐 AUTH_SERVICE: Tentative de connexion pour: $username');
       final dbService = DatabaseService();
       final isClientMode = dbService.isNetworkMode;
+      debugPrint('📍 AUTH_SERVICE: Mode détecté: ${isClientMode ? "CLIENT" : "SERVEUR"}');
 
       // 🔒 SERVEUR: Vérifier que l'utilisateur est Administrateur AVANT l'authentification
       if (!isClientMode) {
+        debugPrint('🔍 AUTH_SERVICE: Vérification rôle en mode SERVEUR...');
         final user = await dbService.database.getUserByUsername(username);
         if (user == null || user.role != 'Administrateur') {
+          debugPrint('❌ AUTH_SERVICE: Accès refusé - Rôle: ${user?.role ?? "utilisateur inconnu"}');
           await AuditService().log(
             userId: user?.id ?? 'unknown',
             userName: username,
@@ -36,13 +40,15 @@ class AuthService {
           );
           return false;
         }
+        debugPrint('✅ AUTH_SERVICE: Rôle Administrateur confirmé');
       }
 
       // ✅ authenticateUserWithModeAwareness effectue la vérification du mot de passe (bcrypt)
+      debugPrint('🔐 AUTH_SERVICE: Authentification en cours...');
       final user = await dbService.authenticateUserWithModeAwareness(username, password);
 
       if (user != null) {
-
+        debugPrint('✅ AUTH_SERVICE: Authentification réussie pour: ${user.nom} (${user.role})');
         _currentUser = user;
 
         // Log de connexion
@@ -57,7 +63,7 @@ class AuthService {
         return true;
       }
 
-      // Log de tentative de connexion échouée
+      debugPrint('❌ AUTH_SERVICE: Authentification échouée - Credentials invalides');
       await AuditService().log(
         userId: 'unknown',
         userName: username,
@@ -68,6 +74,7 @@ class AuthService {
 
       return false;
     } catch (e) {
+      debugPrint('❌ AUTH_SERVICE: Erreur - $e');
       await AuditService().log(
         userId: 'unknown',
         userName: username,
