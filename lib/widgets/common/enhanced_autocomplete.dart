@@ -90,9 +90,13 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
         _filteredOptions = _userInput.isEmpty
             ? widget.options
             : widget.options
-                .where((option) =>
-                    widget.displayStringForOption(option).toLowerCase().startsWith(_userInput.toLowerCase()))
-                .toList();
+                  .where(
+                    (option) => widget
+                        .displayStringForOption(option)
+                        .toLowerCase()
+                        .startsWith(_userInput.toLowerCase()),
+                  )
+                  .toList();
 
         _selectedIndex = _filteredOptions.isNotEmpty ? 0 : -1;
         _showSuggestion = _userInput.isNotEmpty && _filteredOptions.isNotEmpty;
@@ -106,10 +110,7 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
           if (firstMatch.toLowerCase().startsWith(_userInput.toLowerCase()) && _userInput != firstMatch) {
             _controller.value = TextEditingValue(
               text: firstMatch,
-              selection: TextSelection(
-                baseOffset: _userInput.length,
-                extentOffset: firstMatch.length,
-              ),
+              selection: TextSelection(baseOffset: _userInput.length, extentOffset: firstMatch.length),
             );
           }
         }
@@ -197,7 +198,7 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
 
     T selectedOption;
     String displayString;
-    
+
     if (_isNavigatingAllOptions) {
       selectedOption = widget.options[_allOptionsIndex];
       displayString = widget.displayStringForOption(selectedOption);
@@ -209,10 +210,7 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
     _controller.removeListener(_onTextChanged);
     _controller.value = TextEditingValue(
       text: displayString,
-      selection: TextSelection(
-        baseOffset: 0,
-        extentOffset: displayString.length,
-      ),
+      selection: TextSelection(baseOffset: 0, extentOffset: displayString.length),
     );
     _controller.addListener(_onTextChanged);
   }
@@ -226,7 +224,7 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
           if (event.logicalKey == LogicalKeyboardKey.tab) {
             final isShiftPressed =
                 HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftLeft) ||
-                    HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftRight);
+                HardwareKeyboard.instance.logicalKeysPressed.contains(LogicalKeyboardKey.shiftRight);
 
             // Si il y a une suggestion, valider d'abord
             if (_isNavigatingAllOptions && _allOptionsIndex >= 0) {
@@ -287,12 +285,19 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
               _navigateOptions(false);
               return KeyEventResult.handled;
             } else if (event.logicalKey == LogicalKeyboardKey.enter) {
+              // Seulement sélectionner si l'utilisateur a navigué dans les options
               if (_isNavigatingAllOptions && _allOptionsIndex >= 0) {
                 _selectOption(widget.options[_allOptionsIndex]);
                 return KeyEventResult.handled;
               } else if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
-                _selectOption(_filteredOptions[_selectedIndex]);
-                return KeyEventResult.handled;
+                // Vérifier si le texte correspond exactement à la suggestion
+                final suggestion = widget.displayStringForOption(_filteredOptions[_selectedIndex]);
+                if (_controller.text.toLowerCase() == suggestion.toLowerCase()) {
+                  _selectOption(_filteredOptions[_selectedIndex]);
+                  return KeyEventResult.handled;
+                }
+                // Sinon, laisser passer pour onSubmitted
+                return KeyEventResult.ignored;
               }
             }
           }
@@ -303,7 +308,8 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
         controller: _controller,
         focusNode: _focusNode,
         enabled: widget.enabled,
-        decoration: widget.decoration ??
+        decoration:
+            widget.decoration ??
             InputDecoration(
               hintText: widget.hintText,
               border: const OutlineInputBorder(),
@@ -319,14 +325,24 @@ class _EnhancedAutocompleteState<T> extends State<EnhancedAutocomplete<T>> {
           }
         },
         onSubmitted: (value) {
+          // Utiliser _userInput qui contient le texte réellement tapé
+          final userTypedText = _userInput.isNotEmpty ? _userInput : value;
+          
+          final hasExactMatch = widget.options.any(
+            (option) => widget.displayStringForOption(option).toLowerCase() == userTypedText.toLowerCase(),
+          );
+
           if (_isNavigatingAllOptions && _allOptionsIndex >= 0) {
             _selectOption(widget.options[_allOptionsIndex]);
-          } else if (_selectedIndex >= 0 && _selectedIndex < _filteredOptions.length) {
-            _selectOption(_filteredOptions[_selectedIndex]);
+          } else if (hasExactMatch) {
+            final exactMatch = widget.options.firstWhere(
+              (option) => widget.displayStringForOption(option).toLowerCase() == userTypedText.toLowerCase(),
+            );
+            _selectOption(exactMatch);
           } else if (widget.onFieldSubmitted != null) {
-            widget.onFieldSubmitted!(value);
+            widget.onFieldSubmitted!(userTypedText);
           } else if (widget.onSubmitted != null) {
-            widget.onSubmitted!(value);
+            widget.onSubmitted!(userTypedText);
           }
         },
       ),
