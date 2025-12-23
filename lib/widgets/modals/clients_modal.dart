@@ -497,6 +497,7 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
 
     try {
       final clients = await DatabaseService().getAllClients();
+      clients.sort((a, b) => a.rsoc.toLowerCase().compareTo(b.rsoc.toLowerCase()));
       setState(() {
         _clients = clients;
         _isLoading = false;

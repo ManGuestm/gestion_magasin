@@ -490,6 +490,7 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
 
     try {
       final fournisseurs = await DatabaseService().getAllFournisseurs();
+      fournisseurs.sort((a, b) => a.rsoc.toLowerCase().compareTo(b.rsoc.toLowerCase()));
       setState(() {
         _fournisseurs = fournisseurs;
         _isLoading = false;

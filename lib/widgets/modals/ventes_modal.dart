@@ -881,6 +881,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
       // Filtrer les clients selon le rôle et le mode de vente
       final filteredClients = _filterClientsByRole(allClients);
+      filteredClients.sort((a, b) => a.rsoc.toLowerCase().compareTo(b.rsoc.toLowerCase()));
 
       setState(() {
         _articles = articles;
@@ -7096,55 +7097,6 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                               ),
                                                             ),
                                                             const SizedBox(height: 4),
-                                                            FutureBuilder<String>(
-                                                              future: _getStocksToutesUnites(
-                                                                _searchedArticle!,
-                                                                _selectedDepot ?? _defaultDepot,
-                                                              ),
-                                                              builder: (context, snapshot) {
-                                                                if (snapshot.connectionState ==
-                                                                    ConnectionState.waiting) {
-                                                                  return Container(
-                                                                    padding: const EdgeInsets.all(6),
-                                                                    child: const Text(
-                                                                      'Chargement...',
-                                                                      style: TextStyle(fontSize: 12),
-                                                                    ),
-                                                                  );
-                                                                }
-                                                                final stockText =
-                                                                    snapshot.data ?? 'Aucun stock';
-                                                                return Container(
-                                                                  width: double.infinity,
-                                                                  padding: const EdgeInsets.all(6),
-                                                                  decoration: BoxDecoration(
-                                                                    color: Colors.blue[50],
-                                                                    borderRadius: BorderRadius.circular(4),
-                                                                    border: Border.all(
-                                                                      color: Colors.blue[200]!,
-                                                                    ),
-                                                                  ),
-                                                                  child: Text(
-                                                                    stockText,
-                                                                    style: TextStyle(
-                                                                      fontSize: 12,
-                                                                      color: Colors.blue[700],
-                                                                      fontWeight: FontWeight.w500,
-                                                                    ),
-                                                                  ),
-                                                                );
-                                                              },
-                                                            ),
-                                                            const SizedBox(height: 12),
-                                                            const Text(
-                                                              'STOCK PAR DÉPÔT',
-                                                              style: TextStyle(
-                                                                fontSize: 12,
-                                                                fontWeight: FontWeight.bold,
-                                                                color: Colors.blue,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(height: 4),
                                                             Container(
                                                               decoration: BoxDecoration(
                                                                 border: Border.all(color: Colors.blue[200]!),
@@ -7153,7 +7105,10 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                               child: Column(
                                                                 children: [
                                                                   Container(
-                                                                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                                                                    padding: const EdgeInsets.symmetric(
+                                                                      vertical: 4,
+                                                                      horizontal: 6,
+                                                                    ),
                                                                     decoration: BoxDecoration(
                                                                       color: Colors.blue[100],
                                                                       borderRadius: const BorderRadius.only(
@@ -7187,34 +7142,50 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                                       ],
                                                                     ),
                                                                   ),
-                                                                  ..._depots.map((depot) => Container(
-                                                                    padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
-                                                                    decoration: BoxDecoration(
-                                                                      border: Border(top: BorderSide(color: Colors.blue[100]!)),
-                                                                    ),
-                                                                    child: Row(
-                                                                      children: [
-                                                                        Expanded(
-                                                                          child: Text(
-                                                                            depot.depots,
-                                                                            style: const TextStyle(fontSize: 11),
+                                                                  ..._depots.map(
+                                                                    (depot) => Container(
+                                                                      padding: const EdgeInsets.symmetric(
+                                                                        vertical: 3,
+                                                                        horizontal: 6,
+                                                                      ),
+                                                                      decoration: BoxDecoration(
+                                                                        border: Border(
+                                                                          top: BorderSide(
+                                                                            color: Colors.blue[100]!,
                                                                           ),
                                                                         ),
-                                                                        Expanded(
-                                                                          child: FutureBuilder<String>(
-                                                                            future: _getStockParDepot(_searchedArticle!, depot.depots),
-                                                                            builder: (context, snapshot) {
-                                                                              return Text(
-                                                                                snapshot.data ?? '...',
-                                                                                style: const TextStyle(fontSize: 11),
-                                                                                textAlign: TextAlign.right,
-                                                                              );
-                                                                            },
+                                                                      ),
+                                                                      child: Row(
+                                                                        children: [
+                                                                          Expanded(
+                                                                            child: Text(
+                                                                              depot.depots,
+                                                                              style: const TextStyle(
+                                                                                fontSize: 11,
+                                                                              ),
+                                                                            ),
                                                                           ),
-                                                                        ),
-                                                                      ],
+                                                                          Expanded(
+                                                                            child: FutureBuilder<String>(
+                                                                              future: _getStockParDepot(
+                                                                                _searchedArticle!,
+                                                                                depot.depots,
+                                                                              ),
+                                                                              builder: (context, snapshot) {
+                                                                                return Text(
+                                                                                  snapshot.data ?? '...',
+                                                                                  style: const TextStyle(
+                                                                                    fontSize: 11,
+                                                                                  ),
+                                                                                  textAlign: TextAlign.right,
+                                                                                );
+                                                                              },
+                                                                            ),
+                                                                          ),
+                                                                        ],
+                                                                      ),
                                                                     ),
-                                                                  )),
+                                                                  ),
                                                                 ],
                                                               ),
                                                             ),
