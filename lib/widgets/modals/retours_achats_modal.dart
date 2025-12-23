@@ -97,7 +97,8 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
       final List<Map<String, dynamic>> historiqueData = [];
       for (final retour in retours) {
         historiqueData.add({
-          'numRetour': retour.numachats ?? '',
+          'numRetour': retour.num.toString(),
+          'numAchat': retour.numachats ?? 'N/A',
           'date': retour.daty != null ? app_date.AppDateUtils.formatDate(retour.daty!) : '',
           'fournisseur': retour.frns ?? '',
           'nFacture': retour.nfact ?? '',
@@ -243,7 +244,6 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
     }
 
     try {
-      final numRetour = 'RET${DateTime.now().millisecondsSinceEpoch}';
       List<String> dateParts = _dateController.text.split('-');
       DateTime dateForDB = DateTime(
         int.parse(dateParts[2]),
@@ -262,7 +262,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
       }
 
       final retourCompanion = RetachatsCompanion(
-        numachats: Value(numRetour),
+        numachats: Value(_selectedNumAchats),
         nfact: Value(_nFactController.text.trim()),
         daty: Value(dateForDB),
         frns: Value(_selectedFournisseur!),
@@ -272,11 +272,13 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
         verification: const Value(null),
       );
 
-      await _databaseService.database.into(_databaseService.database.retachats).insert(retourCompanion);
+      final insertedId = await _databaseService.database
+          .into(_databaseService.database.retachats)
+          .insert(retourCompanion);
 
       for (var article in _articlesRetour) {
         final detailCompanion = RetdetachatsCompanion(
-          numachats: Value(numRetour),
+          numachats: Value(_selectedNumAchats),
           designation: Value(article['designation']),
           unite: Value(article['unite']),
           depots: Value(article['depot']),
@@ -292,10 +294,13 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
           article['unite'],
           article['quantite'],
         );
+
+        // Ajuster l'achat original
+        await _ajusterAchatOriginal(_selectedNumAchats!, article['designation'], article['quantite']);
       }
 
       // Comptabilisation financière du retour
-      await _comptabiliserRetour(numRetour, dateForDB, _selectedFournisseur!, _totalTTC);
+      await _comptabiliserRetour(insertedId.toString(), dateForDB, _selectedFournisseur!, _totalTTC);
 
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1072,109 +1077,398 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
   }
 
   Widget _buildHistoriqueTab() {
+    final totalRetours = _historiqueRetours.fold<double>(0, (sum, r) => sum + (r['totalTTC'] ?? 0.0));
+    final nombreRetours = _historiqueRetours.length;
+
     return Column(
       children: [
-        // Header
+        // Stats cards
         Container(
-          color: Colors.grey.shade200,
-          padding: const EdgeInsets.all(8),
-          child: const Row(
+          margin: const EdgeInsets.all(16),
+          child: Row(
             children: [
               Expanded(
-                flex: 2,
-                child: Text('N° Retour', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text('Date', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-              Expanded(
-                flex: 3,
-                child: Text('Fournisseur', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text('N° Facture', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text('Total HT', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text('Total TTC', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-        // List
-        Expanded(
-          child: _historiqueRetours.isEmpty
-              ? const Center(
-                  child: Text('Aucun retour enregistré', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                )
-              : ListView.builder(
-                  itemCount: _historiqueRetours.length,
-                  itemBuilder: (context, index) {
-                    final retour = _historiqueRetours[index];
-                    return Container(
-                      height: 30,
-                      decoration: BoxDecoration(
-                        color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
-                        border: const Border(bottom: BorderSide(color: Colors.grey, width: 0.5)),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade400, Colors.blue.shade600],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
-                      child: Row(
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Expanded(
-                            flex: 2,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: Text(retour['numRetour'], style: const TextStyle(fontSize: 9)),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              retour['date'],
-                              style: const TextStyle(fontSize: 9),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          Expanded(
-                            flex: 3,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 4),
-                              child: Text(retour['fournisseur'], style: const TextStyle(fontSize: 9)),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              retour['nFacture'],
-                              style: const TextStyle(fontSize: 9),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              NumberUtils.formatNumber(retour['totalHT']),
-                              style: const TextStyle(fontSize: 9),
-                              textAlign: TextAlign.right,
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              NumberUtils.formatNumber(retour['totalTTC']),
-                              style: const TextStyle(fontSize: 9),
-                              textAlign: TextAlign.right,
+                          Icon(Icons.receipt_long, color: Colors.white.withValues(alpha: 0.9), size: 20),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Total Retours',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],
                       ),
-                    );
-                  },
+                      const SizedBox(height: 8),
+                      Text(
+                        '$nombreRetours',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.orange.shade400, Colors.orange.shade600],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.orange.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.attach_money, color: Colors.white.withValues(alpha: 0.9), size: 20),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Montant Total',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        NumberUtils.formatNumber(totalRetours),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // List
+        Expanded(
+          child: _historiqueRetours.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Aucun retour enregistré',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Les retours d\'achats apparaîtront ici',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                      ),
+                    ],
+                  ),
+                )
+              : Container(
+                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.1),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      // Table header
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.indigo.shade50, Colors.indigo.shade100],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            topRight: Radius.circular(12),
+                          ),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'N° RETOUR',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade900,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'N° ACHAT',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade900,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'DATE',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade900,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'FOURNISSEUR',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade900,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'N° FACTURE',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade900,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 2,
+                              child: Text(
+                                'MONTANT TTC',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade900,
+                                ),
+                                textAlign: TextAlign.right,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Table content
+                      Expanded(
+                        child: ListView.builder(
+                          itemCount: _historiqueRetours.length,
+                          itemBuilder: (context, index) {
+                            final retour = _historiqueRetours[index];
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: index % 2 == 0 ? Colors.white : Colors.grey.shade50,
+                                border: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 1)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.indigo.shade50,
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Icon(
+                                            Icons.keyboard_return,
+                                            size: 14,
+                                            color: Colors.indigo.shade700,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            retour['numRetour'],
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.indigo.shade700,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.shopping_bag, size: 12, color: Colors.grey.shade600),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            retour['numAchat'],
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey.shade700,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.calendar_today, size: 12, color: Colors.grey.shade600),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          retour['date'],
+                                          style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.business, size: 12, color: Colors.grey.shade600),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            retour['fournisseur'],
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.receipt, size: 12, color: Colors.grey.shade600),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            retour['nFacture'],
+                                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade50,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.orange.shade200),
+                                      ),
+                                      child: Text(
+                                        NumberUtils.formatNumber(retour['totalTTC'] ?? 0.0),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.orange.shade900,
+                                        ),
+                                        textAlign: TextAlign.right,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    onPressed: () => _modifierRetour(retour['numRetour']),
+                                    icon: const Icon(Icons.edit, size: 16),
+                                    color: Colors.blue.shade600,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  IconButton(
+                                    onPressed: () => _confirmerSuppression(retour['numRetour']),
+                                    icon: const Icon(Icons.delete, size: 16),
+                                    color: Colors.red.shade600,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
         ),
       ],
@@ -1195,10 +1489,132 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
         final newQuantity = (stockItem.stocksu1 ?? 0) - quantite;
         await (db.update(db.depart)..where((s) => s.designation.equals(designation) & s.depots.equals(depot)))
             .write(DepartCompanion(stocksu1: Value(newQuantity)));
+
+        // Tracer le mouvement de stock
+        final ref = 'RET-${DateTime.now().millisecondsSinceEpoch}';
+        await db
+            .into(db.stocks)
+            .insert(
+              StocksCompanion(
+                ref: Value(ref),
+                daty: Value(DateTime.now()),
+                lib: Value('Retour sur achat ${_selectedNumAchats ?? ""}'),
+                refart: Value(designation),
+                depots: Value(depot),
+                ue: Value(unite),
+                us: Value(unite),
+                qs: Value(quantite),
+                sortie: Value(quantite),
+                qe: const Value(0),
+                entres: const Value(0),
+                verification: const Value('RETOUR_ACHAT'),
+              ),
+            );
       }
     } catch (e) {
       debugPrint('Erreur lors de la mise à jour du stock: $e');
     }
+  }
+
+  Future<void> _ajusterAchatOriginal(String numAchat, String designation, double quantiteRetournee) async {
+    try {
+      final db = _databaseService.database;
+
+      // Récupérer le détail de l'achat original
+      final detailAchat = await (db.select(
+        db.detachats,
+      )..where((d) => d.numachats.equals(numAchat) & d.designation.equals(designation))).getSingleOrNull();
+
+      if (detailAchat != null) {
+        // Diminuer la quantité achetée
+        final nouvelleQuantite = (detailAchat.q ?? 0) - quantiteRetournee;
+        await (db.update(db.detachats)
+              ..where((d) => d.numachats.equals(numAchat) & d.designation.equals(designation)))
+            .write(DetachatsCompanion(q: Value(nouvelleQuantite)));
+
+        // Recalculer le total de l'achat
+        final detailsAchats = await (db.select(
+          db.detachats,
+        )..where((d) => d.numachats.equals(numAchat))).get();
+
+        double nouveauTotal = 0;
+        for (final detail in detailsAchats) {
+          nouveauTotal += (detail.q ?? 0) * (detail.pu ?? 0);
+        }
+
+        // Mettre à jour le total de l'achat
+        await (db.update(
+          db.achats,
+        )..where((a) => a.numachats.equals(numAchat))).write(AchatsCompanion(totalttc: Value(nouveauTotal)));
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de l\'ajustement de l\'achat: $e');
+    }
+  }
+
+  Future<void> _confirmerSuppression(String numRetour) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => Focus(
+        autofocus: true,
+        child: AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 28),
+              const SizedBox(width: 12),
+              const Text('Confirmer la suppression', style: TextStyle(fontSize: 16)),
+            ],
+          ),
+          content: Text(
+            'Voulez-vous vraiment supprimer le retour N°$numRetour ?\n\nCette action est irréversible.',
+            style: const TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade600,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Supprimer'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      await _supprimerRetour(numRetour);
+    }
+  }
+
+  Future<void> _supprimerRetour(String numRetour) async {
+    try {
+      final db = _databaseService.database;
+      await (db.delete(db.retdetachats)..where((d) => d.numachats.equals(numRetour))).go();
+      await (db.delete(db.retachats)..where((r) => r.num.equals(int.parse(numRetour)))).go();
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Retour supprimé avec succès')));
+      }
+      _loadHistoriqueRetours();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur lors de la suppression: $e')));
+      }
+    }
+  }
+
+  Future<void> _modifierRetour(String numRetour) async {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Fonctionnalité de modification en cours de développement')));
   }
 
   Future<void> _comptabiliserRetour(
@@ -1224,7 +1640,7 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
             CaisseCompanion(
               ref: Value('RET-$numRetour'),
               daty: Value(date),
-              lib: Value('Retour sur achats - $fournisseur'),
+              lib: Value('Retour sur achats ${_selectedNumAchats ?? ""} - $fournisseur'),
               credit: Value(montant),
               debit: const Value(0),
               soldes: Value(nouveauSoldeCaisse),
@@ -1235,17 +1651,25 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
           );
 
       // 2. Compte fournisseur (diminution de la dette)
+      final dernierSoldeFrn =
+          await (db.select(db.comptefrns)
+                ..where((c) => c.frns.equals(fournisseur))
+                ..orderBy([(c) => OrderingTerm.desc(c.daty)])
+                ..limit(1))
+              .getSingleOrNull();
+      final nouveauSoldeFrn = (dernierSoldeFrn?.solde ?? 0) - montant;
+
       await db
           .into(db.comptefrns)
           .insert(
             ComptefrnsCompanion(
               ref: Value('RET-$numRetour'),
               daty: Value(date),
-              lib: Value('Retour sur achats N°$numRetour'),
+              lib: Value('Retour sur achats ${_selectedNumAchats ?? ""} N°$numRetour'),
               sortie: Value(montant),
               entres: const Value(0),
               frns: Value(fournisseur),
-              solde: Value(-montant),
+              solde: Value(nouveauSoldeFrn),
             ),
           );
     } catch (e) {

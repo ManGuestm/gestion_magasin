@@ -933,7 +933,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _buildStatCard('Retour Ventes', '${(_stats['retourVentes'] ?? 0).toInt()}', Icons.undo, Colors.red),
       _buildStatCard(
         'Retour Achats',
-        '${(_stats['retourAchats'] ?? 0).toInt()}',
+        '${_formatNumber(_stats['retourAchats'] ?? 0)} Ar',
         Icons.keyboard_return,
         Colors.orange,
       ),
@@ -1562,9 +1562,9 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final db = DatabaseService().database;
       final retours = await db
-          .customSelect('SELECT COUNT(*) as count FROM achats WHERE contre = "1"')
+          .customSelect('SELECT COALESCE(SUM(totalttc), 0) as total FROM retachats')
           .getSingleOrNull();
-      return (retours?.read<int>('count') ?? 0).toDouble();
+      return retours?.read<double>('total') ?? 0.0;
     } catch (e) {
       return 0.0;
     }
@@ -2104,41 +2104,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return titleToKey.containsKey(cardTitle);
   }
-
-  // Widget _buildRealTimeIndicator() {
-  //   return Container(
-  //     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-  //     decoration: BoxDecoration(
-  //       color: _isModalOpen ? Colors.orange[100] : Colors.green[100],
-  //       borderRadius: BorderRadius.circular(12),
-  //       border: Border.all(
-  //         color: _isModalOpen ? Colors.orange[300]! : Colors.green[300]!,
-  //       ),
-  //     ),
-  //     child: Row(
-  //       mainAxisSize: MainAxisSize.min,
-  //       children: [
-  //         Container(
-  //           width: 8,
-  //           height: 8,
-  //           decoration: BoxDecoration(
-  //             color: _isModalOpen ? Colors.orange : Colors.green,
-  //             shape: BoxShape.circle,
-  //           ),
-  //         ),
-  //         const SizedBox(width: 6),
-  //         Text(
-  //           _isModalOpen ? 'En pause' : 'Temps réel',
-  //           style: TextStyle(
-  //             fontSize: 11,
-  //             fontWeight: FontWeight.w500,
-  //             color: _isModalOpen ? Colors.orange[800] : Colors.green[800],
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   );
-  // }
 
   Widget _buildLastUpdateInfo() {
     final now = DateTime.now();
