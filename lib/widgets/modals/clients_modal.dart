@@ -746,6 +746,29 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
   }
 
   Future<void> _deleteClient(CltData client) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation de suppression'),
+        content: Text('Êtes-vous sûr de vouloir supprimer le client "${client.rsoc}" ?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            autofocus: true,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: BorderSide(color: Colors.red, width: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     try {
       await DatabaseService().database.deleteClient(client.rsoc);
       await _loadClients();
@@ -754,9 +777,17 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
           _selectedClient = null;
         });
       }
-    } catch (e) {
       if (mounted) {
-        debugPrint('Erreur lors de la suppression: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Client supprimé avec succès'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      debugPrint('Erreur lors de la suppression: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors de la suppression: $e'), backgroundColor: Colors.red),
+        );
       }
     }
   }

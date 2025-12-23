@@ -690,6 +690,32 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
   }
 
   Future<void> _deleteFournisseur(Frn fournisseur) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmation de suppression'),
+        content: Text('Êtes-vous sûr de vouloir supprimer le fournisseur "${fournisseur.rsoc}" ?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            autofocus: true,
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+              side: BorderSide(color: Colors.red, width: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     try {
       await DatabaseService().database.deleteFournisseur(fournisseur.rsoc);
       await _loadFournisseurs();
@@ -698,8 +724,24 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
           _selectedFournisseur = null;
         });
       }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Fournisseur supprimé avec succès'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
       debugPrint('Erreur lors de la suppression: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de la suppression: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
