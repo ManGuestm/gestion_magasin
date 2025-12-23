@@ -68,38 +68,64 @@ mixin TabNavigationMixin<T extends StatefulWidget> on State<T> {
     bool autofocus = false,
     String? Function(String?)? validator,
     void Function(String)? onChanged,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     final node = focusNode ?? createFocusNode();
 
     return Focus(
       onKeyEvent: (node, event) => handleKeyEvent(event),
-      child: SizedBox(
-        height: 30,
-        child: TextFormField(
-          cursorHeight: 15,
-          controller: controller,
-          focusNode: node,
-          enabled: enabled,
-          autofocus: autofocus,
-          keyboardType: keyboardType,
-          validator: validator,
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            labelText: label,
-            border: const OutlineInputBorder(),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: TextFormField(
+        controller: controller,
+        focusNode: node,
+        enabled: enabled,
+        autofocus: autofocus,
+        keyboardType: keyboardType,
+        validator: validator,
+        onChanged: onChanged,
+        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(fontSize: 13, color: Colors.grey.shade600, fontWeight: FontWeight.w400),
+          floatingLabelStyle: TextStyle(
+            fontSize: 13,
+            color: Colors.blue.shade700,
+            fontWeight: FontWeight.w500,
           ),
-          onFieldSubmitted: (_) {
-            if (onSubmitted != null) {
-              onSubmitted();
-            } else {
-              nextField();
-            }
-          },
-          onTap: () {
-            _currentFocusIndex = _focusNodes.indexOf(node);
-          },
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(color: Colors.blue.shade600, width: 2),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.red, width: 1),
+          ),
+          focusedErrorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: const BorderSide(color: Colors.red, width: 2),
+          ),
+          filled: true,
+          fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade100,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          errorStyle: const TextStyle(fontSize: 11, height: 0.8),
         ),
+        onFieldSubmitted: (_) {
+          if (onSubmitted != null) {
+            onSubmitted();
+          } else {
+            nextField();
+          }
+        },
+        onTap: () {
+          _currentFocusIndex = _focusNodes.indexOf(node);
+        },
       ),
     );
   }

@@ -31,7 +31,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
   late final FocusNode _keyboardFocusNode;
   Article? _selectedArticle;
   bool _isLoading = false;
-  String? _sortColumn;
+  String? _sortColumn = 'designation';
   bool _sortAscending = true;
 
   @override
@@ -974,7 +974,7 @@ class _ArticlesModalState extends State<ArticlesModal> with TabNavigationMixin {
             return 0;
         }
 
-        int result = aValue.toString().compareTo(bValue.toString());
+        int result = aValue.toString().toLowerCase().compareTo(bValue.toString().toLowerCase());
         return _sortAscending ? result : -result;
       });
     }
