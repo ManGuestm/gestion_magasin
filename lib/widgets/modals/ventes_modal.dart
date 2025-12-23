@@ -221,6 +221,17 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recharger les clients quand le widget reprend le focus
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadData();
+      }
+    });
+  }
+
   void _reloadVentesList() {
     setState(() {
       _invalidateVentesCache();
