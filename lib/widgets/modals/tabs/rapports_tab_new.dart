@@ -49,9 +49,14 @@ class _RapportsTabNewState extends State<RapportsTabNew> {
               children: [
                 _buildStatsGrid(),
                 const SizedBox(height: 24),
-                _buildArticlesEnRuptureSection(),
-                const SizedBox(height: 24),
-                _buildArticlesEnAlerteSection(),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildArticlesEnRuptureSection(),
+                    const SizedBox(width: 48),
+                    _buildArticlesEnAlerteSection(),
+                  ],
+                ),
               ],
             ),
           ),
@@ -198,11 +203,13 @@ class _RapportsTabNewState extends State<RapportsTabNew> {
       return stockTotal == 0;
     }).toList();
 
-    return _buildArticlesSection(
-      title: 'Articles en Rupture (${ruptures.length})',
-      articles: ruptures,
-      color: Colors.red,
-      icon: Icons.cancel,
+    return Expanded(
+      child: _buildArticlesSection(
+        title: 'Articles en Rupture (${ruptures.length})',
+        articles: ruptures,
+        color: Colors.red,
+        icon: Icons.cancel,
+      ),
     );
   }
 
@@ -214,11 +221,13 @@ class _RapportsTabNewState extends State<RapportsTabNew> {
       return stockTotal > 0 && stockTotal <= stockAlerte;
     }).toList();
 
-    return _buildArticlesSection(
-      title: 'Articles en Alerte Stock (${alertes.length})',
-      articles: alertes,
-      color: Colors.orange,
-      icon: Icons.warning,
+    return Expanded(
+      child: _buildArticlesSection(
+        title: 'Articles en Alerte Stock (${alertes.length})',
+        articles: alertes,
+        color: Colors.orange,
+        icon: Icons.warning,
+      ),
     );
   }
 
@@ -235,12 +244,14 @@ class _RapportsTabNewState extends State<RapportsTabNew> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
               border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.3))),
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, color: color, size: 24),
                 const SizedBox(width: 8),

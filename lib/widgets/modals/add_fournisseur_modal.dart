@@ -143,26 +143,15 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
       ),
       child: Row(
         children: [
-          Icon(
-            _isEditing ? Icons.edit : Icons.add_business,
-            color: Colors.white,
-            size: 20,
-          ),
+          Icon(_isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 20),
           const SizedBox(width: 8),
           Text(
             _isEditing ? 'Modifier Fournisseur' : 'Nouveau Fournisseur',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
           ),
           const Spacer(),
           IconButton(
@@ -199,11 +188,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
                 const SizedBox(width: 8),
                 Text(
                   'Identification',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade700,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blue.shade700),
                 ),
               ],
             ),
@@ -216,8 +201,12 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
                 Expanded(
                   child: Column(
                     children: [
-                      _buildLabeledField('Raison Social', _rsocController,
-                          required: true, focusNode: _rsocFocusNode),
+                      _buildLabeledField(
+                        'Raison Social',
+                        _rsocController,
+                        required: true,
+                        focusNode: _rsocFocusNode,
+                      ),
                       const SizedBox(height: 12),
                       _buildTextAreaField('Siège Social', _adrController),
                     ],
@@ -268,11 +257,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
                 const SizedBox(width: 8),
                 Text(
                   'Coordonnées',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green.shade700,
-                  ),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green.shade700),
                 ),
               ],
             ),
@@ -308,8 +293,12 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
     );
   }
 
-  Widget _buildLabeledField(String label, TextEditingController controller,
-      {bool required = false, FocusNode? focusNode}) {
+  Widget _buildLabeledField(
+    String label,
+    TextEditingController controller, {
+    bool required = false,
+    FocusNode? focusNode,
+  }) {
     final fieldFocusNode = focusNode ?? createFocusNode();
 
     return Column(
@@ -318,11 +307,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
         RichText(
           text: TextSpan(
             text: label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.grey.shade700,
-            ),
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade700),
             children: required
                 ? [
                     const TextSpan(
@@ -378,11 +363,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade700,
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey.shade700),
         ),
         const SizedBox(height: 4),
         TextFormField(
@@ -431,14 +412,9 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               side: BorderSide(color: Colors.grey.shade400),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
-            child: const Text(
-              'Annuler',
-              style: TextStyle(fontSize: 12, color: Colors.black87),
-            ),
+            child: const Text('Annuler', style: TextStyle(fontSize: 12, color: Colors.black87)),
           ),
           const SizedBox(width: 12),
           ElevatedButton(
@@ -447,9 +423,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
               backgroundColor: Colors.blue.shade600,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               elevation: 2,
             ),
             child: Row(
@@ -486,6 +460,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
         site: drift.Value(_siteController.text.isEmpty ? null : _siteController.text),
         fax: drift.Value(_faxController.text.isEmpty ? null : _faxController.text),
         telex: drift.Value(_telexController.text.isEmpty ? null : _telexController.text),
+        action: drift.Value("A"),
       );
 
       if (widget.fournisseur == null) {
@@ -499,9 +474,7 @@ class _AddFournisseurModalState extends State<AddFournisseurModal> with TabNavig
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }

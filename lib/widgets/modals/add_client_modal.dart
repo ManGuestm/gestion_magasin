@@ -53,7 +53,8 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
       // Pré-remplir avec le nom fourni ou valeur par défaut
       _rsocController.text = widget.nomClient ?? '';
       // Utiliser la catégorie forcée ou déterminer selon le rôle
-      _selectedCategorie = widget.forceCategorie ??
+      _selectedCategorie =
+          widget.forceCategorie ??
           (AuthService().hasRole('Vendeur') ? ClientCategory.magasin.label : ClientCategory.tousDepots.label);
     }
 
@@ -146,29 +147,16 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Colors.blue[600]!, Colors.blue[700]!],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
-        ),
+        gradient: LinearGradient(colors: [Colors.blue[600]!, Colors.blue[700]!]),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), topRight: Radius.circular(12)),
       ),
       child: Row(
         children: [
-          Icon(
-            widget.client == null ? Icons.person_add : Icons.edit,
-            color: Colors.white,
-            size: 20,
-          ),
+          Icon(widget.client == null ? Icons.person_add : Icons.edit, color: Colors.white, size: 20),
           const SizedBox(width: 8),
           Text(
             widget.client == null ? 'NOUVEAU CLIENT' : 'MODIFIER CLIENT',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
           ),
         ],
       ),
@@ -182,11 +170,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[300]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -196,9 +180,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.blue[100]!, Colors.blue[200]!],
-              ),
+              gradient: LinearGradient(colors: [Colors.blue[100]!, Colors.blue[200]!]),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(8),
                 topRight: Radius.circular(8),
@@ -210,11 +192,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
                 const SizedBox(width: 8),
                 const Text(
                   'IDENTIFICATION',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
               ],
             ),
@@ -261,11 +239,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[300]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -275,9 +249,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.green[100]!, Colors.green[200]!],
-              ),
+              gradient: LinearGradient(colors: [Colors.green[100]!, Colors.green[200]!]),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(8),
                 topRight: Radius.circular(8),
@@ -289,11 +261,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
                 const SizedBox(width: 8),
                 const Text(
                   'COORDONNEES',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
               ],
             ),
@@ -336,11 +304,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[300]!),
         boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
+          BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -350,9 +314,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Colors.orange[100]!, Colors.orange[200]!],
-              ),
+              gradient: LinearGradient(colors: [Colors.orange[100]!, Colors.orange[200]!]),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(8),
                 topRight: Radius.circular(8),
@@ -364,11 +326,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
                 const SizedBox(width: 8),
                 const Text(
                   'COMPTES',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
                 ),
               ],
             ),
@@ -402,19 +360,18 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
     );
   }
 
-  Widget _buildLabeledField(String label, TextEditingController controller,
-      {bool required = false, double? width, bool readOnly = false}) {
+  Widget _buildLabeledField(
+    String label,
+    TextEditingController controller, {
+    bool required = false,
+    double? width,
+    bool readOnly = false,
+  }) {
     final focusNode = controller == _rsocController ? _rsocFocusNode : createFocusNode();
 
     return Row(
       children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 11),
-          ),
-        ),
+        SizedBox(width: 80, child: Text(label, style: const TextStyle(fontSize: 11))),
         const SizedBox(width: 8),
         Container(
           width: width ?? 200,
@@ -424,11 +381,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Colors.grey[300]!),
             boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withValues(alpha: 0.1),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
+              BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 2, offset: const Offset(0, 1)),
             ],
           ),
           child: TextFormField(
@@ -464,13 +417,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            label,
-            style: const TextStyle(fontSize: 11),
-          ),
-        ),
+        SizedBox(width: 80, child: Text(label, style: const TextStyle(fontSize: 11))),
         const SizedBox(width: 8),
         Container(
           width: 200,
@@ -480,11 +427,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Colors.grey[300]!),
             boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withValues(alpha: 0.1),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
+              BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 2, offset: const Offset(0, 1)),
             ],
           ),
           child: TextFormField(
@@ -510,13 +453,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
 
     return Row(
       children: [
-        const SizedBox(
-          width: 80,
-          child: Text(
-            'Catégorie',
-            style: TextStyle(fontSize: 11),
-          ),
-        ),
+        const SizedBox(width: 80, child: Text('Catégorie', style: TextStyle(fontSize: 11))),
         const SizedBox(width: 8),
         Container(
           width: 120,
@@ -526,11 +463,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
             borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Colors.grey[300]!),
             boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withValues(alpha: 0.1),
-                blurRadius: 2,
-                offset: const Offset(0, 1),
-              ),
+              BoxShadow(color: Colors.grey.withValues(alpha: 0.1), blurRadius: 2, offset: const Offset(0, 1)),
             ],
           ),
           child: canSelectCategory
@@ -543,10 +476,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
                   ),
                   style: const TextStyle(fontSize: 12, color: Colors.black),
                   items: ClientCategory.values
-                      .map((category) => DropdownMenuItem(
-                            value: category.label,
-                            child: Text(category.label),
-                          ))
+                      .map((category) => DropdownMenuItem(value: category.label, child: Text(category.label)))
                       .toList(),
                   onChanged: (value) {
                     setState(() {
@@ -588,9 +518,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
               backgroundColor: Colors.green[600],
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               elevation: 2,
             ),
           ),
@@ -603,9 +531,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
               backgroundColor: Colors.grey[600],
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               elevation: 2,
             ),
           ),
@@ -627,6 +553,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
         rcs: drift.Value(_rcsController.text.isEmpty ? null : _rcsController.text),
         soldes: drift.Value(double.tryParse(_soldesController.text) ?? 0.0),
         categorie: drift.Value(_selectedCategorie),
+        action: drift.Value("A"),
       );
 
       CltData clientData;
@@ -642,6 +569,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
           rcs: _rcsController.text.isEmpty ? null : _rcsController.text,
           soldes: double.tryParse(_soldesController.text) ?? 0.0,
           categorie: _selectedCategorie,
+          action: "A",
         );
       } else {
         await DatabaseService().database.updateClient(widget.client!.rsoc, companion);
@@ -653,9 +581,7 @@ class _AddClientModalState extends State<AddClientModal> with TabNavigationMixin
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e')));
       }
     }
   }

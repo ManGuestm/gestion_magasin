@@ -18,6 +18,7 @@ class MouvementsTabNew extends StatefulWidget {
   // === DONNÉES ===
   final InventaireState state;
   final List<Stock> allMouvements;
+  final bool hasActiveFilters;
 
   // === CALLBACKS ===
   final Function(String) onSearchChanged;
@@ -25,6 +26,7 @@ class MouvementsTabNew extends StatefulWidget {
   final Function(DateTimeRange?) onDateRangeChanged;
   final Function(String) onDepotChanged;
   final Function() onApplyFilters;
+  final Function() onClearFilters;
   final Function() onExport;
   final Function(int) onPageChanged;
   final Function(int?) onHoverChanged;
@@ -33,11 +35,13 @@ class MouvementsTabNew extends StatefulWidget {
     super.key,
     required this.state,
     required this.allMouvements,
+    required this.hasActiveFilters,
     required this.onSearchChanged,
     required this.onTypeChanged,
     required this.onDateRangeChanged,
     required this.onDepotChanged,
     required this.onApplyFilters,
+    required this.onClearFilters,
     required this.onExport,
     required this.onPageChanged,
     required this.onHoverChanged,
@@ -171,6 +175,7 @@ class _MouvementsTabNewState extends State<MouvementsTabNew> {
           // Plage de dates
           SizedBox(
             width: 250,
+            height: 50,
             child: ElevatedButton.icon(
               onPressed: () async {
                 final range = await showDateRangePicker(
@@ -192,13 +197,19 @@ class _MouvementsTabNewState extends State<MouvementsTabNew> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          // Bouton appliquer
-          ElevatedButton(
-            onPressed: widget.onApplyFilters,
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-            child: const Text('Appliquer', style: TextStyle(color: Colors.white)),
-          ),
+          if (widget.hasActiveFilters) ...[
+            const SizedBox(width: 8),
+            // Bouton effacer
+            SizedBox(
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: widget.onClearFilters,
+                icon: const Icon(Icons.clear, size: 16, color: Colors.white),
+                label: const Text('Effacer', style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -274,7 +285,7 @@ class _MouvementsTabNewState extends State<MouvementsTabNew> {
 
   /// Ligne d'un mouvement
   Widget _buildMouvementRow(Stock mouvement, int itemIndex) {
-    final typeText = mouvement.entres != null && mouvement.entres! > 0 ? 'Entrée' : 'Sortie';
+    final typeText = mouvement.qe != null && mouvement.qe! > 0 ? 'Entrée' : 'Sortie';
     final typeColor = _getMouvementTypeColor(typeText);
     final isHovered = widget.state.hoveredMouvementIndex == itemIndex;
 
@@ -312,7 +323,7 @@ class _MouvementsTabNewState extends State<MouvementsTabNew> {
             Expanded(
               flex: 1,
               child: Text(
-                (mouvement.entres ?? mouvement.qs ?? 0).toStringAsFixed(1),
+                (mouvement.qe ?? mouvement.qs ?? 0).toStringAsFixed(1),
                 style: TextStyle(fontSize: 11, color: typeText == 'Entrée' ? Colors.green : Colors.red),
               ),
             ),

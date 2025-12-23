@@ -306,6 +306,17 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     _applyFiltersAsync();
   }
 
+  void _clearMouvementsFilters() {
+    setState(() {
+      _searchQuery = '';
+      _selectedDepot = 'Tous';
+      _dateDebutMouvement = null;
+      _dateFinMouvement = null;
+      _filteredMouvements = _mouvements;
+      _mouvementsPage = 0;
+    });
+  }
+
   Future<void> _applyFiltersAsync() async {
     // Utiliser le cache si les critères n'ont pas changé
     if (_searchQuery == _lastSearchQuery &&
@@ -465,6 +476,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
       articles: _articles,
       stocks: stock,
       filteredArticles: _filteredArticles,
+      filteredMouvements: _filteredMouvements,
       searchQuery: _searchQuery,
       selectedDepot: _selectedDepot,
       selectedCategorie: _selectedCategorie,
@@ -587,7 +599,13 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     Future.delayed(const Duration(milliseconds: 50), () {
       if (mounted) {
         setState(() => _isLoadingPage = false);
-        _scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeInOut);
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+          );
+        }
       }
     });
   }
@@ -788,18 +806,39 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
     });
   }
 
+  bool _hasActiveFilters() {
+    return _searchQuery.isNotEmpty ||
+        _selectedDepot != 'Tous' ||
+        _dateDebutMouvement != null ||
+        _dateFinMouvement != null;
+  }
+
   Widget _buildMouvementsTab() {
     return MouvementsTabNew(
       state: _buildInventaireState(),
       allMouvements: _filteredMouvements,
+      hasActiveFilters: _hasActiveFilters(),
       onApplyFilters: _applyMouvementsFilters,
+      onClearFilters: _clearMouvementsFilters,
       onDepotChanged: (depot) {
         setState(() => _selectedDepot = depot);
         _applyMouvementsFilters();
       },
-      onSearchChanged: (value) {},
-      onTypeChanged: (type) {},
-      onDateRangeChanged: (range) {},
+      onSearchChanged: (value) {
+        setState(() => _searchQuery = value);
+        _applyMouvementsFilters();
+      },
+      onTypeChanged: (type) {
+        // Type sera géré dans _applyMouvementsFilters
+        _applyMouvementsFilters();
+      },
+      onDateRangeChanged: (range) {
+        setState(() {
+          _dateDebutMouvement = range?.start;
+          _dateFinMouvement = range?.end;
+        });
+        _applyMouvementsFilters();
+      },
       onExport: _exportMouvements,
       onPageChanged: (page) {
         setState(() => _mouvementsPage = page);
@@ -835,6 +874,29 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
   Future<void> _importInventaire() async {
     try {
+      // Sélectionner le dépôt d'importation
+      final depotsWithoutTous = _depots.where((d) => d != 'Tous').toList();
+      if (depotsWithoutTous.isEmpty) {
+        _showError('Aucun dépôt disponible');
+        return;
+      }
+
+      final selectedDepot = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Sélectionner le dépôt'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: depotsWithoutTous
+                .map((depot) => ListTile(title: Text(depot), onTap: () => Navigator.pop(context, depot)))
+                .toList(),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler'))],
+        ),
+      );
+
+      if (selectedDepot == null) return;
+
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx', 'xls'],
@@ -865,35 +927,58 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
 
       int imported = 0;
       int errors = 0;
+      final List<String> articlesNonTrouves = [];
+      final List<String> articlesImportes = [];
 
+      // Commencer à partir de la ligne 1 (ignorer l'en-tête ligne 0)
       for (int i = 1; i < sheet.rows.length; i++) {
         final row = sheet.rows[i];
-        if (row.length < 4) continue;
+        if (row.isEmpty) continue;
 
+        // Colonne 0 = Désignation (première colonne)
         final designation = row[0]?.value?.toString().trim();
-        final u1 = double.tryParse(row[1]?.value?.toString() ?? '0') ?? 0;
-        final u2 = double.tryParse(row[2]?.value?.toString() ?? '0') ?? 0;
-        final u3 = double.tryParse(row[3]?.value?.toString() ?? '0') ?? 0;
-
         if (designation == null || designation.isEmpty) continue;
 
-        final article = _articles.where((a) => a.designation == designation).firstOrNull;
+        // Vérifier si l'article existe (recherche exacte insensible à la casse)
+        final article = _articles
+            .where((a) => a.designation.trim().toLowerCase() == designation.toLowerCase())
+            .firstOrNull;
         if (article == null) {
+          articlesNonTrouves.add(designation);
           errors++;
           continue;
         }
 
-        final key = '${article.designation}_$_selectedDepotInventaire';
+        // Colonnes 1, 2, 3 = U1, U2, U3 (index 1, 2, 3)
+        final u1 = row.length > 1 ? (double.tryParse(row[1]?.value?.toString() ?? '0') ?? 0.0) : 0.0;
+        final u2 = row.length > 2 ? (double.tryParse(row[2]?.value?.toString() ?? '0') ?? 0.0) : 0.0;
+        final u3 = row.length > 3 ? (double.tryParse(row[3]?.value?.toString() ?? '0') ?? 0.0) : 0.0;
+
+        // Enregistrer les quantités pour cet article EXACT trouvé dans le dépôt sélectionné
+        final key = '${article.designation}_$selectedDepot';
         _inventairePhysique[key] = {'u1': u1, 'u2': u2, 'u3': u3};
+        articlesImportes.add(article.designation);
         imported++;
       }
 
       setState(() {
         _inventaireMode = true;
         _dateInventaire = DateTime.now();
+        _selectedDepotInventaire = selectedDepot;
       });
 
-      _showSuccess('Import réussi: $imported articles importés${errors > 0 ? ', $errors erreurs' : ''}');
+      // Message de succès avec détails
+      String message = 'Import réussi dans le dépôt "$selectedDepot": $imported article(s) importé(s)';
+      if (articlesImportes.isNotEmpty && articlesImportes.length <= 5) {
+        message += ' (${articlesImportes.join(", ")})';
+      }
+      if (errors > 0) {
+        message += ', $errors article(s) non trouvé(s)';
+        if (articlesNonTrouves.isNotEmpty && articlesNonTrouves.length <= 5) {
+          message += ' : ${articlesNonTrouves.join(", ")}';
+        }
+      }
+      _showSuccess(message);
     } catch (e) {
       _showError('Erreur lors de l\'importation: $e');
     }
@@ -1086,7 +1171,6 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         _inventairePhysique.clear();
       });
       await _loadData();
-      await _loadMouvementsAsync();
     } catch (e) {
       _showError('Erreur lors de la sauvegarde: $e');
     }
@@ -1108,11 +1192,32 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   Future<void> _loadMouvementsAsync() async {
     try {
       final mouvements = await _databaseService.database.getAllStocks();
+      // Filtrer les mouvements avec quantité 0.0
+      final mouvementsNonNuls = mouvements
+          .where((m) => (m.qe ?? 0.0) != 0.0 || (m.qs ?? 0.0) != 0.0)
+          .toList();
+      // Trier du plus récent au plus ancien
+      mouvementsNonNuls.sort((a, b) {
+        if (a.daty == null && b.daty == null) return 0;
+        if (a.daty == null) return 1;
+        if (b.daty == null) return -1;
+        try {
+          int timestampA = a.daty is int
+              ? a.daty as int
+              : (a.daty as DateTime).millisecondsSinceEpoch ~/ 1000;
+          int timestampB = b.daty is int
+              ? b.daty as int
+              : (b.daty as DateTime).millisecondsSinceEpoch ~/ 1000;
+          return timestampB.compareTo(timestampA);
+        } catch (e) {
+          return 0;
+        }
+      });
       if (mounted) {
         setState(() {
-          _mouvements = mouvements;
+          _mouvements = mouvementsNonNuls;
+          _filteredMouvements = mouvementsNonNuls;
         });
-        _applyMouvementsFilters();
       }
     } catch (e) {
       if (mounted) {
@@ -1122,11 +1227,24 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
   }
 
   void _applyMouvementsFilters() {
+    if (_mouvements.isEmpty) {
+      setState(() {
+        _filteredMouvements = [];
+        _mouvementsPage = 0;
+      });
+      return;
+    }
+
     final filteredMouvements = _mouvements.where((mouvement) {
+      // Filtre par recherche article
+      final matchesSearch =
+          _searchQuery.isEmpty ||
+          (mouvement.refart?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+
       // Filtre par dépôt
       final matchesDepot = _selectedDepot == 'Tous' || mouvement.depots == _selectedDepot;
 
-      // Filtre par date avec conversion timestamp
+      // Filtre par date
       bool matchesDate = true;
       if (_dateDebutMouvement != null && _dateFinMouvement != null && mouvement.daty != null) {
         try {
@@ -1136,7 +1254,7 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
           } else if (mouvement.daty is DateTime) {
             mouvementDate = mouvement.daty as DateTime;
           } else {
-            return matchesDepot;
+            return matchesSearch && matchesDepot;
           }
 
           matchesDate =
@@ -1147,10 +1265,10 @@ class _InventaireModalState extends State<InventaireModal> with TickerProviderSt
         }
       }
 
-      return matchesDepot && matchesDate;
+      return matchesSearch && matchesDepot && matchesDate;
     }).toList();
 
-    // Trier par date décroissante avec gestion des timestamps
+    // Trier par date décroissante
     filteredMouvements.sort((a, b) {
       if (a.daty == null && b.daty == null) return 0;
       if (a.daty == null) return 1;

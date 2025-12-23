@@ -92,15 +92,42 @@ class _InventaireTabNewState extends State<InventaireTabNew> {
 
   /// Mode avant le démarrage de l'inventaire
   Widget _buildStartMode() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inventory_2, size: 64, color: Colors.grey),
-          SizedBox(height: 16),
-          Text(
+          const Icon(Icons.inventory_2, size: 64, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text(
             'Démarrez un inventaire pour saisir les quantités physiques',
             style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 32),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ElevatedButton.icon(
+                onPressed: widget.onStartInventaire,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Démarrer Inventaire'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                ),
+              ),
+              const SizedBox(width: 16),
+              ElevatedButton.icon(
+                onPressed: widget.onImportInventaire,
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Importer Inventaire'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -316,9 +343,9 @@ class _InventaireTabNewState extends State<InventaireTabNew> {
 
     // Quantités physiques saisies
     final key = '${article.designation}_${widget.selectedDepotInventaire}';
-    final physiqueU1 = widget.inventairePhysique[key]?['u1'] ?? 0;
-    final physiqueU2 = widget.inventairePhysique[key]?['u2'] ?? 0;
-    final physiqueU3 = widget.inventairePhysique[key]?['u3'] ?? 0;
+    final physiqueU1 = (widget.inventairePhysique[key]?['u1'] ?? 0).toDouble();
+    final physiqueU2 = (widget.inventairePhysique[key]?['u2'] ?? 0).toDouble();
+    final physiqueU3 = (widget.inventairePhysique[key]?['u3'] ?? 0).toDouble();
 
     // Calculer écarts
     final stockTotalU3Theorique = StockConverter.calculerStockTotalU3(
@@ -379,7 +406,7 @@ class _InventaireTabNewState extends State<InventaireTabNew> {
             ),
             // Stocks disponibles
             Expanded(
-              flex: 3,
+              flex: 2,
               child: Text(
                 'U1: ${stockU1.toStringAsFixed(0)} ${article.u1 ?? ''}, '
                 'U2: ${stockU2.toStringAsFixed(0)} ${article.u2 ?? ''}, '
@@ -390,6 +417,7 @@ class _InventaireTabNewState extends State<InventaireTabNew> {
             // Champs saisie U1
             if (hasU1)
               Expanded(
+                flex: 2,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: TextField(
@@ -410,11 +438,13 @@ class _InventaireTabNewState extends State<InventaireTabNew> {
               )
             else
               const Expanded(
+                flex: 2,
                 child: Text('-', textAlign: TextAlign.center, style: TextStyle(fontSize: 11)),
               ),
             // Champs saisie U2
             if (hasU2)
               Expanded(
+                flex: 2,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: TextField(
@@ -435,11 +465,13 @@ class _InventaireTabNewState extends State<InventaireTabNew> {
               )
             else
               const Expanded(
+                flex: 2,
                 child: Text('-', textAlign: TextAlign.center, style: TextStyle(fontSize: 11)),
               ),
             // Champs saisie U3
             if (hasU3)
               Expanded(
+                flex: 2,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: TextField(
@@ -460,10 +492,12 @@ class _InventaireTabNewState extends State<InventaireTabNew> {
               )
             else
               const Expanded(
+                flex: 2,
                 child: Text('-', textAlign: TextAlign.center, style: TextStyle(fontSize: 11)),
               ),
             // Écarts
             Expanded(
+              flex: 2,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Text(
@@ -482,29 +516,58 @@ class _InventaireTabNewState extends State<InventaireTabNew> {
   /// Pagination
   Widget _buildPagination() {
     final totalPages = widget.state.totalInventairePages;
+    final currentPage = widget.state.inventairePage;
 
     if (totalPages <= 1) return const SizedBox.shrink();
 
+    // Calculer la plage de pages à afficher (max 10)
+    const maxVisiblePages = 10;
+    int startPage = (currentPage ~/ maxVisiblePages) * maxVisiblePages;
+    int endPage = (startPage + maxVisiblePages).clamp(0, totalPages);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
+        color: Colors.grey[50],
         border: Border(top: BorderSide(color: Colors.grey[300]!)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          for (int i = 0; i < totalPages; i++)
-            Padding(
+          IconButton(
+            onPressed: currentPage > 0 ? () => widget.onPageChanged(0) : null,
+            icon: const Icon(Icons.first_page),
+            tooltip: 'Aller au début',
+          ),
+          ElevatedButton(
+            onPressed: currentPage > 0 ? () => widget.onPageChanged(currentPage - 1) : null,
+            child: const Text('Précédent'),
+          ),
+          const SizedBox(width: 8),
+          ...List.generate(endPage - startPage, (index) {
+            final pageIndex = startPage + index;
+            return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: ElevatedButton(
-                onPressed: i == widget.state.inventairePage ? null : () => widget.onPageChanged(i),
+                onPressed: () => widget.onPageChanged(pageIndex),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: i == widget.state.inventairePage ? Colors.orange : Colors.grey[300],
-                  foregroundColor: i == widget.state.inventairePage ? Colors.white : Colors.black,
+                  backgroundColor: pageIndex == currentPage ? Colors.orange : Colors.grey[300],
+                  foregroundColor: pageIndex == currentPage ? Colors.white : Colors.black,
                 ),
-                child: Text('${i + 1}'),
+                child: Text('${pageIndex + 1}'),
               ),
-            ),
+            );
+          }),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: currentPage < totalPages - 1 ? () => widget.onPageChanged(currentPage + 1) : null,
+            child: const Text('Suivant'),
+          ),
+          IconButton(
+            onPressed: currentPage < totalPages - 1 ? () => widget.onPageChanged(totalPages - 1) : null,
+            icon: const Icon(Icons.last_page),
+            tooltip: 'Aller à la fin',
+          ),
         ],
       ),
     );

@@ -400,8 +400,14 @@ class _StockTabNewState extends State<StockTabNew> {
   /// Pagination buttons
   Widget _buildStockPagination() {
     final totalPages = widget.state.totalStockPages;
+    final currentPage = widget.state.stockPage;
 
     if (totalPages <= 1) return const SizedBox.shrink();
+
+    // Calculer la plage de pages à afficher (max 10)
+    const maxVisiblePages = 10;
+    int startPage = (currentPage ~/ maxVisiblePages) * maxVisiblePages;
+    int endPage = (startPage + maxVisiblePages).clamp(0, totalPages);
 
     return Container(
       padding: const EdgeInsets.all(8),
@@ -412,32 +418,40 @@ class _StockTabNewState extends State<StockTabNew> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (widget.state.stockPage > 0)
-            ElevatedButton(
-              onPressed: () => widget.onPageChanged(widget.state.stockPage - 1),
-              child: const Text('Précédent'),
-            ),
-          const SizedBox(width: 8),
-          ...List.generate(
-            totalPages,
-            (index) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: ElevatedButton(
-                onPressed: () => widget.onPageChanged(index),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: index == widget.state.stockPage ? Colors.blue : Colors.grey[300],
-                  foregroundColor: index == widget.state.stockPage ? Colors.white : Colors.black,
-                ),
-                child: Text('${index + 1}'),
-              ),
-            ),
+          IconButton(
+            onPressed: currentPage > 0 ? () => widget.onPageChanged(0) : null,
+            icon: const Icon(Icons.first_page),
+            tooltip: 'Aller au début',
+          ),
+          ElevatedButton(
+            onPressed: currentPage > 0 ? () => widget.onPageChanged(currentPage - 1) : null,
+            child: const Text('Précédent'),
           ),
           const SizedBox(width: 8),
-          if (widget.state.stockPage < totalPages - 1)
-            ElevatedButton(
-              onPressed: () => widget.onPageChanged(widget.state.stockPage + 1),
-              child: const Text('Suivant'),
-            ),
+          ...List.generate(endPage - startPage, (index) {
+            final pageIndex = startPage + index;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: ElevatedButton(
+                onPressed: () => widget.onPageChanged(pageIndex),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: pageIndex == currentPage ? Colors.blue : Colors.grey[300],
+                  foregroundColor: pageIndex == currentPage ? Colors.white : Colors.black,
+                ),
+                child: Text('${pageIndex + 1}'),
+              ),
+            );
+          }),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: currentPage < totalPages - 1 ? () => widget.onPageChanged(currentPage + 1) : null,
+            child: const Text('Suivant'),
+          ),
+          IconButton(
+            onPressed: currentPage < totalPages - 1 ? () => widget.onPageChanged(totalPages - 1) : null,
+            icon: const Icon(Icons.last_page),
+            tooltip: 'Aller à la fin',
+          ),
         ],
       ),
     );

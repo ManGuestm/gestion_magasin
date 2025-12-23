@@ -92,7 +92,9 @@ class _LoginScreenState extends State<LoginScreen> {
           module: 'LOGIN_SCREEN',
           details: 'Connexion réussie',
         );
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const HomeScreen()));
+        if (mounted) {
+          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (context) => const HomeScreen()));
+        }
       } else if (mounted) {
         await AuditService().log(
           userId: 'system',
