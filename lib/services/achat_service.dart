@@ -268,9 +268,11 @@ class AchatService {
       quantiteAchat: quantite,
     );
 
-    final stockActuel = await (_databaseService.database.select(
+    final stocksQuery = await (_databaseService.database.select(
       _databaseService.database.depart,
-    )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).getSingleOrNull();
+    )..where((d) => d.designation.equals(article.designation) & d.depots.equals(depot))).get();
+    
+    final stockActuel = stocksQuery.firstOrNull;
 
     if (stockActuel != null) {
       final nouveauStockU1 = (stockActuel.stocksu1 ?? 0) + conversions['u1']!;
@@ -450,6 +452,9 @@ class AchatService {
 
   /// Valide un achat brouillard vers journal
   Future<void> validerAchatBrouillard(String numAchats) async {
+    debugPrint('🔄 === DÉBUT VALIDATION ACHAT BROUILLARD → JOURNAL ===');
+    debugPrint('📋 N° Achat: $numAchats');
+    
     // 🔥 En mode CLIENT, envoyer au serveur via customStatement
     if (_databaseService.isNetworkMode) {
       await _validerAchatBrouillardViaServeur(numAchats);
@@ -457,50 +462,90 @@ class AchatService {
     }
     
     // Mode LOCAL/SERVER : traiter localement
-    final achat = await (_databaseService.database.select(
+    debugPrint('🔍 Recherche achat brouillard N° $numAchats...');
+    final achatsQuery = await (_databaseService.database.select(
       _databaseService.database.achats,
-    )..where((a) => a.numachats.equals(numAchats))).getSingleOrNull();
+    )..where((a) => a.numachats.equals(numAchats))).get();
+    
+    debugPrint('📊 Nombre d\'achats trouvés: ${achatsQuery.length}');
+    if (achatsQuery.length > 1) {
+      debugPrint('⚠️ ATTENTION: Plusieurs achats avec le même numéro!');
+      for (var i = 0; i < achatsQuery.length; i++) {
+        debugPrint('   Achat $i: ${achatsQuery[i].numachats} - ${achatsQuery[i].verification}');
+      }
+    }
+    
+    final achat = achatsQuery.firstOrNull;
 
     if (achat == null) {
+      debugPrint('❌ Achat non trouvé');
       throw Exception('Achat non trouvé');
     }
+    debugPrint('✅ Achat trouvé: ${achat.verification}');
+    debugPrint('📋 Fournisseur: ${achat.frns}');
+    debugPrint('📋 Mode paiement: ${achat.modepai}');
+    debugPrint('📋 Total TTC: ${achat.totalttc}');
 
+    debugPrint('🔍 Récupération des lignes d\'achat...');
     final details = await (_databaseService.database.select(
       _databaseService.database.detachats,
     )..where((d) => d.numachats.equals(numAchats))).get();
+    debugPrint('📊 Nombre de lignes trouvées: ${details.length}');
 
     await _databaseService.database.transaction(() async {
       // Mettre à jour le statut de l'achat
+      debugPrint('📝 Mise à jour statut vers JOURNAL...');
       await (_databaseService.database.update(_databaseService.database.achats)
             ..where((a) => a.numachats.equals(numAchats)))
           .write(const AchatsCompanion(verification: Value('JOURNAL')));
+      debugPrint('✅ Statut mis à jour');
 
       // Traiter chaque ligne pour créer SEULEMENT les mouvements de stock (pas réinsérer detachats)
+      debugPrint('🔄 Traitement des lignes d\'achat...');
+      int ligneTraitee = 0;
       for (final detail in details) {
-        if (detail.designation != null &&
-            detail.depots != null &&
-            detail.unites != null &&
-            detail.q != null) {
-          await _traiterLigneAchatSansDetail(
-            numAchats: numAchats,
-            ligne: {
-              'designation': detail.designation!,
-              'unite': detail.unites!,
-              'depot': detail.depots!,
-              'quantite': detail.q!,
-              'prixUnitaire': detail.pu ?? 0.0,
-            },
-            date: achat.daty ?? DateTime.now(),
-            fournisseur: achat.frns,
-          );
+        try {
+          ligneTraitee++;
+          debugPrint('\n📦 === Ligne $ligneTraitee/${details.length} ===');
+          debugPrint('   Désignation: ${detail.designation}');
+          debugPrint('   Dépôt: ${detail.depots}');
+          debugPrint('   Unité: ${detail.unites}');
+          debugPrint('   Quantité: ${detail.q}');
+          
+          if (detail.designation != null &&
+              detail.depots != null &&
+              detail.unites != null &&
+              detail.q != null) {
+            await _traiterLigneAchatSansDetail(
+              numAchats: numAchats,
+              ligne: {
+                'designation': detail.designation!,
+                'unite': detail.unites!,
+                'depot': detail.depots!,
+                'quantite': detail.q!,
+                'prixUnitaire': detail.pu ?? 0.0,
+              },
+              date: achat.daty ?? DateTime.now(),
+              fournisseur: achat.frns,
+            );
+            debugPrint('✅ Ligne $ligneTraitee traitée avec succès');
+          } else {
+            debugPrint('⚠️ Ligne $ligneTraitee ignorée (données manquantes)');
+          }
+        } catch (e) {
+          debugPrint('❌ ERREUR ligne $ligneTraitee (${detail.designation}): $e');
+          throw Exception('Erreur ligne $ligneTraitee (${detail.designation}): $e');
         }
       }
       
       // Synchroniser les stocks globaux après traitement
+      debugPrint('\n🔄 Synchronisation stocks globaux...');
       await _synchroniserStocksGlobauxAchat(details);
+      debugPrint('✅ Stocks globaux synchronisés');
 
       // Ajuster compte fournisseur si crédit
       if (achat.modepai == 'A crédit' && achat.frns != null && achat.frns!.isNotEmpty) {
+        debugPrint('💳 Ajustement compte fournisseur à crédit...');
         await _ajusterCompteFournisseur(
           fournisseur: achat.frns!,
           numAchats: numAchats,
@@ -508,17 +553,22 @@ class AchatService {
           montant: achat.totalttc ?? 0,
           date: achat.daty ?? DateTime.now(),
         );
+        debugPrint('✅ Compte fournisseur ajusté');
       }
 
       // Mouvement caisse si espèces
       if (achat.modepai == 'Espèces') {
+        debugPrint('💰 Création mouvement caisse...');
         await _mouvementCaisseAchat(
           numAchats: numAchats,
           montant: achat.totalttc ?? 0,
           fournisseur: achat.frns,
           date: achat.daty ?? DateTime.now(),
         );
+        debugPrint('✅ Mouvement caisse créé');
       }
+      
+      debugPrint('\n✅ === VALIDATION ACHAT BROUILLARD → JOURNAL TERMINÉE ===\n');
     });
   }
 
@@ -536,26 +586,41 @@ class AchatService {
     final prixUnitaire = ligne['prixUnitaire'] as double;
 
     // Récupérer l'article
-    final article = await (_databaseService.database.select(
+    debugPrint('🔍 Recherche article $designation...');
+    final articlesQuery = await (_databaseService.database.select(
       _databaseService.database.articles,
-    )..where((a) => a.designation.equals(designation))).getSingleOrNull();
+    )..where((a) => a.designation.equals(designation))).get();
+    
+    debugPrint('📊 Nombre d\'articles trouvés: ${articlesQuery.length}');
+    if (articlesQuery.length > 1) {
+      debugPrint('⚠️ ATTENTION: Plusieurs articles avec la même désignation!');
+    }
+    
+    final article = articlesQuery.firstOrNull;
 
     if (article == null) {
+      debugPrint('❌ Article $designation non trouvé');
       throw Exception('Article $designation non trouvé');
     }
+    debugPrint('✅ Article trouvé');
 
     // Augmenter stocks par dépôt
+    debugPrint('📈 Augmentation stock dépôt...');
     await _augmenterStockDepot(article: article, depot: depot, unite: unite, quantite: quantite);
+    debugPrint('✅ Stock dépôt augmenté');
 
     // Calculer et mettre à jour le CMUP
+    debugPrint('🧮 Calcul CMUP...');
     final nouveauCMUP = await _calculerEtMettreAJourCMUP(
       article: article,
       unite: unite,
       quantite: quantite,
       prixUnitaire: prixUnitaire,
     );
+    debugPrint('✅ CMUP calculé: $nouveauCMUP');
 
     // Créer mouvement stock d'entrée avec le CMUP calculé
+    debugPrint('📝 Création mouvement stock...');
     await _creerMouvementStockAchat(
       numAchats: numAchats,
       article: article,
@@ -567,12 +632,17 @@ class AchatService {
       date: date,
       cmup: nouveauCMUP,
     );
+    debugPrint('✅ Mouvement stock créé');
 
     // Ajuster stock global article
+    debugPrint('📈 Ajustement stock global...');
     await _ajusterStockGlobalArticleAchat(article: article, unite: unite, quantite: quantite);
+    debugPrint('✅ Stock global ajusté');
 
     // Mettre à jour fiche stock
+    debugPrint('📋 Mise à jour fiche stock...');
     await _mettreAJourFicheStockAchat(designation: designation, unite: unite, quantite: quantite);
+    debugPrint('✅ Fiche stock mise à jour');
   }
 
   /// Calcule et met à jour le CMUP de l'article
@@ -598,9 +668,20 @@ class AchatService {
     required String unite,
     required double quantite,
   }) async {
-    final ficheExiste = await (_databaseService.database.select(
+    debugPrint('🔍 Recherche fiche stock pour: $designation');
+    final fichesQuery = await (_databaseService.database.select(
       _databaseService.database.fstocks,
-    )..where((f) => f.art.equals(designation))).getSingleOrNull();
+    )..where((f) => f.art.equals(designation))).get();
+    
+    debugPrint('📊 Nombre de fiches trouvées: ${fichesQuery.length}');
+    if (fichesQuery.length > 1) {
+      debugPrint('⚠️ ATTENTION: Plusieurs fiches stock pour le même article!');
+      for (var i = 0; i < fichesQuery.length; i++) {
+        debugPrint('   Fiche $i: ${fichesQuery[i].ref} - ${fichesQuery[i].art}');
+      }
+    }
+    
+    final ficheExiste = fichesQuery.firstOrNull;
 
     if (ficheExiste != null) {
       // Mettre à jour la fiche existante - pour les achats on augmente qe (entrées)
@@ -978,9 +1059,11 @@ class AchatService {
     required String unite,
     required double quantite,
   }) async {
-    final ficheExiste = await (_databaseService.database.select(
+    final fichesQuery = await (_databaseService.database.select(
       _databaseService.database.fstocks,
-    )..where((f) => f.art.equals(designation))).getSingleOrNull();
+    )..where((f) => f.art.equals(designation))).get();
+    
+    final ficheExiste = fichesQuery.firstOrNull;
 
     if (ficheExiste != null) {
       // Mettre à jour la fiche existante - pour les contre-passements on augmente qs (sorties)

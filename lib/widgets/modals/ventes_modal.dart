@@ -3516,7 +3516,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                             ),
                             pw.Text(
                               'MODE DE PAIEMENT: ${_selectedModePaiement ?? ""}',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
+                              style: pw.TextStyle(fontSize: pdfFontSize - 2, fontWeight: pw.FontWeight.bold),
                             ),
                           ],
                         ),
@@ -3529,8 +3529,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                   decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   child: pw.Table(
                     border: const pw.TableBorder(
-                      horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
-                      verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                      horizontalInside: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
+                      verticalInside: pw.BorderSide.none,
                     ),
                     children: [
                       pw.TableRow(
@@ -3602,6 +3602,13 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                 AppFunctions.formatNumber(ligne['montant']?.toDouble() ?? 0),
                                 style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                 textAlign: pw.TextAlign.right,
+                              ),
+                            ),
+                            pw.Container(
+                              decoration: const pw.BoxDecoration(
+                                border: pw.Border(
+                                  bottom: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
+                                ),
                               ),
                             ),
                           ],
@@ -3836,8 +3843,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                   decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   child: pw.Table(
                     border: const pw.TableBorder(
-                      horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
-                      verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                      horizontalInside: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
+                      verticalInside: pw.BorderSide.none,
                     ),
                     children: [
                       pw.TableRow(

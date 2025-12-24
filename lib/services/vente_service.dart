@@ -403,9 +403,20 @@ class VenteService {
     required String unite,
     required double quantite,
   }) async {
-    final ficheExiste = await (_databaseService.database.select(
+    debugPrint('🔍 Recherche fiche stock pour: $designation');
+    final fichesQuery = await (_databaseService.database.select(
       _databaseService.database.fstocks,
-    )..where((f) => f.art.equals(designation))).getSingleOrNull();
+    )..where((f) => f.art.equals(designation))).get();
+    
+    debugPrint('📊 Nombre de fiches trouvées: ${fichesQuery.length}');
+    if (fichesQuery.length > 1) {
+      debugPrint('⚠️ ATTENTION: Plusieurs fiches stock pour le même article!');
+      for (var i = 0; i < fichesQuery.length; i++) {
+        debugPrint('   Fiche $i: ${fichesQuery[i].ref} - ${fichesQuery[i].art}');
+      }
+    }
+    
+    final ficheExiste = fichesQuery.firstOrNull;
 
     if (ficheExiste != null) {
       // Mettre à jour la fiche existante
@@ -580,20 +591,42 @@ class VenteService {
     required double? avance,
     required double? remise,
   }) async {
+    debugPrint('🔄 === DÉBUT VALIDATION BROUILLARD → JOURNAL ===');
+    debugPrint('📋 N° Vente: $numVentes');
+    debugPrint('📋 Client: $client');
+    debugPrint('📋 Mode paiement: $modePaiement');
+    debugPrint('📋 Total TTC: $totalTTC');
+    
     await _databaseService.database.transaction(() async {
       final currentUser = AuthService().currentUser;
       final validateur = currentUser?.nom ?? '';
+      debugPrint('👤 Validateur: $validateur');
 
       // Récupérer le vendeur original de la vente brouillard
-      final venteBrouillard = await (_databaseService.database.select(
+      debugPrint('🔍 Recherche vente brouillard N° $numVentes...');
+      final ventesQuery = await (_databaseService.database.select(
         _databaseService.database.ventes,
-      )..where((v) => v.numventes.equals(numVentes))).getSingleOrNull();
+      )..where((v) => v.numventes.equals(numVentes))).get();
+      
+      debugPrint('📊 Nombre de ventes trouvées: ${ventesQuery.length}');
+      if (ventesQuery.length > 1) {
+        debugPrint('⚠️ ATTENTION: Plusieurs ventes avec le même numéro!');
+        for (var i = 0; i < ventesQuery.length; i++) {
+          debugPrint('   Vente $i: ${ventesQuery[i].numventes} - ${ventesQuery[i].verification}');
+        }
+      }
+      
+      final venteBrouillard = ventesQuery.firstOrNull;
 
       if (venteBrouillard == null) {
+        debugPrint('❌ Vente brouillard N° $numVentes non trouvée');
         throw Exception('Vente brouillard N° $numVentes non trouvée');
       }
+      
+      debugPrint('✅ Vente brouillard trouvée: ${venteBrouillard.verification}');
 
       final vendeurOriginal = venteBrouillard.commerc ?? '';
+      debugPrint('👤 Vendeur original: $vendeurOriginal');
 
       // Créer le champ commercial combiné : Vendeur + Validateur
       String commercialCombine;
@@ -602,8 +635,10 @@ class VenteService {
       } else {
         commercialCombine = validateur;
       }
+      debugPrint('👥 Commercial combiné: $commercialCombine');
 
       // 1. Mettre à jour la vente vers JOURNAL
+      debugPrint('📝 Mise à jour vente vers JOURNAL...');
       await (_databaseService.database.update(
         _databaseService.database.ventes,
       )..where((v) => v.numventes.equals(numVentes))).write(
@@ -618,40 +653,68 @@ class VenteService {
           verification: const Value('JOURNAL'),
         ),
       );
+      debugPrint('✅ Vente mise à jour vers JOURNAL');
 
       // 2. Récupérer les détails de vente
+      debugPrint('🔍 Récupération des lignes de vente...');
       final details = await (_databaseService.database.select(
         _databaseService.database.detventes,
       )..where((d) => d.numventes.equals(numVentes))).get();
+      debugPrint('📊 Nombre de lignes trouvées: ${details.length}');
 
       if (details.isEmpty) {
+        debugPrint('❌ Aucune ligne de vente trouvée');
         throw Exception('Aucune ligne de vente trouvée pour N° $numVentes');
       }
 
       // 3. Traiter chaque ligne pour créer les mouvements de stock
       int ligneTraitee = 0;
+      debugPrint('🔄 Traitement des lignes de vente...');
       for (final detail in details) {
         try {
+          ligneTraitee++;
+          debugPrint('\n📦 === Ligne $ligneTraitee/${details.length} ===');
+          debugPrint('   Désignation: ${detail.designation}');
+          debugPrint('   Dépôt: ${detail.depots}');
+          debugPrint('   Unité: ${detail.unites}');
+          debugPrint('   Quantité: ${detail.q}');
+          
           if (detail.designation != null &&
               detail.depots != null &&
               detail.unites != null &&
               detail.q != null) {
-            final article = await (_databaseService.database.select(
+            debugPrint('🔍 Recherche article ${detail.designation}...');
+            final articlesQuery = await (_databaseService.database.select(
               _databaseService.database.articles,
-            )..where((a) => a.designation.equals(detail.designation!))).getSingleOrNull();
+            )..where((a) => a.designation.equals(detail.designation!))).get();
+            
+            debugPrint('📊 Nombre d\'articles trouvés: ${articlesQuery.length}');
+            if (articlesQuery.length > 1) {
+              debugPrint('⚠️ ATTENTION: Plusieurs articles avec la même désignation!');
+              for (var i = 0; i < articlesQuery.length; i++) {
+                debugPrint('   Article $i: ${articlesQuery[i].designation}');
+              }
+            }
+            
+            final article = articlesQuery.firstOrNull;
 
             if (article == null) {
+              debugPrint('❌ Article ${detail.designation} non trouvé');
               throw Exception('Article ${detail.designation} non trouvé');
             }
+            debugPrint('✅ Article trouvé: ${article.designation}');
 
             // Traiter la ligne de manière séquentielle pour éviter les conflits
+            debugPrint('📉 Réduction stock dépôt...');
             await _reduireStockDepot(
               article: article,
               depot: detail.depots!,
               unite: detail.unites!,
               quantite: detail.q!,
             );
+            debugPrint('✅ Stock dépôt réduit');
 
+            debugPrint('📝 Création mouvement stock...');
             await _creerMouvementStock(
               numVentes: numVentes,
               article: article,
@@ -662,43 +725,60 @@ class VenteService {
               client: client,
               date: detail.daty ?? DateTime.now(),
             );
+            debugPrint('✅ Mouvement stock créé');
 
             // Recharger l'article pour avoir les stocks à jour
-            final articleActuel = await (_databaseService.database.select(
+            debugPrint('🔄 Rechargement article pour stocks à jour...');
+            final articleActuelQuery = await (_databaseService.database.select(
               _databaseService.database.articles,
-            )..where((a) => a.designation.equals(detail.designation!))).getSingleOrNull();
+            )..where((a) => a.designation.equals(detail.designation!))).get();
+            
+            final articleActuel = articleActuelQuery.firstOrNull;
             
             if (articleActuel != null) {
+              debugPrint('📉 Ajustement stock global...');
               await _ajusterStockGlobalArticle(
                 article: articleActuel, 
                 unite: detail.unites!, 
                 quantite: detail.q!,
               );
+              debugPrint('✅ Stock global ajusté');
             }
 
+            debugPrint('📋 Mise à jour fiche stock...');
             await _mettreAJourFicheStock(
               designation: detail.designation!,
               unite: detail.unites!,
               quantite: detail.q!,
             );
+            debugPrint('✅ Fiche stock mise à jour');
             
-            ligneTraitee++;
+            debugPrint('✅ Ligne $ligneTraitee traitée avec succès');
+          } else {
+            debugPrint('⚠️ Ligne $ligneTraitee ignorée (données manquantes)');
           }
         } catch (e) {
-          throw Exception('Erreur lors du traitement de la ligne ${ligneTraitee + 1} (${detail.designation}): $e');
+          debugPrint('❌ ERREUR ligne $ligneTraitee (${detail.designation}): $e');
+          throw Exception('Erreur lors du traitement de la ligne $ligneTraitee (${detail.designation}): $e');
         }
       }
 
       // Vérifier que toutes les lignes ont été traitées
+      debugPrint('\n📊 Vérification traitement: $ligneTraitee/${details.length} lignes');
       if (ligneTraitee != details.length) {
+        debugPrint('❌ Toutes les lignes n\'ont pas été traitées');
         throw Exception('Toutes les lignes n\'ont pas été traitées correctement ($ligneTraitee/${details.length})');
       }
+      debugPrint('✅ Toutes les lignes traitées avec succès');
       
       // Synchroniser les stocks globaux après traitement
+      debugPrint('🔄 Synchronisation stocks globaux...');
       await _synchroniserStocksGlobaux(details);
+      debugPrint('✅ Stocks globaux synchronisés');
 
       // 4. Ajuster compte client si crédit
       if (modePaiement == 'A crédit' && client != null && client.isNotEmpty) {
+        debugPrint('💳 Ajustement compte client à crédit...');
         await _ajusterCompteClient(
           client: client,
           numVentes: numVentes,
@@ -706,17 +786,22 @@ class VenteService {
           montant: totalTTC - (avance ?? 0),
           date: DateTime.now(),
         );
+        debugPrint('✅ Compte client ajusté');
       }
 
       // 5. Mouvement caisse si espèces
       if (modePaiement == 'Espèces') {
+        debugPrint('💰 Création mouvement caisse...');
         await _mouvementCaisse(
           numVentes: numVentes, 
           montant: totalTTC, 
           client: client, 
           date: DateTime.now(),
         );
+        debugPrint('✅ Mouvement caisse créé');
       }
+      
+      debugPrint('\n✅ === VALIDATION BROUILLARD → JOURNAL TERMINÉE ===\n');
     });
   }
 

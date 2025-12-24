@@ -5,8 +5,9 @@ import 'package:printing/printing.dart';
 
 import '../../constants/app_functions.dart';
 import '../../database/database.dart';
+import '../../services/auth_service.dart';
 
-class FacturePreview extends StatelessWidget {
+class FacturePreview extends StatefulWidget {
   final String numVente;
   final String nFacture;
   final String date;
@@ -32,70 +33,83 @@ class FacturePreview extends StatelessWidget {
     required this.modePaiement,
   });
 
+  @override
+  State<FacturePreview> createState() => _FacturePreviewState();
+}
+
+class _FacturePreviewState extends State<FacturePreview> {
+  double _zoomLevel = 1.0;
+
   double get _pageWidth {
-    switch (format) {
+    switch (widget.format) {
       case 'A4':
-        return 800;
+        return 800 * _zoomLevel;
       case 'A6':
-        return 400;
+        return 400 * _zoomLevel;
       default:
-        return 600; // A5
+        return 600 * _zoomLevel;
     }
   }
 
   double get _pageHeight {
-    switch (format) {
+    switch (widget.format) {
       case 'A4':
-        return 1100;
+        return 1100 * _zoomLevel;
       case 'A6':
-        return 600;
+        return 600 * _zoomLevel;
       default:
-        return 850; // A5
+        return 850 * _zoomLevel;
     }
   }
 
   double get _fontSize {
-    switch (format) {
+    switch (widget.format) {
       case 'A6':
-        return 9;
+        return 9 * _zoomLevel;
       case 'A5':
-        return 11;
+        return 11 * _zoomLevel;
       default:
-        return 12; // A4
+        return 12 * _zoomLevel;
     }
   }
 
   double get _headerFontSize {
-    switch (format) {
+    switch (widget.format) {
       case 'A6':
-        return 10;
+        return 10 * _zoomLevel;
       case 'A5':
-        return 12;
+        return 12 * _zoomLevel;
       default:
-        return 14; // A4
+        return 14 * _zoomLevel;
     }
   }
 
   double get _padding {
-    switch (format) {
+    switch (widget.format) {
       case 'A6':
-        return 8;
+        return 8 * _zoomLevel;
       case 'A5':
-        return 12;
+        return 12 * _zoomLevel;
       default:
-        return 16; // A4
+        return 16 * _zoomLevel;
     }
   }
 
   PdfPageFormat get _pdfPageFormat {
-    switch (format) {
+    switch (widget.format) {
       case 'A4':
         return PdfPageFormat.a4;
       case 'A6':
         return PdfPageFormat.a6;
       default:
-        return PdfPageFormat.a5; // A5
+        return PdfPageFormat.a5;
     }
+  }
+
+  bool _canPrint() {
+    final authService = AuthService();
+    final role = authService.currentUserRole;
+    return role == 'Administrateur' || role == 'Caisse';
   }
 
   String _formatNumber(double number) {
@@ -125,7 +139,7 @@ class FacturePreview extends StatelessWidget {
                 const Icon(Icons.receipt, color: Colors.white, size: 16),
                 const SizedBox(width: 8),
                 Text(
-                  'Aperçu Facture N° $nFacture - Format $format',
+                  'Aperçu Facture N° ${widget.nFacture} - Format ${widget.format}',
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
               ],
@@ -137,18 +151,34 @@ class FacturePreview extends StatelessWidget {
             color: Colors.grey[200],
             child: Row(
               children: [
-                ElevatedButton.icon(
-                  onPressed: () => _imprimer(context),
-                  icon: const Icon(Icons.print, size: 16),
-                  label: const Text('Imprimer'),
+                if (_canPrint()) ...[
+                  ElevatedButton.icon(
+                    onPressed: () => _imprimer(context),
+                    icon: const Icon(Icons.print, size: 16),
+                    label: const Text('Imprimer'),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
+                const SizedBox(width: 16),
+                IconButton(
+                  onPressed: () => setState(() => _zoomLevel = (_zoomLevel - 0.1).clamp(0.5, 2.0)),
+                  icon: const Icon(Icons.zoom_out),
+                  tooltip: 'Zoom -',
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Fermer'),
+                Text('${(_zoomLevel * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                IconButton(
+                  onPressed: () => setState(() => _zoomLevel = (_zoomLevel + 0.1).clamp(0.5, 2.0)),
+                  icon: const Icon(Icons.zoom_in),
+                  tooltip: 'Zoom +',
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _zoomLevel = 1.0),
+                  icon: const Icon(Icons.fit_screen),
+                  tooltip: 'Réinitialiser',
                 ),
                 const Spacer(),
-                Text('Format: $format', style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text('Format: ${widget.format}', style: const TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -172,10 +202,7 @@ class FacturePreview extends StatelessWidget {
                     ],
                   ),
                   child: SingleChildScrollView(
-                    child: Container(
-                      padding: EdgeInsets.all(_padding),
-                      child: _buildFactureContent(),
-                    ),
+                    child: Container(padding: EdgeInsets.all(_padding), child: _buildFactureContent()),
                   ),
                 ),
               ),
@@ -202,11 +229,7 @@ class FacturePreview extends StatelessWidget {
             ),
             child: Text(
               'FACTURE',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: _headerFontSize + 2,
-                letterSpacing: 2,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: _headerFontSize + 2, letterSpacing: 2),
             ),
           ),
         ),
@@ -215,9 +238,7 @@ class FacturePreview extends StatelessWidget {
 
         // Header section with company and document info
         Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black, width: 1),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
           padding: EdgeInsets.all(_padding / 2),
           child: Column(
             children: [
@@ -235,49 +256,25 @@ class FacturePreview extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: _fontSize - 1),
                         ),
                         Text(
-                          societe?.rsoc ?? 'SOCIÉTÉ',
+                          widget.societe?.rsoc ?? 'SOCIÉTÉ',
                           style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.w600),
                         ),
-                        if (societe?.activites != null)
-                          Text(
-                            societe!.activites!,
-                            style: TextStyle(fontSize: _fontSize - 1),
-                          ),
-                        if (societe?.adr != null)
-                          Text(
-                            societe!.adr!,
-                            style: TextStyle(fontSize: _fontSize - 1),
-                          ),
-                        if (societe?.rcs != null)
-                          Text(
-                            'RCS: ${societe!.rcs!}',
-                            style: TextStyle(fontSize: _fontSize - 2),
-                          ),
-                        if (societe?.nif != null)
-                          Text(
-                            'NIF: ${societe!.nif!}',
-                            style: TextStyle(fontSize: _fontSize - 2),
-                          ),
-                        if (societe?.stat != null)
-                          Text(
-                            'STAT: ${societe!.stat!}',
-                            style: TextStyle(fontSize: _fontSize - 2),
-                          ),
-                        if (societe?.cif != null)
-                          Text(
-                            'CIF: ${societe!.cif!}',
-                            style: TextStyle(fontSize: _fontSize - 2),
-                          ),
-                        if (societe?.email != null)
-                          Text(
-                            'Email: ${societe!.email!}',
-                            style: TextStyle(fontSize: _fontSize - 2),
-                          ),
-                        if (societe?.port != null)
-                          Text(
-                            'Tél: ${societe!.port!}',
-                            style: TextStyle(fontSize: _fontSize - 2),
-                          ),
+                        if (widget.societe?.activites != null)
+                          Text(widget.societe!.activites!, style: TextStyle(fontSize: _fontSize - 1)),
+                        if (widget.societe?.adr != null)
+                          Text(widget.societe!.adr!, style: TextStyle(fontSize: _fontSize - 1)),
+                        if (widget.societe?.rcs != null)
+                          Text('RCS: ${widget.societe!.rcs!}', style: TextStyle(fontSize: _fontSize - 2)),
+                        if (widget.societe?.nif != null)
+                          Text('NIF: ${widget.societe!.nif!}', style: TextStyle(fontSize: _fontSize - 2)),
+                        if (widget.societe?.stat != null)
+                          Text('STAT: ${widget.societe!.stat!}', style: TextStyle(fontSize: _fontSize - 2)),
+                        if (widget.societe?.cif != null)
+                          Text('CIF: ${widget.societe!.cif!}', style: TextStyle(fontSize: _fontSize - 2)),
+                        if (widget.societe?.email != null)
+                          Text('Email: ${widget.societe!.email!}', style: TextStyle(fontSize: _fontSize - 2)),
+                        if (widget.societe?.port != null)
+                          Text('Tél: ${widget.societe!.port!}', style: TextStyle(fontSize: _fontSize - 2)),
                       ],
                     ),
                   ),
@@ -286,10 +283,10 @@ class FacturePreview extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildInfoRow('N° FACTURE:', nFacture),
-                        _buildInfoRow('DATE:', date),
-                        _buildInfoRow('CLIENT:', client),
-                        _buildInfoRow('MODE PAIEMENT:', modePaiement),
+                        _buildInfoRow('N° FACTURE:', widget.nFacture),
+                        _buildInfoRow('DATE:', widget.date),
+                        _buildInfoRow('CLIENT:', widget.client),
+                        _buildInfoRow('MODE PAIEMENT:', widget.modePaiement),
                       ],
                     ),
                   ),
@@ -303,9 +300,7 @@ class FacturePreview extends StatelessWidget {
 
         // Articles table
         Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black, width: 1),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
           child: Column(
             children: [
               // Table header
@@ -313,8 +308,8 @@ class FacturePreview extends StatelessWidget {
                 color: Colors.grey[200],
                 child: Table(
                   border: const TableBorder(
-                    horizontalInside: BorderSide(color: Colors.black, width: 0.5),
-                    verticalInside: BorderSide(color: Colors.black, width: 0.5),
+                    horizontalInside: BorderSide(color: Colors.grey, width: 0.5),
+                    verticalInside: BorderSide.none,
                   ),
                   columnWidths: const {
                     0: FlexColumnWidth(1),
@@ -342,9 +337,9 @@ class FacturePreview extends StatelessWidget {
               ),
               // Table data
               Table(
-                border: const TableBorder(
-                  horizontalInside: BorderSide(color: Colors.black, width: 0.5),
-                  verticalInside: BorderSide(color: Colors.black, width: 0.5),
+                border: TableBorder(
+                  horizontalInside: BorderSide(color: Colors.grey, width: 0.5),
+                  verticalInside: BorderSide.none,
                 ),
                 columnWidths: const {
                   0: FlexColumnWidth(1),
@@ -356,7 +351,7 @@ class FacturePreview extends StatelessWidget {
                   6: FlexColumnWidth(1.5),
                 },
                 children: [
-                  ...lignesVente.asMap().entries.map((entry) {
+                  ...widget.lignesVente.asMap().entries.map((entry) {
                     final index = entry.key + 1;
                     final ligne = entry.value;
                     return TableRow(
@@ -381,9 +376,7 @@ class FacturePreview extends StatelessWidget {
 
         // Totals section
         Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black, width: 1),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
           padding: EdgeInsets.all(_padding / 2),
           child: Column(
             children: [
@@ -393,13 +386,13 @@ class FacturePreview extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      if (remise > 0) _buildTotalRow('REMISE:', _formatNumber(remise)),
-        
+                      if (widget.remise > 0) _buildTotalRow('REMISE:', _formatNumber(widget.remise)),
+
                       Container(
                         decoration: const BoxDecoration(
                           border: Border(top: BorderSide(color: Colors.black)),
                         ),
-                        child: _buildTotalRow('TOTAL TTC:', _formatNumber(totalTTC), isBold: true),
+                        child: _buildTotalRow('TOTAL TTC:', _formatNumber(widget.totalTTC), isBold: true),
                       ),
                     ],
                   ),
@@ -409,16 +402,11 @@ class FacturePreview extends StatelessWidget {
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(_padding / 2),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black, width: 0.5),
-                ),
+                decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 0.5)),
                 alignment: Alignment.center,
                 child: Text(
-                  'Arrêté à la somme de ${AppFunctions.numberToWords(totalTTC.round())} Ariary',
-                  style: TextStyle(
-                    fontSize: _fontSize - 1,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  'Arrêté à la somme de ${AppFunctions.numberToWords(widget.totalTTC.round())} Ariary',
+                  style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -429,9 +417,7 @@ class FacturePreview extends StatelessWidget {
 
         // Signatures section
         Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black, width: 1),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
           padding: EdgeInsets.all(_padding),
           child: Row(
             children: [
@@ -440,10 +426,7 @@ class FacturePreview extends StatelessWidget {
                   children: [
                     Text(
                       'CLIENT',
-                      style: TextStyle(
-                        fontSize: _fontSize,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: _padding * 2),
                     Container(
@@ -452,27 +435,17 @@ class FacturePreview extends StatelessWidget {
                       margin: const EdgeInsets.symmetric(horizontal: 20),
                     ),
                     SizedBox(height: _padding / 2),
-                    Text(
-                      'Nom et signature',
-                      style: TextStyle(fontSize: _fontSize - 2),
-                    ),
+                    Text('Nom et signature', style: TextStyle(fontSize: _fontSize - 2)),
                   ],
                 ),
               ),
-              Container(
-                width: 1,
-                height: 80,
-                color: Colors.black,
-              ),
+              Container(width: 1, height: 80, color: Colors.black),
               Expanded(
                 child: Column(
                   children: [
                     Text(
                       'VENDEUR',
-                      style: TextStyle(
-                        fontSize: _fontSize,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: _padding * 2),
                     Container(
@@ -481,10 +454,7 @@ class FacturePreview extends StatelessWidget {
                       margin: const EdgeInsets.symmetric(horizontal: 20),
                     ),
                     SizedBox(height: _padding / 2),
-                    Text(
-                      'Nom et signature',
-                      style: TextStyle(fontSize: _fontSize - 2),
-                    ),
+                    Text('Nom et signature', style: TextStyle(fontSize: _fontSize - 2)),
                   ],
                 ),
               ),
@@ -505,19 +475,13 @@ class FacturePreview extends StatelessWidget {
             width: 90,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: _fontSize - 1,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.w500),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                fontSize: _fontSize - 1,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -527,16 +491,12 @@ class FacturePreview extends StatelessWidget {
 
   Widget _buildTableCell(String text, {bool isHeader = false, bool isAmount = false}) {
     return Container(
-      padding: EdgeInsets.all(format == 'A6' ? 3 : 6),
-      decoration: isHeader
-          ? BoxDecoration(
-              color: Colors.grey[200],
-            )
-          : null,
+      padding: EdgeInsets.all(widget.format == 'A6' ? 3 * _zoomLevel : 6 * _zoomLevel),
+      decoration: isHeader ? BoxDecoration(color: Colors.grey[200]) : null,
       child: Text(
         text,
         style: TextStyle(
-          fontSize: format == 'A6' ? 8 : (format == 'A5' ? 9 : 10),
+          fontSize: (widget.format == 'A6' ? 8 : (widget.format == 'A5' ? 9 : 10)) * _zoomLevel,
           fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
         ),
         textAlign: isHeader ? TextAlign.center : (isAmount ? TextAlign.right : TextAlign.left),
@@ -573,9 +533,9 @@ class FacturePreview extends StatelessWidget {
   // Générer le document PDF
   Future<pw.Document> _generatePdf() async {
     final pdf = pw.Document();
-    final pdfFontSize = format == 'A6' ? 7.0 : (format == 'A5' ? 9.0 : 10.0);
-    final pdfHeaderFontSize = format == 'A6' ? 8.0 : (format == 'A5' ? 10.0 : 12.0);
-    final pdfPadding = format == 'A6' ? 8.0 : (format == 'A5' ? 10.0 : 12.0);
+    final pdfFontSize = widget.format == 'A6' ? 7.0 : (widget.format == 'A5' ? 9.0 : 10.0);
+    final pdfHeaderFontSize = widget.format == 'A6' ? 8.0 : (widget.format == 'A5' ? 10.0 : 12.0);
+    final pdfPadding = widget.format == 'A6' ? 8.0 : (widget.format == 'A5' ? 10.0 : 12.0);
 
     pdf.addPage(
       pw.Page(
@@ -599,10 +559,7 @@ class FacturePreview extends StatelessWidget {
                     ),
                     child: pw.Text(
                       'FACTURE',
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: pdfHeaderFontSize + 2,
-                      ),
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize + 2),
                     ),
                   ),
                 ),
@@ -611,9 +568,7 @@ class FacturePreview extends StatelessWidget {
 
                 // Header section with company and document info
                 pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.black, width: 1),
-                  ),
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   padding: pw.EdgeInsets.all(pdfPadding / 2),
                   child: pw.Column(
                     children: [
@@ -628,51 +583,53 @@ class FacturePreview extends StatelessWidget {
                               children: [
                                 pw.Text(
                                   'SOCIÉTÉ:',
-                                  style:
-                                      pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
+                                  style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: pdfFontSize - 1,
+                                  ),
                                 ),
                                 pw.Text(
-                                  societe?.rsoc ?? 'SOCIÉTÉ',
+                                  widget.societe?.rsoc ?? 'SOCIÉTÉ',
                                   style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                                 ),
-                                if (societe?.activites != null)
+                                if (widget.societe?.activites != null)
                                   pw.Text(
-                                    societe!.activites!,
+                                    widget.societe!.activites!,
                                     style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                   ),
-                                if (societe?.adr != null)
+                                if (widget.societe?.adr != null)
                                   pw.Text(
-                                    societe!.adr!,
+                                    widget.societe!.adr!,
                                     style: pw.TextStyle(fontSize: pdfFontSize - 1),
                                   ),
-                                if (societe?.rcs != null)
+                                if (widget.societe?.rcs != null)
                                   pw.Text(
-                                    'RCS: ${societe!.rcs!}',
+                                    'RCS: ${widget.societe!.rcs!}',
                                     style: pw.TextStyle(fontSize: pdfFontSize - 2),
                                   ),
-                                if (societe?.nif != null)
+                                if (widget.societe?.nif != null)
                                   pw.Text(
-                                    'NIF: ${societe!.nif!}',
+                                    'NIF: ${widget.societe!.nif!}',
                                     style: pw.TextStyle(fontSize: pdfFontSize - 2),
                                   ),
-                                if (societe?.stat != null)
+                                if (widget.societe?.stat != null)
                                   pw.Text(
-                                    'STAT: ${societe!.stat!}',
+                                    'STAT: ${widget.societe!.stat!}',
                                     style: pw.TextStyle(fontSize: pdfFontSize - 2),
                                   ),
-                                if (societe?.cif != null)
+                                if (widget.societe?.cif != null)
                                   pw.Text(
-                                    'CIF: ${societe!.cif!}',
+                                    'CIF: ${widget.societe!.cif!}',
                                     style: pw.TextStyle(fontSize: pdfFontSize - 2),
                                   ),
-                                if (societe?.email != null)
+                                if (widget.societe?.email != null)
                                   pw.Text(
-                                    'Email: ${societe!.email!}',
+                                    'Email: ${widget.societe!.email!}',
                                     style: pw.TextStyle(fontSize: pdfFontSize - 2),
                                   ),
-                                if (societe?.port != null)
+                                if (widget.societe?.port != null)
                                   pw.Text(
-                                    'Tél: ${societe!.port!}',
+                                    'Tél: ${widget.societe!.port!}',
                                     style: pw.TextStyle(fontSize: pdfFontSize - 2),
                                   ),
                               ],
@@ -683,10 +640,10 @@ class FacturePreview extends StatelessWidget {
                             child: pw.Column(
                               crossAxisAlignment: pw.CrossAxisAlignment.start,
                               children: [
-                                _buildPdfInfoRow('N° FACTURE:', nFacture, pdfFontSize),
-                                _buildPdfInfoRow('DATE:', date, pdfFontSize),
-                                _buildPdfInfoRow('CLIENT:', client, pdfFontSize),
-                                _buildPdfInfoRow('MODE PAIEMENT:', modePaiement, pdfFontSize),
+                                _buildPdfInfoRow('N° FACTURE:', widget.nFacture, pdfFontSize),
+                                _buildPdfInfoRow('DATE:', widget.date, pdfFontSize),
+                                _buildPdfInfoRow('CLIENT:', widget.client, pdfFontSize),
+                                _buildPdfInfoRow('MODE PAIEMENT:', widget.modePaiement, pdfFontSize),
                               ],
                             ),
                           ),
@@ -700,9 +657,7 @@ class FacturePreview extends StatelessWidget {
 
                 // Articles table
                 pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.black, width: 1),
-                  ),
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   child: pw.Column(
                     children: [
                       // Table header
@@ -753,7 +708,7 @@ class FacturePreview extends StatelessWidget {
                           6: pw.FlexColumnWidth(1.5),
                         },
                         children: [
-                          ...lignesVente.asMap().entries.map((entry) {
+                          ...widget.lignesVente.asMap().entries.map((entry) {
                             final index = entry.key + 1;
                             final ligne = entry.value;
                             return pw.TableRow(
@@ -762,13 +717,19 @@ class FacturePreview extends StatelessWidget {
                                 _buildPdfTableCell(ligne['designation'] ?? '', pdfFontSize),
                                 _buildPdfTableCell(ligne['depot'] ?? 'MAG', pdfFontSize),
                                 _buildPdfTableCell(
-                                    _formatNumber(ligne['quantite']?.toDouble() ?? 0), pdfFontSize),
+                                  _formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                  pdfFontSize,
+                                ),
                                 _buildPdfTableCell(ligne['unites'] ?? '', pdfFontSize),
                                 _buildPdfTableCell(
-                                    _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0), pdfFontSize),
+                                  _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                  pdfFontSize,
+                                ),
                                 _buildPdfTableCell(
-                                    _formatNumber(ligne['montant']?.toDouble() ?? 0), pdfFontSize,
-                                    isAmount: true),
+                                  _formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                  pdfFontSize,
+                                  isAmount: true,
+                                ),
                               ],
                             );
                           }),
@@ -782,9 +743,7 @@ class FacturePreview extends StatelessWidget {
 
                 // Totals section
                 pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.black, width: 1),
-                  ),
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   padding: pw.EdgeInsets.all(pdfPadding / 2),
                   child: pw.Column(
                     children: [
@@ -794,14 +753,18 @@ class FacturePreview extends StatelessWidget {
                           pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.end,
                             children: [
-                              if (remise > 0)
-                                _buildPdfTotalRow('REMISE:', _formatNumber(remise), pdfFontSize),
+                              if (widget.remise > 0)
+                                _buildPdfTotalRow('REMISE:', _formatNumber(widget.remise), pdfFontSize),
                               pw.Container(
                                 decoration: const pw.BoxDecoration(
                                   border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
                                 ),
-                                child: _buildPdfTotalRow('TOTAL TTC:', _formatNumber(totalTTC), pdfFontSize,
-                                    isBold: true),
+                                child: _buildPdfTotalRow(
+                                  'TOTAL TTC:',
+                                  _formatNumber(widget.totalTTC),
+                                  pdfFontSize,
+                                  isBold: true,
+                                ),
                               ),
                             ],
                           ),
@@ -816,11 +779,8 @@ class FacturePreview extends StatelessWidget {
                         ),
                         alignment: pw.Alignment.center,
                         child: pw.Text(
-                          'Arrêté à la somme de ${AppFunctions.numberToWords(totalTTC.round())} Ariary',
-                          style: pw.TextStyle(
-                            fontSize: pdfFontSize - 1,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
+                          'Arrêté à la somme de ${AppFunctions.numberToWords(widget.totalTTC.round())} Ariary',
+                          style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
                         ),
                       ),
                     ],
@@ -831,9 +791,7 @@ class FacturePreview extends StatelessWidget {
 
                 // Signatures section
                 pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.black, width: 1),
-                  ),
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   padding: pw.EdgeInsets.all(pdfPadding),
                   child: pw.Row(
                     children: [
@@ -842,10 +800,7 @@ class FacturePreview extends StatelessWidget {
                           children: [
                             pw.Text(
                               'CLIENT',
-                              style: pw.TextStyle(
-                                fontSize: pdfFontSize,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
+                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                             ),
                             pw.SizedBox(height: pdfPadding * 2),
                             pw.Container(
@@ -854,27 +809,17 @@ class FacturePreview extends StatelessWidget {
                               margin: const pw.EdgeInsets.symmetric(horizontal: 20),
                             ),
                             pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text(
-                              'Nom et signature',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                            ),
+                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
                           ],
                         ),
                       ),
-                      pw.Container(
-                        width: 1,
-                        height: 60,
-                        color: PdfColors.black,
-                      ),
+                      pw.Container(width: 1, height: 60, color: PdfColors.black),
                       pw.Expanded(
                         child: pw.Column(
                           children: [
                             pw.Text(
                               'VENDEUR',
-                              style: pw.TextStyle(
-                                fontSize: pdfFontSize,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
+                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                             ),
                             pw.SizedBox(height: pdfPadding * 2),
                             pw.Container(
@@ -883,10 +828,7 @@ class FacturePreview extends StatelessWidget {
                               margin: const pw.EdgeInsets.symmetric(horizontal: 20),
                             ),
                             pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text(
-                              'Nom et signature',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                            ),
+                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
                           ],
                         ),
                       ),
@@ -905,7 +847,7 @@ class FacturePreview extends StatelessWidget {
 
   pw.Widget _buildPdfTableCell(String text, double fontSize, {bool isHeader = false, bool isAmount = false}) {
     return pw.Container(
-      padding: pw.EdgeInsets.all(format == 'A6' ? 3 : 5),
+      padding: pw.EdgeInsets.all(widget.format == 'A6' ? 3 : 5),
       child: pw.Text(
         text,
         style: pw.TextStyle(
@@ -927,19 +869,13 @@ class FacturePreview extends StatelessWidget {
             width: 90,
             child: pw.Text(
               label,
-              style: pw.TextStyle(
-                fontSize: fontSize - 1,
-                fontWeight: pw.FontWeight.normal,
-              ),
+              style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.normal),
             ),
           ),
           pw.Expanded(
             child: pw.Text(
               value,
-              style: pw.TextStyle(
-                fontSize: fontSize - 1,
-                fontWeight: pw.FontWeight.bold,
-              ),
+              style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.bold),
             ),
           ),
         ],
@@ -982,7 +918,7 @@ class FacturePreview extends StatelessWidget {
       // Ouvrir directement la boîte de dialogue d'impression Windows
       await Printing.layoutPdf(
         onLayout: (PdfPageFormat format) async => bytes,
-        name: 'Facture_${nFacture}_$date.pdf',
+        name: 'Facture_${widget.nFacture}_${widget.date}.pdf',
         format: _pdfPageFormat,
       );
     } catch (e) {

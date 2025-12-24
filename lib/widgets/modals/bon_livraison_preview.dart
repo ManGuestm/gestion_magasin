@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 
 import '../../constants/app_functions.dart';
 import '../../database/database.dart';
+import '../../services/auth_service.dart';
 import '../common/tab_navigation_widget.dart';
 
 class BonLivraisonPreview extends StatefulWidget {
@@ -36,58 +37,60 @@ class BonLivraisonPreview extends StatefulWidget {
 }
 
 class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavigationMixin {
+  double _zoomLevel = 1.0;
+
   double get _pageWidth {
     switch (widget.format) {
       case 'A4':
-        return 800;
+        return 800 * _zoomLevel;
       case 'A6':
-        return 400;
+        return 400 * _zoomLevel;
       default:
-        return 600; // A5
+        return 600 * _zoomLevel;
     }
   }
 
   double get _pageHeight {
     switch (widget.format) {
       case 'A4':
-        return 1100;
+        return 1100 * _zoomLevel;
       case 'A6':
-        return 600;
+        return 600 * _zoomLevel;
       default:
-        return 850; // A5
+        return 850 * _zoomLevel;
     }
   }
 
   double get _fontSize {
     switch (widget.format) {
       case 'A6':
-        return 9;
+        return 9 * _zoomLevel;
       case 'A5':
-        return 11;
+        return 11 * _zoomLevel;
       default:
-        return 12; // A4
+        return 12 * _zoomLevel;
     }
   }
 
   double get _headerFontSize {
     switch (widget.format) {
       case 'A6':
-        return 10;
+        return 10 * _zoomLevel;
       case 'A5':
-        return 12;
+        return 12 * _zoomLevel;
       default:
-        return 14; // A4
+        return 14 * _zoomLevel;
     }
   }
 
   double get _padding {
     switch (widget.format) {
       case 'A6':
-        return 8;
+        return 8 * _zoomLevel;
       case 'A5':
-        return 12;
+        return 12 * _zoomLevel;
       default:
-        return 16; // A4
+        return 16 * _zoomLevel;
     }
   }
 
@@ -102,6 +105,12 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
     }
   }
 
+  bool _canPrint() {
+    final authService = AuthService();
+    final role = authService.currentUserRole;
+    return role == 'Administrateur' || role == 'Caisse';
+  }
+
   String _formatNumber(double number) {
     String integerPart = number.round().toString();
     String formatted = '';
@@ -113,7 +122,6 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
     }
     return formatted;
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -145,15 +153,31 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
               color: Colors.grey[200],
               child: Row(
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _imprimer(context),
-                    icon: const Icon(Icons.print, size: 16),
-                    label: const Text('Imprimer'),
+                  if (_canPrint()) ...[
+                    ElevatedButton.icon(
+                      onPressed: () => _imprimer(context),
+                      icon: const Icon(Icons.print, size: 16),
+                      label: const Text('Imprimer'),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    onPressed: () => setState(() => _zoomLevel = (_zoomLevel - 0.1).clamp(0.5, 2.0)),
+                    icon: const Icon(Icons.zoom_out),
+                    tooltip: 'Zoom -',
                   ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Fermer'),
+                  Text('${(_zoomLevel * 100).toInt()}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  IconButton(
+                    onPressed: () => setState(() => _zoomLevel = (_zoomLevel + 0.1).clamp(0.5, 2.0)),
+                    icon: const Icon(Icons.zoom_in),
+                    tooltip: 'Zoom +',
+                  ),
+                  IconButton(
+                    onPressed: () => setState(() => _zoomLevel = 1.0),
+                    icon: const Icon(Icons.fit_screen),
+                    tooltip: 'Réinitialiser',
                   ),
                   const Spacer(),
                   Text('Format: ${widget.format}', style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -180,10 +204,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                       ],
                     ),
                     child: SingleChildScrollView(
-                      child: Container(
-                        padding: EdgeInsets.all(_padding),
-                        child: _buildLivraisonContent(),
-                      ),
+                      child: Container(padding: EdgeInsets.all(_padding), child: _buildLivraisonContent()),
                     ),
                   ),
                 ),
@@ -211,11 +232,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
             ),
             child: Text(
               'BON DE LIVRAISON',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: _headerFontSize + 2,
-                letterSpacing: 2,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: _headerFontSize + 2, letterSpacing: 2),
             ),
           ),
         ),
@@ -224,9 +241,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
         // Header section with company and document info
         Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black, width: 1),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
           padding: EdgeInsets.all(_padding / 2),
           child: Column(
             children: [
@@ -248,15 +263,9 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                           style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.w600),
                         ),
                         if (widget.societe?.activites != null)
-                          Text(
-                            widget.societe!.activites!,
-                            style: TextStyle(fontSize: _fontSize - 1),
-                          ),
+                          Text(widget.societe!.activites!, style: TextStyle(fontSize: _fontSize - 1)),
                         if (widget.societe?.adr != null)
-                          Text(
-                            widget.societe!.adr!,
-                            style: TextStyle(fontSize: _fontSize - 1),
-                          ),
+                          Text(widget.societe!.adr!, style: TextStyle(fontSize: _fontSize - 1)),
                       ],
                     ),
                   ),
@@ -282,9 +291,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
         // Articles table
         Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black, width: 1),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
           child: Column(
             children: [
               // Table header
@@ -292,8 +299,8 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                 color: Colors.grey[200],
                 child: Table(
                   border: const TableBorder(
-                    horizontalInside: BorderSide(color: Colors.black, width: 0.5),
-                    verticalInside: BorderSide(color: Colors.black, width: 0.5),
+                    horizontalInside: BorderSide(color: Colors.grey, width: 0.5),
+                    verticalInside: BorderSide.none,
                   ),
                   columnWidths: const {
                     0: FlexColumnWidth(1),
@@ -322,8 +329,8 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
               // Table data
               Table(
                 border: const TableBorder(
-                  horizontalInside: BorderSide(color: Colors.black, width: 0.5),
-                  verticalInside: BorderSide(color: Colors.black, width: 0.5),
+                  horizontalInside: BorderSide(color: Colors.grey, width: 0.5),
+                  verticalInside: BorderSide.none,
                 ),
                 columnWidths: const {
                   0: FlexColumnWidth(1),
@@ -360,9 +367,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
         // Totals section
         Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black, width: 1),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
           padding: EdgeInsets.all(_padding / 2),
           child: Column(
             children: [
@@ -387,16 +392,11 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(_padding / 2),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.black, width: 0.5),
-                ),
+                decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 0.5)),
                 alignment: Alignment.center,
                 child: Text(
                   'Arrêté à la somme de ${AppFunctions.numberToWords(widget.totalTTC.round())} Ariary',
-                  style: TextStyle(
-                    fontSize: _fontSize - 1,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -407,9 +407,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
         // Signatures section
         Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.black, width: 1),
-          ),
+          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
           padding: EdgeInsets.all(_padding),
           child: Row(
             children: [
@@ -418,10 +416,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                   children: [
                     Text(
                       'CLIENT',
-                      style: TextStyle(
-                        fontSize: _fontSize,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: _padding * 2),
                     Container(
@@ -430,27 +425,17 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                       margin: const EdgeInsets.symmetric(horizontal: 20),
                     ),
                     SizedBox(height: _padding / 2),
-                    Text(
-                      'Nom et signature',
-                      style: TextStyle(fontSize: _fontSize - 2),
-                    ),
+                    Text('Nom et signature', style: TextStyle(fontSize: _fontSize - 2)),
                   ],
                 ),
               ),
-              Container(
-                width: 1,
-                height: 80,
-                color: Colors.black,
-              ),
+              Container(width: 1, height: 80, color: Colors.black),
               Expanded(
                 child: Column(
                   children: [
                     Text(
                       'LIVREUR',
-                      style: TextStyle(
-                        fontSize: _fontSize,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.bold),
                     ),
                     SizedBox(height: _padding * 2),
                     Container(
@@ -459,10 +444,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                       margin: const EdgeInsets.symmetric(horizontal: 20),
                     ),
                     SizedBox(height: _padding / 2),
-                    Text(
-                      'Nom et signature',
-                      style: TextStyle(fontSize: _fontSize - 2),
-                    ),
+                    Text('Nom et signature', style: TextStyle(fontSize: _fontSize - 2)),
                   ],
                 ),
               ),
@@ -483,19 +465,13 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
             width: 90,
             child: Text(
               label,
-              style: TextStyle(
-                fontSize: _fontSize - 1,
-                fontWeight: FontWeight.w500,
-              ),
+              style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.w500),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(
-                fontSize: _fontSize - 1,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -505,16 +481,12 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
   Widget _buildTableCell(String text, {bool isHeader = false, bool isAmount = false}) {
     return Container(
-      padding: EdgeInsets.all(widget.format == 'A6' ? 3 : 6),
-      decoration: isHeader
-          ? BoxDecoration(
-              color: Colors.grey[200],
-            )
-          : null,
+      padding: EdgeInsets.all(widget.format == 'A6' ? 3 * _zoomLevel : 6 * _zoomLevel),
+      decoration: isHeader ? BoxDecoration(color: Colors.grey[200]) : null,
       child: Text(
         text,
         style: TextStyle(
-          fontSize: widget.format == 'A6' ? 8 : (widget.format == 'A5' ? 9 : 10),
+          fontSize: (widget.format == 'A6' ? 8 : (widget.format == 'A5' ? 9 : 10)) * _zoomLevel,
           fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
         ),
         textAlign: isHeader ? TextAlign.center : (isAmount ? TextAlign.right : TextAlign.left),
@@ -577,10 +549,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                     ),
                     child: pw.Text(
                       'BON DE LIVRAISON',
-                      style: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold,
-                        fontSize: pdfHeaderFontSize + 2,
-                      ),
+                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize + 2),
                     ),
                   ),
                 ),
@@ -589,9 +558,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
                 // Header section with company and document info
                 pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.black, width: 1),
-                  ),
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   padding: pw.EdgeInsets.all(pdfPadding / 2),
                   child: pw.Column(
                     children: [
@@ -606,8 +573,10 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                               children: [
                                 pw.Text(
                                   'SOCIÉTÉ:',
-                                  style:
-                                      pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfFontSize - 1),
+                                  style: pw.TextStyle(
+                                    fontWeight: pw.FontWeight.bold,
+                                    fontSize: pdfFontSize - 1,
+                                  ),
                                 ),
                                 pw.Text(
                                   widget.societe?.rsoc ?? 'SOCIÉTÉ',
@@ -648,9 +617,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
                 // Articles table
                 pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.black, width: 1),
-                  ),
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   child: pw.Column(
                     children: [
                       // Table header
@@ -710,13 +677,19 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                                 _buildPdfTableCell(ligne['designation'] ?? '', pdfFontSize),
                                 _buildPdfTableCell(ligne['depot'] ?? 'MAG', pdfFontSize),
                                 _buildPdfTableCell(
-                                    _formatNumber(ligne['quantite']?.toDouble() ?? 0), pdfFontSize),
+                                  _formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                  pdfFontSize,
+                                ),
                                 _buildPdfTableCell(ligne['unites'] ?? '', pdfFontSize),
                                 _buildPdfTableCell(
-                                    _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0), pdfFontSize),
+                                  _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                  pdfFontSize,
+                                ),
                                 _buildPdfTableCell(
-                                    _formatNumber(ligne['montant']?.toDouble() ?? 0), pdfFontSize,
-                                    isAmount: true),
+                                  _formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                  pdfFontSize,
+                                  isAmount: true,
+                                ),
                               ],
                             );
                           }),
@@ -730,9 +703,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
                 // Totals section
                 pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.black, width: 1),
-                  ),
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   padding: pw.EdgeInsets.all(pdfPadding / 2),
                   child: pw.Column(
                     children: [
@@ -748,8 +719,12 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                                 decoration: const pw.BoxDecoration(
                                   border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
                                 ),
-                                child: _buildPdfTotalRow('TOTAL TTC:', _formatNumber(widget.totalTTC), pdfFontSize,
-                                    isBold: true),
+                                child: _buildPdfTotalRow(
+                                  'TOTAL TTC:',
+                                  _formatNumber(widget.totalTTC),
+                                  pdfFontSize,
+                                  isBold: true,
+                                ),
                               ),
                             ],
                           ),
@@ -765,10 +740,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                         alignment: pw.Alignment.center,
                         child: pw.Text(
                           'Arrêté à la somme de ${AppFunctions.numberToWords(widget.totalTTC.round())} Ariary',
-                          style: pw.TextStyle(
-                            fontSize: pdfFontSize - 1,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
+                          style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
                         ),
                       ),
                     ],
@@ -779,9 +751,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
                 // Signatures section
                 pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.black, width: 1),
-                  ),
+                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   padding: pw.EdgeInsets.all(pdfPadding),
                   child: pw.Row(
                     children: [
@@ -790,10 +760,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                           children: [
                             pw.Text(
                               'CLIENT',
-                              style: pw.TextStyle(
-                                fontSize: pdfFontSize,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
+                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                             ),
                             pw.SizedBox(height: pdfPadding * 2),
                             pw.Container(
@@ -802,27 +769,17 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                               margin: const pw.EdgeInsets.symmetric(horizontal: 20),
                             ),
                             pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text(
-                              'Nom et signature',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                            ),
+                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
                           ],
                         ),
                       ),
-                      pw.Container(
-                        width: 1,
-                        height: 60,
-                        color: PdfColors.black,
-                      ),
+                      pw.Container(width: 1, height: 60, color: PdfColors.black),
                       pw.Expanded(
                         child: pw.Column(
                           children: [
                             pw.Text(
                               'LIVREUR',
-                              style: pw.TextStyle(
-                                fontSize: pdfFontSize,
-                                fontWeight: pw.FontWeight.bold,
-                              ),
+                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                             ),
                             pw.SizedBox(height: pdfPadding * 2),
                             pw.Container(
@@ -831,10 +788,7 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                               margin: const pw.EdgeInsets.symmetric(horizontal: 20),
                             ),
                             pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text(
-                              'Nom et signature',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                            ),
+                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
                           ],
                         ),
                       ),
@@ -875,19 +829,13 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
             width: 90,
             child: pw.Text(
               label,
-              style: pw.TextStyle(
-                fontSize: fontSize - 1,
-                fontWeight: pw.FontWeight.normal,
-              ),
+              style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.normal),
             ),
           ),
           pw.Expanded(
             child: pw.Text(
               value,
-              style: pw.TextStyle(
-                fontSize: fontSize - 1,
-                fontWeight: pw.FontWeight.bold,
-              ),
+              style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.bold),
             ),
           ),
         ],

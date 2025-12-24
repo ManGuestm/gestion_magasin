@@ -54,25 +54,10 @@ class NetworkManager {
           debugPrint('  ✅ Serveur démarré avec succès');
           
         } else {
-          // Mode client: utiliser initializeAsClient avec authentification
+          // Mode client: NE PAS initialiser ici, attendre le login
           debugPrint('\n🌐 MODE CLIENT (RÉSEAU LOCAL)');
-          
-          final serverIp = config['serverIp'] as String;
-          final port = int.tryParse(config['port'] as String) ?? 8080;
-          final username = config['username'] as String? ?? 'admin';
-          final password = config['password'] as String? ?? 'admin123';
-
-          debugPrint('  Serveur: $serverIp:$port');
-          debugPrint('  Utilisateur: $username');
-          debugPrint('  → Connexion au serveur...');
-          
-          final success = await _db.initializeAsClient(serverIp, port, username, password);
-          if (!success) {
-            throw Exception('Impossible de se connecter au serveur $serverIp:$port');
-          }
-          dbInitialized = true;
-          networkInitialized = true;
-          debugPrint('  ✅ Connecté au serveur avec succès');
+          debugPrint('  ⏳ Initialisation différée - En attente de connexion utilisateur');
+          debugPrint('  → La connexion sera établie lors du login');
         }
       } catch (e) {
         // Rollback: only clean up resources that were actually initialized

@@ -270,8 +270,10 @@ class HTTPServer {
         return _sendError(request, 400, 'Username and password cannot be empty');
       }
 
-      // Vérifier credentials
-      if (!await _validateCredentials(username, password)) {
+      // Récupérer l'utilisateur complet avec validation
+      final user = await _db.getUserByCredentials(username, password);
+
+      if (user == null || !user.actif) {
         debugPrint('❌ Authentification échouée: $username');
         return _sendError(request, 401, 'Invalid credentials');
       }
@@ -302,10 +304,15 @@ class HTTPServer {
       _sendJson(request, {
         'success': true,
         'data': {
+          'id': user.id,
+          'nom': user.nom,
+          'username': user.username,
+          'motDePasse': user.motDePasse,
+          'role': user.role,
+          'actif': user.actif ? 1 : 0,
+          'dateCreation': user.dateCreation.toIso8601String(),
           'token': token,
           'expiresAt': expiresAt.toIso8601String(),
-          'userId': 'user_${username.hashCode}',
-          'username': username,
         },
       });
 
@@ -445,7 +452,11 @@ class HTTPServer {
 
         // 🔥 BROADCAST aux clients WebSocket
         NetworkServer.instance.broadcastChange({
-          'type': sqlUpper.startsWith('INSERT') ? 'insert' : sqlUpper.startsWith('UPDATE') ? 'update' : 'delete',
+          'type': sqlUpper.startsWith('INSERT')
+              ? 'insert'
+              : sqlUpper.startsWith('UPDATE')
+              ? 'update'
+              : 'delete',
           'query': sql,
           'params': params,
           'user': session.username,
@@ -511,16 +522,6 @@ class HTTPServer {
     } catch (e) {
       debugPrint('Erreur validation token WebSocket: $e');
       return null;
-    }
-  }
-
-  Future<bool> _validateCredentials(String username, String password) async {
-    try {
-      final user = await _db.getUserByCredentials(username, password);
-      return user != null && user.actif;
-    } catch (e) {
-      debugPrint('❌ Erreur validation credentials: $e');
-      return false;
     }
   }
 
