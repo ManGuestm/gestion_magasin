@@ -307,7 +307,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         _recentSales = await db.getRecentSales(5);
         _recentBuys = (await db.getRecentPurchases(5));
-      } else if (userRole == 'Vendeur') {
+      } else if (userRole == 'Vendeur' || userRole == 'Consultant') {
         final mesVentesJour = await db.getVentesTodayByUser(userName);
         final mesVentesMois = await db.getVentesThisMonthByUser(userName);
         final mesClients = await db.getClientsByUser(userName);
@@ -356,6 +356,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Vérifier les restrictions spécifiques aux vendeurs
     if (AuthService().isVendeurRestrictedModal(item)) {
+      _showAccessDeniedDialog(item);
+      return;
+    }
+
+    // Vérifier les restrictions spécifiques aux consultants
+    if (AuthService().isConsultantRestrictedModal(item)) {
       _showAccessDeniedDialog(item);
       return;
     }
@@ -559,6 +565,8 @@ class _HomeScreenState extends State<HomeScreen> {
       final userRole = AuthService().currentUser?.role ?? '';
       if (userRole == 'Vendeur') {
         _showModal('ventes_magasin');
+      } else if (userRole == 'Consultant') {
+        _showModal('ventes_tous_depots');
       } else {
         _pauseUpdates();
         showDialog(
@@ -718,8 +726,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (shortcuts.containsKey(event.logicalKey)) {
         final action = shortcuts[event.logicalKey]!;
 
-        // Vérifier les restrictions pour les vendeurs
-        if (userRole == 'Vendeur') {
+        // Vérifier les restrictions pour les vendeurs et consultants
+        if (userRole == 'Vendeur' || userRole == 'Consultant') {
           const restrictedActions = ['Achats', 'Fournisseurs', 'Encaissements'];
           if (restrictedActions.contains(action)) {
             _showAccessDeniedDialog(action);
@@ -735,8 +743,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleIconTap(String iconLabel) {
     final userRole = AuthService().currentUser?.role ?? '';
 
-    // Vérifier les restrictions pour les vendeurs
-    if (userRole == 'Vendeur') {
+    // Vérifier les restrictions pour les vendeurs et consultants
+    if (userRole == 'Vendeur' || userRole == 'Consultant') {
       const restrictedIcons = ['Achats', 'Fournisseurs', 'Encaissements', 'Décaissements'];
       if (restrictedIcons.contains(iconLabel)) {
         _showAccessDeniedDialog(iconLabel);
@@ -747,6 +755,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (iconLabel == 'Ventes') {
       if (userRole == 'Vendeur') {
         _showModal('ventes_magasin');
+      } else if (userRole == 'Consultant') {
+        _showModal('ventes_tous_depots');
       } else {
         _pauseUpdates();
         showDialog(
@@ -816,7 +826,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Expanded(flex: 2, child: SingleChildScrollView(child: _buildStatsGrid(userRole))),
                 const SizedBox(width: 16),
-                if (userRole != 'Vendeur')
+                if (userRole != 'Vendeur' && userRole != 'Consultant')
                   Expanded(
                     flex: 1,
                     child: Column(
@@ -864,6 +874,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (userRole == 'Administrateur') ..._buildAdminStats(),
                 if (userRole == 'Caisse') ..._buildCaisseStats(),
                 if (userRole == 'Vendeur') ..._buildVendeurStats(),
+                if (userRole == 'Consultant') ..._buildConsultantStats(),
               ],
             );
           },
@@ -1013,6 +1024,35 @@ class _HomeScreenState extends State<HomeScreen> {
     ];
   }
 
+  List<Widget> _buildConsultantStats() {
+    if (_isLoadingStats) {
+      return List.generate(6, (index) => _buildLoadingCard());
+    }
+
+    return [
+      _buildStatCard(
+        'Mes Ventes Jour',
+        '${_formatNumber(_stats['mesVentesJour'] ?? 0)} Ar',
+        Icons.today,
+        Colors.purple,
+      ),
+      _buildStatCard(
+        'Mes Ventes Mois',
+        '${_formatNumber(_stats['mesVentesMois'] ?? 0)} Ar',
+        Icons.calendar_month,
+        Colors.orange,
+      ),
+      _buildStatCard('Mes Clients', '${_stats['mesClients'] ?? 0}', Icons.people, Colors.teal),
+      if ((_stats['mesVentesBrouillard'] ?? 0) > 0)
+        _buildStatCard(
+          'Mes Ventes en attente',
+          '${_stats['mesVentesBrouillard'] ?? 0}',
+          Icons.pending_actions,
+          Colors.orange,
+        ),
+    ];
+  }
+
   Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     final hasChanged = _hasDataChanged(title);
 
@@ -1136,8 +1176,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void _handleStatCardTap(String title) {
     final userRole = AuthService().currentUser?.role ?? '';
 
-    // Vérifier si le vendeur essaie d'accéder à une fonctionnalité restreinte
-    if (userRole == 'Vendeur') {
+    // Vérifier si le vendeur ou consultant essaie d'accéder à une fonctionnalité restreinte
+    if (userRole == 'Vendeur' || userRole == 'Consultant') {
       const restrictedTitles = [
         'Encaissements',
         'Journal Caisse',
@@ -1179,6 +1219,8 @@ class _HomeScreenState extends State<HomeScreen> {
       case 'Ventes Jour':
         if (userRole == 'Vendeur') {
           _showModal('ventes_magasin');
+        } else if (userRole == 'Consultant') {
+          _showModal('ventes_tous_depots');
         } else {
           _pauseUpdates();
           showDialog(

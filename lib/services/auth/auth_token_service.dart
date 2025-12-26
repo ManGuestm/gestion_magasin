@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../audit_service.dart';
+
 /// Token JWT authentifié
 class AuthToken {
   final String token;
@@ -60,10 +62,14 @@ class AuthTokenService {
     String password,
   ) async {
     try {
+      await _logToAudit('AUTH_TOKEN: Tentative authentification pour $username sur $serverUrl');
+      
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 10);
 
       final uri = Uri.parse('$serverUrl/api/authenticate');
+      await _logToAudit('AUTH_TOKEN: URI: $uri');
+      
       final request = await client.postUrl(uri);
       request.headers.contentType = ContentType.json;
 
@@ -77,8 +83,11 @@ class AuthTokenService {
       final responseBody = await utf8.decoder.bind(response).join();
       client.close();
 
+      await _logToAudit('AUTH_TOKEN: Réponse HTTP status: ${response.statusCode}');
+      
       if (response.statusCode != 200) {
         debugPrint('Auth failed: ${response.statusCode}');
+        await _logToAudit('AUTH_TOKEN: ❌ Authentification échouée - Status: ${response.statusCode}, Body: $responseBody');
         return null;
       }
 
@@ -86,6 +95,7 @@ class AuthTokenService {
 
       if (data['success'] != true) {
         debugPrint('Auth failed: ${data['error']}');
+        await _logToAudit('AUTH_TOKEN: ❌ Authentification échouée - Erreur: ${data['error']}');
         return null;
       }
 
@@ -99,9 +109,11 @@ class AuthTokenService {
 
       await _saveToken(_currentToken!);
       debugPrint('Authentication successful for $username');
+      await _logToAudit('AUTH_TOKEN: ✅ Authentification réussie pour $username');
       return _currentToken;
     } catch (e) {
       debugPrint('Erreur authentification: $e');
+      await _logToAudit('AUTH_TOKEN: ❌ Exception - Type: ${e.runtimeType}, Message: $e');
       return null;
     }
   }
@@ -189,6 +201,22 @@ class AuthTokenService {
     } catch (e) {
       debugPrint('Erreur restauration token: $e');
       await logout();
+    }
+  }
+
+  /// Helper pour logger dans audit_logs.jsonl
+  Future<void> _logToAudit(String message) async {
+    try {
+      final auditService = AuditService();
+      await auditService.log(
+        userId: 'system',
+        userName: 'system',
+        action: AuditAction.login,
+        module: 'AUTH_TOKEN_SERVICE',
+        details: message,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Erreur log audit: $e');
     }
   }
 }

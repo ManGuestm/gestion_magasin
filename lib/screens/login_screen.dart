@@ -89,6 +89,15 @@ class _LoginScreenState extends State<LoginScreen> {
         final serverIp = prefs.getString('server_ip') ?? '';
         final serverPort = int.tryParse(prefs.getString('server_port') ?? '8080') ?? 8080;
         
+        // Log configuration réseau
+        await AuditService().log(
+          userId: 'system',
+          userName: username,
+          action: AuditAction.login,
+          module: 'LOGIN_SCREEN',
+          details: 'Config réseau: Mode=CLIENT, IP=$serverIp, Port=$serverPort',
+        );
+        
         if (serverIp.isEmpty) {
           throw Exception('Configuration serveur manquante');
         }

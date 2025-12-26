@@ -29,7 +29,7 @@ class MenuBarWidget extends StatelessWidget {
     final authService = AuthService();
     final userRole = authService.currentUserRole;
 
-    if (userRole == 'Vendeur') {
+    if (userRole == 'Vendeur' || userRole == 'Consultant') {
       return menus
           .where(
             (menu) =>
@@ -37,7 +37,8 @@ class MenuBarWidget extends StatelessWidget {
                 menu != 'Commerces' &&
                 menu != 'Gestions' &&
                 menu != 'Trésoreries' &&
-                menu != 'États',
+                menu != 'États' &&
+                menu != '?',
           )
           .toList();
     }

@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/audit_service.dart';
 import '../services/network/enhanced_network_client.dart';
 import '../services/network_server.dart';
 import '../services/sync/cache_manager.dart';
@@ -429,21 +430,46 @@ class DatabaseService {
       debugPrint('🔍 CLIENT: Serveur cible: $serverIp:$port');
       debugPrint('👤 CLIENT: Utilisateur: $username');
       
+      // Log dans audit
+      await _logToAudit('CLIENT: Tentative connexion à $serverIp:$port avec utilisateur $username');
+      
       await _networkClient.initialize();
       debugPrint('✅ CLIENT: Service réseau initialisé');
+      await _logToAudit('CLIENT: Service réseau initialisé');
       
       final connected = await _networkClient.connect(serverIp, port, username, password);
-      if (!connected) throw Exception('Connexion serveur échouée');
+      if (!connected) {
+        await _logToAudit('CLIENT: ❌ Connexion serveur échouée - connect() a retourné false');
+        throw Exception('Connexion serveur échouée');
+      }
 
       _mode = DatabaseMode.clientMode;
       _isInitialized = true;
       debugPrint('✅ CLIENT: Connecté à $serverIp:$port');
       debugPrint('📌 CLIENT: Aucune base locale - Tout passe par le serveur');
       debugPrint('🔒 CLIENT: Accès: Caisse et Vendeur uniquement');
+      await _logToAudit('CLIENT: ✅ Connecté avec succès à $serverIp:$port');
       return true;
     } catch (e) {
       debugPrint('❌ CLIENT: Erreur initialisation - $e');
+      await _logToAudit('CLIENT: ❌ Erreur initialisation - $e');
       return false;
+    }
+  }
+
+  /// Helper pour logger dans audit_logs.jsonl
+  Future<void> _logToAudit(String message) async {
+    try {
+      final auditService = AuditService();
+      await auditService.log(
+        userId: 'system',
+        userName: 'system',
+        action: AuditAction.login,
+        module: 'DATABASE_SERVICE',
+        details: message,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Erreur log audit: $e');
     }
   }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../audit_service.dart';
 import '../auth/auth_token_service.dart';
 
 /// Client réseau amélioré avec authentification et gestion de tokens
@@ -29,6 +30,8 @@ class EnhancedNetworkClient {
   Future<bool> testConnection(String serverIp, int port) async {
     try {
       debugPrint('🔍 CLIENT: Test de connexion au serveur $serverIp:$port...');
+      await _logToAudit('CLIENT: Test connexion à $serverIp:$port');
+      
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 5);
 
@@ -39,13 +42,16 @@ class EnhancedNetworkClient {
       _isConnected = response.statusCode == 200;
       if (_isConnected) {
         debugPrint('✅ CLIENT: Serveur $serverIp:$port est disponible');
+        await _logToAudit('CLIENT: ✅ Serveur $serverIp:$port disponible (status: ${response.statusCode})');
       } else {
         debugPrint('❌ CLIENT: Serveur $serverIp:$port indisponible (status: ${response.statusCode})');
+        await _logToAudit('CLIENT: ❌ Serveur $serverIp:$port indisponible (status: ${response.statusCode})');
       }
       return _isConnected;
     } catch (e) {
       _isConnected = false;
       debugPrint('❌ CLIENT: Erreur connexion au serveur $serverIp:$port - $e');
+      await _logToAudit('CLIENT: ❌ Erreur test connexion $serverIp:$port - Type: ${e.runtimeType}, Message: $e');
       return false;
     }
   }
@@ -54,28 +60,36 @@ class EnhancedNetworkClient {
   Future<bool> connect(String serverIp, int port, String username, String password) async {
     try {
       debugPrint('🔐 CLIENT: Tentative de connexion à $serverIp:$port avec utilisateur: $username');
+      await _logToAudit('CLIENT: Tentative connexion à $serverIp:$port avec utilisateur: $username');
+      
       _serverUrl = 'http://$serverIp:$port';
 
       // Tester la connexion d'abord
       if (!await testConnection(serverIp, port)) {
+        await _logToAudit('CLIENT: ❌ Serveur indisponible après test');
         throw Exception('Serveur indisponible');
       }
 
       // S'authentifier
       debugPrint('🔐 CLIENT: Authentification en cours...');
+      await _logToAudit('CLIENT: Début authentification pour $username');
+      
       final token = await _tokenService.authenticate(_serverUrl!, username, password);
 
       if (token == null) {
         debugPrint('❌ CLIENT: Authentification échouée pour $username');
+        await _logToAudit('CLIENT: ❌ Authentification échouée pour $username - Token null');
         throw Exception('Authentification échouée');
       }
 
       _isConnected = true;
       debugPrint('✅ CLIENT: Connecté au serveur $serverIp:$port en tant que $username');
       debugPrint('📡 CLIENT: Token reçu, session active');
+      await _logToAudit('CLIENT: ✅ Connecté avec succès à $serverIp:$port en tant que $username');
       return true;
     } catch (e) {
       debugPrint('❌ CLIENT: Erreur connexion - $e');
+      await _logToAudit('CLIENT: ❌ Erreur connexion - Type: ${e.runtimeType}, Message: $e');
       _isConnected = false;
       return false;
     }
@@ -187,6 +201,22 @@ class EnhancedNetworkClient {
     _isConnected = false;
     _serverUrl = null;
     debugPrint('Disconnected from server');
+  }
+
+  /// Helper pour logger dans audit_logs.jsonl
+  Future<void> _logToAudit(String message) async {
+    try {
+      final auditService = AuditService();
+      await auditService.log(
+        userId: 'system',
+        userName: 'system',
+        action: AuditAction.login,
+        module: 'ENHANCED_NETWORK_CLIENT',
+        details: message,
+      );
+    } catch (e) {
+      debugPrint('⚠️ Erreur log audit: $e');
+    }
   }
 
   // ============ MÉTHODES MÉTIER POUR MODE CLIENT ============

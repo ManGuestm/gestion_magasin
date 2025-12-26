@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../constants/menu_data.dart';
 import 'auth_service.dart';
 
@@ -13,7 +14,7 @@ class MenuService {
   }) {
     final allItems = customItems ?? MenuData.subMenus[menuTitle] ?? [];
     final items = _filterMenuItemsByRole(allItems);
-    
+
     return OverlayEntry(
       builder: (context) => Positioned(
         left: leftPosition,
@@ -32,9 +33,11 @@ class MenuService {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: items.asMap().entries.map((entry) => 
-                    _buildSubmenuItem(entry.value, onItemTap, onItemHover, entry.key)
-                  ).toList(),
+                  children: items
+                      .asMap()
+                      .entries
+                      .map((entry) => _buildSubmenuItem(entry.value, onItemTap, onItemHover, entry.key))
+                      .toList(),
                 ),
               ),
             ),
@@ -44,10 +47,15 @@ class MenuService {
     );
   }
 
-  static Widget _buildSubmenuItem(String title, Function(String) onTap, [Function(String, double)? onHover, int? index]) {
+  static Widget _buildSubmenuItem(
+    String title,
+    Function(String) onTap, [
+    Function(String, double)? onHover,
+    int? index,
+  ]) {
     final hasSubMenu = MenuData.hasSubMenu[title] ?? false;
     const itemHeight = 32.0;
-    
+
     return MouseRegion(
       onEnter: (_) => onHover != null && index != null ? onHover(title, index * itemHeight) : null,
       child: GestureDetector(
@@ -60,18 +68,8 @@ class MenuService {
           ),
           child: Row(
             children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-              if (hasSubMenu)
-                const Icon(
-                  Icons.arrow_right,
-                  size: 16,
-                  color: Colors.grey,
-                ),
+              Expanded(child: Text(title, style: const TextStyle(fontSize: 12))),
+              if (hasSubMenu) const Icon(Icons.arrow_right, size: 16, color: Colors.grey),
             ],
           ),
         ),
@@ -89,7 +87,7 @@ class MenuService {
     VoidCallback? onMouseEnter,
   }) {
     final items = MenuData.subMenus[parentItem] ?? [];
-    
+
     return OverlayEntry(
       builder: (context) => Positioned(
         left: leftPosition,
@@ -109,9 +107,11 @@ class MenuService {
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: items.asMap().entries.map((entry) => 
-                    _buildSubmenuItem(entry.value, onItemTap, onItemHover, entry.key)
-                  ).toList(),
+                  children: items
+                      .asMap()
+                      .entries
+                      .map((entry) => _buildSubmenuItem(entry.value, onItemTap, onItemHover, entry.key))
+                      .toList(),
                 ),
               ),
             ),
@@ -142,10 +142,9 @@ class MenuService {
       items = items.where((item) => !adminOnlyItems.contains(item)).toList();
     }
 
-    // Si l'utilisateur est vendeur, filtrer les éléments restreints supplémentaires
-    if (userRole == 'Vendeur') {
+    // Si l'utilisateur est vendeur ou consultant, filtrer les éléments restreints supplémentaires
+    if (userRole == 'Vendeur' || userRole == 'Consultant') {
       const restrictedItems = [
-        'Ventes (Tous dépôts)',
         'Encaissements',
         'Décaissements',
         'Suivi différence prix',
@@ -158,14 +157,11 @@ class MenuService {
         'Retours achats',
       ];
       items = items.where((item) => !restrictedItems.contains(item)).toList();
-    }
 
-    // Si l'utilisateur est consultant, ne montrer que Ventes (Tous dépôts)
-    if (userRole == 'Consultant') {
-      const allowedItems = [
-        'Ventes (Tous dépôts)',
-      ];
-      items = items.where((item) => allowedItems.contains(item)).toList();
+      // Filtrer "Ventes (Tous dépôts)" pour Vendeur uniquement
+      if (userRole == 'Vendeur') {
+        items = items.where((item) => item != 'Ventes (Tous dépôts)').toList();
+      }
     }
 
     return items;

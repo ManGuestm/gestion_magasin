@@ -12,7 +12,7 @@ class IconBarWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Theme.of(context);
-    
+
     // Filtrer les icônes selon le rôle de l'utilisateur
     final filteredIcons = _filterIconsByRole(MenuData.iconButtons);
 
@@ -30,13 +30,13 @@ class IconBarWidget extends StatelessWidget {
       ),
     );
   }
-  
+
   List<IconButtonData> _filterIconsByRole(List<IconButtonData> icons) {
     final authService = AuthService();
     final userRole = authService.currentUserRole;
-    
+
     // Si l'utilisateur est vendeur, filtrer les icônes restreintes
-    if (userRole == 'Vendeur') {
+    if (userRole == 'Vendeur' || userRole == 'Consultant') {
       const restrictedLabels = [
         'Articles',
         'Dépôts',
@@ -52,7 +52,7 @@ class IconBarWidget extends StatelessWidget {
       ];
       return icons.where((icon) => !restrictedLabels.contains(icon.label)).toList();
     }
-    
+
     return icons;
   }
 
@@ -67,29 +67,18 @@ class IconBarWidget extends StatelessWidget {
         hoverColor: theme.colorScheme.primary.withValues(alpha: 0.08),
         splashColor: theme.colorScheme.primary.withValues(alpha: 0.12),
         child: Container(
-          constraints: const BoxConstraints(
-            minHeight: 60,
-            minWidth: 88,
-            maxHeight: 60,
-          ),
+          constraints: const BoxConstraints(minHeight: 60, minWidth: 88, maxHeight: 60),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: theme.colorScheme.outline.withValues(alpha: 0.2),
-              width: 1,
-            ),
+            border: Border.all(color: theme.colorScheme.outline.withValues(alpha: 0.2), width: 1),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 24,
-                color: theme.colorScheme.primary,
-              ),
+              Icon(icon, size: 24, color: theme.colorScheme.primary),
               Text(
                 label,
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -110,10 +99,7 @@ class IconBarWidget extends StatelessWidget {
 
   void _handleIconTap(BuildContext context, String label) {
     if (label == 'Inventaire') {
-      showDialog(
-        context: context,
-        builder: (context) => const InventaireModal(),
-      );
+      showDialog(context: context, builder: (context) => const InventaireModal());
     } else {
       onIconTap(label);
     }

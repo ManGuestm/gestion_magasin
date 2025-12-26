@@ -27,10 +27,10 @@ class AuthService {
         module: 'AUTH_SERVICE',
         details: 'Tentative de connexion pour: $username',
       );
-      
+
       final dbService = DatabaseService();
       final isClientMode = dbService.isNetworkMode;
-      
+
       await AuditService().log(
         userId: 'system',
         userName: 'system',
@@ -48,19 +48,20 @@ class AuthService {
           module: 'AUTH_SERVICE',
           details: 'Vérification rôle en mode SERVEUR...',
         );
-        
+
         final user = await dbService.database.getUserByUsername(username);
-        if (user == null || user.role != 'Administrateur') {
+        if (user == null) {
           await AuditService().log(
             userId: user?.id ?? 'unknown',
             userName: username,
             action: AuditAction.error,
             module: 'Authentification',
-            details: 'Accès refusé: Rôle ${user?.role ?? "utilisateur inconnu"} - Seul Administrateur autorisé en mode SERVEUR',
+            details:
+                'Accès refusé: Rôle ${user?.role ?? "utilisateur inconnu"} - Seul Administrateur autorisé en mode SERVEUR',
           );
           return false;
         }
-        
+
         await AuditService().log(
           userId: 'system',
           userName: 'system',
@@ -78,7 +79,7 @@ class AuthService {
         module: 'AUTH_SERVICE',
         details: 'Authentification en cours via ${isClientMode ? "serveur réseau" : "base locale"}...',
       );
-      
+
       final user = await dbService.authenticateUserWithModeAwareness(username, password);
 
       if (user != null) {
@@ -89,7 +90,7 @@ class AuthService {
           module: 'AUTH_SERVICE',
           details: 'Authentification réussie pour: ${user.nom} (${user.role})',
         );
-        
+
         _currentUser = user;
 
         // Log de connexion
@@ -111,7 +112,7 @@ class AuthService {
         module: 'AUTH_SERVICE',
         details: 'Authentification échouée - Credentials invalides',
       );
-      
+
       await AuditService().log(
         userId: 'unknown',
         userName: username,
@@ -164,8 +165,6 @@ class AuthService {
     );
   }
 
-
-
   /// Vérifie si l'utilisateur a le rôle requis
   bool hasRole(String requiredRole) {
     if (_currentUser == null) return false;
@@ -208,11 +207,11 @@ class AuthService {
   static const List<String> _vendeurPermissions = ['ventes', 'clients', 'articles_view', 'stocks_view'];
 
   /// Permissions pour le rôle Consultant
-  static const List<String> _consultantPermissions = ['ventes_tous_depots_view', 'articles_view'];
+  static const List<String> _consultantPermissions = ['ventes', 'clients', 'articles_view', 'stocks_view'];
 
   /// Vérifie si un vendeur peut accéder à un modal spécifique
   bool isVendeurRestrictedModal(String modalName) {
-    if (_currentUser?.role != 'Vendeur') return false;
+    if (_currentUser?.role != 'Vendeur' || _currentUser?.role != 'Consultant') return false;
 
     const restrictedModals = [
       'Encaissements',
@@ -237,13 +236,27 @@ class AuthService {
 
   /// Vérifie si un consultant peut accéder à un modal spécifique
   bool isConsultantRestrictedModal(String modalName) {
-    if (_currentUser?.role != 'Consultant') return false;
+    if (_currentUser?.role != 'Vendeur' || _currentUser?.role != 'Consultant') return false;
 
-    const allowedModals = [
-      'Ventes (Tous dépôts)',
+    const restrictedModals = [
+      'Encaissements',
+      'Décaissements',
+      'Suivi différence prix',
+      'Journal de caisse',
+      'Journal des banques',
+      'Comptes fournisseurs',
+      'Achats',
+      'Fournisseurs',
+      'Liste des achats',
+      'Liste des ventes',
+      'Sur Ventes',
+      'Retours achats',
+      'Information sur la société',
+      'Réinitialiser les données',
+      'Informations sur la société',
     ];
 
-    return !allowedModals.contains(modalName);
+    return restrictedModals.contains(modalName);
   }
 
   /// Vérifie si l'utilisateur peut imprimer

@@ -155,13 +155,14 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                 children: [
                   if (_canPrint()) ...[
                     ElevatedButton.icon(
-                      onPressed: () => _imprimer(context),
-                      icon: const Icon(Icons.print, size: 16),
-                      label: const Text('Imprimer'),
+                      style: ButtonStyle(backgroundColor: WidgetStateProperty.all(Colors.teal)),
+                      onPressed: () => _imprimer(),
+                      icon: const Icon(Icons.print, size: 16, color: Colors.white),
+                      label: const Text('Imprimer', style: TextStyle(color: Colors.white)),
                     ),
                     const SizedBox(width: 8),
                   ],
-                  ElevatedButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Fermer')),
+
                   const SizedBox(width: 16),
                   IconButton(
                     onPressed: () => setState(() => _zoomLevel = (_zoomLevel - 0.1).clamp(0.5, 2.0)),
@@ -181,6 +182,12 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                   ),
                   const Spacer(),
                   Text('Format: ${widget.format}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 16),
+                  ElevatedButton(
+                    style: ButtonStyle(backgroundColor: WidgetStateProperty.all(Colors.red)),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Fermer', style: TextStyle(color: Colors.white)),
+                  ),
                 ],
               ),
             ),
@@ -220,28 +227,34 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Document title centered
-        Center(
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: _padding / 2),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Colors.black, width: 2),
-                bottom: BorderSide(color: Colors.black, width: 2),
+        if (widget.format != 'A6') ...[
+          // Document title centered
+          Center(
+            child: Container(
+              padding: EdgeInsets.symmetric(vertical: _padding / 2),
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Colors.black, width: 2),
+                  bottom: BorderSide(color: Colors.black, width: 2),
+                ),
+              ),
+              child: Text(
+                'BON DE LIVRAISON',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: _headerFontSize + 2,
+                  letterSpacing: 2,
+                ),
               ),
             ),
-            child: Text(
-              'BON DE LIVRAISON',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: _headerFontSize + 2, letterSpacing: 2),
-            ),
           ),
-        ),
+        ],
 
         SizedBox(height: _padding),
 
         // Header section with company and document info
         Container(
-          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
+          // decoration: BoxDecoration(border: Border.all(color: Colors.grey, width: 1)),
           padding: EdgeInsets.all(_padding / 2),
           child: Column(
             children: [
@@ -255,17 +268,22 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'SOCIÉTÉ:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: _fontSize - 1),
-                        ),
-                        Text(
                           widget.societe?.rsoc ?? 'SOCIÉTÉ',
-                          style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.bold),
                         ),
-                        if (widget.societe?.activites != null)
-                          Text(widget.societe!.activites!, style: TextStyle(fontSize: _fontSize - 1)),
-                        if (widget.societe?.adr != null)
-                          Text(widget.societe!.adr!, style: TextStyle(fontSize: _fontSize - 1)),
+                        if (widget.format != 'A6') ...[
+                          if (widget.societe?.activites != null)
+                            Text(widget.societe!.activites!, style: TextStyle(fontSize: _fontSize - 1)),
+                          if (widget.societe?.adr != null)
+                            Text(widget.societe!.adr!, style: TextStyle(fontSize: _fontSize - 1)),
+                          if (widget.societe?.tel != null)
+                            Text(widget.societe!.tel!, style: TextStyle(fontSize: _fontSize - 1)),
+                        ],
+                        if (widget.societe?.rcs != null)
+                          Text(
+                            "RCS: ${widget.societe!.rcs!}",
+                            style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.w600),
+                          ),
                       ],
                     ),
                   ),
@@ -274,10 +292,9 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildInfoRow('N° DOCUMENT:', widget.numVente),
                         _buildInfoRow('DATE:', widget.date),
-                        _buildInfoRow('CLIENT:', widget.client),
-                        _buildInfoRow('N° FACTURE:', widget.nFacture),
+                        _buildInfoRow('BON DE LIVRAISON N°:', widget.nFacture),
+                        _buildInfoRow('Doit:', widget.client),
                       ],
                     ),
                   ),
@@ -291,83 +308,145 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
 
         // Articles table
         Container(
-          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
+          padding: EdgeInsets.all(_padding / 2),
           child: Column(
             children: [
               // Table header
-              Container(
-                color: Colors.grey[200],
-                child: Table(
-                  border: const TableBorder(
-                    horizontalInside: BorderSide(color: Colors.grey, width: 0.5),
-                    verticalInside: BorderSide.none,
-                  ),
-                  columnWidths: const {
-                    0: FlexColumnWidth(1),
-                    1: FlexColumnWidth(3),
-                    2: FlexColumnWidth(1),
-                    3: FlexColumnWidth(1),
-                    4: FlexColumnWidth(1),
-                    5: FlexColumnWidth(1.5),
-                    6: FlexColumnWidth(1.5),
-                  },
-                  children: [
-                    TableRow(
+              widget.format != 'A6'
+                  ? Container(
+                      color: Colors.grey[200],
+                      child: Table(
+                        border: const TableBorder(
+                          horizontalInside: BorderSide(color: Colors.grey, width: 0.5),
+                          verticalInside: BorderSide.none,
+                        ),
+                        columnWidths: const {
+                          0: FlexColumnWidth(4),
+                          1: FlexColumnWidth(1),
+                          2: FlexColumnWidth(1),
+                          3: FlexColumnWidth(1),
+                          4: FlexColumnWidth(2),
+                          5: FlexColumnWidth(2),
+                        },
+                        children: [
+                          TableRow(
+                            children: [
+                              _buildTableCell('Désignation', isHeader: true, isArticle: true),
+                              _buildTableCell('Dépôts', isHeader: true),
+                              _buildTableCell('Q', isHeader: true),
+                              _buildTableCell('Unité', isHeader: true),
+                              _buildTableCell('PU HT', isHeader: true),
+                              _buildTableCell('Montant', isHeader: true),
+                            ],
+                          ),
+                        ],
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey[200],
+                      child: Table(
+                        border: const TableBorder(
+                          horizontalInside: BorderSide(color: Colors.grey, width: 0.5),
+                          verticalInside: BorderSide.none,
+                        ),
+                        columnWidths: const {
+                          0: FlexColumnWidth(4),
+                          1: FlexColumnWidth(1),
+                          2: FlexColumnWidth(1),
+                          3: FlexColumnWidth(2),
+                          4: FlexColumnWidth(2),
+                        },
+                        children: [
+                          TableRow(
+                            children: [
+                              _buildTableCell('Désignation', isHeader: true, isArticle: true),
+                              _buildTableCell('Q', isHeader: true),
+                              _buildTableCell('Unité', isHeader: true),
+                              _buildTableCell('PU HT', isHeader: true),
+                              _buildTableCell('Montant', isHeader: true),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+              // Table data
+              widget.format != 'A6'
+                  ? Table(
+                      border: const TableBorder(
+                        bottom: BorderSide(color: Colors.black, width: 0.75),
+                        top: BorderSide(color: Colors.grey, width: 0.5),
+                        horizontalInside: BorderSide(color: Colors.black, width: 0.5),
+                      ),
+                      columnWidths: const {
+                        0: FlexColumnWidth(4),
+                        1: FlexColumnWidth(1),
+                        2: FlexColumnWidth(1),
+                        3: FlexColumnWidth(1),
+                        4: FlexColumnWidth(2),
+                        5: FlexColumnWidth(2),
+                      },
                       children: [
-                        _buildTableCell('N°', isHeader: true),
-                        _buildTableCell('DÉSIGNATION', isHeader: true),
-                        _buildTableCell('DÉPÔT', isHeader: true),
-                        _buildTableCell('QTÉ', isHeader: true),
-                        _buildTableCell('UNITÉ', isHeader: true),
-                        _buildTableCell('PU HT', isHeader: true),
-                        _buildTableCell('MONTANT', isHeader: true),
+                        ...widget.lignesVente.asMap().entries.map((entry) {
+                          final ligne = entry.value;
+                          return TableRow(
+                            children: [
+                              _buildTableCell(ligne['designation'] ?? '', isArticle: true),
+                              _buildTableCell(ligne['depot'] ?? 'MAG'),
+                              _buildTableCell(_formatNumber(ligne['quantite']?.toDouble() ?? 0)),
+                              _buildTableCell(ligne['unites'] ?? ''),
+                              _buildTableCell(
+                                _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                isAmount: true,
+                              ),
+                              _buildTableCell(
+                                _formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                isAmount: true,
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    )
+                  : Table(
+                      border: const TableBorder(
+                        bottom: BorderSide(color: Colors.black, width: 0.75),
+                        top: BorderSide(color: Colors.grey, width: 0.5),
+                        horizontalInside: BorderSide(color: Colors.black, width: 0.5),
+                      ),
+                      columnWidths: const {
+                        0: FlexColumnWidth(4),
+                        1: FlexColumnWidth(1),
+                        2: FlexColumnWidth(1),
+                        3: FlexColumnWidth(2),
+                        4: FlexColumnWidth(2),
+                      },
+                      children: [
+                        ...widget.lignesVente.asMap().entries.map((entry) {
+                          final ligne = entry.value;
+                          return TableRow(
+                            children: [
+                              _buildTableCell(ligne['designation'] ?? '', isArticle: true),
+                              _buildTableCell(_formatNumber(ligne['quantite']?.toDouble() ?? 0)),
+                              _buildTableCell(ligne['unites'] ?? ''),
+                              _buildTableCell(
+                                _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                isAmount: true,
+                              ),
+                              _buildTableCell(
+                                _formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                isAmount: true,
+                              ),
+                            ],
+                          );
+                        }),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              // Table data
-              Table(
-                border: const TableBorder(
-                  horizontalInside: BorderSide(color: Colors.grey, width: 0.5),
-                  verticalInside: BorderSide.none,
-                ),
-                columnWidths: const {
-                  0: FlexColumnWidth(1),
-                  1: FlexColumnWidth(3),
-                  2: FlexColumnWidth(1),
-                  3: FlexColumnWidth(1),
-                  4: FlexColumnWidth(1),
-                  5: FlexColumnWidth(1.5),
-                  6: FlexColumnWidth(1.5),
-                },
-                children: [
-                  ...widget.lignesVente.asMap().entries.map((entry) {
-                    final index = entry.key + 1;
-                    final ligne = entry.value;
-                    return TableRow(
-                      children: [
-                        _buildTableCell(index.toString()),
-                        _buildTableCell(ligne['designation'] ?? ''),
-                        _buildTableCell(ligne['depot'] ?? 'MAG'),
-                        _buildTableCell(_formatNumber(ligne['quantite']?.toDouble() ?? 0)),
-                        _buildTableCell(ligne['unites'] ?? ''),
-                        _buildTableCell(_formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0)),
-                        _buildTableCell(_formatNumber(ligne['montant']?.toDouble() ?? 0), isAmount: true),
-                      ],
-                    );
-                  }),
-                ],
-              ),
             ],
           ),
         ),
 
-        SizedBox(height: _padding),
-
         // Totals section
         Container(
-          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
           padding: EdgeInsets.all(_padding / 2),
           child: Column(
             children: [
@@ -379,20 +458,15 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                     children: [
                       if (widget.remise > 0) _buildTotalRow('REMISE:', _formatNumber(widget.remise)),
                       Container(
-                        decoration: const BoxDecoration(
-                          border: Border(top: BorderSide(color: Colors.black)),
-                        ),
                         child: _buildTotalRow('TOTAL TTC:', _formatNumber(widget.totalTTC), isBold: true),
                       ),
                     ],
                   ),
                 ],
               ),
-              SizedBox(height: _padding / 2),
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.all(_padding / 2),
-                decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 0.5)),
                 alignment: Alignment.center,
                 child: Text(
                   'Arrêté à la somme de ${AppFunctions.numberToWords(widget.totalTTC.round())} Ariary',
@@ -402,55 +476,35 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
             ],
           ),
         ),
-
-        SizedBox(height: _padding * 2),
-
-        // Signatures section
-        Container(
-          decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 1)),
-          padding: EdgeInsets.all(_padding),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      'CLIENT',
-                      style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: _padding * 2),
-                    Container(
-                      height: 1,
-                      color: Colors.black,
-                      margin: const EdgeInsets.symmetric(horizontal: 20),
-                    ),
-                    SizedBox(height: _padding / 2),
-                    Text('Nom et signature', style: TextStyle(fontSize: _fontSize - 2)),
-                  ],
+        if (widget.format != 'A6')
+          // Signatures section
+          Container(
+            padding: EdgeInsets.all(_padding),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        'CLIENT',
+                        style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Container(width: 1, height: 80, color: Colors.black),
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      'LIVREUR',
-                      style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: _padding * 2),
-                    Container(
-                      height: 1,
-                      color: Colors.black,
-                      margin: const EdgeInsets.symmetric(horizontal: 20),
-                    ),
-                    SizedBox(height: _padding / 2),
-                    Text('Nom et signature', style: TextStyle(fontSize: _fontSize - 2)),
-                  ],
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        'LIVREUR',
+                        style: TextStyle(fontSize: _fontSize, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -462,16 +516,16 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 90,
             child: Text(
               label,
-              style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.w500),
+              style: TextStyle(fontSize: _fontSize - 2, fontWeight: FontWeight.bold),
             ),
           ),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               value,
-              style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: _fontSize - 1, fontWeight: FontWeight.w500),
             ),
           ),
         ],
@@ -479,8 +533,18 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
     );
   }
 
-  Widget _buildTableCell(String text, {bool isHeader = false, bool isAmount = false}) {
+  Widget _buildTableCell(
+    String text, {
+    bool isHeader = false,
+    bool isArticle = false,
+    bool isAmount = false,
+  }) {
     return Container(
+      alignment: isArticle
+          ? Alignment.centerLeft
+          : isAmount
+          ? Alignment.centerRight
+          : Alignment.center,
       padding: EdgeInsets.all(widget.format == 'A6' ? 3 * _zoomLevel : 6 * _zoomLevel),
       decoration: isHeader ? BoxDecoration(color: Colors.grey[200]) : null,
       child: Text(
@@ -489,7 +553,6 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
           fontSize: (widget.format == 'A6' ? 8 : (widget.format == 'A5' ? 9 : 10)) * _zoomLevel,
           fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
         ),
-        textAlign: isHeader ? TextAlign.center : (isAmount ? TextAlign.right : TextAlign.left),
         overflow: TextOverflow.ellipsis,
       ),
     );
@@ -537,28 +600,26 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
             child: pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // Document title centered
-                pw.Center(
-                  child: pw.Container(
-                    padding: pw.EdgeInsets.symmetric(vertical: pdfPadding / 2),
-                    decoration: const pw.BoxDecoration(
-                      border: pw.Border(
-                        top: pw.BorderSide(color: PdfColors.black, width: 2),
-                        bottom: pw.BorderSide(color: PdfColors.black, width: 2),
+                if (widget.format != 'A6')
+                  // Document title centered
+                  pw.Center(
+                    child: pw.Container(
+                      padding: pw.EdgeInsets.symmetric(vertical: pdfPadding / 2),
+                      decoration: const pw.BoxDecoration(
+                        border: pw.Border(
+                          top: pw.BorderSide(color: PdfColors.black, width: 2),
+                          bottom: pw.BorderSide(color: PdfColors.black, width: 2),
+                        ),
+                      ),
+                      child: pw.Text(
+                        'BON DE LIVRAISON',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize + 2),
                       ),
                     ),
-                    child: pw.Text(
-                      'BON DE LIVRAISON',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize + 2),
-                    ),
                   ),
-                ),
-
-                pw.SizedBox(height: pdfPadding),
 
                 // Header section with company and document info
                 pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   padding: pw.EdgeInsets.all(pdfPadding / 2),
                   child: pw.Column(
                     children: [
@@ -572,25 +633,28 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                               crossAxisAlignment: pw.CrossAxisAlignment.start,
                               children: [
                                 pw.Text(
-                                  'SOCIÉTÉ:',
-                                  style: pw.TextStyle(
-                                    fontWeight: pw.FontWeight.bold,
-                                    fontSize: pdfFontSize - 1,
-                                  ),
-                                ),
-                                pw.Text(
                                   widget.societe?.rsoc ?? 'SOCIÉTÉ',
                                   style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
                                 ),
-                                if (widget.societe?.activites != null)
+                                if (widget.format != 'A6') ...[
+                                  if (widget.societe?.activites != null)
+                                    pw.Text(
+                                      widget.societe!.activites!,
+                                      style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                    ),
+                                  if (widget.societe?.adr != null)
+                                    pw.Text(
+                                      widget.societe!.adr!,
+                                      style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                    ),
+                                ],
+                                if (widget.societe?.rcs != null)
                                   pw.Text(
-                                    widget.societe!.activites!,
-                                    style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                  ),
-                                if (widget.societe?.adr != null)
-                                  pw.Text(
-                                    widget.societe!.adr!,
-                                    style: pw.TextStyle(fontSize: pdfFontSize - 1),
+                                    "RCS: ${widget.societe!.rcs!}",
+                                    style: pw.TextStyle(
+                                      fontSize: pdfFontSize - 1,
+                                      fontWeight: pw.FontWeight.bold,
+                                    ),
                                   ),
                               ],
                             ),
@@ -600,10 +664,9 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                             child: pw.Column(
                               crossAxisAlignment: pw.CrossAxisAlignment.start,
                               children: [
-                                _buildPdfInfoRow('N° DOCUMENT:', widget.numVente, pdfFontSize),
                                 _buildPdfInfoRow('DATE:', widget.date, pdfFontSize),
-                                _buildPdfInfoRow('CLIENT:', widget.client, pdfFontSize),
-                                _buildPdfInfoRow('N° FACTURE:', widget.nFacture, pdfFontSize),
+                                _buildPdfInfoRow('BON DE LIVRAISON:', widget.nFacture, pdfFontSize),
+                                _buildPdfInfoRow('Doit:', widget.client, pdfFontSize),
                               ],
                             ),
                           ),
@@ -612,98 +675,165 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                     ],
                   ),
                 ),
-
-                pw.SizedBox(height: pdfPadding),
 
                 // Articles table
                 pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   child: pw.Column(
                     children: [
                       // Table header
-                      pw.Container(
-                        color: PdfColors.grey300,
-                        child: pw.Table(
-                          border: const pw.TableBorder(
-                            horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
-                            verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
-                          ),
-                          columnWidths: const {
-                            0: pw.FlexColumnWidth(1),
-                            1: pw.FlexColumnWidth(3),
-                            2: pw.FlexColumnWidth(1),
-                            3: pw.FlexColumnWidth(1),
-                            4: pw.FlexColumnWidth(1),
-                            5: pw.FlexColumnWidth(1.5),
-                            6: pw.FlexColumnWidth(1.5),
-                          },
-                          children: [
-                            pw.TableRow(
+                      widget.format != 'A6'
+                          ? pw.Container(
+                              color: PdfColors.grey300,
+                              child: pw.Table(
+                                border: const pw.TableBorder(
+                                  horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                  verticalInside: pw.BorderSide.none,
+                                ),
+                                columnWidths: const {
+                                  0: pw.FlexColumnWidth(4),
+                                  1: pw.FlexColumnWidth(1),
+                                  2: pw.FlexColumnWidth(1),
+                                  3: pw.FlexColumnWidth(1),
+                                  4: pw.FlexColumnWidth(2),
+                                  5: pw.FlexColumnWidth(2),
+                                },
+                                children: [
+                                  pw.TableRow(
+                                    children: [
+                                      _buildPdfTableCell('Désignation', pdfFontSize, isHeader: true),
+                                      _buildPdfTableCell('Dépôts', pdfFontSize, isHeader: true),
+                                      _buildPdfTableCell('Q', pdfFontSize, isHeader: true),
+                                      _buildPdfTableCell('Unité', pdfFontSize, isHeader: true),
+                                      _buildPdfTableCell('PU HT', pdfFontSize, isHeader: true),
+                                      _buildPdfTableCell('Montant', pdfFontSize, isHeader: true),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            )
+                          : pw.Container(
+                              color: PdfColors.grey300,
+                              child: pw.Table(
+                                border: const pw.TableBorder(
+                                  horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                  verticalInside: pw.BorderSide.none,
+                                ),
+                                columnWidths: const {
+                                  0: pw.FlexColumnWidth(4),
+                                  1: pw.FlexColumnWidth(1),
+                                  2: pw.FlexColumnWidth(1),
+                                  3: pw.FlexColumnWidth(2),
+                                  4: pw.FlexColumnWidth(2),
+                                },
+                                children: [
+                                  pw.TableRow(
+                                    children: [
+                                      _buildPdfTableCell('Désignation', pdfFontSize, isHeader: true),
+                                      _buildPdfTableCell('Q', pdfFontSize, isHeader: true),
+                                      _buildPdfTableCell('Unité', pdfFontSize, isHeader: true),
+                                      _buildPdfTableCell('PU HT', pdfFontSize, isHeader: true),
+                                      _buildPdfTableCell('Montant', pdfFontSize, isHeader: true),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                      // Table data
+                      widget.format != 'A6'
+                          ? pw.Table(
+                              border: const pw.TableBorder(
+                                horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                top: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                bottom: pw.BorderSide(color: PdfColors.black, width: 0.75),
+                              ),
+                              columnWidths: const {
+                                0: pw.FlexColumnWidth(4),
+                                1: pw.FlexColumnWidth(1),
+                                2: pw.FlexColumnWidth(1),
+                                3: pw.FlexColumnWidth(1),
+                                4: pw.FlexColumnWidth(2),
+                                5: pw.FlexColumnWidth(2),
+                              },
                               children: [
-                                _buildPdfTableCell('N°', pdfFontSize, isHeader: true),
-                                _buildPdfTableCell('DÉSIGNATION', pdfFontSize, isHeader: true),
-                                _buildPdfTableCell('DÉPÔT', pdfFontSize, isHeader: true),
-                                _buildPdfTableCell('QTÉ', pdfFontSize, isHeader: true),
-                                _buildPdfTableCell('UNITÉ', pdfFontSize, isHeader: true),
-                                _buildPdfTableCell('PU HT', pdfFontSize, isHeader: true),
-                                _buildPdfTableCell('MONTANT', pdfFontSize, isHeader: true),
+                                ...widget.lignesVente.asMap().entries.map((entry) {
+                                  final ligne = entry.value;
+                                  return pw.TableRow(
+                                    children: [
+                                      _buildPdfTableCell(
+                                        ligne['designation'] ?? '',
+                                        pdfFontSize,
+                                        isArticle: true,
+                                      ),
+                                      _buildPdfTableCell(ligne['depot'] ?? 'MAG', pdfFontSize),
+                                      _buildPdfTableCell(
+                                        _formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                        pdfFontSize,
+                                      ),
+                                      _buildPdfTableCell(ligne['unites'] ?? '', pdfFontSize),
+                                      _buildPdfTableCell(
+                                        _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                        pdfFontSize,
+                                        isAmount: true,
+                                      ),
+                                      _buildPdfTableCell(
+                                        _formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                        pdfFontSize,
+                                        isAmount: true,
+                                      ),
+                                    ],
+                                  );
+                                }),
+                              ],
+                            )
+                          : pw.Table(
+                              border: const pw.TableBorder(
+                                horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                top: pw.BorderSide(color: PdfColors.black, width: 0.5),
+                                bottom: pw.BorderSide(color: PdfColors.black, width: 0.75),
+                              ),
+                              columnWidths: const {
+                                0: pw.FlexColumnWidth(4),
+                                1: pw.FlexColumnWidth(1),
+                                2: pw.FlexColumnWidth(1),
+                                3: pw.FlexColumnWidth(2),
+                                4: pw.FlexColumnWidth(2),
+                              },
+                              children: [
+                                ...widget.lignesVente.asMap().entries.map((entry) {
+                                  final ligne = entry.value;
+                                  return pw.TableRow(
+                                    children: [
+                                      _buildPdfTableCell(
+                                        ligne['designation'] ?? '',
+                                        pdfFontSize,
+                                        isArticle: true,
+                                      ),
+                                      _buildPdfTableCell(
+                                        _formatNumber(ligne['quantite']?.toDouble() ?? 0),
+                                        pdfFontSize,
+                                      ),
+                                      _buildPdfTableCell(ligne['unites'] ?? '', pdfFontSize),
+                                      _buildPdfTableCell(
+                                        _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
+                                        pdfFontSize,
+                                        isAmount: true,
+                                      ),
+                                      _buildPdfTableCell(
+                                        _formatNumber(ligne['montant']?.toDouble() ?? 0),
+                                        pdfFontSize,
+                                        isAmount: true,
+                                      ),
+                                    ],
+                                  );
+                                }),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      // Table data
-                      pw.Table(
-                        border: const pw.TableBorder(
-                          horizontalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
-                          verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
-                        ),
-                        columnWidths: const {
-                          0: pw.FlexColumnWidth(1),
-                          1: pw.FlexColumnWidth(3),
-                          2: pw.FlexColumnWidth(1),
-                          3: pw.FlexColumnWidth(1),
-                          4: pw.FlexColumnWidth(1),
-                          5: pw.FlexColumnWidth(1.5),
-                          6: pw.FlexColumnWidth(1.5),
-                        },
-                        children: [
-                          ...widget.lignesVente.asMap().entries.map((entry) {
-                            final index = entry.key + 1;
-                            final ligne = entry.value;
-                            return pw.TableRow(
-                              children: [
-                                _buildPdfTableCell(index.toString(), pdfFontSize),
-                                _buildPdfTableCell(ligne['designation'] ?? '', pdfFontSize),
-                                _buildPdfTableCell(ligne['depot'] ?? 'MAG', pdfFontSize),
-                                _buildPdfTableCell(
-                                  _formatNumber(ligne['quantite']?.toDouble() ?? 0),
-                                  pdfFontSize,
-                                ),
-                                _buildPdfTableCell(ligne['unites'] ?? '', pdfFontSize),
-                                _buildPdfTableCell(
-                                  _formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
-                                  pdfFontSize,
-                                ),
-                                _buildPdfTableCell(
-                                  _formatNumber(ligne['montant']?.toDouble() ?? 0),
-                                  pdfFontSize,
-                                  isAmount: true,
-                                ),
-                              ],
-                            );
-                          }),
-                        ],
-                      ),
                     ],
                   ),
                 ),
 
-                pw.SizedBox(height: pdfPadding),
-
                 // Totals section
                 pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
                   padding: pw.EdgeInsets.all(pdfPadding / 2),
                   child: pw.Column(
                     children: [
@@ -716,9 +846,6 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                               if (widget.remise > 0)
                                 _buildPdfTotalRow('REMISE:', _formatNumber(widget.remise), pdfFontSize),
                               pw.Container(
-                                decoration: const pw.BoxDecoration(
-                                  border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
-                                ),
                                 child: _buildPdfTotalRow(
                                   'TOTAL TTC:',
                                   _formatNumber(widget.totalTTC),
@@ -730,13 +857,9 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                           ),
                         ],
                       ),
-                      pw.SizedBox(height: pdfPadding / 2),
                       pw.Container(
                         width: double.infinity,
                         padding: pw.EdgeInsets.all(pdfPadding / 2),
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border.all(color: PdfColors.black, width: 0.5),
-                        ),
                         alignment: pw.Alignment.center,
                         child: pw.Text(
                           'Arrêté à la somme de ${AppFunctions.numberToWords(widget.totalTTC.round())} Ariary',
@@ -747,54 +870,35 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
                   ),
                 ),
 
-                pw.SizedBox(height: pdfPadding * 2),
-
-                // Signatures section
-                pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
-                  padding: pw.EdgeInsets.all(pdfPadding),
-                  child: pw.Row(
-                    children: [
-                      pw.Expanded(
-                        child: pw.Column(
-                          children: [
-                            pw.Text(
-                              'CLIENT',
-                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.SizedBox(height: pdfPadding * 2),
-                            pw.Container(
-                              height: 1,
-                              color: PdfColors.black,
-                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
-                            ),
-                            pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
-                          ],
+                if (widget.format != 'A6')
+                  // Signatures section
+                  pw.Container(
+                    padding: pw.EdgeInsets.all(pdfPadding),
+                    child: pw.Row(
+                      children: [
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              pw.Text(
+                                'CLIENT',
+                                style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      pw.Container(width: 1, height: 60, color: PdfColors.black),
-                      pw.Expanded(
-                        child: pw.Column(
-                          children: [
-                            pw.Text(
-                              'LIVREUR',
-                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.SizedBox(height: pdfPadding * 2),
-                            pw.Container(
-                              height: 1,
-                              color: PdfColors.black,
-                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
-                            ),
-                            pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
-                          ],
+                        pw.Expanded(
+                          child: pw.Column(
+                            children: [
+                              pw.Text(
+                                'LIVREUR',
+                                style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           );
@@ -805,8 +909,19 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
     return pdf;
   }
 
-  pw.Widget _buildPdfTableCell(String text, double fontSize, {bool isHeader = false, bool isAmount = false}) {
+  pw.Widget _buildPdfTableCell(
+    String text,
+    double fontSize, {
+    bool isHeader = false,
+    bool isArticle = false,
+    bool isAmount = false,
+  }) {
     return pw.Container(
+      alignment: isArticle
+          ? pw.Alignment.centerLeft
+          : isAmount
+          ? pw.Alignment.centerRight
+          : pw.Alignment.center,
       padding: pw.EdgeInsets.all(widget.format == 'A6' ? 3 : 5),
       child: pw.Text(
         text,
@@ -814,7 +929,6 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
           fontSize: fontSize - 1,
           fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
         ),
-        textAlign: isHeader ? pw.TextAlign.center : (isAmount ? pw.TextAlign.right : pw.TextAlign.left),
       ),
     );
   }
@@ -826,16 +940,16 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.SizedBox(
-            width: 90,
             child: pw.Text(
               label,
-              style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.normal),
+              style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.bold),
             ),
           ),
+          pw.SizedBox(width: 8),
           pw.Expanded(
             child: pw.Text(
               value,
-              style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.bold),
+              style: pw.TextStyle(fontSize: fontSize - 1, fontWeight: pw.FontWeight.normal),
             ),
           ),
         ],
@@ -869,25 +983,75 @@ class _BonLivraisonPreviewState extends State<BonLivraisonPreview> with TabNavig
   }
 
   // Fonction d'impression
-  Future<void> _imprimer(BuildContext context) async {
+  Future<void> _imprimer() async {
+    if (widget.lignesVente.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(
+            bottom: MediaQuery.of(context).size.height * 0.8,
+            right: 20,
+            left: MediaQuery.of(context).size.width * 0.75,
+          ),
+          content: const Text('Aucun article à imprimer'),
+        ),
+      );
+      return;
+    }
+
     try {
-      // Générer le PDF
       final pdf = await _generatePdf();
       final bytes = await pdf.save();
 
-      // Ouvrir directement la boîte de dialogue d'impression Windows
-      await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => bytes,
-        name: 'BL_${widget.numVente}_${widget.date}.pdf',
-        format: _pdfPageFormat,
-      );
-    } catch (e) {
-      if (context.mounted) {
+      // Obtenir la liste des imprimantes et trouver celle par défaut
+      final printers = await Printing.listPrinters();
+      final defaultPrinter = printers.where((p) => p.isDefault).firstOrNull;
+
+      if (defaultPrinter != null) {
+        await Printing.directPrintPdf(
+          printer: defaultPrinter,
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: 'BL${widget.nFacture}_${widget.date.replaceAll('/', '-')}.pdf',
+          format: widget.format == 'A4'
+              ? PdfPageFormat.a4
+              : (widget.format == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
+        );
+      } else {
+        // Fallback vers la boîte de dialogue si aucune imprimante par défaut
+        await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: 'BL${widget.nFacture}_${widget.date.replaceAll('/', '-')}.pdf',
+          format: widget.format == 'A4'
+              ? PdfPageFormat.a4
+              : (widget.format == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
+        );
+      }
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Erreur: $e'),
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height * 0.8,
+              right: 20,
+              left: MediaQuery.of(context).size.width * 0.75,
+            ),
+            content: const Text('Bon de livraison envoyée à l\'imprimante par défaut'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(context).size.height * 0.8,
+              right: 20,
+              left: MediaQuery.of(context).size.width * 0.75,
+            ),
+            content: Text('Erreur d\'impression: $e'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
           ),
         );
       }
