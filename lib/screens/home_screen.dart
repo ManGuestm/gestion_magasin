@@ -20,6 +20,7 @@ import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
 import '../widgets/modals/ventes_jour_modal.dart';
 import '../widgets/modals/ventes_selection_modal.dart';
+import 'etats/stocks_fournisseurs_screen.dart';
 import 'gestion_utilisateurs_screen.dart';
 import 'login_screen.dart';
 import 'profil_screen.dart';
@@ -766,6 +767,11 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } else if (iconLabel == 'Articles à commander') {
       _showModal('Niveau des stocks (Articles à commandées)');
+    } else if (iconLabel == 'Stocks par Fournisseurs') {
+      _pauseUpdates();
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (context) => const StocksFournisseursScreen()))
+          .then((_) => _resumeUpdates());
     } else {
       _showModal(iconLabel);
     }

@@ -498,13 +498,30 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           true;
 
       if (confirmer == true) {
+        // Annuler le timer de focus global pour éviter les interférences
+        _globalFocusTimer?.cancel();
+        _globalShortcutsFocusNode.unfocus();
+        
         // Ouvrir le modal d'ajout de fournisseur avec le nom pré-rempli
         if (mounted) {
           await showDialog(
             context: context,
+            barrierDismissible: false,
             builder: (context) => AddFournisseurModal(nomFournisseur: nomFournisseur),
           );
         }
+
+        // Redémarrer le timer de focus global
+        _globalFocusTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          if (!mounted) {
+            timer.cancel();
+            return;
+          }
+          if (!_globalShortcutsFocusNode.hasFocus && !_globalShortcutsFocusNode.hasPrimaryFocus) {
+            _ensureGlobalShortcutsFocus();
+          }
+        });
+        _ensureGlobalShortcutsFocus();
 
         // Recharger la liste des fournisseurs
         await _loadData();
