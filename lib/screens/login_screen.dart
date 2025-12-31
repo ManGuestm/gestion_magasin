@@ -88,7 +88,7 @@ class _LoginScreenState extends State<LoginScreen> {
         final prefs = await SharedPreferences.getInstance();
         final serverIp = prefs.getString('server_ip') ?? '';
         final serverPort = int.tryParse(prefs.getString('server_port') ?? '8080') ?? 8080;
-        
+
         // Log configuration réseau
         await AuditService().log(
           userId: 'system',
@@ -97,15 +97,15 @@ class _LoginScreenState extends State<LoginScreen> {
           module: 'LOGIN_SCREEN',
           details: 'Config réseau: Mode=CLIENT, IP=$serverIp, Port=$serverPort',
         );
-        
+
         if (serverIp.isEmpty) {
           throw Exception('Configuration serveur manquante');
         }
-        
+
         // Initialiser la connexion CLIENT avec les credentials de l'utilisateur
         final dbService = DatabaseService();
         final connected = await dbService.initializeAsClient(serverIp, serverPort, username, password);
-        
+
         if (!connected) {
           throw Exception('Impossible de se connecter au serveur');
         }
@@ -132,13 +132,15 @@ class _LoginScreenState extends State<LoginScreen> {
           module: 'LOGIN_SCREEN',
           details: 'Connexion échouée',
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Nom d\'utilisateur ou mot de passe incorrect'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        _usernameFocus.requestFocus();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Nom d\'utilisateur ou mot de passe incorrect'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          _usernameFocus.requestFocus();
+        }
       }
     } catch (e) {
       await AuditService().log(
@@ -152,12 +154,16 @@ class _LoginScreenState extends State<LoginScreen> {
         String errorMessage = 'Erreur de connexion';
         if (e.toString().contains('SqliteException') || e.toString().contains('database')) {
           errorMessage = 'Erreur de base de données. Vérifiez la connexion au serveur.';
-        } else if (e.toString().contains('Connection') || e.toString().contains('network') || e.toString().contains('serveur')) {
+        } else if (e.toString().contains('Connection') ||
+            e.toString().contains('network') ||
+            e.toString().contains('serveur')) {
           errorMessage = 'Impossible de se connecter au serveur. Vérifiez la configuration réseau.';
         }
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(errorMessage), backgroundColor: Colors.red));
+        }
       }
     } finally {
       if (mounted) {

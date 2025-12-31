@@ -95,12 +95,14 @@ lib/
 L'application supporte une architecture **Serveur/Client stricte** :
 
 ### 🖥️ Mode Serveur
+
 - **Ordinateur principal** - Toujours allumé
 - **Base de données locale** - SQLite
 - **Accès**: **Administrateur uniquement** 🔒
 - **Rôle**: Héberge la base et diffuse les changements
 
 ### 💻 Mode Client
+
 - **Postes de travail distants**
 - **Aucune base locale** - Tout passe par le serveur
 - **Accès**: **Caisse et Vendeur uniquement** 🔒
@@ -116,6 +118,7 @@ L'application supporte une architecture **Serveur/Client stricte** :
 **Exemple :** Un vendeur fait une vente sur Client A → L'administrateur voit la vente immédiatement sur le Serveur → Un caissier voit la vente immédiatement sur Client B
 
 📖 **Guides complets** :
+
 - **Index de la documentation** : `INDEX.md` 📚
 - Architecture détaillée : `ARCHITECTURE_SERVEUR_CLIENT.md`
 - Diagrammes visuels : `ARCHITECTURE_DIAGRAM.md`
@@ -152,3 +155,5 @@ Propriétaire - Tous droits réservés
 Pour toute assistance technique, contactez l'équipe de développement.
 
 ℹ️ Les analyses et constats techniques ont été déplacés vers le tracker interne. Pour les signalements ou le suivi des problèmes, consultez le fichier CONTRIBUTING ou le panneau Issues du projet
+
+dart run build_runner build --delete-conflicting-outputs

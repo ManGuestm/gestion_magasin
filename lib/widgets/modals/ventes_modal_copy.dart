@@ -6,7 +6,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../constants/app_functions.dart';
@@ -22,6 +21,7 @@ import '../../widgets/common/article_navigation_autocomplete.dart';
 import '../../widgets/common/enhanced_autocomplete.dart';
 import '../../widgets/common/mode_paiement_dropdown.dart';
 import '../common/tab_navigation_widget.dart';
+import '../facture/pdf_generator.dart';
 import 'add_client_modal.dart';
 import 'bon_livraison_preview.dart';
 import 'facture_preview.dart';
@@ -83,6 +83,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   String? _selectedDepot;
   String? _selectedModePaiement = 'A crédit';
   String? _selectedClient;
+  String? _selectedadrClient;
   // String? _selectedCommercial;
   int? _selectedRowIndex;
   bool _isExistingPurchase = false;
@@ -2622,11 +2623,21 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       setState(() {
         _soldeAnterieur = 0.0;
         _soldeAnterieurController.text = '0';
+        _selectedadrClient = null;
       });
       return;
     }
 
     try {
+      // Récupérer l'adresse du client
+      final clientData = await (_databaseService.database.select(
+        _databaseService.database.clt,
+      )..where((c) => c.rsoc.equals(client))).getSingleOrNull();
+
+      setState(() {
+        _selectedadrClient = clientData?.adr;
+      });
+
       double solde = await _databaseService.database.calculerSoldeClient(client);
 
       // Si on charge une vente existante, exclure cette vente du solde
@@ -3301,765 +3312,104 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
   }
 
+  /// Méthode générique pour imprimer un document PDF
+  Future<void> _imprimerDocument({required DocumentType typeDocument, required String nomFichier}) async {
+    if (_lignesVente.isEmpty) {
+      _showSnackBar('Aucun article à imprimer');
+      return;
+    }
+
+    try {
+      final societe = await (_databaseService.database.select(
+        _databaseService.database.soc,
+      )).getSingleOrNull();
+
+      // Créer la configuration selon le type de document
+      final config = PdfConfig(
+        selectedFormat: _selectedFormat,
+        documentType: typeDocument,
+        documentNumber: _nFactureController.text,
+        date: _dateController.text,
+        client: _selectedClient ?? '',
+        adrClient: _selectedadrClient ?? '',
+        lignes: _lignesVente,
+        remise: double.tryParse(_remiseController.text) ?? 0,
+        totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
+        societe: societe,
+        modePaiement: _selectedModePaiement,
+        showDepot: _selectedFormat != 'A6',
+        showSignatures: typeDocument == DocumentType.bonLivraison ? _selectedFormat != 'A6' : true,
+      );
+
+      // Générer le PDF
+      final generator = PdfGenerator(config);
+      final pdf = await generator.generate();
+      final bytes = await pdf.save();
+
+      // Obtenir la liste des imprimantes et trouver celle par défaut
+      final printers = await Printing.listPrinters();
+      final defaultPrinter = printers.where((p) => p.isDefault).firstOrNull;
+
+      final pageFormat = _selectedFormat == 'A4'
+          ? PdfPageFormat.a4
+          : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5);
+
+      final fileName =
+          '${nomFichier}_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf';
+
+      if (defaultPrinter != null) {
+        await Printing.directPrintPdf(
+          printer: defaultPrinter,
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: fileName,
+          format: pageFormat,
+        );
+      } else {
+        // Fallback vers la boîte de dialogue si aucune imprimante par défaut
+        await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: fileName,
+          format: pageFormat,
+        );
+      }
+
+      if (mounted) {
+        final message = typeDocument == DocumentType.facture
+            ? 'Facture envoyée à l\'imprimante par défaut'
+            : 'Bon de livraison envoyé à l\'imprimante par défaut';
+        _showSnackBar(message);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Erreur d\'impression: $e', isError: true);
+      }
+    }
+  }
+
+  /// Méthode helper pour afficher les SnackBars
+  void _showSnackBar(String message, {bool isError = false}) {
+    _scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).size.height * 0.8,
+          right: 20,
+          left: MediaQuery.of(context).size.width * 0.75,
+        ),
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : null,
+      ),
+    );
+  }
+
+  /// Imprimer une facture
   Future<void> _imprimerFacture() async {
-    if (_lignesVente.isEmpty) {
-      _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).size.height * 0.8,
-            right: 20,
-            left: MediaQuery.of(context).size.width * 0.75,
-          ),
-          content: const Text('Aucun article à imprimer'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      final societe = await (_databaseService.database.select(
-        _databaseService.database.soc,
-      )).getSingleOrNull();
-      final pdf = await _generateFacturePdf(societe);
-      final bytes = await pdf.save();
-
-      // Obtenir la liste des imprimantes et trouver celle par défaut
-      final printers = await Printing.listPrinters();
-      final defaultPrinter = printers.where((p) => p.isDefault).firstOrNull;
-
-      if (defaultPrinter != null) {
-        await Printing.directPrintPdf(
-          printer: defaultPrinter,
-          onLayout: (PdfPageFormat format) async => bytes,
-          name: 'Facture_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
-          format: _selectedFormat == 'A4'
-              ? PdfPageFormat.a4
-              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
-        );
-      } else {
-        // Fallback vers la boîte de dialogue si aucune imprimante par défaut
-        await Printing.layoutPdf(
-          onLayout: (PdfPageFormat format) async => bytes,
-          name: 'Facture_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
-          format: _selectedFormat == 'A4'
-              ? PdfPageFormat.a4
-              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
-        );
-      }
-
-      if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height * 0.8,
-              right: 20,
-              left: MediaQuery.of(context).size.width * 0.75,
-            ),
-            content: const Text('Facture envoyée à l\'imprimante par défaut'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height * 0.8,
-              right: 20,
-              left: MediaQuery.of(context).size.width * 0.75,
-            ),
-            content: Text('Erreur d\'impression: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    await _imprimerDocument(typeDocument: DocumentType.facture, nomFichier: 'Facture');
   }
 
-  pw.Widget _buildPdfTotalRow(String label, String value, double fontSize, {bool isBold = false}) {
-    return pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 2),
-      child: pw.Row(
-        children: [
-          pw.Text(
-            label,
-            style: pw.TextStyle(
-              fontSize: fontSize - 1,
-              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
-            ),
-          ),
-          pw.SizedBox(width: 20),
-          pw.Text(
-            value,
-            style: pw.TextStyle(
-              fontSize: fontSize - 1,
-              fontWeight: isBold ? pw.FontWeight.bold : pw.FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<pw.Document> _generateFacturePdf(SocData? societe) async {
-    final pdf = pw.Document();
-    final pdfFontSize = _selectedFormat == 'A6' ? 9.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
-    final pdfHeaderFontSize = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
-    final pdfPadding = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
-    final pageFormat = _selectedFormat == 'A4'
-        ? PdfPageFormat.a4
-        : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5);
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: pageFormat,
-        margin: const pw.EdgeInsets.all(3),
-        build: (context) {
-          return pw.Container(
-            padding: pw.EdgeInsets.all(pdfPadding),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Center(
-                  child: pw.Container(
-                    padding: pw.EdgeInsets.symmetric(vertical: pdfPadding / 2),
-                    decoration: const pw.BoxDecoration(
-                      border: pw.Border(
-                        top: pw.BorderSide(color: PdfColors.black, width: 2),
-                        bottom: pw.BorderSide(color: PdfColors.black, width: 2),
-                      ),
-                    ),
-                    child: pw.Text(
-                      'FACTURE',
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize + 2),
-                    ),
-                  ),
-                ),
-                pw.SizedBox(height: pdfPadding),
-                pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
-                  padding: pw.EdgeInsets.all(pdfPadding / 2),
-                  child: pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Expanded(
-                        flex: 3,
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text(
-                              societe?.rsoc ?? 'SOCIÉTÉ',
-                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
-                            ),
-                            if (societe?.adr != null)
-                              pw.Text(societe!.adr!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
-                            if (societe?.activites != null)
-                              pw.Text(societe!.activites!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
-                            if (societe?.adr != null)
-                              pw.Text(societe!.adr!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
-                            if (_selectedFormat != 'A6') ...[
-                              if (societe?.rcs != null)
-                                pw.Text(
-                                  'RCS: ${societe!.rcs!}',
-                                  style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                                ),
-                              if (societe?.nif != null)
-                                pw.Text(
-                                  'NIF: ${societe!.nif!}',
-                                  style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                                ),
-                              if (societe?.stat != null)
-                                pw.Text(
-                                  'STAT: ${societe!.stat!}',
-                                  style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                                ),
-                              if (societe?.cif != null)
-                                pw.Text(
-                                  'CIF: ${societe!.cif!}',
-                                  style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                                ),
-                              if (societe?.email != null)
-                                pw.Text(
-                                  'Email: ${societe!.email!}',
-                                  style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                                ),
-                            ],
-                            if (societe?.port != null)
-                              pw.Text(
-                                'Tél: ${societe!.port!}',
-                                style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                              ),
-                          ],
-                        ),
-                      ),
-                      pw.Expanded(
-                        flex: 2,
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text(
-                              'N° FACTURE: ${_nFactureController.text}',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.Text(
-                              'DATE: ${_dateController.text}',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.Text(
-                              'CLIENT: ${_selectedClient ?? ""}',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.Text(
-                              'MODE DE PAIEMENT: ${_selectedModePaiement ?? ""}',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 2, fontWeight: pw.FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: pdfPadding),
-                pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
-                  child: pw.Table(
-                    border: const pw.TableBorder(
-                      horizontalInside: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
-                      verticalInside: pw.BorderSide.none,
-                    ),
-                    children: [
-                      pw.TableRow(
-                        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                        children: [
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(3),
-                            child: pw.Text(
-                              'DÉSIGNATION',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                              textAlign: pw.TextAlign.center,
-                            ),
-                          ),
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(3),
-                            child: pw.Text(
-                              'QTÉ',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                              textAlign: pw.TextAlign.center,
-                            ),
-                          ),
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(3),
-                            child: pw.Text(
-                              'PU HT',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                              textAlign: pw.TextAlign.center,
-                            ),
-                          ),
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(3),
-                            child: pw.Text(
-                              'MONTANT',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                              textAlign: pw.TextAlign.center,
-                            ),
-                          ),
-                        ],
-                      ),
-                      ..._lignesVente.map(
-                        (ligne) => pw.TableRow(
-                          children: [
-                            pw.Container(
-                              padding: const pw.EdgeInsets.all(3),
-                              child: pw.Text(
-                                ligne['designation'] ?? '',
-                                style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                              ),
-                            ),
-                            pw.Container(
-                              padding: const pw.EdgeInsets.all(3),
-                              child: pw.Text(
-                                AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
-                                style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                textAlign: pw.TextAlign.center,
-                              ),
-                            ),
-                            pw.Container(
-                              padding: const pw.EdgeInsets.all(3),
-                              child: pw.Text(
-                                AppFunctions.formatNumber(ligne['prixUnitaire']?.toDouble() ?? 0),
-                                style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                textAlign: pw.TextAlign.right,
-                              ),
-                            ),
-                            pw.Container(
-                              padding: const pw.EdgeInsets.all(3),
-                              child: pw.Text(
-                                AppFunctions.formatNumber(ligne['montant']?.toDouble() ?? 0),
-                                style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                textAlign: pw.TextAlign.right,
-                              ),
-                            ),
-                            pw.Container(
-                              decoration: const pw.BoxDecoration(
-                                border: pw.Border(
-                                  bottom: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: pdfPadding),
-                pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
-                  padding: pw.EdgeInsets.all(pdfPadding / 2),
-                  child: pw.Row(
-                    children: [
-                      pw.Spacer(),
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.end,
-                        children: [
-                          pw.Text(
-                            'TOTAL TTC: ${AppFunctions.formatNumber(double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0)}',
-                            style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Totals section
-                pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
-                  padding: pw.EdgeInsets.all(pdfPadding / 2),
-                  child: pw.Column(
-                    children: [
-                      pw.Row(
-                        children: [
-                          pw.Spacer(),
-                          pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.end,
-                            children: [
-                              if ((double.tryParse(_remiseController.text) ?? 0) > 0)
-                                _buildPdfTotalRow(
-                                  'REMISE:',
-                                  AppFunctions.formatNumber(
-                                    double.tryParse(_remiseController.text.replaceAll(' ', '')) ?? 0,
-                                  ),
-                                  pdfFontSize,
-                                ),
-                              pw.Container(
-                                decoration: const pw.BoxDecoration(
-                                  border: pw.Border(top: pw.BorderSide(color: PdfColors.black)),
-                                ),
-                                child: _buildPdfTotalRow(
-                                  'TOTAL TTC:',
-                                  AppFunctions.formatNumber(
-                                    double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
-                                  ),
-                                  pdfFontSize,
-                                  isBold: true,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      pw.SizedBox(height: pdfPadding / 2),
-                      pw.Container(
-                        width: double.infinity,
-                        padding: pw.EdgeInsets.all(pdfPadding / 2),
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border.all(color: PdfColors.black, width: 0.5),
-                        ),
-                        alignment: pw.Alignment.center,
-                        child: pw.Text(
-                          'Arrêté à la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
-                          style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                pw.SizedBox(height: pdfPadding * 2),
-
-                // Signatures section
-                pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
-                  padding: pw.EdgeInsets.all(pdfPadding),
-                  child: pw.Row(
-                    children: [
-                      pw.Expanded(
-                        child: pw.Column(
-                          children: [
-                            pw.Text(
-                              'CLIENT',
-                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.SizedBox(height: pdfPadding * 2),
-                            pw.Container(
-                              height: 1,
-                              color: PdfColors.black,
-                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
-                            ),
-                            pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
-                          ],
-                        ),
-                      ),
-                      pw.Container(width: 1, height: 60, color: PdfColors.black),
-                      pw.Expanded(
-                        child: pw.Column(
-                          children: [
-                            pw.Text(
-                              'VENDEUR',
-                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.SizedBox(height: pdfPadding * 2),
-                            pw.Container(
-                              height: 1,
-                              color: PdfColors.black,
-                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
-                            ),
-                            pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-    return pdf;
-  }
-
-  // Dans la méthode _generateFacturePdf, ajouter une méthode similaire pour le BL
-  Future<pw.Document> _generateBLPdf(SocData? societe) async {
-    final pdf = pw.Document();
-    final pdfFontSize = _selectedFormat == 'A6' ? 9.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
-    final pdfHeaderFontSize = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
-    final pdfPadding = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
-    final pageFormat = _selectedFormat == 'A4'
-        ? PdfPageFormat.a4
-        : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5);
-
-    pdf.addPage(
-      pw.Page(
-        pageFormat: pageFormat,
-        margin: const pw.EdgeInsets.all(3),
-        build: (context) {
-          return pw.Container(
-            padding: pw.EdgeInsets.all(pdfPadding),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                if (_selectedFormat != 'A6')
-                  pw.Center(
-                    child: pw.Container(
-                      padding: pw.EdgeInsets.symmetric(vertical: pdfPadding / 2),
-                      decoration: const pw.BoxDecoration(
-                        border: pw.Border(
-                          top: pw.BorderSide(color: PdfColors.black, width: 2),
-                          bottom: pw.BorderSide(color: PdfColors.black, width: 2),
-                        ),
-                      ),
-                      child: pw.Text(
-                        'BON DE LIVRAISON',
-                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: pdfHeaderFontSize + 2),
-                      ),
-                    ),
-                  ),
-                pw.Container(
-                  padding: pw.EdgeInsets.all(pdfPadding / 2),
-                  child: pw.Row(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Expanded(
-                        flex: 3,
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text(
-                              societe?.rsoc ?? 'SOCIÉTÉ',
-                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
-                            ),
-                            if (societe?.adr != null)
-                              pw.Text(societe!.adr!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
-                            if (societe?.activites != null)
-                              pw.Text(societe!.activites!, style: pw.TextStyle(fontSize: pdfFontSize - 1)),
-                            if (societe?.port != null)
-                              pw.Text(
-                                'Tél: ${societe!.port!}',
-                                style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                              ),
-                            if (societe?.rcs != null)
-                              pw.Text(
-                                'RCS: ${societe!.rcs!}',
-                                style: pw.TextStyle(fontSize: pdfFontSize - 2),
-                              ),
-                          ],
-                        ),
-                      ),
-                      pw.Expanded(
-                        flex: 2,
-                        child: pw.Column(
-                          crossAxisAlignment: pw.CrossAxisAlignment.start,
-                          children: [
-                            pw.Text(
-                              'DATE: ${_dateController.text}',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 2, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.Text(
-                              'BON DE LIVRAISON N°: ${_nFactureController.text}',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 2, fontWeight: pw.FontWeight.bold),
-                            ),
-
-                            pw.Text(
-                              'DOIT: ${_selectedClient ?? ""}',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 2, fontWeight: pw.FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: pdfPadding),
-                pw.Container(
-                  child: pw.Table(
-                    border: const pw.TableBorder(
-                      horizontalInside: pw.BorderSide(color: PdfColors.grey200, width: 0.5),
-                      verticalInside: pw.BorderSide.none,
-                    ),
-                    children: [
-                      pw.TableRow(
-                        decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-                        children: [
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(3),
-                            child: pw.Text(
-                              'Désignation',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                              textAlign: pw.TextAlign.center,
-                            ),
-                          ),
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(3),
-                            child: pw.Text(
-                              'Unités',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                              textAlign: pw.TextAlign.center,
-                            ),
-                          ),
-                          pw.Container(
-                            padding: const pw.EdgeInsets.all(3),
-                            child: pw.Text(
-                              'Q',
-                              style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
-                              textAlign: pw.TextAlign.center,
-                            ),
-                          ),
-                          if (widget.tousDepots)
-                            pw.Container(
-                              padding: const pw.EdgeInsets.all(3),
-                              child: pw.Text(
-                                'DÉPÔT',
-                                style: pw.TextStyle(
-                                  fontSize: pdfFontSize - 1,
-                                  fontWeight: pw.FontWeight.bold,
-                                ),
-                                textAlign: pw.TextAlign.center,
-                              ),
-                            ),
-                        ],
-                      ),
-                      ..._lignesVente.map(
-                        (ligne) => pw.TableRow(
-                          children: [
-                            pw.Container(
-                              padding: const pw.EdgeInsets.all(3),
-                              child: pw.Text(
-                                ligne['designation'] ?? '',
-                                style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                              ),
-                            ),
-                            pw.Container(
-                              padding: const pw.EdgeInsets.all(3),
-                              child: pw.Text(
-                                ligne['unites'] ?? '',
-                                style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                textAlign: pw.TextAlign.center,
-                              ),
-                            ),
-                            pw.Container(
-                              padding: const pw.EdgeInsets.all(3),
-                              child: pw.Text(
-                                AppFunctions.formatNumber(ligne['quantite']?.toDouble() ?? 0),
-                                style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                textAlign: pw.TextAlign.center,
-                              ),
-                            ),
-                            if (widget.tousDepots)
-                              pw.Container(
-                                padding: const pw.EdgeInsets.all(3),
-                                child: pw.Text(
-                                  ligne['depot'] ?? '',
-                                  style: pw.TextStyle(fontSize: pdfFontSize - 1),
-                                  textAlign: pw.TextAlign.center,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: pdfPadding * 2),
-                // Signatures section
-                pw.Container(
-                  decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 1)),
-                  padding: pw.EdgeInsets.all(pdfPadding),
-                  child: pw.Row(
-                    children: [
-                      pw.Expanded(
-                        child: pw.Column(
-                          children: [
-                            pw.Text(
-                              'CLIENT',
-                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.SizedBox(height: pdfPadding * 2),
-                            pw.Container(
-                              height: 1,
-                              color: PdfColors.black,
-                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
-                            ),
-                            pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
-                          ],
-                        ),
-                      ),
-                      pw.Container(width: 1, height: 60, color: PdfColors.black),
-                      pw.Expanded(
-                        child: pw.Column(
-                          children: [
-                            pw.Text(
-                              'LIVREUR',
-                              style: pw.TextStyle(fontSize: pdfFontSize, fontWeight: pw.FontWeight.bold),
-                            ),
-                            pw.SizedBox(height: pdfPadding * 2),
-                            pw.Container(
-                              height: 1,
-                              color: PdfColors.black,
-                              margin: const pw.EdgeInsets.symmetric(horizontal: 20),
-                            ),
-                            pw.SizedBox(height: pdfPadding / 2),
-                            pw.Text('Nom et signature', style: pw.TextStyle(fontSize: pdfFontSize - 2)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-    return pdf;
-  }
-
-  // Ajouter la méthode pour imprimer le BL
+  /// Imprimer un bon de livraison
   Future<void> _imprimerBL() async {
-    if (_lignesVente.isEmpty) {
-      _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).size.height * 0.8,
-            right: 20,
-            left: MediaQuery.of(context).size.width * 0.75,
-          ),
-          content: const Text('Aucun article à imprimer'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      final societe = await (_databaseService.database.select(
-        _databaseService.database.soc,
-      )).getSingleOrNull();
-      final pdf = await _generateBLPdf(societe);
-      final bytes = await pdf.save();
-
-      // Obtenir la liste des imprimantes et trouver celle par défaut
-      final printers = await Printing.listPrinters();
-      final defaultPrinter = printers.where((p) => p.isDefault).firstOrNull;
-
-      if (defaultPrinter != null) {
-        await Printing.directPrintPdf(
-          printer: defaultPrinter,
-          onLayout: (PdfPageFormat format) async => bytes,
-          name: 'BL_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
-          format: _selectedFormat == 'A4'
-              ? PdfPageFormat.a4
-              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
-        );
-      } else {
-        // Fallback vers la boîte de dialogue si aucune imprimante par défaut
-        await Printing.layoutPdf(
-          onLayout: (PdfPageFormat format) async => bytes,
-          name: 'BL_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
-          format: _selectedFormat == 'A4'
-              ? PdfPageFormat.a4
-              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
-        );
-      }
-
-      if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height * 0.8,
-              right: 20,
-              left: MediaQuery.of(context).size.width * 0.75,
-            ),
-            content: const Text('Bon de livraison envoyé à l\'imprimante par défaut'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height * 0.8,
-              right: 20,
-              left: MediaQuery.of(context).size.width * 0.75,
-            ),
-            content: Text('Erreur d\'impression: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    await _imprimerDocument(typeDocument: DocumentType.bonLivraison, nomFichier: 'BL');
   }
 
   void _apercuBL() async {

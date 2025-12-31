@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../database/database.dart';
 import '../../database/database_service.dart';
+import '../common/enhanced_autocomplete.dart';
 import '../common/tab_navigation_widget.dart';
 
 class AddArticleModal extends StatefulWidget {
@@ -29,11 +30,17 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
     'pvu1',
     'pvu2',
     'pvu3',
+    'pu1',
+    'pu2',
+    'pu3',
     'categorie',
     'classification',
     'emb',
     'sec',
     'uniteSection',
+    'frns1',
+    'frns2',
+    'frns3',
     'creer',
     'annuler',
   ];
@@ -46,6 +53,10 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
   String? _selectedDepot;
   String? _selectedUniteSection;
   List<String> _unitesDisponibles = [];
+  List<Frn> _fournisseurs = [];
+  String? selectedFrns1;
+  String? selectedFrns2;
+  String? selectedFrns3;
 
   Timer? _debounceTimer;
 
@@ -61,7 +72,6 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
   }
 
   void _initializeFocusNodes() {
-    // Créer tous les FocusNodes une seule fois
     for (final fieldName in _fieldNames) {
       _focusNodes[fieldName] = createFocusNode();
     }
@@ -94,12 +104,21 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
     _controllers['pvu1']!.text = article.pvu1?.toString() ?? '';
     _controllers['pvu2']!.text = article.pvu2?.toString() ?? '';
     _controllers['pvu3']!.text = article.pvu3?.toString() ?? '';
+    _controllers['pu1']!.text = article.pu1?.toString() ?? '';
+    _controllers['pu2']!.text = article.pu2?.toString() ?? '';
+    _controllers['pu3']!.text = article.pu3?.toString() ?? '';
     _controllers['categorie']!.text = article.categorie ?? 'Catégorie articles';
     _controllers['classification']!.text = article.classification ?? 'Marchandises';
     _controllers['emb']!.text = article.emb ?? '';
     _controllers['sec']!.text = article.sec ?? '';
+    _controllers['frns1']!.text = article.frns1 ?? '';
+    _controllers['frns2']!.text = article.frns2 ?? '';
+    _controllers['frns3']!.text = article.frns3 ?? '';
 
     _selectedDepot = article.dep;
+    selectedFrns1 = article.frns1;
+    selectedFrns2 = article.frns2;
+    selectedFrns3 = article.frns3;
   }
 
   void _focusDesignationField() {
@@ -118,9 +137,11 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
 
   Future<void> _loadDepots() async {
     final depots = await DatabaseService().database.getAllDepots();
+    final fournisseurs = await DatabaseService().database.getActiveFournisseurs();
 
     setState(() {
       _depots = depots;
+      _fournisseurs = fournisseurs;
       if (_depots.isNotEmpty && _selectedDepot == null) {
         _selectedDepot = _depots.first.depots;
       }
@@ -228,6 +249,8 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
             _buildCategorySection(),
             const SizedBox(height: 20),
             _buildStockSection(),
+            const SizedBox(height: 20),
+            _buildFournisseursSection(),
           ],
         ),
       ),
@@ -241,6 +264,8 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
         Expanded(child: _buildUnitsSection()),
         const SizedBox(width: 20),
         Expanded(child: _buildPricesSection()),
+        const SizedBox(width: 20),
+        Expanded(child: _buildWeightsSection()),
       ],
     );
   }
@@ -371,6 +396,20 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
         _buildPriceField('pvu2', 'Prix Vente U2', _focusNodes['pvu2']!),
         const SizedBox(height: 12),
         _buildPriceField('pvu3', 'Prix Vente U3', _focusNodes['pvu3']!),
+      ],
+    );
+  }
+
+  Widget _buildWeightsSection() {
+    return _buildSection(
+      title: 'Poids',
+      icon: Icons.scale,
+      children: [
+        _buildPriceField('pu1', 'Poids U1', _focusNodes['pu1']!),
+        const SizedBox(height: 12),
+        _buildPriceField('pu2', 'Poids U2', _focusNodes['pu2']!),
+        const SizedBox(height: 12),
+        _buildPriceField('pu3', 'Poids U3', _focusNodes['pu3']!),
       ],
     );
   }
@@ -583,6 +622,9 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
 
   ArticlesCompanion _createArticleCompanion() {
     final cmup = _calculateCmup();
+    final frns1Text = _controllers['frns1']?.text.trim();
+    final frns2Text = _controllers['frns2']?.text.trim();
+    final frns3Text = _controllers['frns3']?.text.trim();
 
     return ArticlesCompanion(
       designation: drift.Value(_controllers['designation']!.text.trim()),
@@ -594,6 +636,9 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
       pvu1: drift.Value(double.tryParse(_controllers['pvu1']?.text ?? '')),
       pvu2: drift.Value(double.tryParse(_controllers['pvu2']?.text ?? '')),
       pvu3: drift.Value(double.tryParse(_controllers['pvu3']?.text ?? '')),
+      pu1: drift.Value(double.tryParse(_controllers['pu1']?.text ?? '')),
+      pu2: drift.Value(double.tryParse(_controllers['pu2']?.text ?? '')),
+      pu3: drift.Value(double.tryParse(_controllers['pu3']?.text ?? '')),
       sec: drift.Value(_controllers['sec']?.text.trim()),
       usec: drift.Value(_selectedUniteSection != null ? 1.0 : null),
       cmup: drift.Value(cmup),
@@ -602,6 +647,9 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
       categorie: drift.Value(_controllers['categorie']?.text.trim()),
       classification: drift.Value(_controllers['classification']?.text.trim()),
       emb: drift.Value(_controllers['emb']?.text.trim()),
+      frns1: drift.Value(frns1Text?.isNotEmpty == true ? frns1Text : null),
+      frns2: drift.Value(frns2Text?.isNotEmpty == true ? frns2Text : null),
+      frns3: drift.Value(frns3Text?.isNotEmpty == true ? frns3Text : null),
     );
   }
 
@@ -676,6 +724,69 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
     }
   }
 
+  Widget _buildFournisseursSection() {
+    final frns1Empty = _controllers['frns1']?.text.trim().isEmpty ?? true;
+    final frns2Empty = _controllers['frns2']?.text.trim().isEmpty ?? true;
+
+    return _buildSection(
+      title: 'Fournisseurs',
+      icon: Icons.business,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: EnhancedAutocomplete<Frn>(
+                controller: _controllers['frns1'],
+                focusNode: _focusNodes['frns1'],
+                options: _fournisseurs,
+                displayStringForOption: (frn) => frn.rsoc,
+                onSelected: (frn) => setState(() => selectedFrns1 = frn.rsoc),
+                onTextChanged: (_) => setState(() {}),
+                decoration: _dropdownDecoration(label: 'Fournisseur 1'),
+                style: _dropdownTextStyle,
+                onTabPressed: () =>
+                    frns1Empty ? _focusNodes['creer']?.requestFocus() : _focusNodes['frns2']?.requestFocus(),
+                onShiftTabPressed: () => _focusNodes['uniteSection']?.requestFocus(),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: EnhancedAutocomplete<Frn>(
+                controller: _controllers['frns2'],
+                focusNode: _focusNodes['frns2'],
+                options: _fournisseurs,
+                displayStringForOption: (frn) => frn.rsoc,
+                onSelected: (frn) => setState(() => selectedFrns2 = frn.rsoc),
+                onTextChanged: (_) => setState(() {}),
+                decoration: _dropdownDecoration(label: 'Fournisseur 2'),
+                style: _dropdownTextStyle,
+                enabled: !frns1Empty,
+                onTabPressed: () =>
+                    frns2Empty ? _focusNodes['creer']?.requestFocus() : _focusNodes['frns3']?.requestFocus(),
+                onShiftTabPressed: () => _focusNodes['frns1']?.requestFocus(),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: EnhancedAutocomplete<Frn>(
+                controller: _controllers['frns3'],
+                focusNode: _focusNodes['frns3'],
+                options: _fournisseurs,
+                displayStringForOption: (frn) => frn.rsoc,
+                onSelected: (frn) => setState(() => selectedFrns3 = frn.rsoc),
+                decoration: _dropdownDecoration(label: 'Fournisseur 3'),
+                style: _dropdownTextStyle,
+                enabled: !frns1Empty && !frns2Empty,
+                onTabPressed: () => _focusNodes['creer']?.requestFocus(),
+                onShiftTabPressed: () => _focusNodes['frns2']?.requestFocus(),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   void dispose() {
     _debounceTimer?.cancel();
@@ -684,7 +795,6 @@ class _AddArticleModalState extends State<AddArticleModal> with TabNavigationMix
       controller.dispose();
     }
 
-    // Disposer tous les FocusNodes
     for (final focusNode in _focusNodes.values) {
       focusNode.dispose();
     }

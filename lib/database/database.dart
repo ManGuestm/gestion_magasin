@@ -55,6 +55,9 @@ class Articles extends Table {
   RealColumn get pvu1 => real().nullable()();
   RealColumn get pvu2 => real().nullable()();
   RealColumn get pvu3 => real().nullable()();
+  RealColumn get pu1 => real().nullable()();
+  RealColumn get pu2 => real().nullable()();
+  RealColumn get pu3 => real().nullable()();
   RealColumn get stocksu1 => real().nullable()();
   RealColumn get stocksu2 => real().nullable()();
   RealColumn get stocksu3 => real().nullable()();
@@ -66,6 +69,9 @@ class Articles extends Table {
   TextColumn get categorie => text().withLength(max: 50).nullable()();
   TextColumn get classification => text().withLength(max: 50).nullable()();
   TextColumn get emb => text().withLength(max: 50).nullable()();
+  TextColumn get frns1 => text().nullable()();
+  TextColumn get frns2 => text().nullable()();
+  TextColumn get frns3 => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {designation};
@@ -783,7 +789,7 @@ class AppDatabase extends _$AppDatabase {
   /// Version actuelle du schéma de base de données
   /// Incrémentée à chaque modification de structure
   @override
-  int get schemaVersion => 47;
+  int get schemaVersion => 48;
 
   /// Stratégie de migration de la base de données
   /// Gère la création initiale et les mises à jour de schéma
@@ -935,6 +941,11 @@ class AppDatabase extends _$AppDatabase {
       } else if (from == 46) {
         // Ajouter la colonne pue à la table stocks
         await m.addColumn(stocks, stocks.pue as GeneratedColumn);
+      } else if (from == 47) {
+        // Ajouter les colonnes pu1, pu2, pu3 à la table articles
+        await m.addColumn(articles, articles.pu1 as GeneratedColumn);
+        await m.addColumn(articles, articles.pu2 as GeneratedColumn);
+        await m.addColumn(articles, articles.pu3 as GeneratedColumn);
       }
     },
   );

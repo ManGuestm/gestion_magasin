@@ -51,6 +51,9 @@ class NetworkDatabaseService {
             categorie: row['categorie'],
             classification: row['classification'],
             emb: row['emb'],
+            frns1: row['frns1'],
+            frns2: row['frns2'],
+            frns3: row['frns3'],
           ),
         )
         .toList();
@@ -82,6 +85,9 @@ class NetworkDatabaseService {
             categorie: row['categorie'],
             classification: row['classification'],
             emb: row['emb'],
+            frns1: row['frns1'],
+            frns2: row['frns2'],
+            frns3: row['frns3'],
           ),
         )
         .toList();

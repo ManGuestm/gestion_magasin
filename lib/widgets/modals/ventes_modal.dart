@@ -6,7 +6,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../constants/app_functions.dart';
@@ -3313,202 +3312,104 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
     }
   }
 
+  /// Méthode générique pour imprimer un document PDF
+  Future<void> _imprimerDocument({required DocumentType typeDocument, required String nomFichier}) async {
+    if (_lignesVente.isEmpty) {
+      _showSnackBar('Aucun article à imprimer');
+      return;
+    }
+
+    try {
+      final societe = await (_databaseService.database.select(
+        _databaseService.database.soc,
+      )).getSingleOrNull();
+
+      // Créer la configuration selon le type de document
+      final config = PdfConfig(
+        selectedFormat: _selectedFormat,
+        documentType: typeDocument,
+        documentNumber: _nFactureController.text,
+        date: _dateController.text,
+        client: _selectedClient ?? '',
+        adrClient: _selectedadrClient ?? '',
+        lignes: _lignesVente,
+        remise: double.tryParse(_remiseController.text) ?? 0,
+        totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
+        societe: societe,
+        modePaiement: _selectedModePaiement,
+        showDepot: _selectedFormat != 'A6',
+        showSignatures: typeDocument == DocumentType.bonLivraison ? _selectedFormat != 'A6' : true,
+      );
+
+      // Générer le PDF
+      final generator = PdfGenerator(config);
+      final pdf = await generator.generate();
+      final bytes = await pdf.save();
+
+      // Obtenir la liste des imprimantes et trouver celle par défaut
+      final printers = await Printing.listPrinters();
+      final defaultPrinter = printers.where((p) => p.isDefault).firstOrNull;
+
+      final pageFormat = _selectedFormat == 'A4'
+          ? PdfPageFormat.a4
+          : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5);
+
+      final fileName =
+          '${nomFichier}_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf';
+
+      if (defaultPrinter != null) {
+        await Printing.directPrintPdf(
+          printer: defaultPrinter,
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: fileName,
+          format: pageFormat,
+        );
+      } else {
+        // Fallback vers la boîte de dialogue si aucune imprimante par défaut
+        await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => bytes,
+          name: fileName,
+          format: pageFormat,
+        );
+      }
+
+      if (mounted) {
+        final message = typeDocument == DocumentType.facture
+            ? 'Facture envoyée à l\'imprimante par défaut'
+            : 'Bon de livraison envoyé à l\'imprimante par défaut';
+        _showSnackBar(message);
+      }
+    } catch (e) {
+      if (mounted) {
+        _showSnackBar('Erreur d\'impression: $e', isError: true);
+      }
+    }
+  }
+
+  /// Méthode helper pour afficher les SnackBars
+  void _showSnackBar(String message, {bool isError = false}) {
+    _scaffoldMessengerKey.currentState?.showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.of(context).size.height * 0.8,
+          right: 20,
+          left: MediaQuery.of(context).size.width * 0.75,
+        ),
+        content: Text(message),
+        backgroundColor: isError ? Colors.red : null,
+      ),
+    );
+  }
+
+  /// Imprimer une facture
   Future<void> _imprimerFacture() async {
-    if (_lignesVente.isEmpty) {
-      _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).size.height * 0.8,
-            right: 20,
-            left: MediaQuery.of(context).size.width * 0.75,
-          ),
-          content: const Text('Aucun article à imprimer'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      final societe = await (_databaseService.database.select(
-        _databaseService.database.soc,
-      )).getSingleOrNull();
-      final pdf = await _generateFacturePdf(societe);
-      final bytes = await pdf.save();
-
-      // Obtenir la liste des imprimantes et trouver celle par défaut
-      final printers = await Printing.listPrinters();
-      final defaultPrinter = printers.where((p) => p.isDefault).firstOrNull;
-
-      if (defaultPrinter != null) {
-        await Printing.directPrintPdf(
-          printer: defaultPrinter,
-          onLayout: (PdfPageFormat format) async => bytes,
-          name: 'Facture_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
-          format: _selectedFormat == 'A4'
-              ? PdfPageFormat.a4
-              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
-        );
-      } else {
-        // Fallback vers la boîte de dialogue si aucune imprimante par défaut
-        await Printing.layoutPdf(
-          onLayout: (PdfPageFormat format) async => bytes,
-          name: 'Facture_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
-          format: _selectedFormat == 'A4'
-              ? PdfPageFormat.a4
-              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
-        );
-      }
-
-      if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height * 0.8,
-              right: 20,
-              left: MediaQuery.of(context).size.width * 0.75,
-            ),
-            content: const Text('Facture envoyée à l\'imprimante par défaut'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height * 0.8,
-              right: 20,
-              left: MediaQuery.of(context).size.width * 0.75,
-            ),
-            content: Text('Erreur d\'impression: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    await _imprimerDocument(typeDocument: DocumentType.facture, nomFichier: 'Facture');
   }
 
-  Future<pw.Document> _generateFacturePdf(SocData? societe) async {
-    final config = PdfConfig(
-      selectedFormat: _selectedFormat,
-      documentType: DocumentType.facture,
-      documentNumber: _nFactureController.text,
-      date: _dateController.text,
-      client: _selectedClient ?? '',
-      adrClient: _selectedadrClient ?? '',
-      lignes: _lignesVente,
-      remise: double.tryParse(_remiseController.text) ?? 0,
-      totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
-      societe: societe,
-      modePaiement: _selectedModePaiement,
-      showDepot: _selectedFormat != 'A6',
-      showSignatures: true,
-    );
-
-    final generator = PdfGenerator(config);
-    return await generator.generate();
-  }
-
-  Future<pw.Document> _generateBLPdf(SocData? societe) async {
-    final config = PdfConfig(
-      selectedFormat: _selectedFormat,
-      documentType: DocumentType.bonLivraison,
-      documentNumber: _nFactureController.text,
-      date: _dateController.text,
-      client: _selectedClient ?? '',
-      adrClient: _selectedadrClient ?? '',
-      lignes: _lignesVente,
-      remise: double.tryParse(_remiseController.text) ?? 0,
-      totalTTC: double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0,
-      societe: societe,
-      showDepot: _selectedFormat != 'A6',
-      showSignatures: _selectedFormat != 'A6',
-    );
-
-    final generator = PdfGenerator(config);
-    return await generator.generate();
-  }
-
-  // Ajouter la méthode pour imprimer le BL
+  /// Imprimer un bon de livraison
   Future<void> _imprimerBL() async {
-    if (_lignesVente.isEmpty) {
-      _scaffoldMessengerKey.currentState?.showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          margin: EdgeInsets.only(
-            bottom: MediaQuery.of(context).size.height * 0.8,
-            right: 20,
-            left: MediaQuery.of(context).size.width * 0.75,
-          ),
-          content: const Text('Aucun article à imprimer'),
-        ),
-      );
-      return;
-    }
-
-    try {
-      final societe = await (_databaseService.database.select(
-        _databaseService.database.soc,
-      )).getSingleOrNull();
-      final pdf = await _generateBLPdf(societe);
-      final bytes = await pdf.save();
-
-      // Obtenir la liste des imprimantes et trouver celle par défaut
-      final printers = await Printing.listPrinters();
-      final defaultPrinter = printers.where((p) => p.isDefault).firstOrNull;
-
-      if (defaultPrinter != null) {
-        await Printing.directPrintPdf(
-          printer: defaultPrinter,
-          onLayout: (PdfPageFormat format) async => bytes,
-          name: 'BL_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
-          format: _selectedFormat == 'A4'
-              ? PdfPageFormat.a4
-              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
-        );
-      } else {
-        // Fallback vers la boîte de dialogue si aucune imprimante par défaut
-        await Printing.layoutPdf(
-          onLayout: (PdfPageFormat format) async => bytes,
-          name: 'BL_${_nFactureController.text}_${_dateController.text.replaceAll('/', '-')}.pdf',
-          format: _selectedFormat == 'A4'
-              ? PdfPageFormat.a4
-              : (_selectedFormat == 'A6' ? PdfPageFormat.a6 : PdfPageFormat.a5),
-        );
-      }
-
-      if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height * 0.8,
-              right: 20,
-              left: MediaQuery.of(context).size.width * 0.75,
-            ),
-            content: const Text('Bon de livraison envoyé à l\'imprimante par défaut'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        _scaffoldMessengerKey.currentState?.showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height * 0.8,
-              right: 20,
-              left: MediaQuery.of(context).size.width * 0.75,
-            ),
-            content: Text('Erreur d\'impression: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
+    await _imprimerDocument(typeDocument: DocumentType.bonLivraison, nomFichier: 'BL');
   }
 
   void _apercuBL() async {
@@ -6554,9 +6455,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
                                                               _searchedArticle!.u3,
                                                               _searchedArticle!.tu3u2,
                                                             ),
-                                                            const SizedBox(
-                                                              height: 12,
-                                                            ), // Prix d'achat`n                                                            if (!_isVendeur()) ...[`n                                                              const Text(`n                                                                'PRIX D\'ACHAT',`n                                                                style: TextStyle(`n                                                                  fontSize: 12,`n                                                                  fontWeight: FontWeight.bold,`n                                                                  color: Colors.red,`n                                                                ),`n                                                              ),`n                                                              const SizedBox(height: 4),`n                                                              Container(`n                                                                width: double.infinity,`n                                                                padding: const EdgeInsets.all(6),`n                                                                decoration: BoxDecoration(`n                                                                  color: Colors.red[50],`n                                                                  borderRadius: BorderRadius.circular(4),`n                                                                  border: Border.all(color: Colors.red[200]!),`n                                                                ),`n                                                                child: Text(`n                                                                  'CMUP: ${AppFunctions.formatNumber(_searchedArticle!.cmup ?? 0)}',`n                                                                  style: TextStyle(`n                                                                    fontSize: 12,`n                                                                    color: Colors.red[700],`n                                                                    fontWeight: FontWeight.w500,`n                                                                  ),`n                                                                ),`n                                                              ),`n                                                              const SizedBox(height: 12),`n                                                            ],
+                                                            const SizedBox(height: 12),
                                                             // Prix d'achat
                                                             if (!_isVendeur()) ...[
                                                               const Text(
