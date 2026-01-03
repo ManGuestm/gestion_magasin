@@ -22,6 +22,7 @@ import '../common/tab_navigation_widget.dart';
 import 'achats_intents.dart';
 import 'add_fournisseur_modal.dart';
 import 'bon_reception_preview.dart';
+import 'prix_comparaison_modal.dart';
 
 class AchatsModal extends StatefulWidget {
   const AchatsModal({super.key});
@@ -122,6 +123,39 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       final matchesSearch = _searchAchatsText.isEmpty || numAchat.toLowerCase().contains(_searchAchatsText);
       return statut == 'CONTRE-PASSé' && matchesSearch;
     }).toList();
+  }
+
+  Future<void> _ouvrirComparaisonPrix() async {
+    if (_lignesAchat.isEmpty) {
+      _scaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(content: Text('Aucun article à comparer')),
+      );
+      return;
+    }
+
+    // Désactiver le timer de focus global pendant l'ouverture du modal
+    _globalFocusTimer?.cancel();
+    _globalShortcutsFocusNode.unfocus();
+
+    await showDialog(
+      context: context,
+      builder: (context) => PrixComparaisonModal(lignesAchat: _lignesAchat),
+    );
+
+    // Réactiver le timer de focus global après fermeture
+    _globalFocusTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (!_globalShortcutsFocusNode.hasFocus && !_globalShortcutsFocusNode.hasPrimaryFocus) {
+        _ensureGlobalShortcutsFocus();
+      }
+    });
+    _ensureGlobalShortcutsFocus();
+
+    // Recharger les articles après modification éventuelle des prix
+    await _loadData();
   }
 
   @override
@@ -501,7 +535,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         // Annuler le timer de focus global pour éviter les interférences
         _globalFocusTimer?.cancel();
         _globalShortcutsFocusNode.unfocus();
-        
+
         // Ouvrir le modal d'ajout de fournisseur avec le nom pré-rempli
         if (mounted) {
           await showDialog(
@@ -754,7 +788,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     debugPrint('Ajout ligne: $designation, Qté: $quantite, Prix: $prix, Unité: $unite, Dépôt: $depot');
 
-    // Chercher si l'article existe déjÃ  avec la MÃŠME unité, le mÃªme dépôt ET le mÃªme prix
+    // Chercher si l'article existe déjà  avec la MàŠME unité, le màªme dépôt ET le màªme prix
     int existingIndex = _lignesAchat.indexWhere(
       (ligne) =>
           ligne['designation'] == designation &&
@@ -765,7 +799,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     setState(() {
       if (existingIndex != -1) {
-        // Cumuler les quantités si mÃªme article, mÃªme unité, mÃªme dépôt ET mÃªme prix
+        // Cumuler les quantités si màªme article, màªme unité, màªme dépôt ET màªme prix
         double existingQuantite = _lignesAchat[existingIndex]['quantite'] ?? 0.0;
         double newQuantite = existingQuantite + quantite;
         double newMontant = newQuantite * prix;
@@ -1319,7 +1353,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
           );
         }
 
-        // Mettre à  jour l'achat principal (GARDER LE MÃŠME NUMéRO)
+        // Mettre à  jour l'achat principal (GARDER LE MàŠME NUMéRO)
         debugPrint(
           'Mise à  jour achat principal avec statut: ${_selectedStatut == 'Journal' ? 'JOURNAL' : 'BROUILLARD'}',
         );
@@ -1340,14 +1374,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
         // Recharger les articles pour avoir les stocks mis à  jour après annulation
         _articles = await _databaseService.database.getActiveArticles();
 
-        // Insérer les nouvelles lignes avec le MÃŠME numéro d'achat
+        // Insérer les nouvelles lignes avec le MàŠME numéro d'achat
         debugPrint('Insertion de ${_lignesAchat.length} nouvelles lignes');
         for (var ligne in _lignesAchat) {
           await _databaseService.database
               .into(_databaseService.database.detachats)
               .insert(
                 DetachatsCompanion.insert(
-                  numachats: Value(_numAchatsController.text), // MÃŠME NUMéRO
+                  numachats: Value(_numAchatsController.text), // MàŠME NUMéRO
                   designation: Value(ligne['designation']),
                   unites: Value(ligne['unites']),
                   depots: Value(ligne['depot']),
@@ -1372,7 +1406,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             article: article,
           );
 
-          // Créer nouvelle entrée de stock avec le MÃŠME numéro d'achat
+          // Créer nouvelle entrée de stock avec le MàŠME numéro d'achat
           // Générer une référence unique avec un délai pour éviter les doublons
           await Future.delayed(const Duration(milliseconds: 1));
           final cleanDesignation = ligne['designation'].replaceAll(' ', '');
@@ -1386,7 +1420,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                   ref: stockRef,
                   daty: Value(dateForDB),
                   lib: Value('Achat ${_numAchatsController.text} (Modifié)'),
-                  numachats: Value(_numAchatsController.text), // MÃŠME NUMéRO
+                  numachats: Value(_numAchatsController.text), // MàŠME NUMéRO
                   nfact: Value(_nFactController.text.isEmpty ? null : _nFactController.text),
                   refart: Value(ligne['designation']),
                   qe: Value(ligne['quantite']),
@@ -1540,7 +1574,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
       return;
     }
 
-    // Vérifier si l'achat est déjÃ  contre-passé
+    // Vérifier si l'achat est déjà  contre-passé
     final achatActuel = await (_databaseService.database.select(
       _databaseService.database.achats,
     )..where((a) => a.numachats.equals(_numAchatsController.text))).getSingleOrNull();
@@ -1555,7 +1589,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
               right: 20,
               left: MediaQuery.of(context).size.width * 0.75,
             ),
-            content: const Text('Cet achat est déjÃ  contre-passé'),
+            content: const Text('Cet achat est déjà  contre-passé'),
           ),
         );
       }
@@ -2608,14 +2642,14 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
     try {
       debugPrint('Vérification de l\'existence du numéro d\'achat: ${_numAchatsController.text}');
-      // Vérifier si le numéro d'achat existe déjÃ
+      // Vérifier si le numéro d'achat existe déjà
       final existingAchat = await (_databaseService.database.select(
         _databaseService.database.achats,
       )..where((a) => a.numachats.equals(_numAchatsController.text))).getSingleOrNull();
       debugPrint('Achat existant trouvé: ${existingAchat != null}');
 
       if (existingAchat != null) {
-        debugPrint('ERREUR: Numéro d\'achat déjÃ  existant');
+        debugPrint('ERREUR: Numéro d\'achat déjà  existant');
         if (mounted) {
           _scaffoldMessengerKey.currentState?.showSnackBar(
             SnackBar(
@@ -2625,7 +2659,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                 right: 20,
                 left: MediaQuery.of(context).size.width * 0.75,
               ),
-              content: Text('Le N° Achats ${_numAchatsController.text} existe déjÃ '),
+              content: Text('Le N° Achats ${_numAchatsController.text} existe déjà '),
             ),
           );
         }
@@ -2836,7 +2870,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
     final pdfPadding = _selectedFormat == 'A6' ? 8.0 : (_selectedFormat == 'A5' ? 10.0 : 12.0);
 
     // Calculer le nombre de lignes par page
-    final int maxLinesPerPage = _selectedFormat == 'A6' ? 25 : (_selectedFormat == 'A5' ? 30 : 35);
+    final int maxLinesPerPage = _selectedFormat == 'A6' ? 22 : (_selectedFormat == 'A5' ? 30 : 35);
     final int articlePages = (_lignesAchat.length / maxLinesPerPage).ceil().clamp(1, double.infinity).toInt();
 
     // Calculer l'espace disponible sur la dernière page en lignes équivalentes
@@ -2969,24 +3003,22 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                 verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
                               ),
                               columnWidths: const {
-                                0: pw.FlexColumnWidth(1),
-                                1: pw.FlexColumnWidth(3),
-                                2: pw.FlexColumnWidth(1),
+                                0: pw.FlexColumnWidth(3),
+                                1: pw.FlexColumnWidth(1),
+                                2: pw.FlexColumnWidth(1.5),
                                 3: pw.FlexColumnWidth(1),
-                                4: pw.FlexColumnWidth(1),
-                                5: pw.FlexColumnWidth(1.5),
-                                6: pw.FlexColumnWidth(3),
+                                4: pw.FlexColumnWidth(1.5),
+                                5: pw.FlexColumnWidth(3),
                               },
                               children: [
                                 pw.TableRow(
                                   children: [
-                                    _buildPdfTableCell('N°', pdfFontSize, isHeader: true),
-                                    _buildPdfTableCell('DéSIGNATION', pdfFontSize, isHeader: true),
-                                    _buildPdfTableCell('DéP', pdfFontSize, isHeader: true),
-                                    _buildPdfTableCell('QTé', pdfFontSize, isHeader: true),
+                                    _buildPdfTableCell('Désignation', pdfFontSize, isHeader: true),
+                                    _buildPdfTableCell('Dép', pdfFontSize, isHeader: true),
+                                    _buildPdfTableCell('Q', pdfFontSize, isHeader: true),
                                     _buildPdfTableCell('U', pdfFontSize, isHeader: true),
                                     _buildPdfTableCell('PU HT', pdfFontSize, isHeader: true),
-                                    _buildPdfTableCell('MONTANT', pdfFontSize, isHeader: true),
+                                    _buildPdfTableCell('Montant', pdfFontSize, isHeader: true),
                                   ],
                                 ),
                               ],
@@ -2999,21 +3031,19 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                               verticalInside: pw.BorderSide(color: PdfColors.black, width: 0.5),
                             ),
                             columnWidths: const {
-                              0: pw.FlexColumnWidth(1),
-                              1: pw.FlexColumnWidth(3),
-                              2: pw.FlexColumnWidth(1),
+                              0: pw.FlexColumnWidth(3),
+                              1: pw.FlexColumnWidth(1),
+                              2: pw.FlexColumnWidth(1.5),
                               3: pw.FlexColumnWidth(1),
-                              4: pw.FlexColumnWidth(1),
-                              5: pw.FlexColumnWidth(1.5),
-                              6: pw.FlexColumnWidth(3),
+                              4: pw.FlexColumnWidth(1.5),
+                              5: pw.FlexColumnWidth(3),
                             },
                             children: [
                               ...pageLines.asMap().entries.map((entry) {
-                                final globalIndex = startIndex + entry.key + 1;
+                                // final globalIndex = startIndex + entry.key + 1;
                                 final ligne = entry.value;
                                 return pw.TableRow(
                                   children: [
-                                    _buildPdfTableCell(globalIndex.toString(), pdfFontSize),
                                     _buildPdfTableCell(ligne['designation'] ?? '', pdfFontSize),
                                     _buildPdfTableCell(ligne['depot'] ?? '', isAmount: true, pdfFontSize),
                                     _buildPdfTableCell(
@@ -3148,7 +3178,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
 
                     pw.SizedBox(height: pdfPadding * 2),
 
-                    // Totaux si pas déjÃ  sur la dernière page d'articles
+                    // Totaux si pas déjà  sur la dernière page d'articles
                     if (!canFitTotalsOnLastPage) _buildTotalsSection(pdfFontSize, pdfPadding),
 
                     pw.SizedBox(height: pdfPadding * 2),
@@ -3226,7 +3256,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
             decoration: pw.BoxDecoration(border: pw.Border.all(color: PdfColors.black, width: 0.5)),
             alignment: pw.Alignment.center,
             child: pw.Text(
-              'ArrÃªté à  la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
+              'Arràªté à  la somme de ${AppFunctions.numberToWords((double.tryParse(_totalTTCController.text.replaceAll(' ', '')) ?? 0).round())} Ariary',
               style: pw.TextStyle(fontSize: pdfFontSize - 1, fontWeight: pw.FontWeight.bold),
             ),
           ),
@@ -5145,6 +5175,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     width: 137,
                                                     height: 25,
                                                     child: TextField(
+                                                      style: const TextStyle(fontSize: 12),
                                                       cursorHeight: 16,
                                                       controller: _echeanceController,
                                                       textAlign: TextAlign.center,
@@ -5185,7 +5216,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                     width: 135,
                                                     height: 25,
                                                     child: TextField(
-                                                      style: const TextStyle(fontSize: 14),
+                                                      style: const TextStyle(fontSize: 12),
                                                       cursorHeight: 14,
                                                       controller: _echeanceJoursController,
                                                       focusNode: _echeanceJoursFocusNode,
@@ -5225,6 +5256,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   width: 100,
                                                   height: 25,
                                                   child: TextField(
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
                                                     controller: _totalTTCController,
                                                     textAlign: TextAlign.right,
                                                     readOnly: true,
@@ -5255,6 +5290,10 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                   ),
                                                   height: 25,
                                                   child: TextField(
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
                                                     controller: _totalFMGController,
                                                     textAlign: TextAlign.right,
                                                     readOnly: true,
@@ -5517,6 +5556,25 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                             ),
                                           ),
                                           const Spacer(),
+                                          Tooltip(
+                                            message: 'Comparer Prix',
+                                            child: ElevatedButton(
+                                              onPressed: _lignesAchat.isNotEmpty
+                                                  ? _ouvrirComparaisonPrix
+                                                  : null,
+                                              style: ElevatedButton.styleFrom(
+                                                minimumSize: const Size(60, 30),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.compare_arrows),
+                                                  SizedBox(width: 4),
+                                                  Text("Comparer Prix", style: TextStyle(fontSize: 12)),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+
                                           Tooltip(
                                             message: 'Fermer (Echap)',
                                             child: ElevatedButton(
