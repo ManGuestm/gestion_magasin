@@ -907,7 +907,9 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur lors du chargement: $e')));
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(content: Text('Erreur lors du chargement: $e')),
+        );
       }
     }
   }
@@ -1523,7 +1525,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
   Future<void> _importerLignesVente() async {
     // Empêcher l'accès aux vendeurs
     if (_isVendeur()) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _scaffoldMessengerKey.currentState?.showSnackBar(
         const SnackBar(
           content: Text('Accès refusé: Les vendeurs ne peuvent pas importer des lignes de vente'),
           backgroundColor: Colors.red,
@@ -1810,7 +1812,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
       if (lignesValides.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          _scaffoldMessengerKey.currentState?.showSnackBar(
             const SnackBar(content: Text('Aucun article de cette vente n\'existe dans la base actuelle')),
           );
         }
@@ -2768,7 +2770,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
   Future<void> _validerVente() async {
     if (_lignesVente.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Aucun article ajouté')));
+      _scaffoldMessengerKey.currentState?.showSnackBar(const SnackBar(content: Text('Aucun article ajouté')));
       return;
     }
 
@@ -2784,7 +2786,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
         if (!stockDisponible && !widget.tousDepots) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            _scaffoldMessengerKey.currentState?.showSnackBar(
               const SnackBar(
                 content: Text('Stock insuffisant pour certains articles'),
                 backgroundColor: Colors.red,
@@ -2953,6 +2955,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           remise: double.tryParse(_remiseController.text) ?? 0,
           lignesVente: lignesVenteData,
           heure: _heureController.text,
+          tousDepots: widget.tousDepots,
         );
       } else {
         await _venteService.enregistrerVenteDirecteJournal(
@@ -2967,6 +2970,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
           remise: double.tryParse(_remiseController.text) ?? 0,
           lignesVente: lignesVenteData,
           heure: _heureController.text,
+          tousDepots: widget.tousDepots,
         );
       }
 
@@ -2995,8 +2999,8 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la validation: $e'), backgroundColor: Colors.red),
+        _scaffoldMessengerKey.currentState?.showSnackBar(
+          SnackBar(content: SelectableText('Erreur lors de la validation: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -3031,7 +3035,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
 
   Future<void> _modifierVente() async {
     if (_selectedClient == null || _lignesVente.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      _scaffoldMessengerKey.currentState?.showSnackBar(
         const SnackBar(content: Text('Veuillez sélectionner un client et ajouter des articles')),
       );
       return;
@@ -3132,7 +3136,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _scaffoldMessengerKey.currentState?.showSnackBar(
           SnackBar(content: Text('Erreur lors de la modification: $e'), backgroundColor: Colors.red),
         );
       }
@@ -3197,7 +3201,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       await _venteService.contrePasserVente(_numVentesController.text);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(content: Text('Vente contre-passée avec succès'), backgroundColor: Colors.green),
         );
 
@@ -3251,7 +3255,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
       await _venteService.contrePasserVenteBrouillard(_numVentesController.text);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        _scaffoldMessengerKey.currentState?.showSnackBar(
           const SnackBar(
             content: Text('Vente brouillard supprimée avec succès'),
             backgroundColor: Colors.green,
@@ -3649,7 +3653,7 @@ class _VentesModalState extends State<VentesModal> with TabNavigationMixin {
             });
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
+              _scaffoldMessengerKey.currentState?.showSnackBar(
                 SnackBar(
                   content: Text('Erreur lors de la création du client: $e'),
                   backgroundColor: Colors.red,

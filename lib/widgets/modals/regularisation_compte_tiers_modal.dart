@@ -741,7 +741,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
                       children: [
                         const Text('Solde dû:', style: TextStyle(fontWeight: FontWeight.w500)),
                         Text(
-                          _formatAmount(_supplierBalance),
+                          "${_formatAmount(_supplierBalance)} Ar",
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: _supplierBalance > 0 ? Colors.red[700] : Colors.green[700],
@@ -807,7 +807,7 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
             children: [
               Text("N° Facture/BL:  $reference", style: const TextStyle(fontWeight: FontWeight.w500)),
               Text(
-                _formatAmount(amount),
+                "${_formatAmount(amount)} Ar",
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
                   color: amount > 0 ? Colors.red[700] : Colors.green[700],

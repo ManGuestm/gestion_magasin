@@ -42,6 +42,7 @@ class IconBarWidget extends StatelessWidget {
         'Dépôts',
         'Inventaire',
         'Transferts',
+        'Trésorerie',
         'Encaissements',
         'Décaissements',
         'Suivi de différence de Prix de vente',

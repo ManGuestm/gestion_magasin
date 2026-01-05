@@ -22,6 +22,7 @@ class VenteService {
     required double? remise,
     required List<Map<String, dynamic>> lignesVente,
     String? heure,
+    required bool tousDepots,
   }) async {
     // 🔥 En mode CLIENT, envoyer au serveur via customStatement
     if (_databaseService.isNetworkMode) {
@@ -37,6 +38,7 @@ class VenteService {
         remise: remise,
         lignesVente: lignesVente,
         heure: heure,
+        tousDepots: tousDepots,
       );
       return;
     }
@@ -59,6 +61,7 @@ class VenteService {
               remise: Value(remise),
               verification: const Value('BROUILLARD'),
               heure: Value(heure),
+              type: Value(tousDepots ? 'TOUS_DEPOTS' : 'MAG'),
             ),
           );
 
@@ -95,12 +98,13 @@ class VenteService {
     required double? remise,
     required List<Map<String, dynamic>> lignesVente,
     String? heure,
+    required bool tousDepots,
   }) async {
     // 1. Insérer la vente
     await _databaseService.customStatement(
-      'INSERT INTO ventes (numventes, nfact, daty, clt, modepai, totalttc, avance, commerc, remise, verification, heure) '
-      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [numVentes, nFacture, date.toIso8601String(), client, modePaiement, totalTTC, avance, commercial, remise, 'BROUILLARD', heure],
+      'INSERT INTO ventes (numventes, nfact, daty, clt, modepai, totalttc, avance, commerc, remise, verification, heure, type) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [numVentes, nFacture, date.toIso8601String(), client, modePaiement, totalTTC, avance, commercial, remise, 'BROUILLARD', heure, tousDepots ? 'TOUS_DEPOTS' : 'MAG'],
     );
 
     // 2. Insérer les détails
@@ -138,6 +142,7 @@ class VenteService {
     required double? remise,
     required List<Map<String, dynamic>> lignesVente,
     String? heure,
+    required bool tousDepots,
   }) async {
     await _databaseService.database.transaction(() async {
       // 1. Insérer la vente principale
@@ -153,6 +158,7 @@ class VenteService {
         commercial: commercial,
         remise: remise,
         heure: heure,
+        tousDepots: tousDepots,
       );
 
       // 2. Traiter chaque ligne de vente
@@ -191,6 +197,7 @@ class VenteService {
     required String? commercial,
     required double? remise,
     String? heure,
+    required bool tousDepots,
   }) async {
     await _databaseService.database
         .into(_databaseService.database.ventes)
@@ -208,6 +215,7 @@ class VenteService {
             remise: Value(remise),
             verification: const Value('JOURNAL'),
             heure: Value(heure),
+            type: Value(tousDepots ? 'TOUS_DEPOTS' : 'MAG'),
           ),
         );
   }
@@ -818,6 +826,7 @@ class VenteService {
     required double? remise,
     required List<Map<String, dynamic>> lignesVente,
     String? heure,
+    required bool tousDepots,
   }) async {
     await traiterVenteJournal(
       numVentes: numVentes,
@@ -832,6 +841,7 @@ class VenteService {
       remise: remise,
       lignesVente: lignesVente,
       heure: heure,
+      tousDepots: tousDepots,
     );
   }
 

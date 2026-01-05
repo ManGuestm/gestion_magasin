@@ -4094,7 +4094,7 @@ class _AchatsModalState extends State<AchatsModal> with TabNavigationMixin {
                                                                 onFieldSubmitted: (_) =>
                                                                     _articleFocusNode.requestFocus(),
                                                                 hintText:
-                                                                    'Rechercher fournisseur... (â† â†’ pour naviguer)',
+                                                                    'Rechercher fournisseur... ( pour naviguer)',
                                                                 decoration: InputDecoration(
                                                                   border: const OutlineInputBorder(),
                                                                   contentPadding: const EdgeInsets.symmetric(

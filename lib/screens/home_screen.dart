@@ -18,6 +18,8 @@ import '../widgets/common/notification_panel.dart';
 import '../widgets/common/theme_selector.dart';
 import '../widgets/menu/icon_bar_widget.dart';
 import '../widgets/menu/menu_bar_widget.dart';
+import '../widgets/modals/caisse_journalier.dart';
+import '../widgets/modals/tresorerie.dart';
 import '../widgets/modals/ventes_jour_modal.dart';
 import '../widgets/modals/ventes_selection_modal.dart';
 import 'etats/stocks_fournisseurs_screen.dart';
@@ -720,8 +722,6 @@ class _HomeScreenState extends State<HomeScreen> {
         LogicalKeyboardKey.keyC: 'Clients',
         LogicalKeyboardKey.keyF: 'Fournisseurs',
         LogicalKeyboardKey.keyT: 'Transferts',
-        LogicalKeyboardKey.keyE: 'Encaissements',
-        LogicalKeyboardKey.keyR: 'Relance Clients',
       };
 
       if (shortcuts.containsKey(event.logicalKey)) {
@@ -772,6 +772,17 @@ class _HomeScreenState extends State<HomeScreen> {
       Navigator.of(context)
           .push(MaterialPageRoute(builder: (context) => const StocksFournisseursScreen()))
           .then((_) => _resumeUpdates());
+    } else if (iconLabel == 'Caisse journalière') {
+      _pauseUpdates();
+      final db = DatabaseService().database;
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => CaisseJournalierePage(database: db))).then((_) => _resumeUpdates());
+    } else if (iconLabel == 'Trésorerie') {
+      _pauseUpdates();
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (context) => const TresoreriePage())).then((_) => _resumeUpdates());
     } else {
       _showModal(iconLabel);
     }

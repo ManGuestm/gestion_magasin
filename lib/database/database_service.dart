@@ -319,7 +319,7 @@ class DatabaseService {
       return;
     }
 
-    await _database!.customStatement(sql, params?.map((p) => Variable(p)).toList() ?? []);
+    await _database!.customStatement(sql, params ?? []);
 
     if (_mode == DatabaseMode.serverMode) {
       final sqlUpper = sql.trim().toUpperCase();
@@ -429,14 +429,14 @@ class DatabaseService {
       debugPrint('📡 CLIENT: Initialisation en mode CLIENT...');
       debugPrint('🔍 CLIENT: Serveur cible: $serverIp:$port');
       debugPrint('👤 CLIENT: Utilisateur: $username');
-      
+
       // Log dans audit
       await _logToAudit('CLIENT: Tentative connexion à $serverIp:$port avec utilisateur $username');
-      
+
       await _networkClient.initialize();
       debugPrint('✅ CLIENT: Service réseau initialisé');
       await _logToAudit('CLIENT: Service réseau initialisé');
-      
+
       final connected = await _networkClient.connect(serverIp, port, username, password);
       if (!connected) {
         await _logToAudit('CLIENT: ❌ Connexion serveur échouée - connect() a retourné false');

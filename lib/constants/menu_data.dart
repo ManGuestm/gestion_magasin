@@ -18,8 +18,6 @@ class MenuData {
       'Articles',
       'Clients',
       'Fournisseurs',
-      // 'Plan de comptes',
-      // 'Importation des données',
       'Réinitialiser les données',
     ],
     commerces: [
@@ -34,7 +32,6 @@ class MenuData {
     gestions: [
       'Transfert de Marchandises',
       'Gestion Emballages',
-      'Régularisation compte tiers',
       'Relance Clients',
       'Echéance Fournisseurs',
       'Mise à jour des valeurs de stocks',
@@ -96,14 +93,16 @@ class MenuData {
     IconButtonData(Icons.point_of_sale, 'Ventes'),
     IconButtonData(Icons.swap_horiz, 'Transferts'),
     IconButtonData(Icons.inventory, 'Inventaire'),
-    IconButtonData(Icons.account_balance_wallet, 'Encaissements'),
-    IconButtonData(Icons.money_off, 'Décaissements'),
+    IconButtonData(Icons.account_balance, 'Trésorerie'),
+    // IconButtonData(Icons.account_balance_wallet, 'Encaissements'),
+    // IconButtonData(Icons.money_off, 'Décaissements'),
     IconButtonData(Icons.balance, 'Relance Clients'),
     IconButtonData(Icons.sync_alt, 'Echéance Fournisseurs'),
     IconButtonData(Icons.shopping_basket, 'Articles à commander'),
-    IconButtonData(Icons.account_balance_wallet, 'Régularisation compte tiers'),
+    // IconButtonData(Icons.account_balance_wallet, 'Régularisation compte tiers'),
     IconButtonData(Icons.price_change, 'Suivi de différence de Prix de vente'),
     IconButtonData(Icons.warehouse, 'Stocks par Fournisseurs'),
+    IconButtonData(Icons.receipt_long, 'Caisse journalière'),
   ];
 
   static const Map<String, double> menuPositions = {
