@@ -15,7 +15,7 @@ class AppFunctions {
       'seize',
       'dix-sept',
       'dix-huit',
-      'dix-neuf'
+      'dix-neuf',
     ];
     final tens = [
       '',
@@ -27,7 +27,7 @@ class AppFunctions {
       'soixante',
       'soixante-dix',
       'quatre-vingt',
-      'quatre-vingt-dix'
+      'quatre-vingt-dix',
     ];
 
     String convertHundreds(int n) {

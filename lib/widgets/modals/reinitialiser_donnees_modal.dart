@@ -1,7 +1,5 @@
-import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 
-import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../common/tab_navigation_widget.dart';
 
@@ -15,17 +13,7 @@ class ReinitialiserDonneesModal extends StatefulWidget {
 class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> with TabNavigationMixin {
   final DatabaseService _databaseService = DatabaseService();
 
-  bool _reinitialiserTout = false;
-  bool _toutSaufArticles = false;
-  bool _articles = false;
-  bool _clients = false;
-  bool _fournisseurs = false;
-  bool _achats = false;
-  bool _ventes = false;
-  bool _stocks = false;
-  bool _quantitesStock = false;
-  bool _tresorerie = false;
-  bool _comptes = false;
+  String _selectedOption = ''; // 'tout' ou 'intelligent'
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +23,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
       child: Dialog(
         child: Container(
           width: 500,
-          height: 600,
+          // height: 600,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(8),
             color: Colors.grey[100],
@@ -48,10 +36,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: const BoxDecoration(
                   color: Colors.red,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(6),
-                    topRight: Radius.circular(6),
-                  ),
+                  borderRadius: BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6)),
                 ),
                 child: Row(
                   children: [
@@ -59,11 +44,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
                     const SizedBox(width: 8),
                     const Text(
                       'RÉINITIALISER LES DONNÉES',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                     const Spacer(),
                     IconButton(
@@ -91,11 +72,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
                     Expanded(
                       child: Text(
                         'ATTENTION : Cette opération est irréversible !\nToutes les données sélectionnées seront définitivement supprimées.',
-                        style: TextStyle(
-                          color: Colors.red,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -105,204 +82,157 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
               // Options
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Réinitialiser tout
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade100,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: CheckboxListTile(
-                          title: const Text(
-                            'Réinitialiser TOUTES les données',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.red,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'Supprime toutes les données de l\'application',
-                            style: TextStyle(fontSize: 11),
-                          ),
-                          value: _reinitialiserTout,
-                          onChanged: (value) {
-                            setState(() {
-                              _reinitialiserTout = value ?? false;
-                              if (_reinitialiserTout) {
-                                _toutSaufArticles = _articles = _clients = _fournisseurs = _achats =
-                                    _ventes = _stocks = _quantitesStock = _tresorerie = _comptes = false;
-                              }
-                            });
-                          },
-                          controlAffinity: ListTileControlAffinity.leading,
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // Tout sauf articles
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade100,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: CheckboxListTile(
-                          title: const Text(
-                            'Tout sauf Articles/Clients/Fournisseurs/Dépôts',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange,
-                            ),
-                          ),
-                          subtitle: const Text(
-                            'Remise à zéro intelligente : préserve les données maîtres, remet stocks et soldes à 0, garder le CMUP',
-                            style: TextStyle(fontSize: 11),
-                          ),
-                          value: _toutSaufArticles,
-                          onChanged: (value) {
-                            setState(() {
-                              _toutSaufArticles = value ?? false;
-                              if (_toutSaufArticles) {
-                                _reinitialiserTout = _articles = _clients = _fournisseurs = _achats =
-                                    _ventes = _stocks = _quantitesStock = _tresorerie = _comptes = false;
-                              }
-                            });
-                          },
-                          controlAffinity: ListTileControlAffinity.leading,
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
                       const Text(
-                        'OU sélectionner des parties spécifiques :',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        'Choisissez une option de réinitialisation :',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 16),
 
-                      // Options partielles
-                      Expanded(
-                        child: SingleChildScrollView(
-                          child: Column(
+                      // Option 1: Réinitialisation complète
+                      InkWell(
+                        onTap: () => setState(() => _selectedOption = 'tout'),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _selectedOption == 'tout' ? Colors.red.shade100 : Colors.white,
+                            border: Border.all(
+                              color: _selectedOption == 'tout' ? Colors.red : Colors.grey.shade300,
+                              width: _selectedOption == 'tout' ? 2 : 1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
                             children: [
-                              _buildOptionTile(
-                                'Articles et Stocks',
-                                'Supprime tous les articles et mouvements de stock',
-                                _articles,
-                                (value) => setState(() {
-                                  _articles = value ?? false;
-                                  if (_articles) {
-                                    _reinitialiserTout = false;
-                                    _toutSaufArticles = false;
-                                  }
-                                }),
+                              Icon(
+                                _selectedOption == 'tout'
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_unchecked,
+                                color: _selectedOption == 'tout' ? Colors.red : Colors.grey,
                               ),
-                              _buildOptionTile(
-                                'Clients',
-                                'Supprime tous les clients et leurs comptes',
-                                _clients,
-                                (value) => setState(() {
-                                  _clients = value ?? false;
-                                  if (_clients) {
-                                    _reinitialiserTout = false;
-                                    _toutSaufArticles = false;
-                                  }
-                                }),
-                              ),
-                              _buildOptionTile(
-                                'Fournisseurs',
-                                'Supprime tous les fournisseurs et leurs comptes',
-                                _fournisseurs,
-                                (value) => setState(() {
-                                  _fournisseurs = value ?? false;
-                                  if (_fournisseurs) {
-                                    _reinitialiserTout = false;
-                                    _toutSaufArticles = false;
-                                  }
-                                }),
-                              ),
-                              _buildOptionTile(
-                                'Achats et Retours',
-                                'Supprime toutes les transactions d\'achat',
-                                _achats,
-                                (value) => setState(() {
-                                  _achats = value ?? false;
-                                  if (_achats) {
-                                    _reinitialiserTout = false;
-                                    _toutSaufArticles = false;
-                                  }
-                                }),
-                              ),
-                              _buildOptionTile(
-                                'Ventes et Retours',
-                                'Supprime toutes les transactions de vente',
-                                _ventes,
-                                (value) => setState(() {
-                                  _ventes = value ?? false;
-                                  if (_ventes) {
-                                    _reinitialiserTout = false;
-                                    _toutSaufArticles = false;
-                                  }
-                                }),
-                              ),
-                              _buildOptionTile(
-                                'Mouvements de Stock',
-                                'Supprime uniquement l\'historique des mouvements',
-                                _stocks,
-                                (value) => setState(() {
-                                  _stocks = value ?? false;
-                                  if (_stocks) {
-                                    _reinitialiserTout = false;
-                                    _toutSaufArticles = false;
-                                  }
-                                }),
-                              ),
-                              _buildOptionTile(
-                                'Quantités de Stock',
-                                'Remet à zéro les quantités de stock de tous les articles',
-                                _quantitesStock,
-                                (value) => setState(() {
-                                  _quantitesStock = value ?? false;
-                                  if (_quantitesStock) {
-                                    _reinitialiserTout = false;
-                                    _toutSaufArticles = false;
-                                  }
-                                }),
-                              ),
-                              _buildOptionTile(
-                                'Trésorerie',
-                                'Supprime encaissements, décaissements, chèques',
-                                _tresorerie,
-                                (value) => setState(() {
-                                  _tresorerie = value ?? false;
-                                  if (_tresorerie) {
-                                    _reinitialiserTout = false;
-                                    _toutSaufArticles = false;
-                                  }
-                                }),
-                              ),
-                              _buildOptionTile(
-                                'Autres Comptes',
-                                'Supprime les comptes charges et produits',
-                                _comptes,
-                                (value) => setState(() {
-                                  _comptes = value ?? false;
-                                  if (_comptes) {
-                                    _reinitialiserTout = false;
-                                    _toutSaufArticles = false;
-                                  }
-                                }),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.delete_forever, color: Colors.red, size: 20),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Réinitialisation COMPLÈTE',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Supprime TOUTES les données de l\'application :\n'
+                                      '• Articles, Clients, Fournisseurs, Dépôts\n'
+                                      '• Achats, Ventes, Stocks\n'
+                                      '• Trésorerie, Comptes, Mouvements\n'
+                                      '• Production, Transferts, etc.',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ),
+
+                      const SizedBox(height: 16),
+
+                      // Option 2: Réinitialisation intelligente
+                      InkWell(
+                        onTap: () => setState(() => _selectedOption = 'intelligent'),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _selectedOption == 'intelligent' ? Colors.orange.shade100 : Colors.white,
+                            border: Border.all(
+                              color: _selectedOption == 'intelligent' ? Colors.orange : Colors.grey.shade300,
+                              width: _selectedOption == 'intelligent' ? 2 : 1,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                _selectedOption == 'intelligent'
+                                    ? Icons.radio_button_checked
+                                    : Icons.radio_button_unchecked,
+                                color: _selectedOption == 'intelligent' ? Colors.orange : Colors.grey,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.refresh, color: Colors.orange, size: 20),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Réinitialisation INTELLIGENTE',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.orange,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Nouvel exercice - Remet à zéro uniquement :\n'
+                                      '✓ Conserve : Articles, Clients, Fournisseurs, Dépôts, CMUP\n'
+                                      '✓ Conserve : Achats, Ventes, Trésorerie, Soldes\n'
+                                      '✗ Remet à 0 : Stocks uniquement (prêt pour inventaire)',
+                                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const Spacer(),
+
+                      // Info supplémentaire
+                      if (_selectedOption.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            border: Border.all(color: Colors.blue.shade200),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _selectedOption == 'tout'
+                                      ? 'Base de données complètement vide après réinitialisation'
+                                      : 'Démarrer un nouvel exercice : faire l\'inventaire puis commencer',
+                                  style: TextStyle(fontSize: 11, color: Colors.blue.shade700),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -324,7 +254,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: _canReinitialiser() ? _confirmerReinitialisation : null,
+                      onPressed: _selectedOption.isNotEmpty ? _confirmerReinitialisation : null,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
@@ -339,38 +269,6 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
         ),
       ),
     );
-  }
-
-  Widget _buildOptionTile(String title, String subtitle, bool value, ValueChanged<bool?> onChanged) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: CheckboxListTile(
-        title: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 10)),
-        value: value,
-        onChanged: onChanged,
-        controlAffinity: ListTileControlAffinity.leading,
-      ),
-    );
-  }
-
-  bool _canReinitialiser() {
-    return _reinitialiserTout ||
-        _toutSaufArticles ||
-        _articles ||
-        _clients ||
-        _fournisseurs ||
-        _achats ||
-        _ventes ||
-        _stocks ||
-        _quantitesStock ||
-        _tresorerie ||
-        _comptes;
   }
 
   Future<void> _confirmerReinitialisation() async {
@@ -389,10 +287,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -412,19 +307,17 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
       final db = _databaseService.database;
 
       await db.transaction(() async {
-        if (_reinitialiserTout) {
+        if (_selectedOption == 'tout') {
           await _reinitialiserToutesLesDonnees(db);
-        } else if (_toutSaufArticles) {
-          await _reinitialiserToutSaufArticles(db);
-        } else {
-          await _reinitialiserSelectif(db);
+        } else if (_selectedOption == 'intelligent') {
+          await _reinitialiserIntelligent(db);
         }
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Réinitialisation exécutée avec succès - Base de données mise à jour'),
+            content: Text('Réinitialisation exécutée avec succès'),
             backgroundColor: Colors.green,
           ),
         );
@@ -433,10 +326,7 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: SelectableText('Erreur: $e'),
-            duration: const Duration(seconds: 15),
-          ),
+          SnackBar(content: SelectableText('Erreur: $e'), duration: const Duration(seconds: 15)),
         );
       }
     }
@@ -444,16 +334,46 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
 
   Future<void> _reinitialiserToutesLesDonnees(dynamic db) async {
     const tables = [
-      // Tables transactionnelles
-      'achats', 'detachats', 'retachats', 'retdetachats', 'ventes', 'detventes',
-      'retventes', 'retdeventes', 'stocks', 'prod', 'detprod', 'transf', 'dettransf',
-      // Tables comptables
-      'comptefrns', 'compteclt', 'comptecom', 'caisse', 'banque', 'chequier', 'effets',
-      'autrescompte', 'blclt', 'emblclt', 'fstocks', 'tribanque', 'tricaisse',
-      // Tables production
-      'sintrant', 'sproduit', 'pv',
-      // Tables maîtres
-      'articles', 'clt', 'frns', 'com', 'depart', 'clti', 'emb', 'bq', 'ca', 'mp', 'tblunit'
+      'achats',
+      'detachats',
+      'retachats',
+      'retdetachats',
+      'ventes',
+      'detventes',
+      'retventes',
+      'retdeventes',
+      'stocks',
+      'prod',
+      'detprod',
+      'transf',
+      'dettransf',
+      'comptefrns',
+      'compteclt',
+      'comptecom',
+      'caisse',
+      'banque',
+      'chequier',
+      'effets',
+      'autrescompte',
+      'blclt',
+      'emblclt',
+      'fstocks',
+      'tribanque',
+      'tricaisse',
+      'sintrant',
+      'sproduit',
+      'pv',
+      'articles',
+      'clt',
+      'frns',
+      'com',
+      'depart',
+      'clti',
+      'emb',
+      'bq',
+      'ca',
+      'mp',
+      'tblunit',
     ];
 
     for (final table in tables) {
@@ -461,157 +381,15 @@ class _ReinitialiserDonneesModalState extends State<ReinitialiserDonneesModal> w
     }
   }
 
-  Future<void> _reinitialiserToutSaufArticles(dynamic db) async {
-    // Remise à zéro intelligente des stocks dans articles (préserver CMUP)
-    await db.customStatement('''
-      UPDATE articles SET 
-        stocksu1 = 0,
-        stocksu2 = 0,
-        stocksu3 = 0
-    ''');
+  Future<void> _reinitialiserIntelligent(dynamic db) async {
+    // Remise à zéro UNIQUEMENT des stocks dans articles (préserver CMUP)
+    await db.customStatement('UPDATE articles SET stocksu1 = 0, stocksu2 = 0, stocksu3 = 0');
 
-    // Remise à zéro des soldes clients/fournisseurs/commerciaux
-    await db.customStatement('UPDATE clt SET soldes = 0, soldesa = 0, datedernop = NULL');
-    await db.customStatement('UPDATE frns SET soldes = 0, soldesa = 0, datedernop = NULL');
-    await db.customStatement('UPDATE com SET soldes = 0, soldesa = 0');
-    await db.customStatement('UPDATE clti SET soldes = 0, soldes1 = 0, zanaka = 0');
+    // Réinitialiser les stocks par dépôt à 0
+    await db.customStatement('UPDATE depart SET stocksu1 = 0, stocksu2 = 0, stocksu3 = 0');
 
-    // Remise à zéro des soldes banques et comptes auxiliaires
-    await db.customStatement('UPDATE bq SET soldes = 0');
-    await db.customStatement('UPDATE ca SET soldes = 0, soldesa = 0');
-
-    const tablesToClear = [
-      // Tables transactionnelles (mouvements)
-      'achats', 'detachats', 'retachats', 'retdetachats', 'ventes', 'detventes',
-      'retventes', 'retdeventes', 'stocks', 'prod', 'detprod', 'transf', 'dettransf',
-      // Tables comptables (écritures)
-      'comptefrns', 'compteclt', 'comptecom', 'caisse', 'banque', 'chequier', 'effets',
-      'autrescompte', 'blclt', 'emblclt', 'fstocks', 'tribanque', 'tricaisse',
-      // Tables production et prix
-      'pv', 'sintrant', 'sproduit'
-    ];
-
-    for (final table in tablesToClear) {
-      await db.customStatement('DELETE FROM $table');
-    }
-
-    // Réinitialiser les stocks par dépôt
-    await _reinitialiserStocksDepots(db);
-  }
-
-  Future<void> _reinitialiserSelectif(dynamic db) async {
-    if (_articles) {
-      await db.customStatement('DELETE FROM articles');
-      await db.customStatement('DELETE FROM depart');
-      await db.customStatement('DELETE FROM pv');
-      await db.customStatement('DELETE FROM stocks');
-      await db.customStatement('DELETE FROM fstocks');
-    }
-    if (_clients) {
-      await db.customStatement('DELETE FROM clt');
-      await db.customStatement('DELETE FROM compteclt');
-      await db.customStatement('DELETE FROM clti');
-    }
-    if (_fournisseurs) {
-      await db.customStatement('DELETE FROM frns');
-      await db.customStatement('DELETE FROM comptefrns');
-    }
-    if (_achats) {
-      await db.customStatement('DELETE FROM achats');
-      await db.customStatement('DELETE FROM detachats');
-      await db.customStatement('DELETE FROM retachats');
-      await db.customStatement('DELETE FROM retdetachats');
-      // Supprimer les mouvements de stock liés aux achats
-      await db.customStatement("DELETE FROM stocks WHERE verification IN ('ACHAT', 'RETOUR_ACHAT')");
-    }
-    if (_ventes) {
-      await db.customStatement('DELETE FROM ventes');
-      await db.customStatement('DELETE FROM detventes');
-      await db.customStatement('DELETE FROM retventes');
-      await db.customStatement('DELETE FROM retdeventes');
-      await db.customStatement('DELETE FROM blclt');
-      // Supprimer les mouvements de stock liés aux ventes
-      await db.customStatement("DELETE FROM stocks WHERE verification IN ('VENTE', 'RETOUR_VENTE')");
-    }
-    if (_stocks) {
-      await db.customStatement('DELETE FROM stocks');
-      await db.customStatement('DELETE FROM fstocks');
-      // Recalculer les stocks après suppression des mouvements
-      await _recalculerStocksApresSuppressionMouvements(db);
-    }
-    if (_quantitesStock) {
-      await _reinitialiserQuantitesStock(db);
-    }
-    if (_tresorerie) {
-      await db.customStatement('DELETE FROM caisse');
-      await db.customStatement('DELETE FROM banque');
-      await db.customStatement('DELETE FROM chequier');
-      await db.customStatement('DELETE FROM effets');
-      await db.customStatement('DELETE FROM tribanque');
-      await db.customStatement('DELETE FROM tricaisse');
-    }
-    if (_comptes) {
-      await db.customStatement('DELETE FROM autrescompte');
-      await db.customStatement('DELETE FROM comptecom');
-    }
-  }
-
-  Future<void> _reinitialiserQuantitesStock(dynamic db) async {
-    // 1. Remettre à zéro les stocks dans la table articles
-    await db.customStatement('''
-      UPDATE articles SET 
-        stocksu1 = 0,
-        stocksu2 = 0,
-        stocksu3 = 0,
-        cmup = 0
-    ''');
-
-    // 2. Réinitialiser les stocks par dépôt
-    await _reinitialiserStocksDepots(db);
-
-    // 3. Supprimer les mouvements de stock pour cohérence
+    // Supprimer uniquement les mouvements de stock
     await db.customStatement('DELETE FROM stocks');
     await db.customStatement('DELETE FROM fstocks');
-  }
-
-  Future<void> _reinitialiserStocksDepots(dynamic db) async {
-    // Supprimer toutes les entrées existantes dans depart
-    await db.customStatement('DELETE FROM depart');
-
-    // Récupérer tous les articles et tous les dépôts
-    final articles = await db.select(db.articles).get();
-    final depots = await db.select(db.depots).get();
-
-    // Créer une entrée dans depart pour chaque combinaison article/dépôt avec stock à 0
-    for (final article in articles) {
-      for (final depot in depots) {
-        await db.into(db.depart).insert(
-              DepartCompanion(
-                designation: drift.Value(article.designation),
-                depots: drift.Value(depot.depots),
-                stocksu1: const drift.Value(0.0),
-                stocksu2: const drift.Value(0.0),
-                stocksu3: const drift.Value(0.0),
-              ),
-            );
-      }
-    }
-  }
-
-  Future<void> _recalculerStocksApresSuppressionMouvements(dynamic db) async {
-    // Remettre à zéro tous les stocks
-    await db.customStatement('''
-      UPDATE articles SET 
-        stocksu1 = 0,
-        stocksu2 = 0,
-        stocksu3 = 0
-    ''');
-
-    await db.customStatement('''
-      UPDATE depart SET 
-        stocksu1 = 0,
-        stocksu2 = 0,
-        stocksu3 = 0
-    ''');
   }
 }

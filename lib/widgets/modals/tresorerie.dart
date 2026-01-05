@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import '../../constants/app_functions.dart';
 import '../../database/database.dart';
 import '../../database/database_service.dart';
 import '../common/enhanced_autocomplete.dart';
@@ -20,6 +21,8 @@ class _TresoreriePageState extends State<TresoreriePage> {
   List<String> _fournisseurs = [];
   List<String> _modesPaiement = [];
   bool _isDatePickerOpen = false;
+  double? _soldeClient;
+  double? _soldeFournisseur;
 
   // FocusNodes pour la navigation par tabulation
   final FocusNode _clientFocus = FocusNode();
@@ -70,6 +73,16 @@ class _TresoreriePageState extends State<TresoreriePage> {
   void initState() {
     super.initState();
     _loadData();
+    _clientController.addListener(() {
+      if (_clientController.text.isEmpty) {
+        setState(() => _soldeClient = null);
+      }
+    });
+    _fournisseurController.addListener(() {
+      if (_fournisseurController.text.isEmpty) {
+        setState(() => _soldeFournisseur = null);
+      }
+    });
     _dateClientFocus.addListener(() {
       if (_dateClientFocus.hasFocus && !_isDatePickerOpen) {
         _selectDate(context, _dateVersementClient, (date) => _dateVersementClient = date, _dateClientFocus);
@@ -104,7 +117,7 @@ class _TresoreriePageState extends State<TresoreriePage> {
     setState(() {
       _clients = clients.map((c) => c.rsoc).toList();
       _fournisseurs = fournisseurs.map((f) => f.rsoc).toList();
-      _modesPaiement = modesPaiement;
+      _modesPaiement = modesPaiement.where((m) => m != 'A crédit').toList();
       if (_modesPaiement.isNotEmpty) {
         _modePaiementClientController.text = _modesPaiement.first;
         _modePaiementEncaissementController.text = _modesPaiement.first;
@@ -221,8 +234,11 @@ class _TresoreriePageState extends State<TresoreriePage> {
       }
 
       debugPrint('✅ Encaissement client réussi');
-      _clientController.clear();
-      _montantClientController.clear();
+      setState(() {
+        _clientController.clear();
+        _montantClientController.clear();
+        _soldeClient = null;
+      });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -418,8 +434,11 @@ class _TresoreriePageState extends State<TresoreriePage> {
         );
       }
 
-      _fournisseurController.clear();
-      _montantFournisseurController.clear();
+      setState(() {
+        _fournisseurController.clear();
+        _montantFournisseurController.clear();
+        _soldeFournisseur = null;
+      });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -665,7 +684,16 @@ class _TresoreriePageState extends State<TresoreriePage> {
               ? EnhancedAutocomplete<String>(
                   options: autocompleteOptions,
                   displayStringForOption: (option) => option,
-                  onSelected: (value) => controller.text = value,
+                  onSelected: (value) async {
+                    controller.text = value;
+                    if (label == 'Client') {
+                      final client = await _dbService.database.getClientByRsoc(value);
+                      setState(() => _soldeClient = client?.soldes);
+                    } else if (label == 'Fournisseur') {
+                      final frns = await _dbService.database.getFournisseurByRsoc(value);
+                      setState(() => _soldeFournisseur = frns?.soldes);
+                    }
+                  },
                   controller: controller,
                   focusNode: focusNode,
                   onTabPressed: () => nextFocus?.requestFocus(),
@@ -901,14 +929,32 @@ class _TresoreriePageState extends State<TresoreriePage> {
                             children: [
                               FocusTraversalOrder(
                                 order: const NumericFocusOrder(1),
-                                child: _buildTextField(
-                                  label: 'Client',
-                                  controller: _clientController,
-                                  icon: Icons.person_outline,
-                                  focusNode: _clientFocus,
-                                  isAutocomplete: true,
-                                  autocompleteOptions: _clients,
-                                  nextFocus: _montantClientFocus,
+                                child: Column(
+                                  children: [
+                                    _buildTextField(
+                                      label: 'Client',
+                                      controller: _clientController,
+                                      icon: Icons.person_outline,
+                                      focusNode: _clientFocus,
+                                      isAutocomplete: true,
+                                      autocompleteOptions: _clients,
+                                      nextFocus: _montantClientFocus,
+                                    ),
+                                    if (_soldeClient != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8),
+                                        child: Text(
+                                          'Solde dû: ${AppFunctions.formatNumber(_soldeClient!)} Ar',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: _soldeClient! > 0
+                                                ? Colors.red.shade700
+                                                : Colors.green.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                               FocusTraversalOrder(
@@ -1023,15 +1069,33 @@ class _TresoreriePageState extends State<TresoreriePage> {
                             children: [
                               FocusTraversalOrder(
                                 order: const NumericFocusOrder(9),
-                                child: _buildTextField(
-                                  label: 'Fournisseur',
-                                  controller: _fournisseurController,
-                                  icon: Icons.business,
-                                  focusNode: _fournisseurFocus,
-                                  isAutocomplete: true,
-                                  autocompleteOptions: _fournisseurs,
-                                  nextFocus: _montantFournisseurFocus,
-                                  previousFocus: _dateEncaissementFocus,
+                                child: Column(
+                                  children: [
+                                    _buildTextField(
+                                      label: 'Fournisseur',
+                                      controller: _fournisseurController,
+                                      icon: Icons.business,
+                                      focusNode: _fournisseurFocus,
+                                      isAutocomplete: true,
+                                      autocompleteOptions: _fournisseurs,
+                                      nextFocus: _montantFournisseurFocus,
+                                      previousFocus: _dateEncaissementFocus,
+                                    ),
+                                    if (_soldeFournisseur != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8),
+                                        child: Text(
+                                          'Solde dû: ${AppFunctions.formatNumber(_soldeFournisseur!)} Ar',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: _soldeFournisseur! > 0
+                                                ? Colors.red.shade700
+                                                : Colors.green.shade700,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                               FocusTraversalOrder(

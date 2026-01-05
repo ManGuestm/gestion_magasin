@@ -365,7 +365,7 @@ class _CaisseJournalierePageState extends State<CaisseJournalierePage> {
                                                 child: Text(
                                                   t['debit'] > 0 ? currencyFormat.format(t['debit']) : '',
                                                   style: const TextStyle(
-                                                    color: Colors.green,
+                                                    color: Colors.red,
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 13,
                                                   ),
@@ -379,7 +379,7 @@ class _CaisseJournalierePageState extends State<CaisseJournalierePage> {
                                                 child: Text(
                                                   t['credit'] > 0 ? currencyFormat.format(t['credit']) : '',
                                                   style: const TextStyle(
-                                                    color: Colors.red,
+                                                    color: Colors.green,
                                                     fontWeight: FontWeight.w600,
                                                     fontSize: 13,
                                                   ),
