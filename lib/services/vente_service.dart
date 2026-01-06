@@ -474,13 +474,10 @@ class VenteService {
   }) async {
     if (montant <= 0) return;
 
-    final ref = 'V-${DateTime.now().millisecondsSinceEpoch}';
-
     await _databaseService.database
         .into(_databaseService.database.compteclt)
         .insert(
           ComptecltCompanion.insert(
-            ref: ref,
             daty: Value(date),
             lib: Value('Vente N° $numVentes${nFacture != null ? ' - Facture $nFacture' : ''}'),
             numventes: Value(numVentes),
@@ -489,7 +486,6 @@ class VenteService {
             sorties: const Value(0.0),
             solde: Value(montant),
             clt: Value(client),
-            verification: const Value('JOURNAL'),
           ),
         );
 
@@ -525,20 +521,16 @@ class VenteService {
     final dernierSolde = dernierMouvement?.soldes ?? 0.0;
     final nouveauSolde = dernierSolde + montant;
 
-    final ref = 'V-${DateTime.now().millisecondsSinceEpoch}';
-
     await _databaseService.database
         .into(_databaseService.database.caisse)
         .insert(
           CaisseCompanion.insert(
-            ref: ref,
             daty: Value(date),
             lib: Value('Reçu du Client: $client'),
             credit: Value(montant),
             soldes: Value(nouveauSolde),
             clt: Value(client ?? ''),
             type: const Value('Vente au comptant'),
-            verification: const Value('JOURNAL'),
           ),
         );
   }
@@ -1026,13 +1018,11 @@ class VenteService {
     required String numVentes,
     required double montant,
   }) async {
-    final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
 
     await _databaseService.database
         .into(_databaseService.database.compteclt)
         .insert(
           ComptecltCompanion.insert(
-            ref: ref,
             clt: Value(client),
             daty: Value(DateTime.now()),
             lib: Value('Contre-passement vente N° $numVentes'),
@@ -1071,20 +1061,16 @@ class VenteService {
     final dernierSolde = dernierMouvement?.soldes ?? 0.0;
     final nouveauSolde = dernierSolde - montant;
 
-    final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
-
     await _databaseService.database
         .into(_databaseService.database.caisse)
         .insert(
           CaisseCompanion.insert(
-            ref: ref,
             daty: Value(DateTime.now()),
             lib: Value('Contre-passement vente N° $numVentes'),
             debit: Value(montant),
             soldes: Value(nouveauSolde),
             type: const Value("CP. Vente"),
             clt: Value(client ?? ''),
-            verification: const Value('JOURNAL'),
           ),
         );
   }

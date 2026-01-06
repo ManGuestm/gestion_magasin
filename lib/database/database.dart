@@ -302,7 +302,7 @@ class Ca extends Table {
 
 // Table Caisse - utilisée par: Menu Trésorerie - Gestion caisse
 class Caisse extends Table {
-  TextColumn get ref => text().withLength(min: 1, max: 50)();
+  IntColumn get ref => integer().autoIncrement()();
   DateTimeColumn get daty => dateTime().nullable()();
   TextColumn get lib => text().withLength(max: 100).nullable()();
   RealColumn get debit => real().nullable()();
@@ -313,9 +313,6 @@ class Caisse extends Table {
   TextColumn get frns => text().withLength(max: 100).nullable()();
   TextColumn get verification => text().withLength(max: 50).nullable()();
   TextColumn get comptes => text().withLength(max: 50).nullable()();
-
-  @override
-  Set<Column> get primaryKey => {ref};
 }
 
 // Table Chéquier - utilisée par: Menu Trésorerie - Gestion chéquiers
@@ -347,7 +344,7 @@ class Clti extends Table {
 
 // Table Comptes Clients - utilisée par: Menu Trésorerie - Comptes clients
 class Compteclt extends Table {
-  TextColumn get ref => text().withLength(min: 1, max: 50)();
+  IntColumn get ref => integer().autoIncrement()();
   DateTimeColumn get daty => dateTime().nullable()();
   TextColumn get lib => text().withLength(max: 100).nullable()();
   TextColumn get numventes => text().withLength(max: 50).nullable()();
@@ -360,9 +357,6 @@ class Compteclt extends Table {
   RealColumn get solde => real().nullable()();
   TextColumn get clt => text().withLength(max: 100).nullable()();
   TextColumn get verification => text().withLength(max: 50).nullable()();
-
-  @override
-  Set<Column> get primaryKey => {ref};
 }
 
 // Table Comptes Commerciaux - utilisée par: Menu Trésorerie - Comptes commerciaux
@@ -385,7 +379,7 @@ class Comptecom extends Table {
 
 // Table Comptes Fournisseurs - utilisée par: Menu Trésorerie - Comptes fournisseurs
 class Comptefrns extends Table {
-  TextColumn get ref => text().withLength(min: 1, max: 50)();
+  IntColumn get ref => integer().autoIncrement()();
   DateTimeColumn get daty => dateTime().nullable()();
   TextColumn get lib => text().withLength(max: 100).nullable()();
   TextColumn get numachats => text().withLength(max: 50).nullable()();
@@ -398,9 +392,6 @@ class Comptefrns extends Table {
   RealColumn get solde => real().nullable()();
   TextColumn get frns => text().withLength(max: 100).nullable()();
   TextColumn get verification => text().withLength(max: 50).nullable()();
-
-  @override
-  Set<Column> get primaryKey => {ref};
 }
 
 // Table Répartition par Dépôt - utilisée par: Menu Gestions - Répartition stocks par dépôt
@@ -1013,7 +1004,7 @@ class AppDatabase extends _$AppDatabase {
       (select(depots)..where((tbl) => tbl.depots.equals(name))).getSingleOrNull();
 
   /// Récupère une opération de caisse par référence
-  Future<CaisseData?> getCaisseByRef(String ref) =>
+  Future<CaisseData?> getCaisseByRef(int ref) =>
       (select(caisse)..where((tbl) => tbl.ref.equals(ref))).getSingleOrNull();
 
   /// Récupère le dernier dépôt utilisé dans les détails de ventes
@@ -1828,10 +1819,8 @@ class AppDatabase extends _$AppDatabase {
     required double nouveauSolde,
     String? verification,
   }) async {
-    final ref = 'CLT${DateTime.now().millisecondsSinceEpoch}';
     await into(compteclt).insert(
       ComptecltCompanion(
-        ref: Value(ref),
         daty: Value(date),
         lib: Value(libelle),
         numventes: numVentes != null ? Value(numVentes) : const Value.absent(),
@@ -2369,7 +2358,6 @@ class AppDatabase extends _$AppDatabase {
     required double montant,
     required String affectation,
   }) async {
-    final ref = 'REG-${DateTime.now().millisecondsSinceEpoch}';
 
     if (type == 'Client') {
       // Calculer le nouveau solde client
@@ -2395,7 +2383,6 @@ class AppDatabase extends _$AppDatabase {
     } else {
       await into(comptefrns).insert(
         ComptefrnsCompanion(
-          ref: Value(ref),
           daty: Value(date),
           lib: Value(libelle),
           entres: Value(affectation == 'Crédit' ? montant : 0.0),

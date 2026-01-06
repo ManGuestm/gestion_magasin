@@ -791,7 +791,6 @@ class _FournisseursModalState extends State<FournisseursModal> with TabNavigatio
       _historiqueFournisseur = historique
           .map(
             (row) => Comptefrn(
-              ref: row.read<String>('ref'),
               daty: row.read<DateTime?>('daty'),
               lib: row.read<String?>('lib'),
               numachats: row.read<String?>('numachats'),
@@ -1115,7 +1114,7 @@ class _MovementDetailsDialogState extends State<_MovementDetailsDialog> with Tab
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-                    _buildDetailRow('Référence', widget.mouvement.ref),
+                    _buildDetailRow('Référence', widget.mouvement.ref.toString()),
                     _buildDetailRow('Date', widget.mouvement.daty?.toString().substring(0, 10) ?? ''),
                     _buildDetailRow('Libellé', widget.mouvement.lib ?? ''),
                     if (widget.mouvement.numachats?.isNotEmpty == true)

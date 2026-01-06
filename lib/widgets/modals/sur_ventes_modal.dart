@@ -828,7 +828,6 @@ class _SurVentesModalState extends State<SurVentesModal> with TabNavigationMixin
           .into(_databaseService.database.caisse)
           .insert(
             CaisseCompanion(
-              ref: drift.Value('RV${DateTime.now().millisecondsSinceEpoch}'),
               daty: drift.Value(DateTime.now()),
               lib: drift.Value('Retour sur ventes - $numRetour'),
               debit: drift.Value(montant),

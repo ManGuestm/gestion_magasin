@@ -830,7 +830,6 @@ class _ClientsModalState extends State<ClientsModal> with TabNavigationMixin {
                 }
 
                 return ComptecltData(
-                  ref: row.read<String>('ref'),
                   daty: daty,
                   lib: row.readNullable<String>('lib'),
                   numventes: row.readNullable<String>('numventes'),

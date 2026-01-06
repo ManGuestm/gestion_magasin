@@ -1638,7 +1638,6 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
           .into(db.caisse)
           .insert(
             CaisseCompanion(
-              ref: Value('RET-$numRetour'),
               daty: Value(date),
               lib: Value('Retour sur achats ${_selectedNumAchats ?? ""} - $fournisseur'),
               credit: Value(montant),
@@ -1663,7 +1662,6 @@ class _RetoursAchatsModalState extends State<RetoursAchatsModal>
           .into(db.comptefrns)
           .insert(
             ComptefrnsCompanion(
-              ref: Value('RET-$numRetour'),
               daty: Value(date),
               lib: Value('Retour sur achats ${_selectedNumAchats ?? ""} N°$numRetour'),
               sortie: Value(montant),

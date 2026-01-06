@@ -382,7 +382,6 @@ class _TresoreriePageState extends State<TresoreriePage> {
       // 3. Écriture compte fournisseur
       await _dbService.database.insertComptefrns(
         ComptefrnsCompanion(
-          ref: Value(ref),
           daty: Value(_dateVersementFournisseur),
           lib: Value(libelle),
           entres: const Value(0.0),

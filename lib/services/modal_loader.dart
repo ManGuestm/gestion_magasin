@@ -16,11 +16,9 @@ import '../widgets/modals/clients_modal.dart';
 // Imports statiques pour tous les modals
 import '../widgets/modals/company_info_modal.dart';
 import '../widgets/modals/comptes_fournisseurs_modal.dart';
-import '../widgets/modals/decaissements_modal.dart';
 import '../widgets/modals/depots_modal.dart';
 import '../widgets/modals/echeance_fournisseurs_modal.dart';
 import '../widgets/modals/effet_a_recevoir_modal.dart';
-import '../widgets/modals/encaissements_modal.dart';
 import '../widgets/modals/estimation_valeur_articles_modal.dart';
 import '../widgets/modals/etat_stocks_modal.dart';
 import '../widgets/modals/etat_tarifaire_modal.dart';
@@ -104,8 +102,6 @@ class ModalLoader {
       'Gestion Emballages': () => const GestionEmballagesModal(),
       'Productions': () => const ProductionsModal(),
       'Régularisation compte tiers': () => const RegularisationCompteTiersModal(),
-      'Encaissements': () => const EncaissementsModal(),
-      'Décaissements': () => const DecaissementsModal(),
       'Journal de caisse': () => const JournalCaisseModal(),
       'Chèques': () => const ChequesModal(),
       'Journal des banques': () => const JournalBanquesModal(),

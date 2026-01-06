@@ -299,7 +299,6 @@ class _RegularisationCompteTiersModalState extends State<RegularisationCompteTie
     // 3. Écriture compte fournisseur
     await _databaseService.database.insertComptefrns(
       ComptefrnsCompanion(
-        ref: Value(ref),
         daty: Value(_paymentDate),
         lib: Value(libelle),
         entres: const Value(0.0),

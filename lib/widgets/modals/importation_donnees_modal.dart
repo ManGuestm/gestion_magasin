@@ -446,10 +446,8 @@ class _ImportationDonneesModalState extends State<ImportationDonneesModal> {
     if (_includeBalances && row.length > 5) {
       final solde = double.tryParse(row[5].toString()) ?? 0;
       if (solde != 0) {
-        final ref = 'FRN${DateTime.now().millisecondsSinceEpoch}';
         await db.insertComptefrns(
           ComptefrnsCompanion(
-            ref: Value(ref),
             daty: Value(DateTime.now()),
             lib: Value('Solde initial import'),
             frns: Value(row[1].toString()),
@@ -481,10 +479,8 @@ class _ImportationDonneesModalState extends State<ImportationDonneesModal> {
     if (_includeBalances && row.length > 5) {
       final solde = double.tryParse(row[5].toString()) ?? 0;
       if (solde != 0) {
-        final ref = 'CLT${DateTime.now().millisecondsSinceEpoch}';
         await db.insertCompteclt(
           ComptecltCompanion(
-            ref: Value(ref),
             daty: Value(DateTime.now()),
             lib: Value('Solde initial import'),
             clt: Value(row[1].toString()),
@@ -742,7 +738,6 @@ class _ImportationDonneesModalState extends State<ImportationDonneesModal> {
   Future<void> _importComptefrnsFromDb(AppDatabase db, Map<String, dynamic> data) async {
     await db.insertComptefrns(
       ComptefrnsCompanion(
-        ref: Value(data['ref']?.toString() ?? ''),
         daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '') ?? DateTime.now()),
         lib: Value(data['lib']?.toString() ?? ''),
         frns: Value(data['frns']?.toString() ?? ''),
@@ -772,7 +767,6 @@ class _ImportationDonneesModalState extends State<ImportationDonneesModal> {
   Future<void> _importComptecltFromDb(AppDatabase db, Map<String, dynamic> data) async {
     await db.insertCompteclt(
       ComptecltCompanion(
-        ref: Value(data['ref']?.toString() ?? ''),
         daty: Value(DateTime.tryParse(data['daty']?.toString() ?? '') ?? DateTime.now()),
         lib: Value(data['lib']?.toString() ?? ''),
         clt: Value(data['clt']?.toString() ?? ''),

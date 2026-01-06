@@ -392,13 +392,11 @@ class AchatService {
 
     // Générer une référence unique avec délai
     await Future.delayed(const Duration(milliseconds: 1));
-    final ref = 'A-${DateTime.now().millisecondsSinceEpoch}';
 
     await _databaseService.database
         .into(_databaseService.database.comptefrns)
         .insert(
           ComptefrnsCompanion.insert(
-            ref: ref,
             daty: Value(date),
             lib: Value('Achat N° $numAchats${nFacture != null ? ' - Facture $nFacture' : ''}'),
             numachats: Value(numAchats),
@@ -433,13 +431,10 @@ class AchatService {
   }) async {
     if (montant <= 0) return;
 
-    final ref = 'A-${DateTime.now().millisecondsSinceEpoch ~/ 1000}';
-
     await _databaseService.database
         .into(_databaseService.database.caisse)
         .insert(
           CaisseCompanion.insert(
-            ref: ref,
             daty: Value(date),
             lib: Value('Achat N° $numAchats | Fournisseur: $fournisseur'),
             credit: Value(montant),
@@ -872,12 +867,10 @@ class AchatService {
 
       // 4. Ajuster compte fournisseur (sortie pour annuler l'entrée)
       if (achat.frns != null && achat.frns!.isNotEmpty) {
-        final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
         await _databaseService.database
             .into(_databaseService.database.comptefrns)
             .insert(
               ComptefrnsCompanion.insert(
-                ref: ref,
                 daty: Value(DateTime.now()),
                 lib: Value('Contre-passement achat N° $numAchats'),
                 numachats: Value(numAchats),
@@ -906,12 +899,10 @@ class AchatService {
 
       // 5. Mouvement caisse si paiement espèces (entrée pour récupérer l'argent)
       if (achat.modepai == 'Espèces') {
-        final ref = 'CP-${DateTime.now().millisecondsSinceEpoch}';
         await _databaseService.database
             .into(_databaseService.database.caisse)
             .insert(
               CaisseCompanion.insert(
-                ref: ref,
                 daty: Value(DateTime.now()),
                 lib: Value('Contre-passement achat N° $numAchats'),
                 debit: Value(achat.totalttc ?? 0),

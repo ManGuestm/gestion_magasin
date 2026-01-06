@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../database/database.dart';
+import 'verification_clients.dart';
+import 'verification_fournisseur.dart';
 
 class CaisseJournalierePage extends StatefulWidget {
   final AppDatabase database;
@@ -18,6 +20,7 @@ class _CaisseJournalierePageState extends State<CaisseJournalierePage> {
   List<Map<String, dynamic>> transactions = [];
   double soldeVeille = 0;
   bool isLoading = true;
+  Map<String, dynamic>? selectedTransaction;
 
   @override
   void initState() {
@@ -33,9 +36,9 @@ class _CaisseJournalierePageState extends State<CaisseJournalierePage> {
     final endOfDay = startOfDay.add(const Duration(days: 1));
 
     final operations =
-        await (db.select(db.caisse)
-              ..where((c) => c.daty.isBetweenValues(startOfDay, endOfDay))
-              ..orderBy([(c) => OrderingTerm.asc(c.daty)]))
+        await (db.select(db.caisse)..where((c) => c.daty.isBetweenValues(startOfDay, endOfDay))
+            // ..orderBy([(c) => OrderingTerm.asc(c.daty)])
+            )
             .get();
 
     // Calculer le solde des ventes Magasin de la veille
@@ -76,6 +79,20 @@ class _CaisseJournalierePageState extends State<CaisseJournalierePage> {
   double get totalDebit => transactions.fold(0, (sum, t) => sum + t['debit']);
   double get totalCredit => transactions.fold(0, (sum, t) => sum + t['credit']);
   double get soldeCaisse => soldeVeille + totalDebit - totalCredit;
+
+  void _showVerificationClients() {
+    showDialog(
+      context: context,
+      builder: (context) => VerificationClientsModal(database: widget.database),
+    );
+  }
+
+  void _showVerificationFournisseurs() {
+    showDialog(
+      context: context,
+      builder: (context) => VerificationFournisseursModal(database: widget.database),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -342,6 +359,8 @@ class _CaisseJournalierePageState extends State<CaisseJournalierePage> {
                                       ],
                                       rows: transactions.map((t) {
                                         return DataRow(
+                                          selected: selectedTransaction == t,
+                                          onSelectChanged: (_) => setState(() => selectedTransaction = t),
                                           cells: [
                                             DataCell(
                                               SizedBox(
@@ -421,31 +440,34 @@ class _CaisseJournalierePageState extends State<CaisseJournalierePage> {
                       ),
                       child: Column(
                         children: [
-                          OutlinedButton.icon(
-                            onPressed: () {},
-                            icon: const Icon(Icons.people, size: 18),
-                            label: const Text('Vérification Clients'),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.blue.withValues(alpha: 0.3)),
-                              backgroundColor: Colors.blue.withValues(alpha: 0.1),
-                              foregroundColor: Colors.blue,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              minimumSize: const Size(double.infinity, 50),
+                          if (selectedTransaction == null || (selectedTransaction!['credit'] as double) > 0)
+                            OutlinedButton.icon(
+                              onPressed: () => _showVerificationClients(),
+                              icon: const Icon(Icons.people, size: 18),
+                              label: const Text('Vérification Clients'),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.blue.withValues(alpha: 0.3)),
+                                backgroundColor: Colors.blue.withValues(alpha: 0.1),
+                                foregroundColor: Colors.blue,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                minimumSize: const Size(double.infinity, 50),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: () {},
-                            icon: const Icon(Icons.business, size: 18),
-                            label: const Text('Vérification Fournisseurs'),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: Colors.orange.withValues(alpha: 0.3)),
-                              backgroundColor: Colors.orange.withValues(alpha: 0.1),
-                              foregroundColor: Colors.orange,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              minimumSize: const Size(double.infinity, 50),
+                          if (selectedTransaction != null && (selectedTransaction!['credit'] as double) > 0)
+                            const SizedBox(height: 12),
+                          if (selectedTransaction == null || (selectedTransaction!['debit'] as double) > 0)
+                            OutlinedButton.icon(
+                              onPressed: () => _showVerificationFournisseurs(),
+                              icon: const Icon(Icons.business, size: 18),
+                              label: const Text('Vérification Fournisseurs'),
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.orange.withValues(alpha: 0.3)),
+                                backgroundColor: Colors.orange.withValues(alpha: 0.1),
+                                foregroundColor: Colors.orange,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                minimumSize: const Size(double.infinity, 50),
+                              ),
                             ),
-                          ),
                           const SizedBox(height: 16),
                           Container(
                             padding: const EdgeInsets.all(16),
